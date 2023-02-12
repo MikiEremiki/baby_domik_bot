@@ -9,13 +9,14 @@ from telegram.ext import (
 )
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, \
     CallbackQuery
-
-import googlesheets
-from settings import API_TOKEN
-
 from warnings import filterwarnings
 from telegram.warnings import PTBUserWarning
 
+import googlesheets
+import utilites
+from settings import API_TOKEN
+
+# Отключил предупреждение, для ConversationHandler
 filterwarnings(
     action="ignore",
     message=r".*CallbackQueryHandler",
@@ -26,51 +27,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-
-
-def load_data():
-    """
-
-    :return:
-    """
-    dict_of_shows = {}  # type: ignore
-    dict_of_date_and_time = {}
-    data = googlesheets.data_show()
-    logging.info(f"Загрузили данные")
-
-    n = 1
-    for i, item in enumerate(data[1:]):
-        if item[0] not in dict_of_shows.keys():
-            dict_of_shows[item[0]] = n
-            dict_of_date_and_time[dict_of_shows[item[0]]] = {}
-            n += 1
-        if item[1] not in dict_of_date_and_time[dict_of_shows[item[0]]].keys():
-            dict_of_date_and_time[dict_of_shows[item[0]]][item[1]] = {}
-        if item[2] not in dict_of_date_and_time[dict_of_shows[item[0]]][item[1]].keys():
-            dict_of_date_and_time[dict_of_shows[item[0]]][item[1]][item[2]] = {}
-        dict_of_date_and_time[dict_of_shows[item[0]]][item[1]][item[2]] = [
-            [int(item[3]),
-             int(item[4]),
-             int(item[5])],
-            i + 2
-        ]
-    return dict_of_shows, dict_of_date_and_time
-
-
-def add_btn_back_and_cancel():
-    """
-
-    :return:
-    """
-    button_back = InlineKeyboardButton(
-        "Назад",
-        callback_data='Назад'
-    )
-    button_cancel = InlineKeyboardButton(
-        "Отменить",
-        callback_data='Отменить'
-    )
-    return [button_back, button_cancel]
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -93,7 +49,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :param context: ContextTypes.DEFAULT_TYPE
     :return:
     """
-    dict_of_shows, dict_of_date_and_time = load_data()
+    dict_of_shows, dict_of_date_and_time = utilites.load_data()
     keyboard = []
     for key in dict_of_date_and_time.keys():
         for date in dict_of_date_and_time[key].keys():
@@ -160,7 +116,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel())
+    keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = f'Вы выбрали {name_show}\n' \
@@ -204,7 +160,7 @@ async def choice_number_of_seats(update: Update,
         list_btn_of_numbers.append(button_tmp)
     keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel())
+    keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = f'Выберите сколько мест вы хотите забронировать\n' \
@@ -255,7 +211,7 @@ async def send_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                   new_nonconfirm_number_of_seats])
     else:
         keyboard = []
-        keyboard.append(add_btn_back_and_cancel())
+        keyboard.append(utilites.add_btn_back_and_cancel())
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.edit_text(
             text='К сожалению места уже забронировали и свободных мест не осталось\n'
