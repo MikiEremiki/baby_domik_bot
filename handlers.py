@@ -477,12 +477,99 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return 'FORMA'
 
 
-    await context.bot.send_message(
-        chat_id=454342281,
-        text=f'Пользователь {user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {payment} руб\n',
-        reply_markup=reply_markup
+async def get_name_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["STATE"] = 'PHONE'
+
+    text = update.effective_message.text
+
+    context.user_data['client_data'] = {}
+    context.user_data['client_data']['name_adult'] = text
+
+    await update.effective_chat.send_message(
+        text='Напишите ваш номер телефона с +7'
     )
+
+    return 'PHONE'
+
+
+async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["STATE"] = 'PHONE'
+
+    text = update.effective_message.text
+
+    context.user_data['client_data']['phone'] = text
+
+    await update.effective_chat.send_message(
+        text='Напишите, имя ребенка и через дефис год рождения.\nЕсли детей '
+             'несколько, то напишите каждого ребенка с новой строки\n'
+             'Формат записи:\n'
+             'Имя - ДД.ММ.ГГГГ\n'
+             'Имя - ДД.ММ.ГГГГ'
+    )
+
+    return 'CHILDREN'
+
+
+async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["STATE"] = 'CHILDREN'
+
+    text = update.effective_message.text
+
+    context.user_data['client_data']['data_children'] = text
+
+    # TODO Сделать парсер данных + если детей несколько, чтобы в таблицу
+    #  заносилось соответсвующее кол-во строк и добавить доп информацию,
+    #  для списка
+    googlesheets.write_client(context.user_data['client_data'])
+
+    logging.info(": ".join(
+        [
+            'Пользователь',
+            str(context.user_data['user'].id),
+            str(context.user_data['user'].full_name),
+            'отправил:',
+        ],
+    ))
+    logging.info(context.user_data['client_data'])
+
+    text = ' '.join([
+        context.user_data['client_data']['name_adult'],
+        context.user_data['client_data']['phone']
+    ])
+    # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
+    # 'CHILDREN' state, написал обходной путь для этого
+    try:
+        await context.bot.send_message(
+            chat_id=CHAT_ID_GROUP_ADMIN,
+            text=text,
+            reply_to_message_id=context.user_data['message_id_for_admin']
+        )
+    except BadRequest:
+        logging.info('Сообщение на которое нужно ответить, уже удалено')
+        await context.bot.send_message(
+            chat_id=CHAT_ID_GROUP_ADMIN,
+            text=text,
+        )
+
+    await update.effective_chat.send_message(
+        'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '
+        'бронь.\nЕсли всё хорошо, то вам придет сообщение: "Ваша бронь '
+        'подтверждена"\n'
+        'В противном случае с вами свяжутся для уточнения деталей')
+
+    text = context.user_data['text_for_notification_massage']
+    text += """__________
+Место проведения:
+Офис-центр Малая Покровская, д18, 2 этаж
+__________
+По вопросам обращайтесь в ЛС в telegram или по телефону:
+Татьяна Бурганова @Tanya_domik +79159383529
+__________
+Если вы хотите оформить еще одну бронь, используйте команду /reserve"""
+    answer = await update.effective_chat.send_message(
+        text=text
+    )
+    await update.effective_chat.pin_message(answer.message_id)
 
     logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
