@@ -808,7 +808,8 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if context.user_data['STATE'] == 'ORDER':
         await update.effective_chat.send_message(
-            'От Вас долго не было ответа, пожалуйста выполните новый запрос'
+            'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
+            'новый запрос'
         )
 
         chose_reserve_option = context.user_data['chose_reserve_option']
@@ -833,6 +834,7 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
             [old_number_of_seats, old_nonconfirm_number_of_seats]
         )
     else:
+        # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, пожалуйста выполните новый запрос'
         )
