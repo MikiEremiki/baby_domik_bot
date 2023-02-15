@@ -30,10 +30,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
+    Функция отправляет пользователю список спектаклей с датами.
 
-    :param update: Update
-    :param context: ContextTypes.DEFAULT_TYPE
-    :return:
+    С сообщением передается inline клавиатура для выбора подходящего варианта
+    :return: возвращает state DATE
     """
 
     logging.info(f'Пользователь начал выбор спектакля:'
@@ -46,7 +46,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for key in dict_of_date_and_time.keys():
         for date in dict_of_date_and_time[key].keys():
             button_tmp = InlineKeyboardButton(
-                str(key) + ' | ' + date,
+                text=str(key) + ' | ' + date,
                 callback_data=str(key) + ' | ' + date
             )
             keyboard.append([button_tmp])
@@ -58,19 +58,23 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append([button_tmp])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # Отправка сообщения пользователю
     text = 'Выберите спектакль и дату\n'
     for key, item in dict_of_shows.items():
-        text += f'{item}: {key}\n'
+        text += f'{item} | {key}\n'
     answer = await update.message.reply_text(text, reply_markup=reply_markup)
 
     context.user_data['user'] = update.message.from_user
     context.user_data['message_id'] = answer.message_id
 
+    # Контекст для возврата назад
     context.user_data['text_date'] = text
     context.user_data['keyboard_date'] = reply_markup
 
-    context.user_data.setdefault('dict_of_shows', dict_of_shows)
-    context.user_data.setdefault('dict_of_date_and_time', dict_of_date_and_time)
+    # Вместо считывания базы спектаклей каждый раз из гугл-таблицы, прокидываем
+    # Базу в контекст пользователя
+    context.user_data['dict_of_shows'] = dict_of_shows
+    context.user_data['dict_of_date_and_time'] = dict_of_date_and_time
 
     return 'DATE'
 
