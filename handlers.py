@@ -3,6 +3,7 @@ import logging
 from telegram.ext import (
     ContextTypes,
     ConversationHandler,
+    TypeHandler
 )
 from telegram import (
     Update,
@@ -452,6 +453,56 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def help_command():
     """
 
+
+async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Informs the user that the operation has timed out, calls :meth:`remove_reply_markup` and
+    ends the conversation.
     :return:
+        int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-    pass
+
+    if context.user_data['STATE'] == 'ORDER':
+        await update.effective_chat.send_message(
+            'От Вас долго не было ответа, пожалуйста выполните новый запрос'
+        )
+
+        chose_reserve_option = context.user_data['chose_reserve_option']
+
+        # Номер строки для извлечения актуального числа доступных мест
+        row_in_googlesheet = context.user_data['row_in_googlesheet']
+
+        # Обновляем кол-во доступных мест
+        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 4)
+        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 5)
+
+        old_number_of_seats = int(
+            availibale_number_of_seats_now) + int(
+            chose_reserve_option.get('quality_of_children'))
+        old_nonconfirm_number_of_seats = int(
+            nonconfirm_number_of_seats_now) - int(
+            chose_reserve_option.get('quality_of_children'))
+        googlesheets.confirm(
+            row_in_googlesheet,
+            [old_number_of_seats, old_nonconfirm_number_of_seats]
+        )
+    else:
+        await update.effective_chat.send_message(
+            'От Вас долго не было ответа, пожалуйста выполните новый запрос'
+        )
+
+    logging.info(": ".join(
+        [
+            'Для пользователя',
+            str(context.user_data['user'].id),
+            str(context.user_data['user'].full_name),
+        ]
+    ))
+    logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    context.user_data.clear()
+
+    return ConversationHandler.END
+
+
+TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)
