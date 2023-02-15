@@ -756,7 +756,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     await query.edit_message_text(
-        text='Вы выбрали отмену, для повтора используйте команду /choice'
+        text='Вы выбрали отмену, для повтора используйте команду /reserve'
     )
 
     if '|' in query.data:
