@@ -11,6 +11,7 @@ from warnings import filterwarnings
 from telegram.warnings import PTBUserWarning
 
 import handlers as hl
+from utilites import echo
 from settings import API_TOKEN
 
 # Отключено предупреждение, для ConversationHandler
@@ -60,7 +61,8 @@ def bot():
     )
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(hl.reject, pattern='^Отклонить'))
-    application.add_handler(CallbackQueryHandler(hl.confirm, pattern='^Разрешить'))
+
+    application.add_handler(CommandHandler('echo', echo))
 
     application.run_polling()
 

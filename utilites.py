@@ -1,6 +1,7 @@
 import logging
 
-from telegram import InlineKeyboardButton
+from telegram import Update, InlineKeyboardButton
+from telegram.ext import ContextTypes
 
 import googlesheets
 
@@ -48,3 +49,20 @@ def add_btn_back_and_cancel():
         callback_data='Отменить'
     )
     return [button_back, button_cancel]
+
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info(
+        f'{update.effective_user.id}: '
+        f'{update.effective_user.full_name}\n'
+        f'Вызвал команду echo'
+    )
+    text = ' '.join([
+        str(update.effective_chat.id),
+        'from',
+        str(update.effective_user.id)
+    ])
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=text
+    )
