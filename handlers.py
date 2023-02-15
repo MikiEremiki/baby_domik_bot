@@ -640,13 +640,35 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-
-    :param update:
-    :param context:
-    :return:
+    Отправляет оповещение об отказе в бронировании, удаляет сообщение
+    используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
     """
     query = update.callback_query
     await query.answer()
+
+    key_option_for_reserve = int(query.data.split('|')[1].split()[3])
+    chose_reserve_option = DICT_OF_OPTION_FOR_RESERVE.get(
+        key_option_for_reserve)
+
+    # Номер строки для извлечения актуального числа доступных мест
+    row_in_googlesheet = query.data.split('|')[1].split()[2]
+
+    # Обновляем кол-во доступных мест
+    availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+        row_in_googlesheet, 4)
+    nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+        row_in_googlesheet, 5)
+
+    old_number_of_seats = int(
+        availibale_number_of_seats_now) + int(
+        chose_reserve_option.get('quality_of_children'))
+    old_nonconfirm_number_of_seats = int(
+        nonconfirm_number_of_seats_now) - int(
+        chose_reserve_option.get('quality_of_children'))
+    googlesheets.confirm(
+        row_in_googlesheet,
+        [old_number_of_seats, old_nonconfirm_number_of_seats]
+    )
 
     username = query.message.text.split('\n')[0].split(' ')[1]
     full_name = query.message.text.split('\n')[0].split(' ')[2] + ' ' + \
@@ -660,14 +682,20 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text='Ваша бронь отклонена.\n'
              'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n'
-             'Имя Фамилия @Tanya_domik +70000000000',
+             'Татьяна Бурганова @Tanya_domik +79159383529',
         chat_id=chat_id,
-    )
-    await context.bot.delete_message(
-        chat_id=chat_id,
-        message_id=message_id
     )
 
+    # Сообщение уже было удалено самим пользователем
+    try:
+        await context.bot.delete_message(
+            chat_id=chat_id,
+            message_id=message_id
+        )
+    except BadRequest:
+        logging.info(
+            f'Cообщение {message_id}, которое должно быть удалено'
+        )
 
     logging.info(": ".join(
         [
