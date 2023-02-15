@@ -19,14 +19,12 @@ import utilites
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-
-    :param update:
-    :param context:
-    :return:
+    Приветственная команда при первом запуске бота,
+    при перезапуске бота или при использовании команды start
     """
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
-             '/choice, чтобы выбрать спектакль.'
+             '/reserve, чтобы выбрать спектакль.'
     )
 
 
