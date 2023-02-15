@@ -579,17 +579,29 @@ __________
 
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-
-    :param update:
-    :param context:
-    :return:
+    Отправляет оповещение о подтверждении в бронировании, удаляет сообщение
+    используемое в ConversationHandler и возвращает свободные места для
+    доступа к бронированию
     """
     query = update.callback_query
     await query.answer()
 
+    key_option_for_reserve = int(query.data.split('|')[1].split()[3])
+    chose_reserve_option = DICT_OF_OPTION_FOR_RESERVE.get(
+        key_option_for_reserve)
+
     row_in_googlesheet = query.data.split('|')[1].split()[2]
-    new_nonconfirm_number_of_seats = query.data.split('|')[1].split()[3]
-    googlesheets.confirm(row_in_googlesheet, [new_nonconfirm_number_of_seats])
+
+    nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+        row_in_googlesheet, 5)
+
+    new_nonconfirm_number_of_seats = int(
+        nonconfirm_number_of_seats_now) - int(
+        chose_reserve_option.get('quality_of_children'))
+    googlesheets.confirm(
+        row_in_googlesheet,
+        [new_nonconfirm_number_of_seats]
+    )
 
     username = query.message.text.split('\n')[0].split(' ')[1]
     full_name = query.message.text.split('\n')[0].split(' ')[2] + ' ' + \
@@ -600,16 +612,30 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
+    text = 'Ваша бронь подтверждена\nЖдем вас на спектакле.'
     await context.bot.send_message(
-        text='Ваша бронь подтверждена.\n'
-             'Ждем вас на спектакле, по вопросам обращайтесь к следующим людям:\n'
-             'Имя Фамилия @Tanya_domik +70000000000',
+        text=text,
         chat_id=chat_id,
     )
-    await context.bot.delete_message(
-        chat_id=chat_id,
-        message_id=message_id
-    )
+    # Сообщение уже было удалено самим пользователем
+    try:
+        await context.bot.delete_message(
+            chat_id=chat_id,
+            message_id=message_id
+        )
+    except BadRequest:
+        logging.info(
+            f'Cообщение уже удалено'
+        )
+
+    logging.info(": ".join(
+        [
+            'Для пользователя',
+            f'@{username} + " " + {full_name}',
+            'Номер строки, которая должна быть обновлена',
+            row_in_googlesheet,
+        ]
+    ))
 
 
 async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
