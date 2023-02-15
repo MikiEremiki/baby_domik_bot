@@ -407,6 +407,25 @@ async def check_and_send_buy_info(update: Update,
     return 'PAID'
 
 
+async def forward_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = context.user_data['user']
+
+    await context.bot.send_message(
+        chat_id=CHAT_ID_GROUP_ADMIN,
+        text=f'Квитанция пользователя @{user.username} {user.full_name}\n',
+    )
+    await update.effective_message.forward(
+        chat_id=CHAT_ID_GROUP_ADMIN,
+    )
+
+    if context.user_data['STATE'] == 'ORDER':
+        context.user_data['STATE'] = 'PAID'
+        return 'PAID'
+    if context.user_data['STATE'] == 'PAID':
+        context.user_data['STATE'] = 'FORMA'
+        return 'FORMA'
+
+
 async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
