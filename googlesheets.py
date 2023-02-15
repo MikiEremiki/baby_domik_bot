@@ -26,7 +26,10 @@ def get_values(spreadsheet_id, range_name):
 
 def data_show():
     try:
-        values = get_values(SPREADSHEET_ID['Домик'], RANGE_NAME['База'])
+        values = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База спектаклей']
+        )
 
         if not values:
             print('No data found.')
