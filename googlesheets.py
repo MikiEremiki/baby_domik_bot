@@ -40,9 +40,12 @@ def data_show():
         print(err)
 
 
-def check_seats(row, i):
+def update_quality_of_seats(row, i):
     try:
-        values = get_values(SPREADSHEET_ID['Домик'], f'База спектаклей!{row}:{row}')
+        values = get_values(
+            SPREADSHEET_ID['Домик'],
+            f'База спектаклей!{row}:{row}'
+        )
 
         if not values:
             print('No data found.')
