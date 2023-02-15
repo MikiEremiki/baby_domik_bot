@@ -43,6 +43,10 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Загрузка базы спектаклей из гугл-таблицы
     dict_of_shows, dict_of_date_and_time = utilites.load_data()
+
+    # Определение кнопок для inline клавиатуры
+    # TODO Заменить использование ключа на итератор
+    #  с проверкой по имени спектакля
     keyboard = []
     for key in dict_of_date_and_time.keys():
         for date in dict_of_date_and_time[key].keys():
