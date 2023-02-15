@@ -42,7 +42,7 @@ def bot():
 
     application.add_handler(CommandHandler('start', hl.start))
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('choice', hl.choice_show)],
+        entry_points=[CommandHandler('reserve', hl.choice_show)],
         states={
             'DATE': [
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить$'),
