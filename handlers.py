@@ -747,10 +747,8 @@ async def back_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-
-    :param update:
-    :param context:
-    :return:
+    Хэндлер отмены, может использоваться на этапе бронирования и оплаты,
+    для отмены действий и выхода из ConversationHandler
     """
     query = update.callback_query
     await query.answer()
@@ -767,11 +765,30 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_id=message_id
         )
 
-        row_in_googlesheet = query.data.split('|')[1].split()[2]
-        old_nonconfirm_number_of_seats = query.data.split('|')[1].split()[3]
-        old_number_of_seats = query.data.split('|')[1].split()[4]
-        googlesheets.confirm(row_in_googlesheet, [old_number_of_seats,
-                                                  old_nonconfirm_number_of_seats])
+        chose_reserve_option = context.user_data['chose_reserve_option']
+
+        # Номер строки для извлечения актуального числа доступных мест
+        row_in_googlesheet = context.user_data['row_in_googlesheet']
+
+        # Обновляем кол-во доступных мест
+        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 4)
+        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 5)
+
+        old_number_of_seats = int(
+            availibale_number_of_seats_now) + int(
+            chose_reserve_option.get('quality_of_children'))
+        old_nonconfirm_number_of_seats = int(
+            nonconfirm_number_of_seats_now) - int(
+            chose_reserve_option.get('quality_of_children'))
+        googlesheets.confirm(
+            row_in_googlesheet,
+            [old_number_of_seats, old_nonconfirm_number_of_seats]
+        )
+
+    logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    context.user_data.clear()
 
     return ConversationHandler.END
 
