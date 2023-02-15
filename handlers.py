@@ -242,90 +242,167 @@ _Если нет желаемых вариантов для выбора, зна
     return 'ORDER'
 
 
-async def send_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_and_send_buy_info(update: Update,
+                                  context: ContextTypes.DEFAULT_TYPE):
     """
+    Проверяет кол-во доступных мест, для выбранного варианта пользователем и
+    отправляет сообщение об оплате или о необходимости выбрать другое время с
+    двумя кнопками "Назад" или "Отмена"
 
-    :param update:
-    :param context:
     :return:
+        возвращает state PAID,
+        если проверка не пройдена, то state ORDER
     """
     query = update.callback_query
     await query.answer()
 
-    key = context.user_data['key_of_name_show']
-    name_show = context.user_data['name_show']
+    context.user_data['STATE'] = 'ORDER'
+
     date = context.user_data['date_show']
     time = context.user_data['time_of_show']
-    dict_of_date_and_time = context.user_data.get('dict_of_date_and_time')
-    number_of_seats = query.data
-    text = f'Вы выбрали:\n' \
-           f'{name_show}\n' \
-           f'{date}\n' \
-           f'В {time}\n' \
-           f'Кол-во мест для бронирования: {number_of_seats}'
-    await query.message.edit_text(text)
+    name_show = context.user_data['name_show']
+    key_option_for_reserve = int(query.data)
+    chose_reserve_option = DICT_OF_OPTION_FOR_RESERVE.get(
+        key_option_for_reserve)
+    price = chose_reserve_option.get('price')
 
-    row_in_googlesheet = dict_of_date_and_time[key][date][time][1]
+    logging.info(": ".join(
+        [
+            'Пользователь',
+            str(context.user_data['user'].id),
+            str(context.user_data['user'].full_name),
+            'выбрал',
+            chose_reserve_option.get('name'),
+        ]
+    ))
 
-    availibale_number_of_seats_now = googlesheets.check_seats(
-        row_in_googlesheet, 4)
-    nonconfirm_number_of_seats_now = googlesheets.check_seats(
-        row_in_googlesheet, 5)
-
-    new_number_of_seats = int(availibale_number_of_seats_now) - int(
-        number_of_seats)
-    new_nonconfirm_number_of_seats = int(nonconfirm_number_of_seats_now) + int(
-        number_of_seats)
-    if availibale_number_of_seats_now >= number_of_seats:
-        googlesheets.confirm(row_in_googlesheet, [new_number_of_seats,
-                                                  new_nonconfirm_number_of_seats])
-    else:
-        keyboard = []
-        keyboard.append(utilites.add_btn_back_and_cancel())
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    # Если пользователь выбрал не стандартный вариант
+    if chose_reserve_option.get('flag_individual'):
+        text = 'Для оформления данного варианта обращайтесь в ЛС в telegram ' \
+               'или по телефону:\n Татьяна Бурганова @Tanya_domik +79159383529'
         await query.message.edit_text(
-            text='К сожалению места уже забронировали и свободных мест не осталось\n'
-                 'Пожалуйста выберите другое время.',
+            text=text
+        )
+
+        logging.info(
+            f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        context.user_data.clear()
+
+        return ConversationHandler.END
+    # Для все стандартных вариантов
+    else:
+        # Отправляем сообщение пользователю, которое он будет использовать как
+        # памятку
+        text = f'Вы выбрали:\n' \
+               f'{name_show}\n' \
+               f'{date}\n' \
+               f'В {time}\n' \
+               f'Вариант бронирования: \n' \
+               f'{chose_reserve_option.get("name")} ' \
+               f'{price}руб\n'
+
+        context.user_data['text_for_notification_massage'] = text
+
+        await query.message.edit_text(
+            text=text
+        )
+
+        # Номер строки для извлечения актуального числа доступных мест
+        row_in_googlesheet = context.user_data['row_in_googlesheet']
+
+        # Обновляем кол-во доступных мест
+        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 4)
+        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 5)
+
+        # Проверка доступности нужного кол-ва мест, за время взаимодействия с
+        # ботом, могли изменить базу в ручную или забронировать места раньше
+        if int(availibale_number_of_seats_now) < int(chose_reserve_option.get(
+                'quality_of_children')):
+            logging.info(": ".join(
+                [
+                    'Мест не достаточно',
+                    'Кол-во доступных мест',
+                    availibale_number_of_seats_now,
+                    'Для',
+                    f'{name_show} {date} в {time}',
+                ]
+            ))
+
+            keyboard = []
+            keyboard.append(utilites.add_btn_back_and_cancel())
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            text = f'К сожалению места уже забронировали и свободных мест ' \
+                   f'Для {name_show}\n' \
+                   f'{date} в {time}\n осталось: ' \
+                   f'{availibale_number_of_seats_now}шт' \
+                   f'Пожалуйста выберите другое время.'
+            await update.effective_chat.send_message(
+                text=text,
+                reply_markup=reply_markup
+            )
+            return 'ORDER'
+        else:
+            logging.info(": ".join(
+                [
+                    'Пользователь',
+                    str(context.user_data['user'].id),
+                    str(context.user_data['user'].full_name),
+                    'получил разрешение на бронирование'
+                ]
+            ))
+
+            new_number_of_seats = int(
+                availibale_number_of_seats_now) - int(
+                chose_reserve_option.get('quality_of_children'))
+            new_nonconfirm_number_of_seats = int(
+                nonconfirm_number_of_seats_now) + int(
+                chose_reserve_option.get('quality_of_children'))
+
+            googlesheets.confirm(
+                row_in_googlesheet,
+                [new_number_of_seats, new_nonconfirm_number_of_seats]
+            )
+
+        # TODO перенести отправку кнопок в хэндлер с получением фото или
+        #  сделать проверку перед отправкой опроса
+        keyboard = []
+        button_approve = InlineKeyboardButton(
+            "Подтвердить",
+            callback_data=f'Подтвердить|{query.message.chat_id} {query.message.message_id}'
+        )
+
+        button_cancel = InlineKeyboardButton(
+            "Отменить",
+            callback_data=f'Отменить|'
+                          f'{query.message.chat_id} {query.message.message_id}'
+        )
+        keyboard.append([button_approve, button_cancel])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        price = chose_reserve_option.get("price")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"""Забронировать билет можно только по 100% предоплате.
+Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
+    
+    К оплате {price} руб
+Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
+    
+ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
+    
+Вам необходимо сделать оплату в течении 15 мин, после нажать кнопку "Подтвердить" или бронь будет отменена.
+Затем необходимо:
+    Пройти опрос (он поступит автоматически), чтобы мы знали на кого оформлена бронь и как свами связаться.""",
             reply_markup=reply_markup
         )
-        return 'ORDER'
 
-    keyboard = []
-    button_approve = InlineKeyboardButton(
-        "Подтвердить",
-        callback_data=f'Подтвердить|{query.message.chat_id} {query.message.message_id}'
-    )
-    old_number_of_seats = new_number_of_seats + int(number_of_seats)
-    old_nonconfirm_number_of_seats = new_nonconfirm_number_of_seats - int(
-        number_of_seats)
-    button_cancel = InlineKeyboardButton(
-        "Отменить",
-        callback_data=f'Отменить|'
-                      f'{query.message.chat_id} {query.message.message_id} '
-                      f'{row_in_googlesheet} {old_nonconfirm_number_of_seats} '
-                      f'{old_number_of_seats}'
-    )
-    keyboard.append([button_approve, button_cancel])
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    payment = int(number_of_seats) * 1000
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f'К оплате {payment} руб\n'
-             'Для оплаты вы можете считать qrcode или сделать перевод по номеру телефона:\n'
-             '+70000000000 Имя Отчество Ф. Банк\n\n'
-             'Вам необходимо сделать оплату в течении 15 мин, '
-             'после нажать кнопку подтвердить или бронь будет отменена\n',
-        reply_markup=reply_markup
-    )
-
-    context.user_data['payment'] = payment
-    context.user_data['row_in_googlesheet'] = \
-        dict_of_date_and_time[key][date][time][1]
-    context.user_data[
-        'new_nonconfirm_number_of_seats'] = new_nonconfirm_number_of_seats - int(
-        number_of_seats)
-    context.user_data['number_of_seats'] = number_of_seats
+        context.user_data['chose_reserve_option'] = chose_reserve_option
+        context.user_data['key_option_for_reserve'] = key_option_for_reserve
+        context.user_data['quality_of_children'] = chose_reserve_option.get(
+            'quality_of_children')
 
     return 'PAID'
 
