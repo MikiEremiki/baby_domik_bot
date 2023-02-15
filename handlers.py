@@ -428,53 +428,54 @@ async def forward_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-
-    :param update:
-    :param context:
-    :return:
+    Запускает цепочку вопросов для клиентской базы, если пользователь нажал
+    кнопку подтвердить.
     """
     query = update.callback_query
     await query.answer()
 
-    await query.edit_message_text(
-        'Ожидайте подтверждения перевода.\n'
-        'Для ускорения процесса, '
-        'можете отправить платеж @Tanya_domik в личные сообщения')
+    context.user_data['STATE'] = 'PAID'
 
+    # Сообщение для опроса
+    await query.edit_message_text("""Для подтверждения брони осталось ответить на несколько вопросов.
+
+Напишите фамилию и имя (взрослого) на кого оформляете бронь""")
+
+    # Сообщение для администратора
     row_in_googlesheet = context.user_data['row_in_googlesheet']
-    new_nonconfirm_number_of_seats = context.user_data[
-        'new_nonconfirm_number_of_seats']
+    key_option_for_reserve = context.user_data['key_option_for_reserve']
     keyboard = []
     button_approve = InlineKeyboardButton(
         "Подтвердить",
         callback_data=f'Разрешить|'
                       f'{query.message.chat_id} {query.message.message_id} '
-                      f'{row_in_googlesheet} {new_nonconfirm_number_of_seats}'
+                      f'{row_in_googlesheet} {key_option_for_reserve}'
     )
 
-    number_of_seats = context.user_data['number_of_seats']
-
-    availibale_number_of_seats_now = googlesheets.check_seats(
-        row_in_googlesheet, 4)
-    nonconfirm_number_of_seats_now = googlesheets.check_seats(
-        row_in_googlesheet, 5)
-
-    old_number_of_seats = int(availibale_number_of_seats_now) + int(
-        number_of_seats)
-    old_nonconfirm_number_of_seats = int(nonconfirm_number_of_seats_now) - int(
-        number_of_seats)
     button_cancel = InlineKeyboardButton(
         "Отклонить",
         callback_data=f'Отклонить|'
                       f'{query.message.chat_id} {query.message.message_id} '
-                      f'{row_in_googlesheet} {old_nonconfirm_number_of_seats} '
-                      f'{old_number_of_seats}'
+                      f'{row_in_googlesheet} {key_option_for_reserve}'
     )
     keyboard.append([button_approve, button_cancel])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     user = context.user_data['user']
-    payment = context.user_data['payment']
+    chose_reserve_option = context.user_data['chose_reserve_option']
+    price = chose_reserve_option.get("price")
+
+    answer = await context.bot.send_message(
+        chat_id=CHAT_ID_GROUP_ADMIN,
+        text=f'Пользователь @{user.username} {user.full_name}\n'
+             f'Запросил подтверждение брони на сумму {price} руб\n',
+        reply_markup=reply_markup
+    )
+
+    context.user_data['message_id_for_admin'] = answer.message_id
+
+    return 'FORMA'
+
 
     await context.bot.send_message(
         chat_id=454342281,
