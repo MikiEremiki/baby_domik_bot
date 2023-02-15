@@ -51,12 +51,12 @@ def bot():
             'TIME': [
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить$'),
                 CallbackQueryHandler(hl.back_date, pattern='^Назад$'),
-                CallbackQueryHandler(hl.choice_number_of_seats),
+                CallbackQueryHandler(hl.choice_option_of_reserve),
             ],
             'ORDER': [
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить$'),
                 CallbackQueryHandler(hl.back_time, pattern='^Назад$'),
-                CallbackQueryHandler(hl.send_qr_code),
+                CallbackQueryHandler(hl.check_and_send_buy_info),
             ],
             'PAID': [
                 MessageHandler(filters.PHOTO, hl.forward_photo),
