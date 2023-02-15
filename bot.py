@@ -30,11 +30,15 @@ logging.basicConfig(
 
 
 def bot():
-    """
+    application = Application.builder().token(API_TOKEN)
 
-    :return:
-    """
-    application = Application.builder().token(API_TOKEN).build()
+    # Для решения проблемы ошибки telegram.error.NetworkError:
+    # httpx.LocalProtocolError: Invalid input ConnectionInputs.SEND_HEADERS
+    # in state ConnectionState.CLOSED используем вместо h2 -> h1.1
+    application = application.http_version('1.1')
+    application = application.get_updates_http_version('1.1')
+
+    application = application.build()
 
     application.add_handler(CommandHandler('start', hl.start))
     conv_handler = ConversationHandler(
