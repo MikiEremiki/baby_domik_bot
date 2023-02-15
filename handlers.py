@@ -15,6 +15,7 @@ from telegram.error import BadRequest
 
 import googlesheets
 import utilites
+from settings import DICT_OF_OPTION_FOR_RESERVE, CHAT_ID_GROUP_ADMIN
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
