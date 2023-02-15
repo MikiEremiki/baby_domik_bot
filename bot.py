@@ -5,6 +5,8 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ConversationHandler,
+    MessageHandler,
+    filters
 )
 
 from warnings import filterwarnings
@@ -53,11 +55,24 @@ def bot():
                 CallbackQueryHandler(hl.send_qr_code),
             ],
             'PAID': [
+                MessageHandler(filters.PHOTO, hl.forward_photo),
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить'),
                 CallbackQueryHandler(hl.approve, pattern='^Подтвердить'),
             ],
+            'FORMA': [
+                MessageHandler(filters.PHOTO, hl.forward_photo),
+                MessageHandler(filters.TEXT, hl.get_name_adult),
+            ],
+            'PHONE': [
+                MessageHandler(filters.TEXT, hl.get_phone),
+            ],
+            'CHILDREN': [
+                MessageHandler(filters.TEXT, hl.get_name_children),
+            ],
+            ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },
         fallbacks=[CommandHandler('help', hl.help_command)],
+        conversation_timeout=15*60  # 15 мин
     )
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(hl.reject, pattern='^Отклонить'))
