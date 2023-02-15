@@ -16,6 +16,8 @@ def load_data():
     data = googlesheets.data_show()
     logging.info(f"Данные загружены")
 
+    # TODO Сделать общий словарь по принципу:
+    #  один ключ - одна строка в гугл-таблице
     n = 1
     for i, item in enumerate(data[1:]):
         if item[0] not in dict_of_shows.keys():
