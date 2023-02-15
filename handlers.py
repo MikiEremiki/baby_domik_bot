@@ -81,12 +81,13 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
+    Функция отправляет пользователю сообщения по выбранному спектаклю варианты
+    времени и кол-во свободных мест
 
-    :param update:
-    :param context:
-    :return:
+    С сообщением передается inline клавиатура для выбора подходящего варианта
+    :return: возвращает state TIME
     """
-    query: CallbackQuery = update.callback_query
+    query = update.callback_query
     await query.answer()
 
     logging.info(": ".join(
@@ -100,6 +101,14 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ))
     context.user_data["STATE"] = 'DATE'
 
+    key_of_name_show = int(query.data.split(' | ')[0])
+    date_show = query.data.split(' | ')[1]
+    dict_of_shows = context.user_data['dict_of_shows']
+    dict_of_date_and_time = context.user_data['dict_of_date_and_time']
+
+    # Получение названия спектакля по ключу
+    # TODO придумать вариант проще без прохода по всему словарю, возможно
+    #  передавать вместе с callback_data
     name_show = '---'
     for key, item in dict_of_shows.items():
         if item == key_of_name_show:
@@ -107,12 +116,14 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = []
 
+    # Определение кнопок для inline клавиатуры с исключением вариантов где
+    # свободных мест уже не осталось
     for time in dict_of_date_and_time[key_of_name_show][date_show].keys():
         if dict_of_date_and_time[key_of_name_show][date_show][time][0][1] == 0:
             continue
         number = dict_of_date_and_time[key_of_name_show][date_show][time][0][1]
         button_tmp = InlineKeyboardButton(
-            time + ' | ' + str(number) + ' шт свободно',
+            text=time + ' | ' + str(number) + ' шт свободно',
             callback_data=time
         )
         keyboard.append([button_tmp])
@@ -120,14 +131,20 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = f'Вы выбрали {name_show}\n' \
-           'Выберите удобное время.'
-    await query.message.edit_text(text, reply_markup=reply_markup)
+    # Отправка сообщения пользователю
+    text = f'Вы выбрали:\n {name_show}\n' \
+           'Выберите удобное время.\n' \
+           '1 ребенок = 1 место'
+    await query.message.edit_text(
+        text=text,
+        reply_markup=reply_markup
+    )
 
     context.user_data['key_of_name_show'] = key_of_name_show
     context.user_data['date_show'] = date_show
     context.user_data['name_show'] = name_show
 
+    # Контекст для возврата назад
     context.user_data['text_time'] = text
     context.user_data['keyboard_time'] = reply_markup
 
