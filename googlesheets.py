@@ -77,10 +77,53 @@ def confirm(row, numbers):
             spreadsheetId=SPREADSHEET_ID['Домик'],
             range=range_sheet,
             valueInputOption=value_input_option,
-            body=value_range_body)
+            body=value_range_body
+        )
         response = request.execute()
 
         pprint(response)
 
+    except HttpError as err:
+        print(err)
+
+
+def write_client(client: dict):
+    try:
+        values_column = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База клиентов']
+        )
+
+        if not values_column:
+            print('No data found.')
+            return
+
+        last_row = len(values_column) + 1
+        sheet = get_service_sacc(SCOPES).spreadsheets()
+        value_input_option = 'RAW'
+        values = [[]]
+        for item in client.items():
+            values[0].append(item[1])
+        print(values)
+        value_range_body = {
+            'values': values,
+        }
+        range_sheet = f'Клиентская база!B{last_row}:D{last_row}'
+
+        request = sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID['Домик'],
+            range=range_sheet,
+            valueInputOption=value_input_option,
+            body=value_range_body
+        )
+        response = request.execute()
+
+        pprint(
+            'spreadsheetId: ',
+            response['spreadsheetId'],
+            '\n'
+            'updatedRange: ',
+            response['updatedRange']
+        )
     except HttpError as err:
         print(err)
