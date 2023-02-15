@@ -37,6 +37,12 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :param context: ContextTypes.DEFAULT_TYPE
     :return:
     """
+
+    logging.info(f'Пользователь начал выбор спектакля:'
+                 f' {update.message.from_user}')
+    context.user_data["STATE"] = 'START'
+
+    # Загрузка базы спектаклей из гугл-таблицы
     dict_of_shows, dict_of_date_and_time = utilites.load_data()
     keyboard = []
     for key in dict_of_date_and_time.keys():
@@ -81,11 +87,16 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query: CallbackQuery = update.callback_query
     await query.answer()
 
-    list_name_and_date = query.data.split(' | ')
-    key_of_name_show = int(list_name_and_date[0])
-    date_show = list_name_and_date[1]
-    dict_of_shows = context.user_data.get('dict_of_shows')
-    dict_of_date_and_time = context.user_data.get('dict_of_date_and_time')
+    logging.info(": ".join(
+        [
+            'Пользователь',
+            str(context.user_data['user'].id),
+            str(context.user_data['user'].full_name),
+            'выбрал',
+            query.data,
+        ]
+    ))
+    context.user_data["STATE"] = 'DATE'
 
     name_show = '---'
     for key, item in dict_of_shows.items():
@@ -132,6 +143,17 @@ async def choice_option_of_reserve(update: Update,
     """
     query = update.callback_query
     await query.answer()
+
+    logging.info(": ".join(
+        [
+            'Пользователь',
+            str(context.user_data['user'].id),
+            str(context.user_data['user'].full_name),
+            'выбрал',
+            query.data,
+        ]
+    ))
+    context.user_data["STATE"] = 'TIME'
 
     key = context.user_data['key_of_name_show']
     date = context.user_data['date_show']
@@ -341,6 +363,7 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
+    logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
     return ConversationHandler.END
@@ -411,11 +434,15 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id=message_id
     )
 
-    row_in_googlesheet = query.data.split('|')[1].split()[2]
-    old_nonconfirm_number_of_seats = query.data.split('|')[1].split()[3]
-    old_number_of_seats = query.data.split('|')[1].split()[4]
-    googlesheets.confirm(row_in_googlesheet,
-                         [old_number_of_seats, old_nonconfirm_number_of_seats])
+
+    logging.info(": ".join(
+        [
+            'Для пользователя',
+            f'@{username} + " " + {full_name}',
+            'Номер строки, которая должна быть обновлена',
+            row_in_googlesheet,
+        ]
+    ))
 
 
 async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
