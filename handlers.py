@@ -793,8 +793,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-def help_command():
-    """
+def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # TODO прописать логику использования help
+    pass
 
 
 async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
