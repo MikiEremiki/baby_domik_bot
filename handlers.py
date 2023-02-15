@@ -9,8 +9,9 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    CallbackQuery,
 )
+from telegram.constants import ParseMode
+from telegram.error import BadRequest
 
 import googlesheets
 import utilites
@@ -120,41 +121,77 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return 'TIME'
 
 
-async def choice_number_of_seats(update: Update,
-                                 context: ContextTypes.DEFAULT_TYPE):
+async def choice_option_of_reserve(update: Update,
+                                   context: ContextTypes.DEFAULT_TYPE):
     """
+    Функция отправляет пользователю сообщения по выбранному спектаклю,
+    дате, времени и варианты бронирования
 
-    :param update:
-    :param context:
-    :return:
+    С сообщением передается inline клавиатура для выбора подходящего варианта
+    :return: возвращает state ORDER
     """
     query = update.callback_query
     await query.answer()
 
     key = context.user_data['key_of_name_show']
     date = context.user_data['date_show']
+    dict_of_date_and_time = context.user_data['dict_of_date_and_time']
     time = query.data
-    dict_of_date_and_time = context.user_data.get('dict_of_date_and_time')
-    number_of_available_seats = dict_of_date_and_time[key][date][time][0][1]
 
+    row_in_googlesheet = dict_of_date_and_time[key][date][time][1]
+
+    availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+        row_in_googlesheet, 4)
+
+    # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
-    for i in range(number_of_available_seats):
-        button_tmp = InlineKeyboardButton(
-            str(i + 1),
-            callback_data=i + 1
-        )
-        list_btn_of_numbers.append(button_tmp)
+    for key, item in DICT_OF_OPTION_FOR_RESERVE.items():
+        quality_of_children = DICT_OF_OPTION_FOR_RESERVE[key].get(
+            'quality_of_children')
+
+        # Если свободных мест меньше, чем требуется для варианта
+        # бронирования, то кнопку с этим вариантом не предлагать
+        if int(quality_of_children) <= int(availibale_number_of_seats_now):
+            button_tmp = InlineKeyboardButton(
+                text=str(key),
+                callback_data=str(key)
+            )
+            list_btn_of_numbers.append(button_tmp)
+
+            # Позволяет управлять кол-вом кнопок в ряду
+            # Максимальное кол-во кнопок в ряду равно 8
+            if key % 5 == 0:
+                keyboard.append(list_btn_of_numbers)
+                list_btn_of_numbers = []
     keyboard.append(list_btn_of_numbers)
 
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = f'Выберите сколько мест вы хотите забронировать\n' \
-           f'Введите цифру от 1 до {number_of_available_seats}'
-    await query.message.edit_text(text, reply_markup=reply_markup)
+    # Отправка сообщения пользователю
+    text = 'Выберите подходящий вариант бронирования:\n'
+    for key, item in DICT_OF_OPTION_FOR_RESERVE.items():
+        text += f'*{key}* \| {item.get("name")} \| {item.get("price")}руб\n'
+        if item.get('name') == 'Индивидуальный запрос':
+            text += """\_\_\_\_\_\_\_\_\_\_
+Варианты со скидками:\n"""
+    text += """\_\_\_\_\_\_\_\_\_\_
+_Если вы хотите оформить несколько билетов, то каждая бронь оформляется отдельно\._
+\_\_\_\_\_\_\_\_\_\_
+_Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления\. 
+В таком случае вернитесь назад и выберете другое время\._
+"""
+
+    await query.message.edit_text(
+        text=text,
+        parse_mode=ParseMode.MARKDOWN_V2,
+        reply_markup=reply_markup
+    )
 
     context.user_data['time_of_show'] = time
+
+    context.user_data['row_in_googlesheet'] = row_in_googlesheet
 
     return 'ORDER'
 
