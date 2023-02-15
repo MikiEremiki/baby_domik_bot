@@ -78,7 +78,9 @@ def bot():
         fallbacks=[CommandHandler('help', hl.help_command)],
         conversation_timeout=15*60  # 15 мин
     )
+
     application.add_handler(conv_handler)
+    application.add_handler(CallbackQueryHandler(hl.confirm, pattern='^Разрешить'))
     application.add_handler(CallbackQueryHandler(hl.reject, pattern='^Отклонить'))
 
     application.add_handler(CommandHandler('echo', echo))
