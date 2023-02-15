@@ -75,7 +75,7 @@ def bot():
             ],
             ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },
-        fallbacks=[CommandHandler('help', hl.help)],
+        fallbacks=[CommandHandler('help', hl.help_command)],
         conversation_timeout=15*60  # 15 мин
     )
 
