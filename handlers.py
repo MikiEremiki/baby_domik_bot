@@ -395,7 +395,7 @@ async def check_and_send_buy_info(update: Update,
     
 Вам необходимо сделать оплату в течении 15 мин, после нажать кнопку "Подтвердить" или бронь будет отменена.
 Затем необходимо:
-    Пройти опрос (он поступит автоматически), чтобы мы знали на кого оформлена бронь и как свами связаться.""",
+    Пройти опрос (он поступит автоматически), чтобы мы знали на кого оформлена бронь и как с вами связаться.""",
             reply_markup=reply_markup
         )
 
@@ -631,8 +631,8 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(": ".join(
         [
             'Для пользователя',
-            f'@{username} + " " + {full_name}',
-            'Номер строки, которая должна быть обновлена',
+            f'{username} {full_name}',
+            'Номер строки для обновления',
             row_in_googlesheet,
         ]
     ))
@@ -700,7 +700,7 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(": ".join(
         [
             'Для пользователя',
-            f'@{username} + " " + {full_name}',
+            f'{username} + " " + {full_name}',
             'Номер строки, которая должна быть обновлена',
             row_in_googlesheet,
         ]
