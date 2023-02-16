@@ -521,6 +521,16 @@ async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'CHILDREN'
 
     text = update.effective_message.text
+    tmp_text = []
+    if '\n' in text:
+        text = text.split('\n')
+        for item in text:
+            tmp_text.append(item.split(' - '))
+    else:
+        text = text.split(' - ')
+        tmp_text.append(text)
+
+    text = tmp_text
 
     context.user_data['client_data']['data_children'] = text
 
