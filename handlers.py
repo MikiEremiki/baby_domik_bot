@@ -504,7 +504,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.effective_message.text
 
-    context.user_data['client_data']['phone'] = text
+    context.user_data['client_data']['phone'] = "'" + text
 
     await update.effective_chat.send_message(
         text='Напишите, имя ребенка и через дефис год рождения.\nЕсли детей '
