@@ -436,8 +436,15 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['STATE'] = 'PAID'
 
+    # Убираем у старого сообщения кнопки
+    await query.edit_message_text(
+        text=query.message.text,
+        reply_markup=None
+    )
+
     # Сообщение для опроса
-    await query.edit_message_text("""Для подтверждения брони осталось ответить на несколько вопросов.
+    await update.effective_chat.send_message("""Для подтверждения брони осталось ответить на несколько 
+    вопросов.
 
 Напишите фамилию и имя (взрослого) на кого оформляете бронь""")
 
