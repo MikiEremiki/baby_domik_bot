@@ -534,10 +534,11 @@ async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['client_data']['data_children'] = text
 
-    # TODO Сделать парсер данных + если детей несколько, чтобы в таблицу
-    #  заносилось соответсвующее кол-во строк и добавить доп информацию,
-    #  для списка
-    googlesheets.write_client(context.user_data['client_data'])
+    googlesheets.write_client(
+        context.user_data['client_data'],
+        context.user_data['row_in_googlesheet'],
+        context.user_data['chose_reserve_option']
+    )
 
     logging.info(": ".join(
         [
