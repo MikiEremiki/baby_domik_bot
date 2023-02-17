@@ -33,11 +33,12 @@ def data_show():
 
         if not values:
             print('No data found.')
-            return
+            raise ValueError
 
         return values
     except HttpError as err:
         print(err)
+        raise ConnectionError
 
 
 def update_quality_of_seats(row, i):
