@@ -65,13 +65,30 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # TODO Заменить использование ключа на итератор
     #  с проверкой по имени спектакля
     keyboard = []
+    list_btn_of_numbers = []
+    date_now = datetime.datetime.now()
     for key in dict_of_date_and_time.keys():
+        i = 0
         for date in dict_of_date_and_time[key].keys():
-            button_tmp = InlineKeyboardButton(
-                text=str(key) + ' | ' + date,
-                callback_data=str(key) + ' | ' + date
-            )
-            keyboard.append([button_tmp])
+            date_tmp = date.split()[0] + f'.{date_now.year}'
+            date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y')
+
+            if date_tmp > date_now:
+                button_tmp = InlineKeyboardButton(
+                    text=str(key) + ' | ' + date,
+                    callback_data=str(key) + ' | ' + date
+                )
+                list_btn_of_numbers.append(button_tmp)
+
+                i += 1
+                # Три кнопки так как для телефонов уже дни недели обрезаются
+                if i % 3 == 0:
+                    i = 1
+                    keyboard.append(list_btn_of_numbers)
+                    list_btn_of_numbers = []
+
+        keyboard.append(list_btn_of_numbers)
+        list_btn_of_numbers = []
 
     button_tmp = InlineKeyboardButton(
         "Отменить",
