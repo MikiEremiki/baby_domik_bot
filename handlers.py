@@ -742,11 +742,10 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [old_number_of_seats, old_nonconfirm_number_of_seats]
     )
 
-    username = query.message.text.split('\n')[0].split(' ')[1]
-    full_name = query.message.text.split('\n')[0].split(' ')[2] + ' ' + \
-                query.message.text.split('\n')[0].split(' ')[3]
+    text_query_split = query.message.text.split('\n')[0]
+    user_info = text_query_split[text_query_split.find(' ') + 1:]
     await query.edit_message_text(
-        text=f'Пользователю {username} {full_name} отклонена бронь'
+        text=f'Пользователю {user_info} отклонена бронь'
     )
 
     chat_id = query.data.split('|')[1].split()[0]
