@@ -46,7 +46,20 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'START'
 
     # Загрузка базы спектаклей из гугл-таблицы
-    dict_of_shows, dict_of_date_and_time = utilites.load_data()
+    try:
+        dict_of_shows, dict_of_date_and_time = utilites.load_data()
+    except ConnectionError or ValueError:
+        logging.info(
+            f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+
+        await update.effective_chat.send_message(
+            'К сожалению я сегодня на техническом обслуживании\n'
+            'Но вы можете забронировать по старинке в ЛС telegram или по '
+            'телефону:\n'
+            'Татьяна Бурганова @Tanya_domik +79159383529'
+        )
+
+        return ConversationHandler.END
 
     # Определение кнопок для inline клавиатуры
     # TODO Заменить использование ключа на итератор
