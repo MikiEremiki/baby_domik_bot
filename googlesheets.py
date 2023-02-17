@@ -122,16 +122,24 @@ def write_client(
         response_value_render_option = 'FORMATTED_VALUE'
         values = []
 
+        age = None
         for i in range(len(client['data_children'])):
             values.append([first_row_for_write + i])
             for key, item in client.items():
                 if key == 'data_children':
                     item = item[i]
                     values[i].append(item[0])
+                    if len(item[1]) < 5:
+                        age = item[1]
+                        item[1] = f'=NOW()-YEAR(F{first_row_for_write})'
                     values[i].append(item[1])
                 else:
                     values[i].append(item)
-            values[i].append(f'=(TODAY()-E{first_row_for_write + i})/365')
+            if age is not None:
+                values[i].append(age)
+            else:
+                values[i].append(
+                    f'=(TODAY()-E{first_row_for_write + i + 1})/365')
             values[i].extend(values_row[0])
             values[i].append(datetime.now().__str__())
             for key, value in dict_reserve_option.items():
