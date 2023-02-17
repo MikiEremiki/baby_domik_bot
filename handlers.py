@@ -920,7 +920,6 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
         ]
     ))
     logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-    context.user_data.clear()
 
     return ConversationHandler.END
 
