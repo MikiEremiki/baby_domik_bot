@@ -771,7 +771,7 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(": ".join(
         [
             'Для пользователя',
-            f'{username} + " " + {full_name}',
+            f'{user_info}',
             'Номер строки, которая должна быть обновлена',
             row_in_googlesheet,
         ]
