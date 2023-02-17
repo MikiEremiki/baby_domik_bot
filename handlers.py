@@ -555,16 +555,27 @@ async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'CHILDREN'
 
     text = update.effective_message.text
-    tmp_text = []
+    list_message_text = []
     if '\n' in text:
-        text = text.split('\n')
-        for item in text:
-            tmp_text.append(item.split(' - '))
+        message_text = text.split('\n')
+        for item in message_text:
+            list_message_text.append(item.split())
     else:
-        text = text.split(' - ')
-        tmp_text.append(text)
+        message_text = text.split()
+        list_message_text.append(message_text)
 
-    text = tmp_text
+    if not isinstance(list_message_text[0], list):
+        await update.effective_chat.send_message(
+            text="""Проверьте, что указали год или возраст
+Формат записи:
+Имя ДД.ММ.ГГГГ
+__________
+Если вы не хотите указывать дату рождения, то напишите просто возраст: 
+Имя 0.0
+
+Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)"""
+        )
+        return 'CHILDREN'
 
     context.user_data['client_data']['data_children'] = text
 
