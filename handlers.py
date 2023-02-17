@@ -158,8 +158,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Определение кнопок для inline клавиатуры с исключением вариантов где
     # свободных мест уже не осталось
     for time in dict_of_date_and_time[key_of_name_show][date_show].keys():
-        if dict_of_date_and_time[key_of_name_show][date_show][time][0][1] == 0:
-            continue
         number = dict_of_date_and_time[key_of_name_show][date_show][time][0][1]
         button_tmp = InlineKeyboardButton(
             text=time + ' | ' + str(number) + ' шт свободно',
