@@ -14,7 +14,10 @@ from telegram.warnings import PTBUserWarning
 
 import handlers as hl
 from utilites import echo
-from settings import API_TOKEN
+from settings import (
+    API_TOKEN,
+    COMMAND_DICT,
+)
 
 # Отключено предупреждение, для ConversationHandler
 filterwarnings(
@@ -40,9 +43,9 @@ def bot():
 
     application = application.build()
 
-    application.add_handler(CommandHandler('start', hl.start))
+    application.add_handler(CommandHandler(COMMAND_DICT['START'], hl.start))
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('reserve', hl.choice_show)],
+        entry_points=[CommandHandler(COMMAND_DICT['RESERVE'], hl.choice_show)],
         states={
             'DATE': [
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить$'),
@@ -64,7 +67,6 @@ def bot():
                 CallbackQueryHandler(hl.approve, pattern='^Подтвердить'),
             ],
             'FORMA': [
-                MessageHandler(filters.PHOTO, hl.forward_photo),
                 MessageHandler(filters.TEXT, hl.get_name_adult),
             ],
             'PHONE': [

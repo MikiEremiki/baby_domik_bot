@@ -15,7 +15,11 @@ from telegram.error import BadRequest
 
 import googlesheets
 import utilites
-from settings import DICT_OF_OPTION_FOR_RESERVE, CHAT_ID_GROUP_ADMIN
+from settings import (
+    DICT_OF_OPTION_FOR_RESERVE,
+    CHAT_ID_GROUP_ADMIN,
+    COMMAND_DICT,
+)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -25,7 +29,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
-             '/reserve, чтобы выбрать спектакль.'
+             f'/{COMMAND_DICT["RESERVE"]}, чтобы выбрать спектакль.'
     )
 
 
@@ -583,7 +587,8 @@ __________
 По вопросам обращайтесь в ЛС в telegram или по телефону:
 Татьяна Бурганова @Tanya_domik +79159383529
 __________
-Если вы хотите оформить еще одну бронь, используйте команду /reserve"""
+Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
+"RESERVE"]}"""
     answer = await update.effective_chat.send_message(
         text=text
     )
@@ -772,7 +777,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     await query.edit_message_text(
-        text='Вы выбрали отмену, для повтора используйте команду /reserve'
+        text='Вы выбрали отмену, для повтора используйте команду '
+             f'/{COMMAND_DICT["RESERVE"]}'
     )
 
     if '|' in query.data:
