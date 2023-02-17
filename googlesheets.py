@@ -148,14 +148,14 @@ def write_client(
                 values[i].append(value)
         logging.info(values)
 
-        print(values)
         end_column_index = len(values[0])
 
         value_range_body = {
             'values': values,
         }
 
-        range_sheet = f'Клиентская база!R{first_row_for_write + 1}C1:' \
+        range_sheet = f'Клиентская база!' \
+                      f'R{first_row_for_write + 1}C1:' \
                       f'R{last_row_for_write + 1}C{end_column_index}'
 
         request = sheet.values().update(
