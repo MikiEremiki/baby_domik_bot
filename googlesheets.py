@@ -6,16 +6,13 @@ from googleapiclient.errors import HttpError
 
 from settings import RANGE_NAME, SPREADSHEET_ID
 
-from pprint import pprint
-
-
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 
 def get_service_sacc(scopes):
     credentials = service_account.Credentials.from_service_account_file(
         'credentials.json', scopes=scopes)
-    
+
     return build('sheets', 'v4', credentials=credentials)
 
 
@@ -107,7 +104,8 @@ def write_client(
         )
         values_row = get_values(
             SPREADSHEET_ID['Домик'],
-            RANGE_NAME['База спектаклей_'] + f'A{row_in_data_show}:C{row_in_data_show}'
+            RANGE_NAME[
+                'База спектаклей_'] + f'A{row_in_data_show}:C{row_in_data_show}'
         )
 
         if not values_column:
