@@ -675,11 +675,20 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [new_nonconfirm_number_of_seats]
     )
 
-    username = query.message.text.split('\n')[0].split(' ')[1]
-    full_name = query.message.text.split('\n')[0].split(' ')[2] + ' ' + \
-                query.message.text.split('\n')[0].split(' ')[3]
+    text_query_split = query.message.text.split('\n')[0]
+    user_info = text_query_split[text_query_split.find(' ') + 1:]
+
+    logging.info(": ".join(
+        [
+            'Для пользователя',
+            f'{user_info}',
+            'Номер строки для обновления',
+            row_in_googlesheet,
+        ]
+    ))
+
     await query.edit_message_text(
-        text=f'Пользователю {username} {full_name} подтверждена бронь'
+        text=f'Пользователю {user_info} подтверждена бронь'
     )
 
     chat_id = query.data.split('|')[1].split()[0]
