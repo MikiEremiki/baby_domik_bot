@@ -577,13 +577,7 @@ __________
         )
         return 'CHILDREN'
 
-    context.user_data['client_data']['data_children'] = text
-
-    googlesheets.write_client(
-        context.user_data['client_data'],
-        context.user_data['row_in_googlesheet'],
-        context.user_data['chose_reserve_option']
-    )
+    context.user_data['client_data']['data_children'] = list_message_text
 
     logging.info(": ".join(
         [
@@ -595,9 +589,16 @@ __________
     ))
     logging.info(context.user_data['client_data'])
 
+    googlesheets.write_client(
+        context.user_data['client_data'],
+        context.user_data['row_in_googlesheet'],
+        context.user_data['chose_reserve_option']
+    )
+
     text = ' '.join([
         context.user_data['client_data']['name_adult'],
-        context.user_data['client_data']['phone']
+        context.user_data['client_data']['phone'],
+        text,
     ])
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
@@ -608,7 +609,14 @@ __________
             reply_to_message_id=context.user_data['message_id_for_admin']
         )
     except BadRequest:
-        logging.info('Сообщение на которое нужно ответить, уже удалено')
+        logging.info(": ".join(
+            [
+                'Для пользователя',
+                str(context.user_data['user'].id),
+                str(context.user_data['user'].full_name),
+                'сообщение на которое нужно ответить, уже удалено'
+            ],
+        ))
         await context.bot.send_message(
             chat_id=CHAT_ID_GROUP_ADMIN,
             text=text,
