@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from google.oauth2 import service_account
@@ -136,6 +137,7 @@ def write_client(
                 if key == 'flag_individual':
                     break
                 values[i].append(value)
+        logging.info(values)
 
         print(values)
         end_column_index = len(values[0])
