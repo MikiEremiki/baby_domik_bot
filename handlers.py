@@ -370,24 +370,17 @@ async def check_and_send_buy_info(update: Update,
                 [new_number_of_seats, new_nonconfirm_number_of_seats]
             )
 
-        # TODO перенести отправку кнопок в хэндлер с получением фото или
-        #  сделать проверку перед отправкой опроса
         keyboard = []
-        button_approve = InlineKeyboardButton(
-            "Подтвердить",
-            callback_data=f'Подтвердить|{query.message.chat_id} {query.message.message_id}'
-        )
-
         button_cancel = InlineKeyboardButton(
             "Отменить",
             callback_data=f'Отменить|'
                           f'{query.message.chat_id} {query.message.message_id}'
         )
-        keyboard.append([button_approve, button_cancel])
+        keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         price = chose_reserve_option.get("price")
-        await context.bot.send_message(
+        message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
@@ -396,10 +389,7 @@ async def check_and_send_buy_info(update: Update,
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
     
 ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
-    
-Вам необходимо сделать оплату в течении 15 мин, после нажать кнопку "Подтвердить" или бронь будет отменена.
-Затем необходимо:
-    Пройти опрос (он поступит автоматически), чтобы мы знали на кого оформлена бронь и как с вами связаться.""",
+Вам необходимо сделать оплату в течении 15 мин, или бронь будет отменена.""",
             reply_markup=reply_markup
         )
 
@@ -407,11 +397,28 @@ async def check_and_send_buy_info(update: Update,
         context.user_data['key_option_for_reserve'] = key_option_for_reserve
         context.user_data['quality_of_children'] = chose_reserve_option.get(
             'quality_of_children')
+        context.chat_data['message_id'] = message.message_id
 
     return 'PAID'
 
 
-async def forward_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def forward_photo_or_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Пересылает картинку или файл.
+    Запускает цепочку вопросов для клиентской базы, если пользователь нажал
+    кнопку подтвердить.
+    """
+    context.user_data['STATE'] = 'PAID'
+
+    message_id = context.chat_data['message_id']
+    chat_id = update.effective_chat.id
+
+    # Убираем у старого сообщения кнопки
+    await context.bot.edit_message_reply_markup(
+        chat_id=chat_id,
+        message_id=message_id
+    )
+
     user = context.user_data['user']
 
     await context.bot.send_message(
@@ -422,33 +429,10 @@ async def forward_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=CHAT_ID_GROUP_ADMIN,
     )
 
-    if context.user_data['STATE'] == 'ORDER':
-        context.user_data['STATE'] = 'PAID'
-        return 'PAID'
-    if context.user_data['STATE'] == 'PAID':
-        context.user_data['STATE'] = 'FORMA'
-        return 'FORMA'
-
-
-async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Запускает цепочку вопросов для клиентской базы, если пользователь нажал
-    кнопку подтвердить.
-    """
-    query = update.callback_query
-    await query.answer()
-
-    context.user_data['STATE'] = 'PAID'
-
-    # Убираем у старого сообщения кнопки
-    await query.edit_message_text(
-        text=query.message.text,
-        reply_markup=None
-    )
-
     # Сообщение для опроса
-    await update.effective_chat.send_message("""Для подтверждения брони осталось ответить на несколько 
-    вопросов.
+    await update.effective_chat.send_message("""Для подтверждения брони 
+заполните пожалуйста анкету.
+Чтобы мы знали на кого оформлена бронь и как с вами связаться.
 
 Напишите фамилию и имя (взрослого) на кого оформляете бронь""")
 
@@ -459,14 +443,14 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     button_approve = InlineKeyboardButton(
         "Подтвердить",
         callback_data=f'Разрешить|'
-                      f'{query.message.chat_id} {query.message.message_id} '
+                      f'{chat_id} {message_id} '
                       f'{row_in_googlesheet} {key_option_for_reserve}'
     )
 
     button_cancel = InlineKeyboardButton(
         "Отклонить",
         callback_data=f'Отклонить|'
-                      f'{query.message.chat_id} {query.message.message_id} '
+                      f'{chat_id} {message_id} '
                       f'{row_in_googlesheet} {key_option_for_reserve}'
     )
     keyboard.append([button_approve, button_cancel])
@@ -479,7 +463,9 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     answer = await context.bot.send_message(
         chat_id=CHAT_ID_GROUP_ADMIN,
         text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {price} руб\n',
+             f'Запросил подтверждение брони на сумму {price} руб\n'
+             f'Ждем заполнения анкеты, если всё хорошо, то только после '
+             f'нажимаем подтвердить',
         reply_markup=reply_markup
     )
 

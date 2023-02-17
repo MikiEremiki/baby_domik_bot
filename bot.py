@@ -62,9 +62,11 @@ def bot():
                 CallbackQueryHandler(hl.check_and_send_buy_info),
             ],
             'PAID': [
-                MessageHandler(filters.PHOTO, hl.forward_photo),
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить'),
-                CallbackQueryHandler(hl.approve, pattern='^Подтвердить'),
+                MessageHandler(
+                    filters.PHOTO | filters.ATTACHMENT,
+                    hl.forward_photo_or_file
+                ),
             ],
             'FORMA': [
                 MessageHandler(filters.TEXT, hl.get_name_adult),
