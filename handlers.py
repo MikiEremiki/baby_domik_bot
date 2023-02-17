@@ -913,9 +913,10 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
 
     logging.info(": ".join(
         [
-            'Для пользователя',
+            'Пользователь',
             str(context.user_data['user'].id),
             str(context.user_data['user'].full_name),
+            'AFK уже 15 мин'
         ]
     ))
     logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
