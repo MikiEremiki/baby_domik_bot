@@ -709,15 +709,6 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Cообщение уже удалено'
         )
 
-    logging.info(": ".join(
-        [
-            'Для пользователя',
-            f'{username} {full_name}',
-            'Номер строки для обновления',
-            row_in_googlesheet,
-        ]
-    ))
-
 
 async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
