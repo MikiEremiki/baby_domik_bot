@@ -68,3 +68,10 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         text=text
     )
+
+
+async def delete_message_for_job_in_callback(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.delete_message(
+        chat_id=context.job.chat_id,
+        message_id=context.job.data
+    )
