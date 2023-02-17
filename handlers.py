@@ -188,6 +188,18 @@ async def choice_option_of_reserve(update: Update,
     dict_of_date_and_time = context.user_data['dict_of_date_and_time']
     time = query.data
 
+    number = dict_of_date_and_time[key][date][time][0][1]
+    if number == 0:
+        answer = await update.effective_chat.send_message(
+            'Выберете другое время')
+        context.job_queue.run_once(
+            utilites.delete_message_for_job_in_callback,
+            3,  # 3 секунды
+            answer.message_id,
+            chat_id=answer.chat_id,
+        )
+        return 'TIME'
+
     row_in_googlesheet = dict_of_date_and_time[key][date][time][1]
 
     availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
