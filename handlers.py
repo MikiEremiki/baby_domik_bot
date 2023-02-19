@@ -848,7 +848,8 @@ async def back_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = context.user_data['keyboard_time']
     await query.edit_message_text(
         text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN_V2
     )
     return 'TIME'
 
