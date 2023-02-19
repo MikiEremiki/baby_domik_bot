@@ -131,7 +131,7 @@ def write_client(
                     values[i].append(item[0])
                     if len(item[1]) < 5:
                         age = item[1]
-                        item[1] = f'=NOW()-YEAR(F{first_row_for_write})'
+                        item[1] = f'=NOW()-YEAR(F{first_row_for_write + 1})'
                     values[i].append(item[1])
                 else:
                     values[i].append(item)
