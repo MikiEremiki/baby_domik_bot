@@ -148,13 +148,15 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Определение кнопок для inline клавиатуры с исключением вариантов где
     # свободных мест уже не осталось
-    for time in dict_of_date_and_time[key_of_name_show][date_show].keys():
-        number = dict_of_date_and_time[key_of_name_show][date_show][time][0][1]
-        button_tmp = InlineKeyboardButton(
-            text=time + ' | ' + str(number) + ' шт свободно',
-            callback_data=time
-        )
-        keyboard.append([button_tmp])
+    for key, item in dict_of_shows.items():
+        if item['name_of_show'] == name_show and item['date'] == date_show:
+            time = item['time']
+            number = item['available_children_seats']
+            button_tmp = InlineKeyboardButton(
+                text=time + ' | ' + str(number) + ' шт свободно',
+                callback_data=time + ' | ' + str(key) + ' ' + str(number)
+            )
+            keyboard.append([button_tmp])
 
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
