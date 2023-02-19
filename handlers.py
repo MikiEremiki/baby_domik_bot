@@ -140,16 +140,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     key_of_name_show = int(query.data.split(' | ')[0])
     date_show = query.data.split(' | ')[1]
-    dict_of_shows = context.user_data['dict_of_shows']
-    dict_of_date_and_time = context.user_data['dict_of_date_and_time']
-
-    # Получение названия спектакля по ключу
-    # TODO придумать вариант проще без прохода по всему словарю, возможно
-    #  передавать вместе с callback_data
-    name_show = '---'
-    for key, item in dict_of_shows.items():
-        if item == key_of_name_show:
-            name_show = key
+    dict_of_shows: dict = context.user_data['dict_of_shows']
+    dict_of_name_show_flip = context.user_data['dict_of_name_show_flip']
+    name_show: str = dict_of_name_show_flip[key_of_name_show]
 
     keyboard = []
 
