@@ -693,8 +693,9 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
     key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-    chose_reserve_option = DICT_OF_OPTION_FOR_RESERVE.get(
+    chose_reserve_option = dict_of_option_for_reserve.get(
         key_option_for_reserve)
 
     row_in_googlesheet = query.data.split('|')[1].split()[2]
