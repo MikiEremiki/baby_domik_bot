@@ -1,5 +1,5 @@
-import datetime
 import logging
+import re
 
 from telegram.ext import (
     ContextTypes,
@@ -17,9 +17,9 @@ from telegram.error import BadRequest
 import googlesheets
 import utilites
 from settings import (
-    DICT_OF_OPTION_FOR_RESERVE,
     CHAT_ID_GROUP_ADMIN,
     COMMAND_DICT,
+    DICT_OF_EMOJI_FOR_BUTTON,
 )
 
 
