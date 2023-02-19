@@ -1,9 +1,13 @@
 import logging
+import datetime
 
 from telegram import Update, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 import googlesheets
+from settings import (
+    RANGE_NAME
+)
 
 
 def load_data():
