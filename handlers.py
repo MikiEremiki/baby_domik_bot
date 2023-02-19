@@ -225,8 +225,6 @@ async def choice_option_of_reserve(update: Update,
         )
         return 'TIME'
 
-    row_in_googlesheet = dict_of_date_and_time[key][date][time][1]
-
     availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
         row_in_googlesheet, 4)
 
