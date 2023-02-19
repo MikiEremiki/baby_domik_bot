@@ -68,33 +68,24 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     # Определение кнопок для inline клавиатуры
-    # TODO Заменить использование ключа на итератор
-    #  с проверкой по имени спектакля
     keyboard = []
     list_btn_of_numbers = []
-    date_now = datetime.datetime.now()
-    for key in dict_of_date_and_time.keys():
-        i = 0
-        for date in dict_of_date_and_time[key].keys():
-            date_tmp = date.split()[0] + f'.{date_now.year}'
-            date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y')
 
-            if date_tmp > date_now:
-                button_tmp = InlineKeyboardButton(
-                    text=str(key) + ' | ' + date,
-                    callback_data=str(key) + ' | ' + date
-                )
-                list_btn_of_numbers.append(button_tmp)
+    i = 0
+    for key, item in dict_of_date_show.items():
+        button_tmp = InlineKeyboardButton(
+            text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[item],
+            callback_data=str(item) + ' | ' + key
+        )
+        list_btn_of_numbers.append(button_tmp)
 
-                i += 1
-                # Три кнопки так как для телефонов уже дни недели обрезаются
-                if i % 3 == 0:
-                    i = 1
-                    keyboard.append(list_btn_of_numbers)
-                    list_btn_of_numbers = []
-
-        keyboard.append(list_btn_of_numbers)
-        list_btn_of_numbers = []
+        i += 1
+        # Две кнопки в строке так как для узких экранов телефонов дни недели
+        # обрезаются
+        if i % 2 == 0:
+            i = 0
+            keyboard.append(list_btn_of_numbers)
+            list_btn_of_numbers = []
 
     button_tmp = InlineKeyboardButton(
         "Отменить",
