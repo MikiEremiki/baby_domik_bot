@@ -309,7 +309,8 @@ async def check_and_send_buy_info(update: Update,
     time = context.user_data['time_of_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
-    chose_reserve_option = DICT_OF_OPTION_FOR_RESERVE.get(
+    dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
+    chose_reserve_option = dict_of_option_for_reserve.get(
         key_option_for_reserve)
     price = chose_reserve_option.get('price')
 
