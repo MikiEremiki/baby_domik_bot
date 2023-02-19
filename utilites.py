@@ -18,10 +18,10 @@ def load_data():
     data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['База спектаклей'])
     logging.info('Данные загружены')
 
-    dict_of_shows = {}
-    dict_of_name_show = {}
-    dict_of_name_show_flip = {}
-    dict_of_date_show = {}
+    dict_of_shows = {}  # Все спектакли со всеми данными
+    dict_of_name_show = {}  # key: str (название спектакля), item: int
+    dict_of_name_show_flip = {}  # key: int, item: str (название спектакля)
+    dict_of_date_show = {}  # key: str (дата спектакля), item: int (номер спектакля)
     j = 0
     for i, item in enumerate(data[1:]):
         i += 1
