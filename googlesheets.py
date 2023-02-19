@@ -24,11 +24,11 @@ def get_values(spreadsheet_id, range_name):
     return result.get('values', [])
 
 
-def data_show():
+def get_data_from_spreadsheet(sheet):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            RANGE_NAME['База спектаклей']
+            sheet
         )
 
         if not values:
