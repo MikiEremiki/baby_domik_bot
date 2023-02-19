@@ -168,6 +168,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = f'Вы выбрали:\n *{name}*\n' \
            '_Выберите удобное время\.\n' \
            '1 ребенок \= 1 место_'
+    # TODO Сделать функцию для добавления ко всем спецсимволам обратную косую
+    #  черту перед передачей текста в PTB, там где используется Markdown
     await query.message.edit_text(
         text=text,
         reply_markup=reply_markup,
