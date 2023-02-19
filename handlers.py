@@ -538,6 +538,16 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'PHONE'
 
     text = update.effective_message.text
+    text = re.sub(r'[-\s)(+]', '', text)
+    text = re.sub(r'^[78]{,2}(?=9)', '', text)
+
+    if len(text) != 10 or text[0] != '9':
+        await update.effective_chat.send_message(
+            text=f'Возможно вы ошиблись, вы указали {text} \n'
+                 'Напишите ваш номер телефона еще раз пожалуйста\n'
+                 'Идеальный пример из 10 цифр: 9991234455'
+        )
+        return 'PHONE'
 
     context.user_data['client_data']['phone'] = text
 
