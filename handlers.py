@@ -228,11 +228,12 @@ async def choice_option_of_reserve(update: Update,
     availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
         row_in_googlesheet, 4)
 
+    dict_of_option_for_reserve = utilites.load_option_buy_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
-    for key, item in DICT_OF_OPTION_FOR_RESERVE.items():
-        quality_of_children = DICT_OF_OPTION_FOR_RESERVE[key].get(
+    for key, item in dict_of_option_for_reserve.items():
+        quality_of_children = dict_of_option_for_reserve[key].get(
             'quality_of_children')
 
         # Если свободных мест меньше, чем требуется для варианта
