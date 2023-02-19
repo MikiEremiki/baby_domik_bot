@@ -60,7 +60,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.effective_chat.send_message(
             'К сожалению я сегодня на техническом обслуживании\n'
-            'Но вы можете забронировать по старинке в ЛС telegram или по '
+            'Но вы можете забронировать место по старинке в ЛС telegram или по '
             'телефону:\n'
             'Татьяна Бурганова @Tanya_domik +79159383529'
         )
@@ -432,6 +432,7 @@ async def check_and_send_buy_info(update: Update,
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
     
     К оплате {price} руб
+
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
     
 ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
@@ -529,7 +530,7 @@ async def get_name_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['client_data']['name_adult'] = text
 
     await update.effective_chat.send_message(
-        text='Напишите ваш номер телефона с +7'
+        text='Напишите ваш номер телефона'
     )
 
     return 'PHONE'
