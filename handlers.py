@@ -283,8 +283,8 @@ _Если нет желаемых вариантов для выбора, зна
     )
 
     context.user_data['time_of_show'] = time
-
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
+    context.bot_data['dict_of_option_for_reserve'] = dict_of_option_for_reserve
 
     return 'ORDER'
 
