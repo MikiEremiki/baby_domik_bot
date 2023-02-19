@@ -257,8 +257,15 @@ async def choice_option_of_reserve(update: Update,
 
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
-    for key, item in DICT_OF_OPTION_FOR_RESERVE.items():
-        text += f'*{key}* \| {item.get("name")} \| {item.get("price")}руб\n'
+    for key, item in dict_of_option_for_reserve.items():
+        name = item.get("name")
+        name = name.replace('+', '\+')
+        name = name.replace('.', '\.')
+        name = name.replace('-', '\-')
+        name = name.replace('(', '\(')
+        name = name.replace(')', '\)')
+        text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
+                f'{item.get("price")} руб\n'
         if item.get('name') == 'Индивидуальный запрос':
             text += """\_\_\_\_\_\_\_\_\_\_
 Варианты со скидками:\n"""
