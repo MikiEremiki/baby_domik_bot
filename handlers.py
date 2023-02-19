@@ -161,13 +161,17 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    name = name_show.replace('.', '\.')
+    name = name.replace('-', '\-')
+    name = name.replace('+', '\+')
     # Отправка сообщения пользователю
-    text = f'Вы выбрали:\n {name_show}\n' \
-           'Выберите удобное время.\n' \
-           '1 ребенок = 1 место'
+    text = f'Вы выбрали:\n *{name}*\n' \
+           '_Выберите удобное время\.\n' \
+           '1 ребенок \= 1 место_'
     await query.message.edit_text(
         text=text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN_V2
     )
 
     context.user_data['key_of_name_show'] = key_of_name_show
