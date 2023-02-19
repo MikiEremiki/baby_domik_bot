@@ -210,12 +210,10 @@ async def choice_option_of_reserve(update: Update,
     ))
     context.user_data["STATE"] = 'TIME'
 
-    key = context.user_data['key_of_name_show']
-    date = context.user_data['date_show']
-    dict_of_date_and_time = context.user_data['dict_of_date_and_time']
-    time = query.data
+    time = query.data.split(' | ')[0]
+    row_in_googlesheet = query.data.split(' | ')[1].split()[0]
+    number = query.data.split(' | ')[1].split()[1]
 
-    number = dict_of_date_and_time[key][date][time][0][1]
     if number == 0:
         answer = await update.effective_chat.send_message(
             'Выберете другое время')
