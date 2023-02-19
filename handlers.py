@@ -96,8 +96,8 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль и дату\n'
-    for key, item in dict_of_shows.items():
-        text += f'{item} | {key}\n'
+    for key, item in dict_of_name_show.items():
+        text += f'{DICT_OF_EMOJI_FOR_BUTTON[item]} {key}\n'
     answer = await update.message.reply_text(text, reply_markup=reply_markup)
 
     context.user_data['user'] = update.message.from_user
