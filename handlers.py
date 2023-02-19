@@ -569,6 +569,27 @@ async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'CHILDREN'
 
     text = update.effective_message.text
+
+    # Проверка корректности ввода
+    count = text.count('\n')
+    result = re.findall(r'(\w+ \d+(?:[.,]\d+){0,2})+', text)
+
+    if len(result) < count + 1:
+        logging.info('Не верный формат текста')
+        await update.effective_chat.send_message(
+            text="""Проверьте, что указали год или возраст правильно
+Формат записи:
+Имя ДД.ММ.ГГГГ
+__________
+Если вы не хотите указывать дату рождения, то напишите просто возраст: 
+Имя 0.0
+
+Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)"""
+        )
+        return 'CHILDREN'
+
+    logging.info('Проверка пройдена успешно')
+    
     list_message_text = []
     if '\n' in text:
         message_text = text.split('\n')
