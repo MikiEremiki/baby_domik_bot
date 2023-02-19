@@ -11,30 +11,62 @@ def load_data():
 
     :return:
     """
-    dict_of_shows = {}  # type: ignore
-    dict_of_date_and_time = {}
-    data = googlesheets.data_show()
-    logging.info(f"Данные загружены")
+    data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['База спектаклей'])
+    logging.info('Данные загружены')
 
-    # TODO Сделать общий словарь по принципу:
-    #  один ключ - одна строка в гугл-таблице
-    n = 1
+    dict_of_shows = {}
+    dict_of_name_show = {}
+    dict_of_name_show_flip = {}
+    dict_of_date_show = {}
+    j = 0
     for i, item in enumerate(data[1:]):
-        if item[0] not in dict_of_shows.keys():
-            dict_of_shows[item[0]] = n
-            dict_of_date_and_time[dict_of_shows[item[0]]] = {}
-            n += 1
-        if item[1] not in dict_of_date_and_time[dict_of_shows[item[0]]].keys():
-            dict_of_date_and_time[dict_of_shows[item[0]]][item[1]] = {}
-        if item[2] not in dict_of_date_and_time[dict_of_shows[item[0]]][item[1]].keys():
-            dict_of_date_and_time[dict_of_shows[item[0]]][item[1]][item[2]] = {}
-        dict_of_date_and_time[dict_of_shows[item[0]]][item[1]][item[2]] = [
-            [int(item[3]),
-             int(item[4]),
-             int(item[5])],
-            i + 2
-        ]
-    return dict_of_shows, dict_of_date_and_time
+        i += 1
+        dict_of_shows[i + 1] = {
+            'name_of_show': item[0],
+            'date': item[1],
+            'time': item[2],
+            'total_children_seats': item[3],
+            'available_children_seats': item[4],
+            'non_confirm_children_seats': item[5],
+            'total_adult_seats': item[6],
+            'available_adult_seats': item[7],
+            'non_confirm_adult_seats': item[8],
+        }
+
+        if item[0] not in dict_of_name_show:
+            j += 1
+            dict_of_name_show.setdefault(item[0], j)
+            dict_of_name_show_flip.setdefault(j, item[0])
+
+        date_now = datetime.datetime.now()
+        date_tmp = item[1].split()[0] + f'.{date_now.year}'
+        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y')
+        if date_tmp > date_now and item[1] not in dict_of_date_show:
+            dict_of_date_show.setdefault(item[1], dict_of_name_show[item[0]])
+
+    return (
+        dict_of_shows,
+        dict_of_name_show,
+        dict_of_name_show_flip,
+        dict_of_date_show,
+    )
+
+
+def load_option_buy_data():
+    dict_of_option_for_reserve = {}
+    data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['Варианты стоимости'])
+    logging.info("Данные стоимости броней загружены")
+
+    for item in data[1:]:
+        dict_of_option_for_reserve[int(item[0])] = {
+            'name': item[1],
+            'price': int(item[2]),
+            'quality_of_children': int(item[3]),
+            'quality_of_adult': int(item[4]),
+            'flag_individual': bool(int(item[5])),
+        }
+
+    return dict_of_option_for_reserve
 
 
 def add_btn_back_and_cancel():

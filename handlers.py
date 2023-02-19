@@ -48,7 +48,12 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Загрузка базы спектаклей из гугл-таблицы
     try:
-        dict_of_shows, dict_of_date_and_time = utilites.load_data()
+        (
+            dict_of_shows,
+            dict_of_name_show,
+            dict_of_name_show_flip,
+            dict_of_date_show
+         ) = utilites.load_data()
     except ConnectionError or ValueError:
         logging.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
