@@ -589,7 +589,7 @@ __________
         return 'CHILDREN'
 
     logging.info('Проверка пройдена успешно')
-    
+
     list_message_text = []
     if '\n' in text:
         message_text = text.split('\n')
