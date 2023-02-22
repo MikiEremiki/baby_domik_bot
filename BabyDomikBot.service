@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/home/BabyDomikBot
-ExecStart=/home/user/BabyDomikBot/venv/bin/python -m bot
+ExecStart=/home/BabyDomikBot/venv/bin/python -m bot
 KillMode=process
 Restart=always
 RestartSec=10
