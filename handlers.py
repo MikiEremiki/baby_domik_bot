@@ -99,7 +99,10 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = 'Выберите спектакль и дату\n'
     for key, item in dict_of_name_show.items():
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[item]} {key}\n'
-    answer = await update.message.reply_text(text, reply_markup=reply_markup)
+    answer = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
 
     context.user_data['user'] = update.message.from_user
     context.user_data['message_id'] = answer.message_id
@@ -631,7 +634,8 @@ __________
         context.user_data['chose_reserve_option']
     )
 
-    text = ' '.join([
+    text = '\n'.join([
+        context.user_data['text_for_notification_massage'],
         context.user_data['client_data']['name_adult'],
         context.user_data['client_data']['phone'],
         text,
