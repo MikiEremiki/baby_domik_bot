@@ -45,7 +45,10 @@ def bot():
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'], hl.start))
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler(COMMAND_DICT['RESERVE'], hl.choice_show)],
+        entry_points=[
+            CommandHandler(COMMAND_DICT['RESERVE'], hl.choice_show),
+            CommandHandler(COMMAND_DICT['LIST'], hl.choice_show),
+        ],
         states={
             'DATE': [
                 CallbackQueryHandler(hl.cancel, pattern='^Отменить$'),
@@ -76,6 +79,9 @@ def bot():
             ],
             'CHILDREN': [
                 MessageHandler(filters.TEXT, hl.get_name_children),
+            ],
+            'LIST': [
+              CallbackQueryHandler(hl.send_clients_data)
             ],
             ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },

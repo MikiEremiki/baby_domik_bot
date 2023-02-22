@@ -1,4 +1,5 @@
 import logging
+import pprint
 import re
 
 from telegram.ext import (
@@ -963,3 +964,33 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)
+
+
+async def send_clients_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    name = context.user_data['name_show']
+    date = context.user_data['date_show']
+    time = query.data.split(' | ')[0]
+
+    clients_data = utilites.load_clients_data(name, date, time)
+    text = f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
+    text += str(len(clients_data))
+    for i, item1 in enumerate(clients_data):
+        text += '\n__________\n'
+        text += str(i + 1) + '| '
+        text += item1[1]
+        text += '\n+7' + item1[2]
+        text += '\nИмя ребенка: '
+        text += item1[3] + ' '
+        text += '\nВозраст: '
+        text += item1[5] + ' '
+        text += '\nДата записи на спектакль:\n'
+        text += item1[9][:-10] + ' '
+        text += '\nСпособ брони:\n'
+        text += item1[10] + ' '
+    await query.edit_message_text(
+        text=text
+    )
+    return ConversationHandler.END
