@@ -168,10 +168,21 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = name_show.replace('.', '\.')
     name = name.replace('-', '\-')
     name = name.replace('+', '\+')
-    # Отправка сообщения пользователю
-    text = f'Вы выбрали:\n *{name}*\n' \
-           '_Выберите удобное время\.\n' \
-           '1 ребенок \= 1 место_'
+    date = date_show.replace('.', '\.')
+    date = date.replace('-', '\-')
+    date = date.replace('+', '\+')
+    date = date.replace('(', '\(')
+    date = date.replace(')', '\)')
+
+    if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
+        # Отправка сообщения в админский чат
+        text = f'Вы выбрали:\n *{name} {date}*\n' \
+               'Выберите время\.\n'
+    else:
+        # Отправка сообщения пользователю
+        text = f'Вы выбрали:\n *{name}*\n' \
+               '_Выберите удобное время\.\n' \
+               '1 ребенок \= 1 место_'
     # TODO Сделать функцию для добавления ко всем спецсимволам обратную косую
     #  черту перед передачей текста в PTB, там где используется Markdown
     await query.message.edit_text(
@@ -188,7 +199,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['text_time'] = text
     context.user_data['keyboard_time'] = reply_markup
 
-    return 'TIME'
+    if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
+        return 'LIST'
+    else:
+        return 'TIME'
 
 
 async def choice_option_of_reserve(update: Update,
