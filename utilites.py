@@ -73,6 +73,21 @@ def load_option_buy_data():
     return dict_of_option_for_reserve
 
 
+def load_clients_data(name, date, time):
+    data_clients_data = []
+    data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['База клиентов_'])
+
+    for item in data[1:]:
+        if (
+            item[6] == name and
+            item[7] == date and
+            item[8] == time
+        ):
+            data_clients_data.append(item)
+
+    return data_clients_data
+
+
 def add_btn_back_and_cancel():
     """
 
