@@ -33,15 +33,16 @@ logging.basicConfig(
 
 
 def bot():
-    application = Application.builder().token(API_TOKEN)
+    application = (
+        Application.builder()
+        .token(API_TOKEN)
 
-    # Для решения проблемы ошибки telegram.error.NetworkError:
-    # httpx.LocalProtocolError: Invalid input ConnectionInputs.SEND_HEADERS
-    # in state ConnectionState.CLOSED используем вместо h2 -> h1.1
-    application = application.http_version('1.1')
-    application = application.get_updates_http_version('1.1')
+        # Для решения ошибки NetworkError, используем вместо h2 -> h1.1
+        .http_version('1.1')
+        .get_updates_http_version('1.1')
 
-    application = application.build()
+        .build()
+    )
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0], hl.start))
     conv_handler = ConversationHandler(
