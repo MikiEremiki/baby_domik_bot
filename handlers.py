@@ -704,57 +704,69 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
-    key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-    chose_reserve_option = dict_of_option_for_reserve.get(
-        key_option_for_reserve)
-
-    row_in_googlesheet = query.data.split('|')[1].split()[2]
-
-    nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
-        row_in_googlesheet, 5)
-
-    new_nonconfirm_number_of_seats = int(
-        nonconfirm_number_of_seats_now) - int(
-        chose_reserve_option.get('quality_of_children'))
-    googlesheets.confirm(
-        row_in_googlesheet,
-        [new_nonconfirm_number_of_seats]
-    )
-
-    text_query_split = query.message.text.split('\n')[0]
-    user_info = text_query_split[text_query_split.find(' ') + 1:]
-
-    logging.info(": ".join(
-        [
-            'Для пользователя',
-            f'{user_info}',
-            'Номер строки для обновления',
-            row_in_googlesheet,
-        ]
-    ))
-
-    await query.edit_message_text(
-        text=f'Пользователю {user_info} подтверждена бронь'
-    )
-
-    chat_id = query.data.split('|')[1].split()[0]
-    message_id = query.data.split('|')[1].split()[1]
-    text = 'Ваша бронь подтверждена\nЖдем вас на спектакле.'
-    await context.bot.send_message(
-        text=text,
-        chat_id=chat_id,
-    )
-    # Сообщение уже было удалено самим пользователем
+    # Способ защиты от многократного нажатия
     try:
-        await context.bot.delete_message(
+        await query.edit_message_reply_markup()
+
+        dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
+        key_option_for_reserve = int(query.data.split('|')[1].split()[3])
+        chose_reserve_option = dict_of_option_for_reserve.get(
+            key_option_for_reserve)
+
+        row_in_googlesheet = query.data.split('|')[1].split()[2]
+
+        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 5)
+
+        new_nonconfirm_number_of_seats = int(
+            nonconfirm_number_of_seats_now) - int(
+            chose_reserve_option.get('quality_of_children'))
+        googlesheets.confirm(
+            row_in_googlesheet,
+            [new_nonconfirm_number_of_seats]
+        )
+
+        text_query_split = query.message.text.split('\n')[0]
+        user_info = text_query_split[text_query_split.find(' ') + 1:]
+
+        logging.info(": ".join(
+            [
+                'Для пользователя',
+                f'{user_info}',
+                'Номер строки для обновления',
+                row_in_googlesheet,
+            ]
+        ))
+
+        await query.edit_message_text(
+            text=f'Пользователю {user_info} подтверждена бронь'
+        )
+
+        chat_id = query.data.split('|')[1].split()[0]
+        message_id = query.data.split('|')[1].split()[1]
+        text = 'Ваша бронь подтверждена\nЖдем вас на спектакле.'
+        await context.bot.send_message(
+            text=text,
             chat_id=chat_id,
-            message_id=message_id
         )
+        # Сообщение уже было удалено самим пользователем
+        try:
+            await context.bot.delete_message(
+                chat_id=chat_id,
+                message_id=message_id
+            )
+        except BadRequest:
+            logging.info(
+                f'Cообщение уже удалено'
+            )
     except BadRequest:
-        logging.info(
-            f'Cообщение уже удалено'
-        )
+        logging.info(": ".join(
+            [
+                'Пользователь',
+                f'{update.effective_user.full_name}',
+                'Пытается спамить',
+            ]
+        ))
 
 
 async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -765,65 +777,77 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
-    key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-    chose_reserve_option = dict_of_option_for_reserve.get(
-        key_option_for_reserve)
-
-    # Номер строки для извлечения актуального числа доступных мест
-    row_in_googlesheet = query.data.split('|')[1].split()[2]
-
-    # Обновляем кол-во доступных мест
-    availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
-        row_in_googlesheet, 4)
-    nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
-        row_in_googlesheet, 5)
-
-    old_number_of_seats = int(
-        availibale_number_of_seats_now) + int(
-        chose_reserve_option.get('quality_of_children'))
-    old_nonconfirm_number_of_seats = int(
-        nonconfirm_number_of_seats_now) - int(
-        chose_reserve_option.get('quality_of_children'))
-    googlesheets.confirm(
-        row_in_googlesheet,
-        [old_number_of_seats, old_nonconfirm_number_of_seats]
-    )
-
-    text_query_split = query.message.text.split('\n')[0]
-    user_info = text_query_split[text_query_split.find(' ') + 1:]
-    await query.edit_message_text(
-        text=f'Пользователю {user_info} отклонена бронь'
-    )
-
-    chat_id = query.data.split('|')[1].split()[0]
-    message_id = query.data.split('|')[1].split()[1]
-    await context.bot.send_message(
-        text='Ваша бронь отклонена.\n'
-             'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n'
-             'Татьяна Бурганова @Tanya_domik +79159383529',
-        chat_id=chat_id,
-    )
-
-    # Сообщение уже было удалено самим пользователем
+    # Способ защиты от многократного нажатия
     try:
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id
-        )
-    except BadRequest:
-        logging.info(
-            f'Cообщение {message_id}, которое должно быть удалено'
+        await query.edit_message_reply_markup()
+
+        dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
+        key_option_for_reserve = int(query.data.split('|')[1].split()[3])
+        chose_reserve_option = dict_of_option_for_reserve.get(
+            key_option_for_reserve)
+
+        # Номер строки для извлечения актуального числа доступных мест
+        row_in_googlesheet = query.data.split('|')[1].split()[2]
+
+        # Обновляем кол-во доступных мест
+        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 4)
+        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+            row_in_googlesheet, 5)
+
+        old_number_of_seats = int(
+            availibale_number_of_seats_now) + int(
+            chose_reserve_option.get('quality_of_children'))
+        old_nonconfirm_number_of_seats = int(
+            nonconfirm_number_of_seats_now) - int(
+            chose_reserve_option.get('quality_of_children'))
+        googlesheets.confirm(
+            row_in_googlesheet,
+            [old_number_of_seats, old_nonconfirm_number_of_seats]
         )
 
-    logging.info(": ".join(
-        [
-            'Для пользователя',
-            f'{user_info}',
-            'Номер строки, которая должна быть обновлена',
-            row_in_googlesheet,
-        ]
-    ))
+        text_query_split = query.message.text.split('\n')[0]
+        user_info = text_query_split[text_query_split.find(' ') + 1:]
+        await query.edit_message_text(
+            text=f'Пользователю {user_info} отклонена бронь'
+        )
+
+        chat_id = query.data.split('|')[1].split()[0]
+        message_id = query.data.split('|')[1].split()[1]
+        await context.bot.send_message(
+            text='Ваша бронь отклонена.\n'
+                 'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n'
+                 'Татьяна Бурганова @Tanya_domik +79159383529',
+            chat_id=chat_id,
+        )
+
+        # Сообщение уже было удалено самим пользователем
+        try:
+            await context.bot.delete_message(
+                chat_id=chat_id,
+                message_id=message_id
+            )
+        except BadRequest:
+            logging.info(
+                f'Cообщение {message_id}, которое должно быть удалено'
+            )
+
+        logging.info(": ".join(
+            [
+                'Для пользователя',
+                f'{user_info}',
+                'Номер строки, которая должна быть обновлена',
+                row_in_googlesheet,
+            ]
+        ))
+    except BadRequest:
+        logging.info(": ".join(
+            [
+                'Пользователь',
+                f'{update.effective_user.full_name}',
+                'Пытается спамить',
+            ]
+        ))
 
 
 async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
