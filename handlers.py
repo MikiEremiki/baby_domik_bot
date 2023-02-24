@@ -1,5 +1,4 @@
 import logging
-import pprint
 import re
 
 from telegram.ext import (
