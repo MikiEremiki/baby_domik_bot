@@ -1,12 +1,22 @@
 import logging
 import datetime
 
-from telegram import Update, InlineKeyboardButton
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    BotCommand,
+    BotCommandScopeChat,
+    BotCommandScopeChatAdministrators,
+)
 from telegram.ext import ContextTypes
+from telegram.error import BadRequest
 
 import googlesheets
 from settings import (
-    RANGE_NAME
+    RANGE_NAME,
+    COMMAND_DICT,
+    ADMIN_GROUP_ID,
+    ADMIN_CHAT_ID,
 )
 
 
@@ -126,3 +136,36 @@ async def delete_message_for_job_in_callback(context: ContextTypes.DEFAULT_TYPE)
         chat_id=context.job.chat_id,
         message_id=context.job.data
     )
+
+
+def replace_markdown_v2(text: str) -> str:
+    for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-',
+                 '=', '|', '{', '}', '.', '!']:
+        formatted_text = text.replace(char, '\\' + char)
+    return formatted_text
+
+
+async def set_menu(bot):
+    group_commands = [
+        BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
+        BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
+    ]
+
+    for chat_id in ADMIN_GROUP_ID:
+        try:
+            await bot.set_my_commands(
+                commands=group_commands,
+                scope=BotCommandScopeChatAdministrators(chat_id=chat_id)
+            )
+        except BadRequest:
+            continue
+    for chat_id in ADMIN_CHAT_ID:
+        try:
+            await bot.set_my_commands(
+                commands=group_commands,
+                scope=BotCommandScopeChat(chat_id=chat_id)
+            )
+        except BadRequest:
+            continue
+
+    return bot
