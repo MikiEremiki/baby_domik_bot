@@ -43,11 +43,11 @@ def bot():
 
     application = application.build()
 
-    application.add_handler(CommandHandler(COMMAND_DICT['START'], hl.start))
+    application.add_handler(CommandHandler(COMMAND_DICT['START'][0], hl.start))
     conv_handler = ConversationHandler(
         entry_points=[
-            CommandHandler(COMMAND_DICT['RESERVE'], hl.choice_show),
-            CommandHandler(COMMAND_DICT['LIST'], hl.choice_show),
+            CommandHandler(COMMAND_DICT['RESERVE'][0], hl.choice_show),
+            CommandHandler(COMMAND_DICT['LIST'][0], hl.choice_show),
         ],
         states={
             'DATE': [

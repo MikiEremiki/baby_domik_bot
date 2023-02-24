@@ -31,7 +31,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
-             f'/{COMMAND_DICT["RESERVE"]}, чтобы выбрать спектакль.'
+             f'/{COMMAND_DICT["RESERVE"][0]}, чтобы выбрать спектакль.'
     )
 
 
@@ -691,7 +691,7 @@ __________
 Татьяна Бурганова @Tanya_domik +79159383529
 __________
 Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
-"RESERVE"]}"""
+"RESERVE"][0]}"""
     answer = await update.effective_chat.send_message(
         text=text
     )
@@ -883,7 +883,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(
         text='Вы выбрали отмену, для повтора используйте команду '
-             f'/{COMMAND_DICT["RESERVE"]}'
+             f'/{COMMAND_DICT["RESERVE"][0]}'
     )
 
     if '|' in query.data:
