@@ -168,14 +168,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    name = name_show.replace('.', '\.')
-    name = name.replace('-', '\-')
-    name = name.replace('+', '\+')
-    date = date_show.replace('.', '\.')
-    date = date.replace('-', '\-')
-    date = date.replace('+', '\+')
-    date = date.replace('(', '\(')
-    date = date.replace(')', '\)')
+    name = utilites.replace_markdown_v2(name_show)
+    date = utilites.replace_markdown_v2(date_show)
 
     if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
         # Отправка сообщения в админский чат
@@ -280,17 +274,14 @@ async def choice_option_of_reserve(update: Update,
     text = 'Выберите подходящий вариант бронирования:\n'
     for key, item in dict_of_option_for_reserve.items():
         name = item.get("name")
-        name = name.replace('+', '\+')
-        name = name.replace('.', '\.')
-        name = name.replace('-', '\-')
-        name = name.replace('(', '\(')
-        name = name.replace(')', '\)')
+        name = utilites.replace_markdown_v2(name)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
                 f'{item.get("price")} руб\n'
         if item.get('name') == 'Индивидуальный запрос':
-            text += """\_\_\_\_\_\_\_\_\_\_
+            text += """__________
 Варианты со скидками:\n"""
-    text += """\_\_\_\_\_\_\_\_\_\_
+            text = utilites.replace_markdown_v2(text)
+    text += """__________
 _Если вы хотите оформить несколько билетов, то каждая бронь оформляется отдельно\._
 \_\_\_\_\_\_\_\_\_\_
 _Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления\. 
