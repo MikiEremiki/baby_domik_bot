@@ -139,10 +139,26 @@ async def delete_message_for_job_in_callback(context: ContextTypes.DEFAULT_TYPE)
 
 
 def replace_markdown_v2(text: str) -> str:
-    for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-',
-                 '=', '|', '{', '}', '.', '!']:
-        formatted_text = text.replace(char, '\\' + char)
-    return formatted_text
+    text = text.replace('_', '\_')
+    text = text.replace('*', '\*')
+    text = text.replace('[', '\[')
+    text = text.replace(']', '\]')
+    text = text.replace('(', '\(')
+    text = text.replace(')', '\)')
+    text = text.replace('~', '\~')
+    text = text.replace('`', '\`')
+    text = text.replace('>', '\>')
+    text = text.replace('#', '\#')
+    text = text.replace('+', '\+')
+    text = text.replace('-', '\-')
+    text = text.replace('=', '\=')
+    text = text.replace('|', '\|')
+    text = text.replace('{', '\{')
+    text = text.replace('}', '\}')
+    text = text.replace('.', '\.')
+    text = text.replace('!', '\!')
+
+    return text
 
 
 async def set_menu(bot):
