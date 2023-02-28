@@ -85,7 +85,17 @@ def load_option_buy_data():
 
 def load_clients_data(name, date, time):
     data_clients_data = []
-    data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['База клиентов_'])
+    first_colum = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['База клиентов']
+    )
+    first_row = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['База клиентов__']
+    )
+    sheet = (
+        RANGE_NAME['База клиентов_'] +
+        f'!R1C1:R{len(first_colum)}C{len(first_row[0])}'
+    )
+    data = googlesheets.get_data_from_spreadsheet(sheet)
 
     for item in data[1:]:
         if (
