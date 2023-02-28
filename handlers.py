@@ -59,6 +59,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dict_of_date_show
          ) = utilites.load_data()
     except ConnectionError or ValueError:
+        logging.info(f'Для пользователя {context.user_data["user"]}')
         logging.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
@@ -342,6 +343,7 @@ async def check_and_send_buy_info(update: Update,
             text=text
         )
 
+        logging.info(f'Для пользователя {context.user_data["user"]}')
         logging.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
         context.user_data.clear()
@@ -689,6 +691,7 @@ __________
     )
     await update.effective_chat.pin_message(answer.message_id)
 
+    logging.info(f'Для пользователя {context.user_data["user"]}')
     logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
@@ -932,6 +935,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [old_number_of_seats, old_nonconfirm_number_of_seats]
         )
 
+    logging.info(f'Для пользователя {context.user_data["user"]}')
     logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
@@ -992,6 +996,7 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
             'AFK уже 15 мин'
         ]
     ))
+    logging.info(f'Для пользователя {context.user_data["user"]}')
     logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     return ConversationHandler.END

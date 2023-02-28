@@ -17,6 +17,7 @@ from settings import (
     COMMAND_DICT,
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
+    ADMIN_ID,
 )
 
 
@@ -195,3 +196,14 @@ async def set_menu(bot):
             continue
 
     return bot
+
+
+async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id in ADMIN_ID:
+        try:
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document='log.txt'
+            )
+        except FileExistsError:
+            logging.info('Файл логов не найден')

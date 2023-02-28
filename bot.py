@@ -13,7 +13,7 @@ from warnings import filterwarnings
 from telegram.warnings import PTBUserWarning
 
 import handlers as hl
-from utilites import echo
+from utilites import echo, send_log
 from settings import (
     API_TOKEN,
     COMMAND_DICT,
@@ -27,8 +27,10 @@ filterwarnings(
 )
 
 logging.basicConfig(
+    filename='log.txt',
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    encoding='utf-8'
 )
 
 
@@ -95,6 +97,7 @@ def bot():
     application.add_handler(CallbackQueryHandler(hl.reject, pattern='^Отклонить'))
 
     application.add_handler(CommandHandler('echo', echo))
+    application.add_handler(CommandHandler('log', send_log))
 
     application.run_polling()
 
