@@ -84,7 +84,9 @@ def bot():
                 MessageHandler(filters.TEXT, hl.get_name_children),
             ],
             'LIST': [
-              CallbackQueryHandler(hl.send_clients_data)
+                CallbackQueryHandler(hl.cancel, pattern='^Отменить$'),
+                CallbackQueryHandler(hl.back_date, pattern='^Назад$'),
+                CallbackQueryHandler(hl.send_clients_data),
             ],
             ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },
