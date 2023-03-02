@@ -73,6 +73,8 @@ def load_option_buy_data():
     logging.info("Данные стоимости броней загружены")
 
     for item in data[1:]:
+        if len(item) == 0:
+            break
         dict_of_option_for_reserve[int(item[0])] = {
             'name': item[1],
             'price': int(item[2]),
