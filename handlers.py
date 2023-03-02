@@ -1015,14 +1015,15 @@ async def send_clients_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += str(i + 1) + '| '
         text += item1[1]
         text += '\n+7' + item1[2]
-        text += '\nИмя ребенка: '
-        text += item1[3] + ' '
-        text += '\nВозраст: '
-        text += item1[5] + ' '
-        text += '\nДата записи на спектакль:\n'
-        text += item1[9][:-10] + ' '
-        text += '\nСпособ брони:\n'
-        text += item1[10] + ' '
+        if item1[3] != '':
+            text += '\nИмя ребенка: '
+            text += item1[3] + ' '
+        if item1[5] != '':
+            text += '\nВозраст: '
+            text += item1[5] + ' '
+        if item1[10] != '':
+            text += '\nСпособ брони:\n'
+            text += item1[10] + ' '
     await query.edit_message_text(
         text=text
     )
