@@ -45,7 +45,23 @@ def load_data() -> Tuple[
 
     :return: dict, dict, dict, dict
     """
-    data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['База спектаклей'])
+    data_of_dates = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_дата']
+    )
+
+    # Исключаем из загрузки в data спектакли, у которых дата уже прошла
+    first_row = 0
+    date_now = datetime.datetime.now().date()
+    for i, item in enumerate(data_of_dates[1:]):
+        date_tmp = item[0].split()[0] + f'.{date_now.year}'
+        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+        if date_tmp >= date_now:
+            first_row = i
+            break
+
+    data = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_'] + f'A{first_row}:I'
+    )
     logging.info('Данные загружены')
 
     dict_of_shows = {}
@@ -53,7 +69,7 @@ def load_data() -> Tuple[
     dict_of_name_show_flip = {}
     dict_of_date_show = {}
     j = 0
-    for i, item in enumerate(data[1:]):
+    for i, item in enumerate(data):
         i += 1
         dict_of_shows[i + 1] = {
             'name_of_show': item[0],
