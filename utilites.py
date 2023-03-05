@@ -1,7 +1,14 @@
 import logging
 import datetime
+from typing import (
+    Tuple,
+    Dict,
+    Any,
+    List
+)
 
 from telegram import (
+    Bot,
     Update,
     InlineKeyboardButton,
     BotCommand,
@@ -21,18 +28,30 @@ from settings import (
 )
 
 
-def load_data():
+def load_data() -> Tuple[
+                    Dict[str, str],
+                    Dict[str, int],
+                    Dict[int, str],
+                    Dict[str, str]
+]:
     """
+    Возвращает 4 словаря из гугл-таблицы с листа "База спектаклей"
+    Проводит фильтрацию по дате, все прошедшие даты исключаются из выборки
 
-    :return:
+    dict_of_shows -> Все спектакли со всеми данными
+    dict_of_name_show -> key: str (название спектакля), item: int
+    dict_of_name_show_flip -> key: int, item: str (название спектакля)
+    dict_of_date_show -> key: str (дата спектакля), item: int (номер спектакля)
+
+    :return: dict, dict, dict, dict
     """
     data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['База спектаклей'])
     logging.info('Данные загружены')
 
-    dict_of_shows = {}  # Все спектакли со всеми данными
-    dict_of_name_show = {}  # key: str (название спектакля), item: int
-    dict_of_name_show_flip = {}  # key: int, item: str (название спектакля)
-    dict_of_date_show = {}  # key: str (дата спектакля), item: int (номер спектакля)
+    dict_of_shows = {}
+    dict_of_name_show = {}
+    dict_of_name_show_flip = {}
+    dict_of_date_show = {}
     j = 0
     for i, item in enumerate(data[1:]):
         i += 1
@@ -68,7 +87,7 @@ def load_data():
     )
 
 
-def load_option_buy_data():
+def load_option_buy_data() -> Dict[str, Any]:
     dict_of_option_for_reserve = {}
     data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['Варианты стоимости'])
     logging.info("Данные стоимости броней загружены")
@@ -87,7 +106,7 @@ def load_option_buy_data():
     return dict_of_option_for_reserve
 
 
-def load_clients_data(name, date, time):
+def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
     data_clients_data = []
     first_colum = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['База клиентов']
@@ -112,7 +131,7 @@ def load_clients_data(name, date, time):
     return data_clients_data
 
 
-def add_btn_back_and_cancel():
+def add_btn_back_and_cancel() -> List[object]:
     """
 
     :return: List
@@ -128,7 +147,7 @@ def add_btn_back_and_cancel():
     return [button_back, button_cancel]
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logging.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
@@ -145,7 +164,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def delete_message_for_job_in_callback(context: ContextTypes.DEFAULT_TYPE):
+async def delete_message_for_job_in_callback(
+        context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.delete_message(
         chat_id=context.job.chat_id,
         message_id=context.job.data
@@ -175,7 +195,7 @@ def replace_markdown_v2(text: str) -> str:
     return text
 
 
-async def set_menu(bot):
+async def set_menu(bot: Bot) -> Bot:
     group_commands = [
         BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
         BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
@@ -202,7 +222,7 @@ async def set_menu(bot):
     return bot
 
 
-async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat.id in ADMIN_ID:
         try:
             await context.bot.send_document(
