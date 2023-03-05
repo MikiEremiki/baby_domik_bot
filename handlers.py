@@ -91,6 +91,8 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             i = 0
             keyboard.append(list_btn_of_numbers)
             list_btn_of_numbers = []
+    if len(list_btn_of_numbers):
+        keyboard.append(list_btn_of_numbers)
 
     button_tmp = InlineKeyboardButton(
         "Отменить",
@@ -265,7 +267,8 @@ async def choice_option_of_reserve(update: Update,
             if key % 5 == 0:
                 keyboard.append(list_btn_of_numbers)
                 list_btn_of_numbers = []
-    keyboard.append(list_btn_of_numbers)
+    if len(list_btn_of_numbers):
+        keyboard.append(list_btn_of_numbers)
 
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
