@@ -57,7 +57,7 @@ def update_quality_of_seats(row, i):
         print(err)
 
 
-def confirm(row, numbers):
+def confirm(row: int, numbers: int) -> None:
     try:
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'RAW'
@@ -98,7 +98,7 @@ def write_client(
         client: dict,
         row_in_data_show: str,
         dict_reserve_option: dict
-):
+) -> None:
     try:
         values_column = get_values(
             SPREADSHEET_ID['Домик'],
