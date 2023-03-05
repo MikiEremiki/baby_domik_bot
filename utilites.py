@@ -50,13 +50,13 @@ def load_data() -> Tuple[
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
-    first_row = 0
+    first_row = 2
     date_now = datetime.datetime.now().date()
     for i, item in enumerate(data_of_dates[1:]):
         date_tmp = item[0].split()[0] + f'.{date_now.year}'
         date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
         if date_tmp >= date_now:
-            first_row = i
+            first_row += i
             break
 
     data = googlesheets.get_data_from_spreadsheet(
@@ -70,7 +70,7 @@ def load_data() -> Tuple[
     dict_of_date_show = {}
     j = 0
     for i, item in enumerate(data):
-        i += 1
+        i += first_row - 1
         dict_of_shows[i + 1] = {
             'name_of_show': item[0],
             'date': item[1],
