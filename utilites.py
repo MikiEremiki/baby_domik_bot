@@ -211,7 +211,3 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except FileExistsError:
             logging.info('Файл логов не найден')
-
-
-if __name__ == '__main__':
-    load_data()
