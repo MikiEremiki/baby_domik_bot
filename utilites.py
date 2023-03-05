@@ -53,9 +53,10 @@ def load_data():
             dict_of_name_show.setdefault(item[0], j)
             dict_of_name_show_flip.setdefault(j, item[0])
 
-        date_now = datetime.datetime.now()
+        date_now = datetime.datetime.now().date()
         date_tmp = item[1].split()[0] + f'.{date_now.year}'
-        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y')
+        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+
         if date_tmp >= date_now and item[1] not in dict_of_date_show:
             dict_of_date_show.setdefault(item[1], dict_of_name_show[item[0]])
 
@@ -210,3 +211,7 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except FileExistsError:
             logging.info('Файл логов не найден')
+
+
+if __name__ == '__main__':
+    load_data()
