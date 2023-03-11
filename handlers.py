@@ -462,7 +462,10 @@ async def check_and_send_buy_info(update: Update,
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
     
 ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
-Вам необходимо сделать оплату в течении 15 мин, или бронь будет отменена.""",
+Вам необходимо сделать оплату в течении 15 мин, или бронь будет отменена.
+__________
+Для успешного подтверждения брони, после отправки квитанции, необходимо 
+заполнить анкету (она придет автоматически)""",
             reply_markup=reply_markup
         )
 
@@ -509,8 +512,15 @@ async def forward_photo_or_file(update: Update, context: ContextTypes.DEFAULT_TY
     await update.effective_chat.send_message("""Для подтверждения брони 
 заполните пожалуйста анкету.
 Чтобы мы знали на кого оформлена бронь и как с вами связаться.
-
-Напишите фамилию и имя (взрослого) на кого оформляете бронь""")
+__________
+Пожалуйста не пишите лишней информации/дополнительных слов в сообщении. 
+Всего будет 3 вопроса:
+1) На кого оформляете бронь
+2) Контактный телефон
+3) Информация о детях""")
+    await update.effective_chat.send_message(
+        'Напишите фамилию и имя (взрослого) на кого оформляете бронь'
+    )
 
     # Сообщение для администратора
     row_in_googlesheet = context.user_data['row_in_googlesheet']
@@ -559,7 +569,7 @@ async def get_name_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['client_data']['name_adult'] = text
 
     await update.effective_chat.send_message(
-        text='Напишите ваш номер телефона'
+        text='Напишите контактный номер телефона'
     )
 
     return 'PHONE'
@@ -585,10 +595,13 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text="""Напишите, имя и возраст ребенка.
 Возможные форматы записи:
-Имя 0.0
-Имя ДД.ММ.ГГГГ
+Сергей 26.08.2019
+Иван 1.5
+Юля 1г10м
+Оля 1год 8мес
 __________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)"""
+Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)
+Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
     )
 
     return 'CHILDREN'
@@ -598,6 +611,15 @@ async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'CHILDREN'
 
     text = update.effective_message.text
+    text_for_message = """Проверьте, что указали дату или возраст правильно
+Возможные форматы записи:
+Сергей 26.08.2019
+Иван 1.5
+Юля 1г10м
+Оля 2года 8мес
+__________
+Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)
+Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
 
     # Проверка корректности ввода
     count = text.count('\n')
@@ -605,14 +627,7 @@ async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if len(result) < count + 1:
         logging.info('Не верный формат текста')
-        await update.effective_chat.send_message(
-            text="""Проверьте, что указали дату или возраст правильно
-Возможные форматы записи:
-Имя 0.0
-Имя ДД.ММ.ГГГГ
-__________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)"""
-        )
+        await update.effective_chat.send_message(text=text_for_message)
         return 'CHILDREN'
 
     logging.info('Проверка пройдена успешно')
@@ -627,14 +642,7 @@ __________
         list_message_text.append(message_text)
 
     if not isinstance(list_message_text[0], list):
-        await update.effective_chat.send_message(
-            text="""Проверьте, что указали дату или возраст правильно
-Возможные форматы записи:
-Имя 0.0
-Имя ДД.ММ.ГГГГ
-__________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)"""
-        )
+        await update.effective_chat.send_message(text=text_for_message)
         return 'CHILDREN'
 
     context.user_data['client_data']['data_children'] = list_message_text
