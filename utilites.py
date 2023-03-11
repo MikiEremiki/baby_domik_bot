@@ -4,7 +4,8 @@ from typing import (
     Tuple,
     Dict,
     Any,
-    List
+    List,
+    Union
 )
 
 from telegram import (
@@ -25,6 +26,7 @@ from settings import (
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
     ADMIN_ID,
+    CHAT_ID_GROUP_ADMIN,
 )
 
 
