@@ -98,6 +98,9 @@ def bot():
                     hl.write_list_of_waiting
                 ),
             ],
+            'PHONE_FOR_WAITING': [
+                MessageHandler(filters.TEXT, hl.get_phone_for_waiting),
+            ],
             ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },
         fallbacks=[CommandHandler('help', hl.help_command)],

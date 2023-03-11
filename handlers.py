@@ -1044,25 +1044,45 @@ async def send_clients_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def write_list_of_waiting(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE):
-    text = context.user_data['text_for_list_waiting']
-    answer = await update.effective_chat.send_message(
-        text=text
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    await update.effective_chat.send_message(
+        text='Напишите контактный номер телефона'
     )
-    answer = await context.bot.forward_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
-        from_chat_id=update.effective_chat.id,
-        message_id=answer.message_id
-    )
+    return 'PHONE_FOR_WAITING'
+
+
+async def get_phone_for_waiting(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    text = update.effective_message.text
+    text = re.sub(r'[-\s)(+]', '', text)
+    text = re.sub(r'^[78]{,2}(?=9)', '', text)
+
+    if len(text) != 10 or text[0] != '9':
+        await update.effective_chat.send_message(
+            text=f'Возможно вы ошиблись, вы указали {text} \n'
+                 'Напишите ваш номер телефона еще раз пожалуйста\n'
+                 'Идеальный пример из 10 цифр: 9991234455'
+        )
+        return 'PHONE'
+
+    text = context.user_data['text_for_list_waiting'] + \
+           '\n' + \
+           text
+
     user = update.effective_user
+    text = f'Пользователь @{user.username} {user.full_name}\n' \
+           f'Запросил добавление в лист ожидания' + text
     await context.bot.send_message(
         chat_id=CHAT_ID_GROUP_ADMIN,
-        text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил добавление в лист ожидания',
-        reply_to_message_id=answer.message_id
+        text=text,
     )
     await update.effective_chat.send_message(
         text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
-Если у вас есть вопросы, вы можете связаться 'самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
+    Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
     )
+
+    return ConversationHandler.END
