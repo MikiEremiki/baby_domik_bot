@@ -493,14 +493,17 @@ async def forward_photo_or_file(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
     user = context.user_data['user']
+    text = context.user_data['text_for_notification_massage']
 
-    await context.bot.send_message(
+    res = await context.bot.send_message(
         chat_id=CHAT_ID_GROUP_ADMIN,
         text=f'Квитанция пользователя @{user.username} {user.full_name}\n',
     )
     await update.effective_message.forward(
         chat_id=CHAT_ID_GROUP_ADMIN,
     )
+    message_id_for_admin = res.message_id
+    await utilites.send_message_to_admin(text, message_id_for_admin, context)
 
     # Сообщение для опроса
     await update.effective_chat.send_message("""Для подтверждения брони 
