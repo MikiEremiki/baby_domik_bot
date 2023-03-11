@@ -234,7 +234,7 @@ async def choice_option_of_reserve(update: Update,
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_of_show'] = time
 
-    if number == 0:
+    if int(number) == 0:
         logging.info('Мест нет')
         date = context.user_data['date_show']
         name_show = context.user_data['name_show']
