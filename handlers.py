@@ -667,32 +667,14 @@ __________
     )
 
     text = '\n'.join([
-        context.user_data['text_for_notification_massage'],
         context.user_data['client_data']['name_adult'],
         context.user_data['client_data']['phone'],
         text,
     ])
+    message_id = context.user_data['message_id']
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
-    try:
-        await context.bot.send_message(
-            chat_id=CHAT_ID_GROUP_ADMIN,
-            text=text,
-            reply_to_message_id=context.user_data['message_id_for_admin']
-        )
-    except BadRequest:
-        logging.info(": ".join(
-            [
-                'Для пользователя',
-                str(context.user_data['user'].id),
-                str(context.user_data['user'].full_name),
-                'сообщение на которое нужно ответить, уже удалено'
-            ],
-        ))
-        await context.bot.send_message(
-            chat_id=CHAT_ID_GROUP_ADMIN,
-            text=text,
-        )
+    await utilites.send_message_to_admin(text, message_id, context)
 
     await update.effective_chat.send_message(
         'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '

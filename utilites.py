@@ -247,3 +247,29 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         except FileExistsError:
             logging.info('Файл логов не найден')
+
+
+async def send_message_to_admin(
+        text: str,
+        message_id: Union[int, str],
+        context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    try:
+        await context.bot.send_message(
+            chat_id=CHAT_ID_GROUP_ADMIN,
+            text=text,
+            reply_to_message_id=message_id
+        )
+    except BadRequest:
+        logging.info(": ".join(
+            [
+                'Для пользователя',
+                str(context.user_data['user'].id),
+                str(context.user_data['user'].full_name),
+                'сообщение на которое нужно ответить, удалено'
+            ],
+        ))
+        await context.bot.send_message(
+            chat_id=CHAT_ID_GROUP_ADMIN,
+            text=text,
+        )
