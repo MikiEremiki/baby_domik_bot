@@ -218,6 +218,11 @@ async def set_menu(bot: Bot) -> Bot:
         BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
         BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
     ]
+    admin_commands = [
+        BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
+        BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
+        BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
+    ]
 
     for chat_id in ADMIN_GROUP_ID:
         try:
@@ -230,7 +235,7 @@ async def set_menu(bot: Bot) -> Bot:
     for chat_id in ADMIN_CHAT_ID:
         try:
             await bot.set_my_commands(
-                commands=group_commands,
+                commands=admin_commands,
                 scope=BotCommandScopeChat(chat_id=chat_id)
             )
         except BadRequest:
