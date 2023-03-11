@@ -623,7 +623,10 @@ __________
 
     # Проверка корректности ввода
     count = text.count('\n')
-    result = re.findall(r'(\w+ \d+(?:[.,]\d+){0,2})+', text)
+    result = re.findall(
+        r'(^\w+ \d ?\w+ ?\d ?\w+)+|(\w+ (\d+(?:[.,]\d+){0,2}))+',
+        text
+    )
 
     if len(result) < count + 1:
         logging.info('Не верный формат текста')
