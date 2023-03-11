@@ -88,6 +88,16 @@ def bot():
                 CallbackQueryHandler(hl.back_date, pattern='^Назад$'),
                 CallbackQueryHandler(hl.send_clients_data),
             ],
+            'CHOOSING': [
+                MessageHandler(
+                    filters.Regex('^(Выбрать другое время)$'),
+                    hl.choice_show
+                ),
+                MessageHandler(
+                    filters.Regex('^(Записаться в лист ожидания)$'),
+                    hl.write_list_of_waiting
+                ),
+            ],
             ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },
         fallbacks=[CommandHandler('help', hl.help_command)],

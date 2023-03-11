@@ -10,6 +10,7 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
 )
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
@@ -230,17 +231,31 @@ async def choice_option_of_reserve(update: Update,
     time = query.data.split(' | ')[0]
     row_in_googlesheet = query.data.split(' | ')[1].split()[0]
     number = query.data.split(' | ')[1].split()[1]
+    context.user_data['row_in_googlesheet'] = row_in_googlesheet
+    context.user_data['time_of_show'] = time
 
     if number == 0:
-        answer = await update.effective_chat.send_message(
-            'Выберете другое время')
-        context.job_queue.run_once(
-            utilites.delete_message_for_job_in_callback,
-            3,  # 3 секунды
-            answer.message_id,
-            chat_id=answer.chat_id,
+        date = context.user_data['date_show']
+        name_show = context.user_data['name_show']
+        text = f'Вы выбрали:\n' \
+               f'{name_show}\n' \
+               f'{date}\n' \
+               f'В {time}\n'
+        context.user_data['text_for_list_waiting'] = text
+        reply_keyboard = [
+            ['Выбрать другое время'],
+            ['Записаться в лист ожидания'],
+        ]
+        reply_markup = ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True
         )
-        return 'TIME'
+        await update.effective_chat.send_message(
+            text='Вы хотите выбрать другое время '
+            'или записаться в лист ожидания на эту дату и время?',
+            reply_markup=reply_markup
+        )
+        return 'CHOOSING'
 
     availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
         row_in_googlesheet, 4)
@@ -296,8 +311,6 @@ _Если нет желаемых вариантов для выбора, зна
         reply_markup=reply_markup
     )
 
-    context.user_data['time_of_show'] = time
-    context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.bot_data['dict_of_option_for_reserve'] = dict_of_option_for_reserve
 
     return 'ORDER'
