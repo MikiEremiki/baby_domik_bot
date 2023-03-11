@@ -1075,11 +1075,11 @@ async def get_phone_for_waiting(
         )
         return 'PHONE'
 
-    text = context.user_data['text_for_list_waiting'] + '\n' + text
+    text = context.user_data['text_for_list_waiting'] + '+7' + text
 
     user = update.effective_user
     text = f'Пользователь @{user.username} {user.full_name}\n' \
-           f'Запросил добавление в лист ожидания' + text
+           f'Запросил добавление в лист ожидания\n' + text
     await context.bot.send_message(
         chat_id=CHAT_ID_GROUP_ADMIN,
         text=text,
