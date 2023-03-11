@@ -11,6 +11,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
@@ -50,6 +51,9 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f'Пользователь начал выбор спектакля:'
                  f' {update.message.from_user}')
     context.user_data["STATE"] = 'START'
+    context.bot.edit_message_reply_markup(
+        chat_id=update.effective_chat.id
+    )
 
     # Загрузка базы спектаклей из гугл-таблицы
     try:
@@ -1048,7 +1052,8 @@ async def write_list_of_waiting(
     context: ContextTypes.DEFAULT_TYPE
 ):
     await update.effective_chat.send_message(
-        text='Напишите контактный номер телефона'
+        text='Напишите контактный номер телефона',
+        reply_markup=ReplyKeyboardRemove()
     )
     return 'PHONE_FOR_WAITING'
 
