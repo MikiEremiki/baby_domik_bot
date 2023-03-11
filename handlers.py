@@ -52,7 +52,8 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  f' {update.message.from_user}')
     context.user_data["STATE"] = 'START'
     context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id
+        chat_id=update.effective_chat.id,
+        reply_markup=ReplyKeyboardRemove()
     )
 
     # Загрузка базы спектаклей из гугл-таблицы
@@ -1074,9 +1075,7 @@ async def get_phone_for_waiting(
         )
         return 'PHONE'
 
-    text = context.user_data['text_for_list_waiting'] + \
-           '\n' + \
-           text
+    text = context.user_data['text_for_list_waiting'] + '\n' + text
 
     user = update.effective_user
     text = f'Пользователь @{user.username} {user.full_name}\n' \
