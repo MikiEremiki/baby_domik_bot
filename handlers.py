@@ -1040,3 +1040,28 @@ async def send_clients_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text
     )
     return ConversationHandler.END
+
+
+async def write_list_of_waiting(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE):
+    text = context.user_data['text_for_list_waiting']
+    answer = await update.effective_chat.send_message(
+        text=text
+    )
+    answer = await context.bot.forward_message(
+        chat_id=CHAT_ID_GROUP_ADMIN,
+        from_chat_id=update.effective_chat.id,
+        message_id=answer.message_id
+    )
+    user = update.effective_user
+    await context.bot.send_message(
+        chat_id=CHAT_ID_GROUP_ADMIN,
+        text=f'Пользователь @{user.username} {user.full_name}\n'
+             f'Запросил добавление в лист ожидания',
+        reply_to_message_id=answer.message_id
+    )
+    await update.effective_chat.send_message(
+        text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
+Если у вас есть вопросы, вы можете связаться 'самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
+    )
