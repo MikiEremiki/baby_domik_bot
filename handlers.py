@@ -260,6 +260,7 @@ async def choice_option_of_reserve(update: Update,
         ]
         reply_markup = ReplyKeyboardMarkup(
             reply_keyboard,
+            resize_keyboard=True,
             one_time_keyboard=True
         )
         await update.effective_chat.send_message(
