@@ -51,8 +51,9 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f'Пользователь начал выбор спектакля:'
                  f' {update.message.from_user}')
     context.user_data["STATE"] = 'START'
-    context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id,
+
+    answer = await update.effective_chat.send_message(
+        text='Загружаем данные спектаклей',
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -111,6 +112,11 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = 'Выберите спектакль и дату\n'
     for key, item in dict_of_name_show.items():
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[item]} {key}\n'
+
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=answer.message_id
+    )
     answer = await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup
