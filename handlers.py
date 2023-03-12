@@ -684,7 +684,7 @@ __________
         context.user_data['client_data']['phone'],
         text,
     ])
-    message_id = context.user_data['message_id']
+    message_id = context.user_data['message_id_for_admin']
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
     await utilites.send_message_to_admin(text, message_id, context)
