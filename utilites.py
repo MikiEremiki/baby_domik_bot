@@ -14,6 +14,7 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     BotCommand,
+    BotCommandScopeDefault,
     BotCommandScopeChat,
     BotCommandScopeChatAdministrators,
 )
@@ -216,7 +217,11 @@ def replace_markdown_v2(text: str) -> str:
     return text
 
 
-async def set_menu(bot: Bot) -> Bot:
+async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
+    default_commands = [
+        BotCommand(COMMAND_DICT['START'][0], COMMAND_DICT['START'][1]),
+        BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
+    ]
     group_commands = [
         BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
         BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
@@ -229,20 +234,21 @@ async def set_menu(bot: Bot) -> Bot:
 
     for chat_id in ADMIN_GROUP_ID:
         try:
-            await bot.set_my_commands(
+            await context.bot.set_my_commands(
                 commands=group_commands,
                 scope=BotCommandScopeChatAdministrators(chat_id=chat_id)
             )
         except BadRequest:
-            continue
+            utilites_logger.error(f'Бот не состоит в группе {chat_id}')
     for chat_id in ADMIN_CHAT_ID:
-        try:
-            await bot.set_my_commands(
-                commands=admin_commands,
-                scope=BotCommandScopeChat(chat_id=chat_id)
-            )
-        except BadRequest:
-            continue
+        await context.bot.set_my_commands(
+            commands=admin_commands,
+            scope=BotCommandScopeChat(chat_id=chat_id)
+        )
+    await context.bot.set_my_commands(
+        commands=default_commands,
+        scope=BotCommandScopeDefault()
+    )
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

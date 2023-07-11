@@ -1,4 +1,3 @@
-import logging
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -10,7 +9,7 @@ from telegram.ext import (
 
 import handlers as hl
 from log_debug.logging_conf import load_log_config
-from utilites import echo, send_log
+from utilites import echo, send_log, set_menu
 from settings import (
     API_TOKEN,
     COMMAND_DICT,
@@ -31,6 +30,8 @@ def bot():
 
         .build()
     )
+
+    application.job_queue.run_once(set_menu, 0)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0], hl.start))
     conv_handler = ConversationHandler(
