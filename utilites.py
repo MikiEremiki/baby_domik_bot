@@ -10,7 +10,6 @@ from typing import (
 import os
 
 from telegram import (
-    Bot,
     Update,
     InlineKeyboardButton,
     BotCommand,
