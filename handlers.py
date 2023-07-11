@@ -80,6 +80,14 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         return ConversationHandler.END
+    except TimeoutError:
+        await update.effective_chat.send_message(
+            'Произошел разрыв соединения, попробуйте еще раз\n'
+            'Если проблема повторится вы можете забронировать место в ЛС '
+            'telegram или по телефону:\n'
+            'Татьяна Бурганова @Tanya_domik +79159383529'
+        )
+        return ConversationHandler.END
 
     # Определение кнопок для inline клавиатуры
     keyboard = []
@@ -452,10 +460,36 @@ async def check_and_send_buy_info(update: Update,
                 nonconfirm_number_of_seats_now) + int(
                 chose_reserve_option.get('quality_of_children'))
 
-            googlesheets.confirm(
-                row_in_googlesheet,
-                [new_number_of_seats, new_nonconfirm_number_of_seats]
-            )
+            try:
+                googlesheets.confirm(
+                    row_in_googlesheet,
+                    [new_number_of_seats, new_nonconfirm_number_of_seats]
+                )
+            except TimeoutError:
+                main_handlers_logger.error(": ".join(
+                    [
+                        'Для пользователя подтверждение не сработало, гугл не отвечает',
+                        str(context.user_data['user'].id),
+                        str(context.user_data['user'].full_name),
+                        'Номер строки для обновления',
+                        row_in_googlesheet,
+                    ]
+                ))
+
+                keyboard = []
+                keyboard.append(utilites.add_btn_back_and_cancel())
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                text = 'К сожалению произошла непредвиденная ошибка\n' \
+                       'Нажмите "Назад" и выберите время повторно.\n' \
+                       'Если ошибка повторяется напишите в ЛС в telegram или по ' \
+                       'телефону:\n' \
+                       'Татьяна Бурганова @Tanya_domik +79159383529'
+                await query.message.edit_text(
+                    text=text,
+                    reply_markup=reply_markup
+                )
+                return 'ORDER'
 
         keyboard = []
         button_cancel = InlineKeyboardButton(
@@ -724,6 +758,10 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    row_in_googlesheet = query.data.split('|')[1].split()[2]
+    text_query_split = query.message.text.split('\n')[0]
+    user_info = text_query_split[text_query_split.find(' ') + 1:]
+
     # Способ защиты от многократного нажатия
     try:
         await query.edit_message_reply_markup()
@@ -733,30 +771,42 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chose_reserve_option = dict_of_option_for_reserve.get(
             key_option_for_reserve)
 
-        row_in_googlesheet = query.data.split('|')[1].split()[2]
-
         nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
             row_in_googlesheet, 5)
 
         new_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
-        googlesheets.confirm(
-            row_in_googlesheet,
-            [new_nonconfirm_number_of_seats]
-        )
-
-        text_query_split = query.message.text.split('\n')[0]
-        user_info = text_query_split[text_query_split.find(' ') + 1:]
-
-        logging.info(": ".join(
-            [
-                'Для пользователя',
-                f'{user_info}',
-                'Номер строки для обновления',
+        try:
+            googlesheets.confirm(
                 row_in_googlesheet,
-            ]
-        ))
+                [new_nonconfirm_number_of_seats]
+            )
+
+            main_handlers_logger.info(": ".join(
+                [
+                    'Для пользователя',
+                    f'{user_info}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
+        except TimeoutError:
+            await update.effective_chat.send_message(
+                text=f'Для пользователя {user_info} подтверждение в '
+                     f'авто-режиме не сработало\n'
+                     f'Номер строки для обновления:\n{row_in_googlesheet}'
+            )
+            main_handlers_logger.error(TimeoutError)
+            main_handlers_logger.error(": ".join(
+                [
+                    f'Для пользователя {user_info} подтверждение в '
+                    f'авто-режиме не сработало',
+                    f'{user_info}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
 
         await query.edit_message_text(
             text=f'Пользователю {user_info} подтверждена бронь'
@@ -797,6 +847,9 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    text_query_split = query.message.text.split('\n')[0]
+    user_info = text_query_split[text_query_split.find(' ') + 1:]
+
     # Способ защиты от многократного нажатия
     try:
         await query.edit_message_reply_markup()
@@ -821,13 +874,38 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
         old_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
-        googlesheets.confirm(
-            row_in_googlesheet,
-            [old_number_of_seats, old_nonconfirm_number_of_seats]
-        )
 
-        text_query_split = query.message.text.split('\n')[0]
-        user_info = text_query_split[text_query_split.find(' ') + 1:]
+        try:
+            googlesheets.confirm(
+                row_in_googlesheet,
+                [old_number_of_seats, old_nonconfirm_number_of_seats]
+            )
+
+            main_handlers_logger.info(": ".join(
+                [
+                    'Для пользователя',
+                    f'{user_info}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
+        except TimeoutError:
+            await update.effective_chat.send_message(
+                text=f'Для пользователя {user_info} отклонение в '
+                     f'авто-режиме не сработало\n'
+                     f'Номер строки для обновления:\n{row_in_googlesheet}'
+            )
+            main_handlers_logger.error(TimeoutError)
+            main_handlers_logger.error(": ".join(
+                [
+                    f'Для пользователя {user_info} отклонение в '
+                    f'авто-режиме не сработало',
+                    f'{user_info}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
+
         await query.edit_message_text(
             text=f'Пользователю {user_info} отклонена бронь'
         )
@@ -947,13 +1025,39 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         old_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
-        googlesheets.confirm(
-            row_in_googlesheet,
-            [old_number_of_seats, old_nonconfirm_number_of_seats]
-        )
+        try:
+            googlesheets.confirm(
+                row_in_googlesheet,
+                [old_number_of_seats, old_nonconfirm_number_of_seats]
+            )
 
-    logging.info(f'Для пользователя {context.user_data["user"]}')
-    logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+            main_handlers_logger.info(": ".join(
+                [
+                    'Для пользователя',
+                    f'{context.user_data["user"]}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
+        except TimeoutError:
+            await update.effective_chat.send_message(
+                text=f'Для пользователя {context.user_data["user"]} отклонение в '
+                     f'авто-режиме не сработало\n'
+                     f'Номер строки для обновления:\n{row_in_googlesheet}'
+            )
+            main_handlers_logger.error(TimeoutError)
+            main_handlers_logger.error(": ".join(
+                [
+                    f'Для пользователя {context.user_data["user"]} отклонение в '
+                    f'авто-режиме не сработало',
+                    f'{context.user_data["user"]}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
+
+    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
     return ConversationHandler.END
@@ -995,10 +1099,36 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
         old_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
-        googlesheets.confirm(
-            row_in_googlesheet,
-            [old_number_of_seats, old_nonconfirm_number_of_seats]
-        )
+        try:
+            googlesheets.confirm(
+                row_in_googlesheet,
+                [old_number_of_seats, old_nonconfirm_number_of_seats]
+            )
+
+            main_handlers_logger.info(": ".join(
+                [
+                    'Для пользователя',
+                    f'{context.user_data["user"]}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
+        except TimeoutError:
+            await update.effective_chat.send_message(
+                text=f'Для пользователя {context.user_data["user"]} отклонение в '
+                     f'авто-режиме не сработало\n'
+                     f'Номер строки для обновления:\n{row_in_googlesheet}'
+            )
+            main_handlers_logger.error(TimeoutError)
+            main_handlers_logger.error(": ".join(
+                [
+                    f'Для пользователя {context.user_data["user"]} отклонение в '
+                    f'авто-режиме не сработало',
+                    f'{context.user_data["user"]}',
+                    'Номер строки для обновления',
+                    row_in_googlesheet,
+                ]
+            ))
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(
