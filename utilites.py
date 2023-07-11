@@ -244,8 +244,6 @@ async def set_menu(bot: Bot) -> Bot:
         except BadRequest:
             continue
 
-    return bot
-
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat.id in ADMIN_ID:
