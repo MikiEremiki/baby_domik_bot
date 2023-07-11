@@ -51,8 +51,9 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
     main_handlers_logger.info(f'Пользователь начал выбор спектакля:'
-                 f' {update.message.from_user}')
+                              f' {update.message.from_user}')
     context.user_data["STATE"] = 'START'
+    context.user_data['user'] = update.message.from_user
 
     answer = await update.effective_chat.send_message(
         text='Загружаем данные спектаклей',
@@ -132,7 +133,6 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['user'] = update.message.from_user
     context.user_data['message_id'] = answer.message_id
 
     # Контекст для возврата назад
