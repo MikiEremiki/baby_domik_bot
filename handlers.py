@@ -257,6 +257,9 @@ async def choice_option_of_reserve(update: Update,
 
     if int(number) == 0:
         main_handlers_logger.info('Мест нет')
+
+        await query.edit_message_reply_markup()
+
         date = context.user_data['date_show']
         name_show = context.user_data['name_show']
         text = f'Вы выбрали:\n' \
