@@ -21,8 +21,4 @@ def load_log_config():
     logger = logging.getLogger('bot')
     logger.setLevel(logging.DEBUG)
 
-    logger2 = logging.getLogger('telegram.ext.ExtBot')
-    logger2.name = 'ExtBot'
-    logger2.setLevel(logging.DEBUG)
-
     return logger
