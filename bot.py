@@ -24,10 +24,6 @@ def bot():
         Application.builder()
         .token(API_TOKEN)
 
-        # Для решения ошибки NetworkError, используем вместо h2 -> h1.1
-        .http_version('1.1')
-        .get_updates_http_version('1.1')
-
         .build()
     )
 
