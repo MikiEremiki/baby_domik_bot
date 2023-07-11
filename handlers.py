@@ -436,9 +436,9 @@ async def check_and_send_buy_info(update: Update,
             text = f'К сожалению места уже забронировали и свободных мест ' \
                    f'Для {name_show}\n' \
                    f'{date} в {time}\n осталось: ' \
-                   f'{availibale_number_of_seats_now}шт' \
-                   f'Пожалуйста выберите другое время.'
-            await update.effective_chat.send_message(
+                   f'{availibale_number_of_seats_now}шт\n' \
+                   f'Пожалуйста нажмите "Назад" и выберите другое время.'
+            await query.message.edit_text(
                 text=text,
                 reply_markup=reply_markup
             )
