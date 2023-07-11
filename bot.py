@@ -1,5 +1,3 @@
-import logging
-
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -9,32 +7,18 @@ from telegram.ext import (
     filters
 )
 
-from warnings import filterwarnings
-from telegram.warnings import PTBUserWarning
-
 import handlers as hl
+from log_debug.logging_conf import load_log_config
 from utilites import echo, send_log
 from settings import (
     API_TOKEN,
     COMMAND_DICT,
 )
 
-# Отключено предупреждение, для ConversationHandler
-filterwarnings(
-    action="ignore",
-    message=r".*CallbackQueryHandler",
-    category=PTBUserWarning
-)
-
-logging.basicConfig(
-    filename='log.txt',
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    encoding='utf-8'
-)
-
 
 def bot():
+    load_log_config()
+
     application = (
         Application.builder()
         .token(API_TOKEN)
