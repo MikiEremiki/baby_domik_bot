@@ -15,6 +15,7 @@ from telegram import (
 )
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
+from telegram.helpers import escape_markdown
 
 import googlesheets
 import utilites
@@ -193,8 +194,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append(utilites.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    name = utilites.replace_markdown_v2(name_show)
-    date = utilites.replace_markdown_v2(date_show)
+    name = escape_markdown(name_show, 2)
+    date = escape_markdown(date_show, 2)
 
     if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
         # Отправка сообщения в админский чат
@@ -204,7 +205,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Отправка сообщения пользователю
         text = f'Вы выбрали:\n *{name}*\n' \
                '_Выберите удобное время\.\n' \
-               '1 ребенок \= 1 место_'
+               '1 ребенок \= 1 место_\n\n' \
+               'Вы также можете выбрать вариант с 0 кол\-вом мест ' \
+               'и записаться в лист ожидания на данное время'
 
     await query.message.edit_text(
         text=text,
@@ -318,7 +321,7 @@ async def choice_option_of_reserve(update: Update,
     text = 'Выберите подходящий вариант бронирования:\n'
     for key, item in dict_of_option_for_reserve.items():
         name = item.get("name")
-        name = utilites.replace_markdown_v2(name)
+        name = escape_markdown(name, 2)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
                 f'{item.get("price")} руб\n'
         if item.get('name') == 'Индивидуальный запрос':
