@@ -37,7 +37,7 @@ def get_data_from_spreadsheet(sheet):
 
         return values
     except HttpError as err:
-        print(err)
+        logging.error(err)
         raise ConnectionError
 
 
@@ -50,11 +50,11 @@ def update_quality_of_seats(row, i):
 
         if not values:
             print('No data found.')
-            return
+            raise ValueError
 
         return values[0][i]
     except HttpError as err:
-        print(err)
+        logging.error(err)
 
 
 def confirm(row: int, numbers: int) -> None:
@@ -80,18 +80,23 @@ def confirm(row: int, numbers: int) -> None:
             valueInputOption=value_input_option,
             body=value_range_body
         )
-        response = request.execute()
+        try:
+            response = request.execute()
 
-        print(
-            'spreadsheetId: ',
-            response['spreadsheetId'],
-            '\n'
-            'updatedRange: ',
-            response['updatedRange']
-        )
+            log_msg = [
+                'spreadsheetId: ',
+                response['spreadsheetId'],
+                '\n'
+                'updatedRange: ',
+                response['updatedRange']
+            ]
+            for item in log_msg:
+                logging.info(item)
+        except TimeoutError:
+            logging.error(value_range_body)
 
     except HttpError as err:
-        print(err)
+        logging.error(err)
 
 
 def write_client(
@@ -167,14 +172,20 @@ def write_client(
             responseValueRenderOption=response_value_render_option,
             body=value_range_body
         )
-        response = request.execute()
+        try:
+            response = request.execute()
 
-        print(
-            'spreadsheetId: ',
-            response['spreadsheetId'],
-            '\n'
-            'updatedRange: ',
-            response['updatedRange']
-        )
+            log_msg = [
+                'spreadsheetId: ',
+                response['spreadsheetId'],
+                '\n'
+                'updatedRange: ',
+                response['updatedRange']
+            ]
+            for item in log_msg:
+                logging.info(item)
+        except TimeoutError:
+            logging.error(value_range_body)
+
     except HttpError as err:
-        print(err)
+        logging.error(err)
