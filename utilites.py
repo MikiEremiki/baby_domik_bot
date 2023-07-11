@@ -29,6 +29,8 @@ from settings import (
     CHAT_ID_GROUP_ADMIN,
 )
 
+utilites_logger = logging.getLogger('bot.utilites')
+
 
 def load_data() -> Tuple[
                     Dict[str, str],
@@ -64,7 +66,7 @@ def load_data() -> Tuple[
     data = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] + f'A{first_row}:I'
     )
-    logging.info('Данные загружены')
+    utilites_logger.info('Данные загружены')
 
     dict_of_shows = {}
     dict_of_name_show = {}
@@ -108,7 +110,7 @@ def load_data() -> Tuple[
 def load_option_buy_data() -> Dict[str, Any]:
     dict_of_option_for_reserve = {}
     data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['Варианты стоимости'])
-    logging.info("Данные стоимости броней загружены")
+    utilites_logger.info("Данные стоимости броней загружены")
 
     for item in data[1:]:
         if len(item) == 0:
@@ -166,7 +168,7 @@ def add_btn_back_and_cancel() -> List[object]:
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logging.info(
+    utilites_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
         f'Вызвал команду echo'
@@ -252,7 +254,7 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 document='log.txt'
             )
         except FileExistsError:
-            logging.info('Файл логов не найден')
+            utilites_logger.info('Файл логов не найден')
 
 
 async def send_message_to_admin(
@@ -267,7 +269,7 @@ async def send_message_to_admin(
             reply_to_message_id=message_id
         )
     except BadRequest:
-        logging.info(": ".join(
+        utilites_logger.info(": ".join(
             [
                 'Для пользователя',
                 str(context.user_data['user'].id),

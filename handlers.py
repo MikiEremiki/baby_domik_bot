@@ -25,6 +25,8 @@ from settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
 )
 
+main_handlers_logger = logging.getLogger('bot.main_handlers')
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -48,7 +50,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state DATE
     """
 
-    logging.info(f'Пользователь начал выбор спектакля:'
+    main_handlers_logger.info(f'Пользователь начал выбор спектакля:'
                  f' {update.message.from_user}')
     context.user_data["STATE"] = 'START'
 
@@ -66,8 +68,8 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dict_of_date_show
          ) = utilites.load_data()
     except ConnectionError or ValueError:
-        logging.info(f'Для пользователя {context.user_data["user"]}')
-        logging.info(
+        main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+        main_handlers_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
         await update.effective_chat.send_message(
@@ -149,7 +151,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    logging.info(": ".join(
+    main_handlers_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -228,7 +230,7 @@ async def choice_option_of_reserve(update: Update,
     query = update.callback_query
     await query.answer()
 
-    logging.info(": ".join(
+    main_handlers_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -246,7 +248,7 @@ async def choice_option_of_reserve(update: Update,
     context.user_data['time_of_show'] = time
 
     if int(number) == 0:
-        logging.info('Мест нет')
+        main_handlers_logger.info('Мест нет')
         date = context.user_data['date_show']
         name_show = context.user_data['name_show']
         text = f'Вы выбрали:\n' \
@@ -354,7 +356,7 @@ async def check_and_send_buy_info(update: Update,
         key_option_for_reserve)
     price = chose_reserve_option.get('price')
 
-    logging.info(": ".join(
+    main_handlers_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -372,8 +374,8 @@ async def check_and_send_buy_info(update: Update,
             text=text
         )
 
-        logging.info(f'Для пользователя {context.user_data["user"]}')
-        logging.info(
+        main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+        main_handlers_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
         context.user_data.clear()
 
@@ -409,7 +411,7 @@ async def check_and_send_buy_info(update: Update,
         # ботом, могли изменить базу в ручную или забронировать места раньше
         if int(availibale_number_of_seats_now) < int(chose_reserve_option.get(
                 'quality_of_children')):
-            logging.info(": ".join(
+            main_handlers_logger.info(": ".join(
                 [
                     'Мест не достаточно',
                     'Кол-во доступных мест',
@@ -434,7 +436,7 @@ async def check_and_send_buy_info(update: Update,
             )
             return 'ORDER'
         else:
-            logging.info(": ".join(
+            main_handlers_logger.info(": ".join(
                 [
                     'Пользователь',
                     str(context.user_data['user'].id),
@@ -638,11 +640,11 @@ __________
     )
 
     if len(result) < count + 1:
-        logging.info('Не верный формат текста')
+        main_handlers_logger.info('Не верный формат текста')
         await update.effective_chat.send_message(text=text_for_message)
         return 'CHILDREN'
 
-    logging.info('Проверка пройдена успешно')
+    main_handlers_logger.info('Проверка пройдена успешно')
 
     list_message_text = []
     if '\n' in text:
@@ -659,7 +661,7 @@ __________
 
     context.user_data['client_data']['data_children'] = list_message_text
 
-    logging.info(": ".join(
+    main_handlers_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -667,7 +669,7 @@ __________
             'отправил:',
         ],
     ))
-    logging.info(context.user_data['client_data'])
+    main_handlers_logger.info(context.user_data['client_data'])
 
     googlesheets.write_client(
         context.user_data['client_data'],
@@ -706,8 +708,8 @@ __________
     )
     await update.effective_chat.pin_message(answer.message_id)
 
-    logging.info(f'Для пользователя {context.user_data["user"]}')
-    logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
     return ConversationHandler.END
@@ -774,11 +776,11 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=message_id
             )
         except BadRequest:
-            logging.info(
+            main_handlers_logger.info(
                 f'Cообщение уже удалено'
             )
     except BadRequest:
-        logging.info(": ".join(
+        main_handlers_logger.info(": ".join(
             [
                 'Пользователь',
                 f'{update.effective_user.full_name}',
@@ -846,11 +848,11 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=message_id
             )
         except BadRequest:
-            logging.info(
+            main_handlers_logger.info(
                 f'Cообщение {message_id}, которое должно быть удалено'
             )
 
-        logging.info(": ".join(
+        main_handlers_logger.info(": ".join(
             [
                 'Для пользователя',
                 f'{user_info}',
@@ -859,7 +861,7 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ))
     except BadRequest:
-        logging.info(": ".join(
+        main_handlers_logger.info(": ".join(
             [
                 'Пользователь',
                 f'{update.effective_user.full_name}',
@@ -1003,7 +1005,7 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
             'От Вас долго не было ответа, пожалуйста выполните новый запрос'
         )
 
-    logging.info(": ".join(
+    main_handlers_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -1011,8 +1013,8 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
             'AFK уже 15 мин'
         ]
     ))
-    logging.info(f'Для пользователя {context.user_data["user"]}')
-    logging.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     return ConversationHandler.END
 

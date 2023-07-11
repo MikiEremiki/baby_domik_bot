@@ -7,6 +7,8 @@ from googleapiclient.errors import HttpError
 
 from settings import RANGE_NAME, SPREADSHEET_ID
 
+googlesheets_logger = logging.getLogger('bot.googlesheets')
+
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 
@@ -37,7 +39,7 @@ def get_data_from_spreadsheet(sheet):
 
         return values
     except HttpError as err:
-        logging.error(err)
+        googlesheets_logger.error(err)
         raise ConnectionError
 
 
@@ -54,7 +56,7 @@ def update_quality_of_seats(row, i):
 
         return values[0][i]
     except HttpError as err:
-        logging.error(err)
+        googlesheets_logger.error(err)
 
 
 def confirm(row: int, numbers: int) -> None:
@@ -83,7 +85,7 @@ def confirm(row: int, numbers: int) -> None:
         try:
             response = request.execute()
 
-            logging.info(": ".join(
+            googlesheets_logger.info(": ".join(
                 [
                     'spreadsheetId: ',
                     response['spreadsheetId'],
@@ -93,10 +95,10 @@ def confirm(row: int, numbers: int) -> None:
                 ]
             ))
         except TimeoutError:
-            logging.error(value_range_body)
+            googlesheets_logger.error(value_range_body)
 
     except HttpError as err:
-        logging.error(err)
+        googlesheets_logger.error(err)
 
 
 def write_client(
@@ -153,7 +155,7 @@ def write_client(
                     break
                 values[i].append(value)
             values[i].append(bool(i))
-        logging.info(values)
+        googlesheets_logger.info(values)
 
         end_column_index = len(values[0])
 
@@ -175,7 +177,7 @@ def write_client(
         try:
             response = request.execute()
 
-            logging.info(": ".join(
+            googlesheets_logger.info(": ".join(
                 [
                     'spreadsheetId: ',
                     response['spreadsheetId'],
@@ -185,7 +187,7 @@ def write_client(
                 ]
             ))
         except TimeoutError:
-            logging.error(value_range_body)
+            googlesheets_logger.error(value_range_body)
 
     except HttpError as err:
-        logging.error(err)
+        googlesheets_logger.error(err)
