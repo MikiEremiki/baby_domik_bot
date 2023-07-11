@@ -83,15 +83,15 @@ def confirm(row: int, numbers: int) -> None:
         try:
             response = request.execute()
 
-            log_msg = [
-                'spreadsheetId: ',
-                response['spreadsheetId'],
-                '\n'
-                'updatedRange: ',
-                response['updatedRange']
-            ]
-            for item in log_msg:
-                logging.info(item)
+            logging.info(": ".join(
+                [
+                    'spreadsheetId: ',
+                    response['spreadsheetId'],
+                    '\n'
+                    'updatedRange: ',
+                    response['updatedRange']
+                ]
+            ))
         except TimeoutError:
             logging.error(value_range_body)
 
@@ -175,15 +175,15 @@ def write_client(
         try:
             response = request.execute()
 
-            log_msg = [
-                'spreadsheetId: ',
-                response['spreadsheetId'],
-                '\n'
-                'updatedRange: ',
-                response['updatedRange']
-            ]
-            for item in log_msg:
-                logging.info(item)
+            logging.info(": ".join(
+                [
+                    'spreadsheetId: ',
+                    response['spreadsheetId'],
+                    '\n'
+                    'updatedRange: ',
+                    response['updatedRange']
+                ]
+            ))
         except TimeoutError:
             logging.error(value_range_body)
 
