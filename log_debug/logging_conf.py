@@ -5,7 +5,7 @@ LOG_FILENAME = 'log_debug\log.txt'
 
 def load_log_config():
     root = logging.getLogger()
-    bf = logging.Formatter('{asctime:16s}|{name:8s}|{levelname:8s}|{message}',
+    bf = logging.Formatter('{asctime:16s}|{name:20s}|{levelname:8s}|{message}',
                            datefmt='%y%m%d %H:%M:%S',
                            style='{',
                            )
