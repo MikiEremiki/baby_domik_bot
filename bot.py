@@ -1,3 +1,4 @@
+import logging
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -17,7 +18,8 @@ from settings import (
 
 
 def bot():
-    load_log_config()
+    bot_logger = load_log_config()
+    bot_logger.info('Инициализация бота')
 
     application = (
         Application.builder()
@@ -98,7 +100,11 @@ def bot():
     application.add_handler(CommandHandler('echo', echo))
     application.add_handler(CommandHandler('log', send_log))
 
+    bot_logger.info('Всё готово к поллингу')
+
     application.run_polling()
+
+    bot_logger.info('Бот остановлен')
 
 
 if __name__ == '__main__':
