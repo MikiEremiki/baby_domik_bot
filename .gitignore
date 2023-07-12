@@ -1,5 +1,5 @@
-credentials.json
-settings.py
+utilities/credentials.json
+utilities/settings.py
 venv/*
 .idea/*
 __pycache__/*

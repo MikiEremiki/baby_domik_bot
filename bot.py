@@ -7,9 +7,10 @@ from telegram.ext import (
 
 import handlers.main_hl as hl
 from conv_hl.reserve_conv_hl import reserve_conv_hl
+from conv_hl.birthday_conv_hl import birthday_conv_hl
 from log_debug.logging_conf import load_log_config
-from utilites import echo, send_log, set_menu
-from settings import (
+from utilities.utilities import echo, send_log, set_menu
+from utilities.settings import (
     API_TOKEN,
     COMMAND_DICT,
 )

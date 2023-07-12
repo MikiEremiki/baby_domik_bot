@@ -8,9 +8,8 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 
-import googlesheets
-import utilites
-from settings import ADMIN_ID, COMMAND_DICT
+from utilities import googlesheets, utilities
+from utilities.settings import ADMIN_ID, COMMAND_DICT
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -21,7 +20,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     при перезапуске бота или при использовании команды start
     """
     if update.effective_chat.id in ADMIN_ID:
-        await utilites.set_menu(context.bot)
+        await utilities.set_menu(context.bot)
 
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '

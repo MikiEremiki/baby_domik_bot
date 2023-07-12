@@ -16,9 +16,8 @@ from telegram import (
 from telegram.constants import ParseMode
 from telegram.helpers import escape_markdown
 
-import googlesheets
-import utilites
-from settings import (
+from utilities import googlesheets, utilities
+from utilities.settings import (
     CHAT_ID_GROUP_ADMIN,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
@@ -52,7 +51,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dict_of_name_show,
             dict_of_name_show_flip,
             dict_of_date_show
-        ) = utilites.load_data()
+        ) = utilities.load_data()
     except ConnectionError or ValueError:
         reserve_hl_logger.info(
             f'Для пользователя {context.user_data["user"]}')
@@ -177,7 +176,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard.append([button_tmp])
 
-    keyboard.append(utilites.add_btn_back_and_cancel())
+    keyboard.append(utilities.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name = escape_markdown(name_show, 2)
@@ -276,7 +275,7 @@ async def choice_option_of_reserve(
     availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
         row_in_googlesheet, 4)
 
-    dict_of_option_for_reserve = utilites.load_option_buy_data()
+    dict_of_option_for_reserve = utilities.load_option_buy_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
@@ -301,7 +300,7 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(utilites.add_btn_back_and_cancel())
+    keyboard.append(utilities.add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Отправка сообщения пользователю
@@ -426,7 +425,7 @@ async def check_and_send_buy_info(
             ))
 
             keyboard = []
-            keyboard.append(utilites.add_btn_back_and_cancel())
+            keyboard.append(utilities.add_btn_back_and_cancel())
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             text = f'К сожалению места уже забронировали и свободных мест ' \
@@ -473,7 +472,7 @@ async def check_and_send_buy_info(
                 ))
 
                 keyboard = []
-                keyboard.append(utilites.add_btn_back_and_cancel())
+                keyboard.append(utilities.add_btn_back_and_cancel())
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 text = 'К сожалению произошла непредвиденная ошибка\n' \
@@ -554,7 +553,7 @@ async def forward_photo_or_file(
         chat_id=CHAT_ID_GROUP_ADMIN,
     )
     message_id_for_admin = res.message_id
-    await utilites.send_message_to_admin(text, message_id_for_admin, context)
+    await utilities.send_message_to_admin(text, message_id_for_admin, context)
 
     # Сообщение для опроса
     await update.effective_chat.send_message("""Для подтверждения брони 
@@ -724,7 +723,7 @@ __________
     message_id = context.user_data['message_id_for_admin']
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
-    await utilites.send_message_to_admin(text, message_id, context)
+    await utilities.send_message_to_admin(text, message_id, context)
 
     await update.effective_chat.send_message(
         'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '
@@ -852,7 +851,7 @@ async def send_clients_data(
     date = context.user_data['date_show']
     time = query.data.split(' | ')[0]
 
-    clients_data = utilites.load_clients_data(name, date, time)
+    clients_data = utilities.load_clients_data(name, date, time)
     text = f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))
     for i, item1 in enumerate(clients_data):

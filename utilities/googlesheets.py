@@ -5,7 +5,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from settings import RANGE_NAME, SPREADSHEET_ID
+from utilities.settings import RANGE_NAME, SPREADSHEET_ID
 
 googlesheets_logger = logging.getLogger('bot.googlesheets')
 
