@@ -5,7 +5,7 @@ from telegram.ext import (
     PicklePersistence
 )
 
-import handlers as hl
+import handlers.main_hl as hl
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from log_debug.logging_conf import load_log_config
 from utilites import echo, send_log, set_menu

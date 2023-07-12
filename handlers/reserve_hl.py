@@ -14,33 +14,17 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 from telegram.constants import ParseMode
-from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
 import googlesheets
 import utilites
 from settings import (
     CHAT_ID_GROUP_ADMIN,
-    ADMIN_ID,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
 )
 
-main_handlers_logger = logging.getLogger('bot.main_handlers')
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Приветственная команда при первом запуске бота,
-    при перезапуске бота или при использовании команды start
-    """
-    if update.effective_chat.id in ADMIN_ID:
-        await utilites.set_menu(context.bot)
-
-    await update.effective_chat.send_message(
-        text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
-             f'/{COMMAND_DICT["RESERVE"][0]}, чтобы выбрать спектакль.'
-    )
+reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
 
 async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -51,7 +35,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state DATE
     """
 
-    main_handlers_logger.info(f'Пользователь начал выбор спектакля:'
+    reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                               f' {update.message.from_user}')
     context.user_data["STATE"] = 'START'
     context.user_data['user'] = update.message.from_user
@@ -68,10 +52,11 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dict_of_name_show,
             dict_of_name_show_flip,
             dict_of_date_show
-         ) = utilites.load_data()
+        ) = utilites.load_data()
     except ConnectionError or ValueError:
-        main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
-        main_handlers_logger.info(
+        reserve_hl_logger.info(
+            f'Для пользователя {context.user_data["user"]}')
+        reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
         await update.effective_chat.send_message(
@@ -160,7 +145,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    main_handlers_logger.info(": ".join(
+    reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -244,7 +229,7 @@ async def choice_option_of_reserve(
     query = update.callback_query
     await query.answer()
 
-    main_handlers_logger.info(": ".join(
+    reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -261,7 +246,7 @@ async def choice_option_of_reserve(
     context.user_data['time_of_show'] = time
 
     if int(number) == 0:
-        main_handlers_logger.info('Мест нет')
+        reserve_hl_logger.info('Мест нет')
 
         await query.edit_message_reply_markup()
 
@@ -283,7 +268,7 @@ async def choice_option_of_reserve(
         )
         await update.effective_chat.send_message(
             text='Вы хотите выбрать другое время '
-            'или записаться в лист ожидания на эту дату и время?',
+                 'или записаться в лист ожидания на эту дату и время?',
             reply_markup=reply_markup
         )
         return 'CHOOSING'
@@ -374,7 +359,7 @@ async def check_and_send_buy_info(
         key_option_for_reserve)
     price = chose_reserve_option.get('price')
 
-    main_handlers_logger.info(": ".join(
+    reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -392,8 +377,9 @@ async def check_and_send_buy_info(
             text=text
         )
 
-        main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
-        main_handlers_logger.info(
+        reserve_hl_logger.info(
+            f'Для пользователя {context.user_data["user"]}')
+        reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
         context.user_data.clear()
 
@@ -429,7 +415,7 @@ async def check_and_send_buy_info(
         # ботом, могли изменить базу в ручную или забронировать места раньше
         if int(availibale_number_of_seats_now) < int(chose_reserve_option.get(
                 'quality_of_children')):
-            main_handlers_logger.info(": ".join(
+            reserve_hl_logger.info(": ".join(
                 [
                     'Мест не достаточно',
                     'Кол-во доступных мест',
@@ -454,7 +440,7 @@ async def check_and_send_buy_info(
             )
             return 'ORDER'
         else:
-            main_handlers_logger.info(": ".join(
+            reserve_hl_logger.info(": ".join(
                 [
                     'Пользователь',
                     str(context.user_data['user'].id),
@@ -476,7 +462,7 @@ async def check_and_send_buy_info(
                     [new_number_of_seats, new_nonconfirm_number_of_seats]
                 )
             except TimeoutError:
-                main_handlers_logger.error(": ".join(
+                reserve_hl_logger.error(": ".join(
                     [
                         'Для пользователя подтверждение не сработало, гугл не отвечает',
                         str(context.user_data['user'].id),
@@ -515,11 +501,11 @@ async def check_and_send_buy_info(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
-    
+
     К оплате {price} руб
 
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
-    
+
 ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
 Вам необходимо сделать оплату в течении 15 мин, или бронь будет отменена.
 __________
@@ -693,11 +679,11 @@ __________
     )
 
     if len(result) < count + 1:
-        main_handlers_logger.info('Не верный формат текста')
+        reserve_hl_logger.info('Не верный формат текста')
         await update.effective_chat.send_message(text=text_for_message)
         return 'CHILDREN'
 
-    main_handlers_logger.info('Проверка пройдена успешно')
+    reserve_hl_logger.info('Проверка пройдена успешно')
 
     list_message_text = []
     if '\n' in text:
@@ -714,7 +700,7 @@ __________
 
     context.user_data['client_data']['data_children'] = list_message_text
 
-    main_handlers_logger.info(": ".join(
+    reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -722,7 +708,7 @@ __________
             'отправил:',
         ],
     ))
-    main_handlers_logger.info(context.user_data['client_data'])
+    reserve_hl_logger.info(context.user_data['client_data'])
 
     googlesheets.write_client(
         context.user_data['client_data'],
@@ -755,337 +741,18 @@ __________
 Татьяна Бурганова @Tanya_domik +79159383529
 __________
 Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
-"RESERVE"][0]}"""
+        "RESERVE"][0]}"""
     answer = await update.effective_chat.send_message(
         text=text
     )
     await update.effective_chat.pin_message(answer.message_id)
 
-    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
-    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    reserve_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    reserve_hl_logger.info(
+        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
     return ConversationHandler.END
-
-
-async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Отправляет оповещение о подтверждении в бронировании, удаляет сообщение
-    используемое в ConversationHandler и возвращает свободные места для
-    доступа к бронированию
-    """
-    query = update.callback_query
-    await query.answer()
-
-    row_in_googlesheet = query.data.split('|')[1].split()[2]
-    text_query_split = query.message.text.split('\n')[0]
-    user_info = text_query_split[text_query_split.find(' ') + 1:]
-
-    # Способ защиты от многократного нажатия
-    try:
-        await query.edit_message_reply_markup()
-
-        dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
-        key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-        chose_reserve_option = dict_of_option_for_reserve.get(
-            key_option_for_reserve)
-
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 5)
-
-        new_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
-        try:
-            googlesheets.confirm(
-                row_in_googlesheet,
-                [new_nonconfirm_number_of_seats]
-            )
-
-            main_handlers_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{user_info}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя {user_info} подтверждение в '
-                     f'авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
-            )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
-                [
-                    f'Для пользователя {user_info} подтверждение в '
-                    f'авто-режиме не сработало',
-                    f'{user_info}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-
-        await query.edit_message_text(
-            text=f'Пользователю {user_info} подтверждена бронь'
-        )
-
-        chat_id = query.data.split('|')[1].split()[0]
-        message_id = query.data.split('|')[1].split()[1]
-        text = 'Ваша бронь подтверждена\nЖдем вас на спектакле.'
-        await context.bot.send_message(
-            text=text,
-            chat_id=chat_id,
-        )
-        # Сообщение уже было удалено самим пользователем
-        try:
-            await context.bot.delete_message(
-                chat_id=chat_id,
-                message_id=message_id
-            )
-        except BadRequest:
-            main_handlers_logger.info(
-                f'Cообщение уже удалено'
-            )
-    except BadRequest:
-        main_handlers_logger.info(": ".join(
-            [
-                'Пользователь',
-                f'{update.effective_user.full_name}',
-                'Пытается спамить',
-            ]
-        ))
-
-
-async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Отправляет оповещение об отказе в бронировании, удаляет сообщение
-    используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text_query_split = query.message.text.split('\n')[0]
-    user_info = text_query_split[text_query_split.find(' ') + 1:]
-
-    # Способ защиты от многократного нажатия
-    try:
-        await query.edit_message_reply_markup()
-
-        dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
-        key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-        chose_reserve_option = dict_of_option_for_reserve.get(
-            key_option_for_reserve)
-
-        # Номер строки для извлечения актуального числа доступных мест
-        row_in_googlesheet = query.data.split('|')[1].split()[2]
-
-        # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 5)
-
-        old_number_of_seats = int(
-            availibale_number_of_seats_now) + int(
-            chose_reserve_option.get('quality_of_children'))
-        old_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
-
-        try:
-            googlesheets.confirm(
-                row_in_googlesheet,
-                [old_number_of_seats, old_nonconfirm_number_of_seats]
-            )
-
-            main_handlers_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{user_info}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя {user_info} отклонение в '
-                     f'авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
-            )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
-                [
-                    f'Для пользователя {user_info} отклонение в '
-                    f'авто-режиме не сработало',
-                    f'{user_info}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-
-        await query.edit_message_text(
-            text=f'Пользователю {user_info} отклонена бронь'
-        )
-
-        chat_id = query.data.split('|')[1].split()[0]
-        message_id = query.data.split('|')[1].split()[1]
-        await context.bot.send_message(
-            text='Ваша бронь отклонена.\n'
-                 'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n'
-                 'Татьяна Бурганова @Tanya_domik +79159383529',
-            chat_id=chat_id,
-        )
-
-        # Сообщение уже было удалено самим пользователем
-        try:
-            await context.bot.delete_message(
-                chat_id=chat_id,
-                message_id=message_id
-            )
-        except BadRequest:
-            main_handlers_logger.info(
-                f'Cообщение {message_id}, которое должно быть удалено'
-            )
-
-        main_handlers_logger.info(": ".join(
-            [
-                'Для пользователя',
-                f'{user_info}',
-                'Номер строки, которая должна быть обновлена',
-                row_in_googlesheet,
-            ]
-        ))
-    except BadRequest:
-        main_handlers_logger.info(": ".join(
-            [
-                'Пользователь',
-                f'{update.effective_user.full_name}',
-                'Пытается спамить',
-            ]
-        ))
-
-
-async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text = context.user_data['text_date']
-    reply_markup = context.user_data['keyboard_date']
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup
-    )
-    return 'DATE'
-
-
-async def back_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text = context.user_data['text_time']
-    reply_markup = context.user_data['keyboard_time']
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN_V2
-    )
-    return 'TIME'
-
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Хэндлер отмены, может использоваться на этапе бронирования и оплаты,
-    для отмены действий и выхода из ConversationHandler
-    """
-    query = update.callback_query
-    await query.answer()
-
-    await query.edit_message_text(
-        text='Вы выбрали отмену, для повтора используйте команду '
-             f'/{COMMAND_DICT["RESERVE"][0]}'
-    )
-
-    if '|' in query.data:
-        chat_id = query.data.split('|')[1].split()[0]
-        message_id = query.data.split('|')[1].split()[1]
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id
-        )
-
-        chose_reserve_option = context.user_data['chose_reserve_option']
-
-        # Номер строки для извлечения актуального числа доступных мест
-        row_in_googlesheet = context.user_data['row_in_googlesheet']
-
-        # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 5)
-
-        old_number_of_seats = int(
-            availibale_number_of_seats_now) + int(
-            chose_reserve_option.get('quality_of_children'))
-        old_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
-        try:
-            googlesheets.confirm(
-                row_in_googlesheet,
-                [old_number_of_seats, old_nonconfirm_number_of_seats]
-            )
-
-            main_handlers_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{context.user_data["user"]}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя {context.user_data["user"]} отклонение в '
-                     f'авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
-            )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
-                [
-                    f'Для пользователя {context.user_data["user"]} отклонение в '
-                    f'авто-режиме не сработало',
-                    f'{context.user_data["user"]}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-
-    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
-    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-    context.user_data.clear()
-
-    return ConversationHandler.END
-
-
-def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Название не должно быть просто help
-    # TODO прописать логику использования help
-    pass
 
 
 async def conversation_timeout(
@@ -1127,7 +794,7 @@ async def conversation_timeout(
                 [old_number_of_seats, old_nonconfirm_number_of_seats]
             )
 
-            main_handlers_logger.info(": ".join(
+            reserve_hl_logger.info(": ".join(
                 [
                     'Для пользователя',
                     f'{context.user_data["user"]}',
@@ -1141,8 +808,8 @@ async def conversation_timeout(
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
+            reserve_hl_logger.error(TimeoutError)
+            reserve_hl_logger.error(": ".join(
                 [
                     f'Для пользователя {context.user_data["user"]} отклонение в '
                     f'авто-режиме не сработало',
@@ -1157,7 +824,7 @@ async def conversation_timeout(
             'От Вас долго не было ответа, пожалуйста выполните новый запрос'
         )
 
-    main_handlers_logger.info(": ".join(
+    reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
             str(context.user_data['user'].id),
@@ -1165,8 +832,8 @@ async def conversation_timeout(
             'AFK уже 15 мин'
         ]
     ))
-    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
-    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    reserve_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    reserve_hl_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     return ConversationHandler.END
 
