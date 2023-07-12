@@ -4,7 +4,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     ConversationHandler,
     MessageHandler,
-    filters
+    filters,
+    PicklePersistence
 )
 
 import handlers as hl
@@ -20,9 +21,11 @@ def bot():
     bot_logger = load_log_config()
     bot_logger.info('Инициализация бота')
 
+    persistence = PicklePersistence(filepath="conversationbot")
     application = (
         Application.builder()
         .token(API_TOKEN)
+        .persistence(persistence)
 
         .build()
     )
@@ -87,7 +90,10 @@ def bot():
             ConversationHandler.TIMEOUT: [hl.TIMEOUT_HANDLER]
         },
         fallbacks=[CommandHandler('help', hl.help_command)],
-        conversation_timeout=15*60  # 15 мин
+        conversation_timeout=15*60,  # 15 мин
+        name="my_conversation",
+        persistent=True,
+        allow_reentry=True
     )
 
     application.add_handler(conv_handler)
