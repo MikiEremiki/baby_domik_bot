@@ -21,7 +21,7 @@ def bot():
     bot_logger = load_log_config()
     bot_logger.info('Инициализация бота')
 
-    persistence = PicklePersistence(filepath="conversationbot")
+    persistence = PicklePersistence(filepath="db/conversationbot")
     application = (
         Application.builder()
         .token(API_TOKEN)
