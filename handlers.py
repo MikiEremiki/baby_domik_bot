@@ -171,8 +171,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ))
     context.user_data["STATE"] = 'DATE'
 
-    key_of_name_show = int(query.data.split(' | ')[0])
-    date_show = query.data.split(' | ')[1]
+    key_of_name_show, date_show = query.data.split(' | ')
+    key_of_name_show = int(key_of_name_show)
+
     dict_of_shows: dict = context.user_data['dict_of_shows']
     dict_of_name_show_flip = context.user_data['dict_of_name_show_flip']
     name_show: str = dict_of_name_show_flip[key_of_name_show]
@@ -187,7 +188,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             number = item['available_children_seats']
             button_tmp = InlineKeyboardButton(
                 text=time + ' | ' + str(number) + ' шт свободно',
-                callback_data=time + ' | ' + str(key) + ' ' + str(number)
+                callback_data=time + ' | ' + str(key) + ' | ' + str(number)
             )
             keyboard.append([button_tmp])
 
@@ -252,9 +253,8 @@ async def choice_option_of_reserve(update: Update,
     ))
     context.user_data["STATE"] = 'TIME'
 
-    time = query.data.split(' | ')[0]
-    row_in_googlesheet = query.data.split(' | ')[1].split()[0]
-    number = query.data.split(' | ')[1].split()[1]
+    time, row_in_googlesheet, number = query.data.split(' | ')
+
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_of_show'] = time
 
