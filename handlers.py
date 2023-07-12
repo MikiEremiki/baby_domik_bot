@@ -230,8 +230,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return 'TIME'
 
 
-async def choice_option_of_reserve(update: Update,
-                                   context: ContextTypes.DEFAULT_TYPE):
+async def choice_option_of_reserve(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю,
     дате, времени и варианты бронирования
@@ -345,8 +347,10 @@ _Если нет желаемых вариантов для выбора, зна
     return 'ORDER'
 
 
-async def check_and_send_buy_info(update: Update,
-                                  context: ContextTypes.DEFAULT_TYPE):
+async def check_and_send_buy_info(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     """
     Проверяет кол-во доступных мест, для выбранного варианта пользователем и
     отправляет сообщение об оплате или о необходимости выбрать другое время с
@@ -533,7 +537,10 @@ __________
     return 'PAID'
 
 
-async def forward_photo_or_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def forward_photo_or_file(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     """
     Пересылает картинку или файл.
     Запускает цепочку вопросов для клиентской базы, если пользователь нажал
@@ -612,7 +619,10 @@ __________
     return 'FORMA'
 
 
-async def get_name_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_name_adult(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     context.user_data["STATE"] = 'PHONE'
 
     text = update.effective_message.text
@@ -659,7 +669,10 @@ __________
     return 'CHILDREN'
 
 
-async def get_name_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_name_children(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     context.user_data["STATE"] = 'CHILDREN'
 
     text = update.effective_message.text
@@ -1075,7 +1088,10 @@ def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pass
 
 
-async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def conversation_timeout(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """Informs the user that the operation has timed out, calls :meth:`remove_reply_markup` and
     ends the conversation.
     :return:
@@ -1158,7 +1174,10 @@ async def conversation_timeout(update: Update, context: ContextTypes.DEFAULT_TYP
 TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)
 
 
-async def send_clients_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_clients_data(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     query = update.callback_query
     await query.answer()
 
