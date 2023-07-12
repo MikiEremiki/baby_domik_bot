@@ -197,21 +197,18 @@ async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
     default_commands = [
         BotCommand(COMMAND_DICT['START'][0], COMMAND_DICT['START'][1]),
         BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
+        BotCommand(COMMAND_DICT['BIRTHDAY'][0], COMMAND_DICT['BIRTHDAY'][1]),
     ]
-    group_commands = [
+    admin_group_commands = [
         BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
         BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
     ]
-    admin_commands = [
-        BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
-        BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
-        BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
-    ]
+    admin_commands = default_commands + admin_group_commands
 
     for chat_id in ADMIN_GROUP_ID:
         try:
             await context.bot.set_my_commands(
-                commands=group_commands,
+                commands=admin_group_commands,
                 scope=BotCommandScopeChatAdministrators(chat_id=chat_id)
             )
         except BadRequest:
