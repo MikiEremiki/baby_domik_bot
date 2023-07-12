@@ -37,7 +37,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                               f' {update.message.from_user}')
-    context.user_data["STATE"] = 'START'
+    context.user_data['STATE'] = 'START'
     context.user_data['user'] = update.message.from_user
 
     answer = await update.effective_chat.send_message(
