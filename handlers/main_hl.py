@@ -36,15 +36,14 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
+    # Способ защиты от многократного нажатия
+    await query.edit_message_reply_markup()
 
     row_in_googlesheet = query.data.split('|')[1].split()[2]
     text_query_split = query.message.text.split('\n')[0]
     user_info = text_query_split[text_query_split.find(' ') + 1:]
 
-    # Способ защиты от многократного нажатия
     try:
-        await query.edit_message_reply_markup()
-
         dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
         key_option_for_reserve = int(query.data.split('|')[1].split()[3])
         chose_reserve_option = dict_of_option_for_reserve.get(
@@ -125,14 +124,12 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
+    await query.edit_message_reply_markup()
 
     text_query_split = query.message.text.split('\n')[0]
     user_info = text_query_split[text_query_split.find(' ') + 1:]
 
-    # Способ защиты от многократного нажатия
     try:
-        await query.edit_message_reply_markup()
-
         dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
         key_option_for_reserve = int(query.data.split('|')[1].split()[3])
         chose_reserve_option = dict_of_option_for_reserve.get(
