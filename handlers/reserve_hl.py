@@ -577,7 +577,7 @@ __________
 
     user = context.user_data['user']
     chose_reserve_option = context.user_data['chose_reserve_option']
-    price = chose_reserve_option.get("price")
+    price = chose_reserve_option.get('price')
 
     answer = await context.bot.send_message(
         chat_id=CHAT_ID_GROUP_ADMIN,
