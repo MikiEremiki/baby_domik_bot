@@ -346,6 +346,23 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['birthday_data']['format_bd'] = format_bd
 
+    state = 'NAME_CHILD'
+    context.user_data['STATE'] = state
+    return state
+
+
+async def get_name_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    name_child = update.effective_message.text
+
+    birthday_hl_logger.info(join_for_log_info(
+        context.user_data['user'].id, 'имя ребенка', name_child))
+
+    await update.effective_chat.send_message(
+        text='Напишите как вас зовут',
+    )
+
+    context.user_data['birthday_data']['name_child'] = name_child
+
     state = 'NAME'
     context.user_data['STATE'] = state
     return state

@@ -45,6 +45,9 @@ birthday_conv_hl = ConversationHandler(
             'FORMAT_BD': [
                 CallbackQueryHandler(birthday_hl.get_format_bd),
             ],
+            'NAME_CHILD': [
+                MessageHandler(filters.TEXT, birthday_hl.get_name_child),
+            ],
             'NAME': [
                 MessageHandler(filters.TEXT, birthday_hl.get_name),
             ],
