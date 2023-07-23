@@ -91,34 +91,8 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    # Определение кнопок для inline клавиатуры
-    keyboard = []
-    list_btn_of_numbers = []
-
-    i = 0
-    for key, item in dict_of_date_show.items():
-        button_tmp = InlineKeyboardButton(
-            text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[item],
-            callback_data=str(item) + ' | ' + key
-        )
-        list_btn_of_numbers.append(button_tmp)
-
-        i += 1
-        # Две кнопки в строке так как для узких экранов телефонов дни недели
-        # обрезаются
-        if i % 2 == 0:
-            i = 0
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
-
-    button_tmp = InlineKeyboardButton(
-        "Отменить",
-        callback_data='Отменить'
-    )
-    keyboard.append([button_tmp])
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = create_replay_markup_for_list_of_shows(
+        dict_of_date_show)
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль и дату\n'
