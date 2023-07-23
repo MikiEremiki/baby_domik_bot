@@ -537,7 +537,8 @@ async def forward_photo_or_file(
 
     res = await context.bot.send_message(
         chat_id=CHAT_ID_GROUP_ADMIN,
-        text=f'Квитанция пользователя @{user.username} {user.full_name}\n',
+        text=f'#Бронирование\n'
+             f'Квитанция пользователя @{user.username} {user.full_name}\n'
     )
     await update.effective_message.forward(
         chat_id=CHAT_ID_GROUP_ADMIN,
