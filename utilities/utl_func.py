@@ -8,6 +8,7 @@ from typing import (
     Union
 )
 import os
+import re
 
 from telegram import (
     Update,
@@ -27,7 +28,6 @@ from utilities.settings import (
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
     ADMIN_ID,
-    CHAT_ID_GROUP_ADMIN,
 )
 
 utilites_logger = logging.getLogger('bot.utilites')
@@ -265,3 +265,8 @@ async def send_message_to_admin(
             chat_id=CHAT_ID_GROUP_ADMIN,
             text=text,
         )
+
+
+def extract_phone_number_from_text(phone):
+    phone = re.sub(r'[-\s)(+]', '', phone)
+    return re.sub(r'^[78]{,2}(?=9)', '', phone)
