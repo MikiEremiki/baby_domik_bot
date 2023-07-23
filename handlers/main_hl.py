@@ -312,10 +312,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    await query.edit_message_text(
-        text='Вы выбрали отмену, для повтора используйте команду '
-             f'/{COMMAND_DICT["RESERVE"][0]}'
-    )
+    data = query.data.split('|')[0].split('-')[-1]
+    match data:
+        case 'res':
+            await query.edit_message_text(
+                text='Вы выбрали отмену\nИспользуйте команды:\n'
+                     f'/{COMMAND_DICT["RESERVE"][0]} - для повторного '
+                     f'резервирования свободных мест на спектакль'
+            )
+        case 'bd':
+            await query.edit_message_text(
+                text='Вы выбрали отмену\nИспользуйте команды:\n'
+                     f'/{COMMAND_DICT["BD_REQUEST"][0]} - для повторной '
+                     f'отправки заявки на проведение Дня рождения\n'
+                     f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
+                     f'внесения предоплаты, если ваша заявка была одобрена'
+            )
 
     if '|' in query.data:
         chat_id = query.data.split('|')[1].split()[0]
