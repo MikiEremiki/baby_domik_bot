@@ -432,7 +432,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data['message_id_for_admin'] = message.message_id
 
-        # TODO Загрузить данные в гугл-таблицу
+        # TODO Создаем запись в гугл-таблице
 
     except Exception as e:
         birthday_hl_logger.error(e)
@@ -495,6 +495,7 @@ async def forward_photo_or_file(
         user = context.user_data['user']
         # text = context.user_data['text_for_notification_massage']
         # TODO Создать сообщение для закрепа
+        # TODO Дополнить запись в гугл-таблице о факте оплаты
         text = context.user_data['birthday_data']
 
         await context.bot.send_message(

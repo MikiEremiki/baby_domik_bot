@@ -244,6 +244,8 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    'Вам будет отправлено сообщение с информацией об оплате'
         case '2':
             try:
+                # TODO Дополнить запись в гугл-таблице о факте подтверждения
+                #  оплаты администратором
                 await context.bot.delete_message(
                     chat_id=chat_id,
                     message_id=message_id
