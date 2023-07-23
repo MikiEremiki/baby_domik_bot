@@ -563,22 +563,17 @@ __________
     # Сообщение для администратора
     row_in_googlesheet = context.user_data['row_in_googlesheet']
     key_option_for_reserve = context.user_data['key_option_for_reserve']
-    keyboard = []
-    button_approve = InlineKeyboardButton(
-        "Подтвердить",
-        callback_data=f'Разрешить|'
-                      f'{chat_id} {message_id} '
-                      f'{row_in_googlesheet} {key_option_for_reserve}'
-    )
+    data_for_callback = [
+        row_in_googlesheet,
+        key_option_for_reserve
+    ]
 
-    button_cancel = InlineKeyboardButton(
-        "Отклонить",
-        callback_data=f'Отклонить|'
-                      f'{chat_id} {message_id} '
-                      f'{row_in_googlesheet} {key_option_for_reserve}'
+    reply_markup = create_approve_and_reject_replay(
+        'reserve',
+        chat_id,
+        message_id,
+        data_for_callback
     )
-    keyboard.append([button_approve, button_cancel])
-    reply_markup = InlineKeyboardMarkup(keyboard)
 
     user = context.user_data['user']
     chose_reserve_option = context.user_data['chose_reserve_option']
