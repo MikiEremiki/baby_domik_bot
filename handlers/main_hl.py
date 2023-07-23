@@ -335,7 +335,12 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
             ))
 
-    main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+    try:
+        main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+    except KeyError:
+        main_handlers_logger.info(f'Пользователь {update.effective_user}: Не '
+                                  f'оформил заявку, а сразу использовал '
+                                  f'команду /{COMMAND_DICT["BD_PAID"][0]}')
     main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
 
