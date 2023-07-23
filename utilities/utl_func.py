@@ -242,13 +242,14 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_message_to_admin(
+        chat_id: Union[int, str],
         text: str,
         message_id: Union[int, str],
         context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     try:
         await context.bot.send_message(
-            chat_id=CHAT_ID_GROUP_ADMIN,
+            chat_id=chat_id,
             text=text,
             reply_to_message_id=message_id
         )
@@ -262,7 +263,7 @@ async def send_message_to_admin(
             ],
         ))
         await context.bot.send_message(
-            chat_id=CHAT_ID_GROUP_ADMIN,
+            chat_id=chat_id,
             text=text,
         )
 
