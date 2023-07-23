@@ -58,10 +58,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['STATE'] = 'START'
     context.user_data['user'] = update.message.from_user
 
-    answer = await update.effective_chat.send_message(
-        text='Загружаем данные спектаклей',
-        reply_markup=ReplyKeyboardRemove()
-    )
+    answer = await message_load_show_info(update)
 
     # Загрузка базы спектаклей из гугл-таблицы
     try:
