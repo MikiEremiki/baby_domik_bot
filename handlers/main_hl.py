@@ -224,6 +224,47 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ))
 
 
+async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup()
+
+    data = query.data.split('|')[0][-1]
+    chat_id = query.data.split('|')[1].split()[0]
+    message_id = query.data.split('|')[1].split()[1]
+    text = 'Возникла ошибка\n' \
+           'Cвяжитесь с администратором:' \
+           'Татьяна Бурганова @Tanya_domik +79159383529'
+    match data:
+        case '1':
+            text = 'У нас отличные новости!\n' \
+                   'Мы с радостью проведем день рождение вашего малыша\n\n' \
+                   'Если вы готовы внести предоплату то нажмите на команду ' \
+                   f'/{COMMAND_DICT["BD_PAID"][0]}\n\n' \
+                   'Вам будет отправлено сообщение с информацией об оплате'
+        case '2':
+            try:
+                await context.bot.delete_message(
+                    chat_id=chat_id,
+                    message_id=message_id
+                )
+            except BadRequest:
+                main_handlers_logger.info(
+                    f'Cообщение уже удалено'
+                )
+            text = 'Ваша бронь подтверждена\nДо встречи в Домике'
+
+    await context.bot.send_message(
+        text=text,
+        chat_id=chat_id,
+    )
+
+
+async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # TODO Прописать функцию отказа на заявку
+    pass
+
+
 async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
