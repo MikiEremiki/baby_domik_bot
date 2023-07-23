@@ -5,11 +5,11 @@ from telegram.ext import (
     PicklePersistence
 )
 
-import handlers.main_hl as hl
+from handlers import main_hl
 from conv_hl.reserve_conv_hl import reserve_conv_hl
-from conv_hl.birthday_conv_hl import birthday_conv_hl
+from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from log_debug.logging_conf import load_log_config
-from utilities.utilities import echo, send_log, set_menu
+from utilities.utl_func import echo, send_log, set_menu
 from utilities.settings import (
     API_TOKEN,
     COMMAND_DICT,
@@ -31,7 +31,7 @@ def bot():
 
     application.job_queue.run_once(set_menu, 0)
 
-    application.add_handler(CommandHandler(COMMAND_DICT['START'][0], hl.start))
+    application.add_handler(CommandHandler(COMMAND_DICT['START'][0], main_hl.start))
 
     application.add_handler(reserve_conv_hl)
     application.add_handler(CallbackQueryHandler(hl.confirm, pattern='^Разрешить'))

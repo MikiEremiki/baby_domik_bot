@@ -8,7 +8,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 
-from utilities import googlesheets, utilities
+from utilities import googlesheets, utl_func
 from utilities.settings import ADMIN_ID, COMMAND_DICT
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
@@ -20,7 +20,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     при перезапуске бота или при использовании команды start
     """
     if update.effective_chat.id in ADMIN_ID:
-        await utilities.set_menu(context.bot)
+        await utl_func.set_menu(context.bot)
 
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
@@ -28,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Отправляет оповещение о подтверждении в бронировании, удаляет сообщение
     используемое в ConversationHandler и возвращает свободные места для
@@ -57,7 +57,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
         try:
-            googlesheets.confirm(
+            googlesheets.write_data_for_reserve(
                 row_in_googlesheet,
                 [new_nonconfirm_number_of_seats]
             )
@@ -118,7 +118,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ))
 
 
-async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Отправляет оповещение об отказе в бронировании, удаляет сообщение
     используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
@@ -155,7 +155,7 @@ async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chose_reserve_option.get('quality_of_children'))
 
         try:
-            googlesheets.confirm(
+            googlesheets.write_data_for_reserve(
                 row_in_googlesheet,
                 [old_number_of_seats, old_nonconfirm_number_of_seats]
             )
@@ -305,7 +305,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
         try:
-            googlesheets.confirm(
+            googlesheets.write_data_for_reserve(
                 row_in_googlesheet,
                 [old_number_of_seats, old_nonconfirm_number_of_seats]
             )

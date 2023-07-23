@@ -14,7 +14,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_service_sacc(scopes):
     credentials = service_account.Credentials.from_service_account_file(
-        'credentials.json', scopes=scopes)
+        '../credentials.json', scopes=scopes)
 
     return build('sheets', 'v4', credentials=credentials)
 
@@ -59,7 +59,7 @@ def update_quality_of_seats(row, i):
         googlesheets_logger.error(err)
 
 
-def confirm(row: int, numbers: int) -> None:
+def write_data_for_reserve(row: int, numbers: int) -> None:
     try:
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'RAW'

@@ -20,8 +20,8 @@ from telegram import (
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest
 
-import googlesheets
-from settings import (
+from utilities import googlesheets
+from utilities.settings import (
     RANGE_NAME,
     COMMAND_DICT,
     ADMIN_GROUP_ID,
