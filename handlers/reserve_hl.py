@@ -479,7 +479,7 @@ async def check_and_send_buy_info(
         keyboard = []
         button_cancel = InlineKeyboardButton(
             "Отменить",
-            callback_data=f'Отменить|'
+            callback_data=f'Отменить-res|'
                           f'{query.message.chat_id} {query.message.message_id}'
         )
         keyboard.append([button_cancel])
