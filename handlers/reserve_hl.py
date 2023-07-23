@@ -881,7 +881,7 @@ async def get_phone_for_waiting(
         await request_phone_number(update, phone)
         return 'PHONE'
 
-    text = context.user_data['text_for_list_waiting'] + '+7' + text
+    text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
     user = update.effective_user
     text = f'Пользователь @{user.username} {user.full_name}\n' \
