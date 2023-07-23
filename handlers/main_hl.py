@@ -399,5 +399,5 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Название не должно быть просто help
-    # TODO прописать логику использования help
+    # TODO Прописать логику использования help
     pass

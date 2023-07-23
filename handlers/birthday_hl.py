@@ -477,7 +477,7 @@ async def forward_photo_or_file(
     try:
         user = context.user_data['user']
         # text = context.user_data['text_for_notification_massage']
-        # TODO создать сообщение для закрепа
+        # TODO Создать сообщение для закрепа
         text = context.user_data['birthday_data']
 
         await context.bot.send_message(

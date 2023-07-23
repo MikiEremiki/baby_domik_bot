@@ -50,6 +50,8 @@ def load_data() -> Tuple[
 
     :return: dict, dict, dict, dict
     """
+    # TODO Переписать структуру словарей с учетом добавления отдельного листа
+    #  с базой по спектаклям
     data_of_dates = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_дата']
     )
