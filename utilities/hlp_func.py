@@ -15,7 +15,8 @@ def create_replay_markup_for_list_of_shows(
         dict_of_show,
         num_colum=2,
         ver=1,
-        add_cancel_btn=True
+        add_cancel_btn=True,
+        postfix_for_callback=None
 ):
     """
     Создает inline клавиатуру
@@ -25,6 +26,8 @@ def create_replay_markup_for_list_of_shows(
     ver = 1 для бронирования обычного спектакля
     ver = 2 для бронирования дня рождения
     :param add_cancel_btn: если True, то добавляет кнопку отмены
+    :param postfix_for_callback: Добавление дополнительной приписки для
+    корректного определения случая при использовании отмены
     :return: InlineKeyboardMarkup
     """
     # Определение кнопок для inline клавиатуры
@@ -58,9 +61,12 @@ def create_replay_markup_for_list_of_shows(
         keyboard.append(list_btn_of_numbers)
 
     if add_cancel_btn:
+        callback_data = 'Отменить'
+        if postfix_for_callback:
+            callback_data += f'-{postfix_for_callback}'
         button_tmp = InlineKeyboardButton(
             "Отменить",
-            callback_data='Отменить'
+            callback_data=callback_data
         )
         keyboard.append([button_tmp])
     return InlineKeyboardMarkup(keyboard)
