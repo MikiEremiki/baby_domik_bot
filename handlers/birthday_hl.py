@@ -27,6 +27,7 @@ from handlers.sub_hl import (
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
+ADMIN_GROUP = CHAT_ID_GROUP_ADMIN_1
 
 
 async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -435,7 +436,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += '\n' + key + ': ' + str(item)
         message = await context.bot.send_message(
             text=text,
-            chat_id=CHAT_ID_MIKIEREMIKI,
+            chat_id=ADMIN_GROUP,
             reply_markup=reply_markup
         )
 
@@ -507,12 +508,15 @@ async def forward_photo_or_file(
         # TODO Дополнить запись в гугл-таблице о факте оплаты
         text = context.user_data['birthday_data']
 
-        await context.bot.send_message(
-            chat_id=CHAT_ID_MIKIEREMIKI,
-            text=f'Квитанция пользователя @{user.username} {user.full_name}\n',
-        )
+        text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
+        message_id_for_admin = context.user_data['message_id_for_admin']
+        await send_message_to_admin(ADMIN_GROUP,
+                                    text,
+                                    message_id_for_admin,
+                                    context)
+
         await update.effective_message.forward(
-            chat_id=CHAT_ID_MIKIEREMIKI,
+            chat_id=ADMIN_GROUP,
         )
         message_id_for_admin = context.user_data['message_id_for_admin']
         await send_message_to_admin(CHAT_ID_MIKIEREMIKI,
@@ -535,7 +539,7 @@ async def forward_photo_or_file(
         user = context.user_data['user']
 
         answer = await context.bot.send_message(
-            chat_id=CHAT_ID_MIKIEREMIKI,
+            chat_id=CHAT_ID_GROUP_ADMIN_1,
             text=f'Пользователь @{user.username} {user.full_name}\n'
                  f'Запросил подтверждение брони на сумму 5000 руб\n',
             reply_markup=reply_markup
