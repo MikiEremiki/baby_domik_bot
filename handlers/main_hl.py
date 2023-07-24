@@ -4,7 +4,7 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
 )
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 
