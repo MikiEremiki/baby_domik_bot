@@ -16,7 +16,7 @@ from telegram import (
 from telegram.constants import ParseMode
 from telegram.helpers import escape_markdown
 
-from handlers.sub_hl import request_phone_number
+from handlers.sub_hl import request_phone_number, message_load_show_info
 from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
@@ -32,7 +32,6 @@ from utilities.utl_func import (
 )
 from utilities.hlp_func import (
     check_phone_number,
-    message_load_show_info,
     create_replay_markup_for_list_of_shows,
     create_approve_and_reject_replay
 )
