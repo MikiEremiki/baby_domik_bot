@@ -47,8 +47,8 @@ reserve_conv_hl = ConversationHandler(
                 MessageHandler(filters.TEXT, reserve_hl.get_name_children),
             ],
             'LIST': [
-                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить$'),
-                CallbackQueryHandler(main_hl.back_date, pattern='^Назад$'),
+                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+                CallbackQueryHandler(main_hl.back_date, pattern='^Назад'),
                 CallbackQueryHandler(reserve_hl.send_clients_data),
             ],
             'CHOOSING': [
