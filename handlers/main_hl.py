@@ -381,6 +381,63 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'/{COMMAND_DICT["RESERVE"][0]} - для повторного '
                      f'резервирования свободных мест на спектакль'
             )
+
+            if '|' in query.data:
+                chat_id = query.data.split('|')[1].split()[0]
+                message_id = query.data.split('|')[1].split()[1]
+                await context.bot.delete_message(
+                    chat_id=chat_id,
+                    message_id=message_id
+                )
+
+                chose_reserve_option = context.user_data['chose_reserve_option']
+
+                # Номер строки для извлечения актуального числа доступных мест
+                row_in_googlesheet = context.user_data['row_in_googlesheet']
+
+                # Обновляем кол-во доступных мест
+                availibale_number_of_seats_now = update_quality_of_seats(
+                    row_in_googlesheet, 4)
+                nonconfirm_number_of_seats_now = update_quality_of_seats(
+                    row_in_googlesheet, 5)
+
+                old_number_of_seats = int(
+                    availibale_number_of_seats_now) + int(
+                    chose_reserve_option.get('quality_of_children'))
+                old_nonconfirm_number_of_seats = int(
+                    nonconfirm_number_of_seats_now) - int(
+                    chose_reserve_option.get('quality_of_children'))
+                try:
+                    write_data_for_reserve(
+                        row_in_googlesheet,
+                        [old_number_of_seats, old_nonconfirm_number_of_seats]
+                    )
+
+                    main_handlers_logger.info(": ".join(
+                        [
+                            'Для пользователя',
+                            f'{user}',
+                            'Номер строки для обновления',
+                            row_in_googlesheet,
+                        ]
+                    ))
+                except TimeoutError:
+                    await update.effective_chat.send_message(
+                        text=f'Для пользователя @{user.username} {user.full_name} отклонение в '
+                             f'авто-режиме не сработало\n'
+                             f'Номер строки для обновления:\n{row_in_googlesheet}'
+                    )
+                    main_handlers_logger.error(TimeoutError)
+                    main_handlers_logger.error(": ".join(
+                        [
+                            f'Для пользователя {user} отклонение в '
+                            f'авто-режиме не сработало',
+                            'Номер строки для обновления',
+                            row_in_googlesheet,
+                        ]
+                    ))
+
+                context.user_data.clear()
         case 'bd':
             await query.edit_message_text(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
@@ -389,62 +446,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
                      f'внесения предоплаты, если ваша заявка была одобрена'
             )
-
-    if '|' in query.data:
-        chat_id = query.data.split('|')[1].split()[0]
-        message_id = query.data.split('|')[1].split()[1]
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id
-        )
-
-        chose_reserve_option = context.user_data['chose_reserve_option']
-
-        # Номер строки для извлечения актуального числа доступных мест
-        row_in_googlesheet = context.user_data['row_in_googlesheet']
-
-        # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
-            row_in_googlesheet, 5)
-
-        old_number_of_seats = int(
-            availibale_number_of_seats_now) + int(
-            chose_reserve_option.get('quality_of_children'))
-        old_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
-        try:
-            googlesheets.write_data_for_reserve(
-                row_in_googlesheet,
-                [old_number_of_seats, old_nonconfirm_number_of_seats]
-            )
-
-            main_handlers_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{context.user_data["user"]}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя {context.user_data["user"]} отклонение в '
-                     f'авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
-            )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
-                [
-                    f'Для пользователя {context.user_data["user"]} отклонение в '
-                    f'авто-режиме не сработало',
-                    f'{context.user_data["user"]}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
 
     try:
         main_handlers_logger.info(f'Для пользователя {user}')
