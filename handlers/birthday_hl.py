@@ -510,7 +510,6 @@ async def forward_photo_or_file(
         # text = context.user_data['text_for_notification_massage']
         # TODO Создать сообщение для закрепа
         # TODO Дополнить запись в гугл-таблице о факте оплаты
-        text = context.user_data['birthday_data']
 
         text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
         message_id_for_admin = context.user_data['message_id_for_admin']
@@ -522,11 +521,6 @@ async def forward_photo_or_file(
         await update.effective_message.forward(
             chat_id=ADMIN_GROUP,
         )
-        message_id_for_admin = context.user_data['message_id_for_admin']
-        await send_message_to_admin(CHAT_ID_MIKIEREMIKI,
-                                    text,
-                                    message_id_for_admin,
-                                    context)
 
         data_for_callback = [
             row_in_googlesheet := 1,
