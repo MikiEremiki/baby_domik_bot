@@ -455,7 +455,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT["BD_PAID"][0]}')
     main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-    context.user_data.clear()
 
     return ConversationHandler.END
 
