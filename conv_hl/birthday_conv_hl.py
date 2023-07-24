@@ -30,7 +30,6 @@ birthday_conv_hl = ConversationHandler(
                 MessageHandler(filters.TEXT, birthday_hl.get_time),
             ],
             'CHOOSE': [
-                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить$'),
                 CallbackQueryHandler(birthday_hl.get_show),
             ],
             'AGE': [
