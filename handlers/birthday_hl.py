@@ -43,9 +43,7 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 'START'
     context.user_data['STATE'] = state
-
-    birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
-                            f' {update.message.from_user}')
+    context.user_data['user'] = update.message.from_user
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В Домике'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
@@ -70,7 +68,6 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     context.user_data['birthday_data'] = {}
-    context.user_data['user'] = update.message.from_user
 
     state = 'PLACE'
     context.user_data['STATE'] = state
