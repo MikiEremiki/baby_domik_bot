@@ -16,7 +16,10 @@ from telegram import (
 from telegram.constants import ParseMode
 from telegram.helpers import escape_markdown
 
-from handlers.sub_hl import request_phone_number, message_load_show_info
+from handlers.sub_hl import (
+    request_phone_number,
+    send_and_del_message_to_remove_kb
+)
 from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
@@ -51,13 +54,12 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state DATE
     """
-
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                               f' {update.message.from_user}')
     context.user_data['STATE'] = 'START'
     context.user_data['user'] = update.message.from_user
 
-    answer = await message_load_show_info(update)
+    message = await send_and_del_message_to_remove_kb(update)
 
     # Загрузка базы спектаклей из гугл-таблицы
     try:

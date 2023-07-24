@@ -33,6 +33,11 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state PLACE
     """
+    birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
+                            f' {update.message.from_user}')
+
+    message = await send_and_del_message_to_remove_kb(update)
+
     state = 'START'
     context.user_data['STATE'] = state
 
@@ -52,6 +57,10 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton(two_option, callback_data=2)],
     ])
 
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=message.message_id
+    )
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup
