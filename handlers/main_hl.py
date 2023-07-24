@@ -52,14 +52,16 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chose_reserve_option = dict_of_option_for_reserve.get(
             key_option_for_reserve)
 
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+        row_in_googlesheet = query.data.split('|')[1].split()[2]
+
+        nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 5)
 
         new_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
         try:
-            googlesheets.write_data_for_reserve(
+            write_data_for_reserve(
                 row_in_googlesheet,
                 [new_nonconfirm_number_of_seats]
             )
@@ -142,9 +144,9 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         row_in_googlesheet = query.data.split('|')[1].split()[2]
 
         # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+        availibale_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+        nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 5)
 
         old_number_of_seats = int(
@@ -155,7 +157,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chose_reserve_option.get('quality_of_children'))
 
         try:
-            googlesheets.write_data_for_reserve(
+            write_data_for_reserve(
                 row_in_googlesheet,
                 [old_number_of_seats, old_nonconfirm_number_of_seats]
             )
