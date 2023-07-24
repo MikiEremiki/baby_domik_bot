@@ -17,17 +17,17 @@ reserve_conv_hl = ConversationHandler(
         ],
         states={
             'DATE': [
-                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить$'),
+                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
                 CallbackQueryHandler(reserve_hl.choice_time),
             ],
             'TIME': [
-                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить$'),
-                CallbackQueryHandler(main_hl.back_date, pattern='^Назад$'),
+                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+                CallbackQueryHandler(main_hl.back_date, pattern='^Назад'),
                 CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
             ],
             'ORDER': [
-                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить$'),
-                CallbackQueryHandler(main_hl.back_time, pattern='^Назад$'),
+                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+                CallbackQueryHandler(main_hl.back_time, pattern='^Назад'),
                 CallbackQueryHandler(reserve_hl.check_and_send_buy_info),
             ],
             'PAID': [
