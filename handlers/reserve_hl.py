@@ -106,12 +106,10 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         message_id=answer.message_id
     )
-    answer = await update.effective_chat.send_message(
+    await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup
     )
-
-    context.user_data['message_id'] = answer.message_id
 
     # Контекст для возврата назад
     context.user_data['text_date'] = text
