@@ -20,8 +20,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     при перезапуске бота или при использовании команды start
     """
     await update.effective_chat.send_message(
-        text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
-             f'/{COMMAND_DICT["RESERVE"][0]}, чтобы выбрать спектакль.'
+        text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
+             f'/{COMMAND_DICT["RESERVE"][0]} - чтобы выбрать и оплатить билет на'
+             f' спектакль для просмотра в нашем театре\n'
+             f'/{COMMAND_DICT["BD_REQUEST"][0]} - чтобы оформить заявку на '
+             f'проведение дня рождения в театре или по вашему адресу\n'
     )
 
 
