@@ -496,6 +496,7 @@ async def forward_photo_or_file(
     """
     Пересылает картинку или файл.
     """
+    user = context.user_data['user']
     message_id = context.chat_data['message_id']
     chat_id = update.effective_chat.id
 
@@ -506,7 +507,6 @@ async def forward_photo_or_file(
     )
 
     try:
-        user = context.user_data['user']
         # text = context.user_data['text_for_notification_massage']
         # TODO Создать сообщение для закрепа
         # TODO Дополнить запись в гугл-таблице о факте оплаты
@@ -540,8 +540,6 @@ async def forward_photo_or_file(
             data_for_callback
         )
 
-        user = context.user_data['user']
-
         answer = await context.bot.send_message(
             chat_id=CHAT_ID_GROUP_ADMIN_1,
             text=f'Пользователь @{user.username} {user.full_name}\n'
@@ -553,7 +551,7 @@ async def forward_photo_or_file(
     except KeyError:
         await update.effective_chat.send_message('Сначала необходимо оформить запрос')
         birthday_hl_logger.error(
-            f'Пользователь {update.effective_user}: '
+            f'Пользователь {user}: '
             f'Не оформил заявку, а сразу использовал команду /{COMMAND_DICT["BD_PAID"][0]}'
         )
 
