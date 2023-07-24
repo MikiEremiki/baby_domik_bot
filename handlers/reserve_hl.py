@@ -93,7 +93,9 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     reply_markup = create_replay_markup_for_list_of_shows(
-        dict_of_date_show)
+        dict_of_date_show,
+        postfix_for_callback='res'
+    )
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль и дату\n'
