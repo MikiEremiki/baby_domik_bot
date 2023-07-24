@@ -104,7 +104,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.delete_message(
         chat_id=update.effective_chat.id,
-        message_id=answer.message_id
+        message_id=message.message_id
     )
     await update.effective_chat.send_message(
         text=text,
