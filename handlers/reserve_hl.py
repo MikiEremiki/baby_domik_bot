@@ -705,6 +705,7 @@ __________
         text,
     ])
     message_id = context.user_data['message_id_for_admin']
+
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
     await send_message_to_admin(CHAT_ID_GROUP_ADMIN,
