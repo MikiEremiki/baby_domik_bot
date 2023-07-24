@@ -240,12 +240,21 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
            'Татьяна Бурганова @Tanya_domik +79159383529'
     match data:
         case '1':
+            await query.edit_message_text(
+                query.message.text + '\n\n Заявка подтверждена, ждём предоплату'
+            )
+
             text = 'У нас отличные новости!\n' \
                    'Мы с радостью проведем день рождение вашего малыша\n\n' \
                    'Если вы готовы внести предоплату то нажмите на команду ' \
                    f'/{COMMAND_DICT["BD_PAID"][0]}\n\n' \
                    'Вам будет отправлено сообщение с информацией об оплате'
         case '2':
+            await query.edit_message_text(
+                f'Пользователю @{user.username} {user.full_name}\n'
+                f'подтверждена бронь'
+            )
+
             try:
                 # TODO Дополнить запись в гугл-таблице о факте подтверждения
                 #  оплаты администратором
@@ -257,6 +266,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 main_handlers_logger.info(
                     f'Cообщение уже удалено'
                 )
+
             text = 'Ваша бронь подтверждена\nДо встречи в Домике'
 
     await context.bot.send_message(
@@ -284,7 +294,16 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    'малыша\n\n' \
                    'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n' \
                    'Татьяна Бурганова @Tanya_domik +79159383529'
+
+            await query.edit_message_text(
+                query.message.text + '\n\n Заявка отклонена'
+            )
         case '2':
+            await query.edit_message_text(
+                f'Пользователю @{user.username} {user.full_name}\n'
+                f'отклонена бронь'
+            )
+
             try:
                 # TODO Дополнить запись в гугл-таблице о факте отказа от
                 #  оплаты администратором
