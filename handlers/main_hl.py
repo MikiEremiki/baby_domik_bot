@@ -42,9 +42,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Способ защиты от многократного нажатия
     await query.edit_message_reply_markup()
 
-    row_in_googlesheet = query.data.split('|')[1].split()[2]
-    text_query_split = query.message.text.split('\n')[0]
-    user_info = text_query_split[text_query_split.find(' ') + 1:]
+    user = context.user_data['user']
 
     try:
         dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
@@ -69,30 +67,29 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             main_handlers_logger.info(": ".join(
                 [
                     'Для пользователя',
-                    f'{user_info}',
+                    f'@{user.username} {user.full_name}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя {user_info} подтверждение в '
+                text=f'Для пользователя @{user.username} {user.full_name} подтверждение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
             main_handlers_logger.error(TimeoutError)
             main_handlers_logger.error(": ".join(
                 [
-                    f'Для пользователя {user_info} подтверждение в '
+                    f'Для пользователя {user} подтверждение в '
                     f'авто-режиме не сработало',
-                    f'{user_info}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю {user_info} подтверждена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} подтверждена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -116,7 +113,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(": ".join(
             [
                 'Пользователь',
-                f'{update.effective_user.full_name}',
+                f'{user}',
                 'Пытается спамить',
             ]
         ))
@@ -131,8 +128,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    text_query_split = query.message.text.split('\n')[0]
-    user_info = text_query_split[text_query_split.find(' ') + 1:]
+    user = context.user_data['user']
 
     try:
         dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
@@ -165,30 +161,30 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             main_handlers_logger.info(": ".join(
                 [
                     'Для пользователя',
-                    f'{user_info}',
+                    f'{user}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя {user_info} отклонение в '
+                text=f'Для пользователя @{user.username} {user.full_name} отклонение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
             main_handlers_logger.error(TimeoutError)
             main_handlers_logger.error(": ".join(
                 [
-                    f'Для пользователя {user_info} отклонение в '
+                    f'Для пользователя {user} отклонение в '
                     f'авто-режиме не сработало',
-                    f'{user_info}',
+                    f'{user}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю {user_info} отклонена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} отклонена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -214,7 +210,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(": ".join(
             [
                 'Для пользователя',
-                f'{user_info}',
+                f'{user}',
                 'Номер строки, которая должна быть обновлена',
                 row_in_googlesheet,
             ]
@@ -223,7 +219,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(": ".join(
             [
                 'Пользователь',
-                f'{update.effective_user.full_name}',
+                f'{user}',
                 'Пытается спамить',
             ]
         ))
@@ -234,6 +230,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
+    user = context.user_data['user']
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
@@ -272,6 +269,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
+    user = context.user_data['user']
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
@@ -354,6 +352,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    user = context.user_data['user']
     data = query.data.split('|')[0].split('-')[-1]
     match data:
         case 'res':
@@ -428,9 +427,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
 
     try:
-        main_handlers_logger.info(f'Для пользователя {context.user_data["user"]}')
+        main_handlers_logger.info(f'Для пользователя {user}')
     except KeyError:
-        main_handlers_logger.info(f'Пользователь {update.effective_user}: Не '
+        main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT["BD_PAID"][0]}')
     main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
