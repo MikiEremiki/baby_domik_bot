@@ -8,8 +8,11 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 
-from utilities import googlesheets, utl_func
-from utilities.settings import ADMIN_ID, COMMAND_DICT
+from utilities.googlesheets import (
+    update_quality_of_seats,
+    write_data_for_reserve,
+)
+from utilities.settings import COMMAND_DICT
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
