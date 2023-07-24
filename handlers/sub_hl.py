@@ -16,8 +16,8 @@ async def request_phone_number(update, phone):
     )
 
 
-async def message_load_show_info(update: Update):
+async def send_and_del_message_to_remove_kb(update: Update):
     return await update.effective_chat.send_message(
-        text='Загружаем данные спектаклей',
+        text='Загружаем данные',
         reply_markup=ReplyKeyboardRemove()
     )

@@ -27,7 +27,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
              f'/{COMMAND_DICT["RESERVE"][0]} - чтобы выбрать и оплатить билет на'
              f' спектакль для просмотра в нашем театре\n'
              f'/{COMMAND_DICT["BD_REQUEST"][0]} - чтобы оформить заявку на '
-             f'проведение дня рождения в театре или по вашему адресу\n'
+             f'проведение дня рождения в театре или по вашему адресу\n',
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
