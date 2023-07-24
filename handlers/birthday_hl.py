@@ -413,6 +413,9 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = 'Ваша заявка: '
         for key, item in context.user_data['birthday_data'].items():
             text += '\n' + key + ': ' + str(item)
+
+        context.user_data['text_for_notification_massage'] = text
+
         text += '\n\nПринята, после ее рассмотрения администратор свяжется с вами'
         message = await update.effective_chat.send_message(text)
         message_id = message.message_id
