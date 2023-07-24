@@ -351,7 +351,7 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'формат праздника', format_bd))
 
     await update.effective_chat.send_message(
-        text='Напишите как вас зовут',
+        text='Напишите как зовут именинника',
     )
 
     context.user_data['birthday_data']['format_bd'] = format_bd
