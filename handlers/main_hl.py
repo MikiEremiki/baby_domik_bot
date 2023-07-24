@@ -444,7 +444,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'/{COMMAND_DICT["BD_REQUEST"][0]} - для повторной '
                      f'отправки заявки на проведение Дня рождения\n'
                      f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
-                     f'внесения предоплаты, если ваша заявка была одобрена'
+                     f'запуска процедуры внесения предоплаты, если ваша заявка '
+                     f'была одобрена'
             )
 
     try:
