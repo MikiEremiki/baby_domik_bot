@@ -263,8 +263,43 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # TODO Прописать функцию отказа на заявку
-    pass
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup()
+
+    data = query.data.split('|')[0][-1]
+    chat_id = query.data.split('|')[1].split()[0]
+    message_id = query.data.split('|')[1].split()[1]
+    text = 'Возникла ошибка\n' \
+           'Cвяжитесь с администратором:' \
+           'Татьяна Бурганова @Tanya_domik +79159383529'
+    match data:
+        case '1':
+            text = 'Мы рассмотрели Вашу заявку\n' \
+                   'К сожалению мы не сможем провести день рождение вашего ' \
+                   'малыша\n\n' \
+                   'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n' \
+                   'Татьяна Бурганова @Tanya_domik +79159383529'
+        case '2':
+            try:
+                # TODO Дополнить запись в гугл-таблице о факте отказа от
+                #  оплаты администратором
+                await context.bot.delete_message(
+                    chat_id=chat_id,
+                    message_id=message_id
+                )
+            except BadRequest:
+                main_handlers_logger.info(
+                    f'Cообщение уже удалено'
+                )
+            text = 'Ваша бронь отклонена.\n' \
+                   'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n' \
+                   'Татьяна Бурганова @Tanya_domik +79159383529'
+
+    await context.bot.send_message(
+        text=text,
+        chat_id=chat_id,
+    )
 
 
 async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
