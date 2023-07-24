@@ -19,9 +19,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
-    if update.effective_chat.id in ADMIN_ID:
-        await utl_func.set_menu(context.bot)
-
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Воспользуйтесь командой '
              f'/{COMMAND_DICT["RESERVE"][0]}, чтобы выбрать спектакль.'
