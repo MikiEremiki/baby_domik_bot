@@ -499,7 +499,7 @@ async def forward_photo_or_file(
     message_id = context.chat_data['message_id']
     chat_id = update.effective_chat.id
 
-    # Убираем у старого сообщения кнопки
+    # Убираем у старого сообщения кнопку отмены
     await context.bot.edit_message_reply_markup(
         chat_id=chat_id,
         message_id=message_id
