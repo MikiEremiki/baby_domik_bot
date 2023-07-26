@@ -43,7 +43,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Способ защиты от многократного нажатия
     await query.edit_message_reply_markup()
 
-    user = context.user_data['user']
+    text_query_split = query.message.text.split('\n')[0]
+    user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
         dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
@@ -68,14 +69,14 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             main_handlers_logger.info(": ".join(
                 [
                     'Для пользователя',
-                    f'@{user.username} {user.full_name}',
+                    f'{user}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя @{user.username} {user.full_name} подтверждение в '
+                text=f'Для пользователя {user} подтверждение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
@@ -90,7 +91,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю @{user.username} {user.full_name} подтверждена бронь'
+            text=f'Пользователю {user} подтверждена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -129,7 +130,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    user = context.user_data['user']
+    text_query_split = query.message.text.split('\n')[0]
+    user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
         dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
@@ -169,7 +171,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя @{user.username} {user.full_name} отклонение в '
+                text=f'Для пользователя {user} отклонение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
@@ -178,14 +180,13 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [
                     f'Для пользователя {user} отклонение в '
                     f'авто-режиме не сработало',
-                    f'{user}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю @{user.username} {user.full_name} отклонена бронь'
+            text=f'Пользователю {user} отклонена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -231,7 +232,9 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    user = context.user_data['user']
+    text_query_split = query.message.text.split('\n')[0]
+    user = text_query_split[text_query_split.find(' ') + 1:]
+
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
@@ -251,7 +254,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    'Вам будет отправлено сообщение с информацией об оплате'
         case '2':
             await query.edit_message_text(
-                f'Пользователю @{user.username} {user.full_name}\n'
+                f'Пользователю {user}\n'
                 f'подтверждена бронь'
             )
 
@@ -280,7 +283,9 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    user = context.user_data['user']
+    text_query_split = query.message.text.split('\n')[0]
+    user = text_query_split[text_query_split.find(' ') + 1:]
+
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
@@ -300,7 +305,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         case '2':
             await query.edit_message_text(
-                f'Пользователю @{user.username} {user.full_name}\n'
+                f'Пользователю {user}\n'
                 f'отклонена бронь'
             )
 
