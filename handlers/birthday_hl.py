@@ -18,11 +18,23 @@ from utilities.settings import (
     COMMAND_DICT
 )
 from utilities.log_func import join_for_log_info
-from utilities.utl_func import extract_phone_number_from_text, send_message_to_admin
-from utilities.hlp_func import check_phone_number, create_approve_and_reject_replay
+from utilities.utl_func import (
+    extract_phone_number_from_text,
+    send_message_to_admin,
+    load_list_show
+)
+from utilities.hlp_func import (
+    check_phone_number,
+    create_approve_and_reject_replay,
+    create_replay_markup_for_list_of_shows,
+    create_replay_markup_with_number_btn
+)
 from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb
+)
+from utilities.googlesheets import (
+    write_client_bd
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
@@ -164,47 +176,13 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'время', time))
 
-    # TODO Загрузить спектакли из базы
-    dict_of_name_show_v2 = {
-        1: {
-            'name': 'Лесные приключения ёжика и медвежонка',
-            'flag_premiere': False,
-            'min_age_child': 1,
-            'birthday': {
-                'flag': True,
-                'max_num_child': 8,
-                'max_num_adult': 10,
-            },
-            'flag_repertoire': True,
-        },
-        2: {
-            'name': 'Подарок для бабушки',
-            'flag_premiere': True,
-            'min_age_child': 1,
-            'birthday': {
-                'flag': True,
-                'max_num_child': 8,
-                'max_num_adult': 10,
-            },
-            'flag_repertoire': True,
-        },
-        3: {
-            'name': 'Африка',
-            'flag_premiere': True,
-            'min_age_child': 1,
-            'birthday': {
-                'flag': True,
-                'max_num_child': 8,
-                'max_num_adult': 10,
-            },
-            'flag_repertoire': True,
-        },
-    }
+    dict_of_shows = load_list_show()
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль\n'
-    for key, item in dict_of_name_show_v2.items():
-        text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {item["name"]}\n'
+    for key, item in dict_of_shows.items():
+        if item['birthday']['flag']:
+            text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {item["full_name_of_show"]}\n'
 
     reply_markup = hlp_func.create_replay_markup_for_list_of_shows(
         dict_of_name_show_v2, 8, 2, False)
@@ -215,7 +193,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     context.user_data['birthday_data']['time'] = time
-    context.user_data['dict_of_name_show_v2'] = dict_of_name_show_v2
+    context.user_data['dict_of_shows'] = dict_of_shows
 
     state = 'CHOOSE'
     context.user_data['STATE'] = state
