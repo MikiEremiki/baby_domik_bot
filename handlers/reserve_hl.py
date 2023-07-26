@@ -27,7 +27,7 @@ from utilities.googlesheets import (
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
-    load_data,
+    load_show,
     load_option_buy_data,
     add_btn_back_and_cancel,
     send_message_to_admin,
@@ -69,7 +69,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dict_of_name_show,
             dict_of_name_show_flip,
             dict_of_date_show
-        ) = load_data()
+        ) = load_show()
     except ConnectionError or ValueError:
         reserve_hl_logger.info(
             f'Для пользователя {user}')
