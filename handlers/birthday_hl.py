@@ -184,8 +184,8 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if item['birthday']['flag']:
             text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {item["full_name_of_show"]}\n'
 
-    reply_markup = hlp_func.create_replay_markup_for_list_of_shows(
-        dict_of_name_show_v2, 8, 2, False)
+    reply_markup = create_replay_markup_for_list_of_shows(
+        dict_of_shows, 3, 2, False)
 
     await update.effective_chat.send_message(
         text=text,
