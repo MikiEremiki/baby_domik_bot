@@ -57,7 +57,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                               f' {update.message.from_user}')
     context.user_data['STATE'] = 'START'
-    context.user_data['user'] = update.message.from_user
+    user = update.message.from_user
 
     message = await send_and_del_message_to_remove_kb(update)
 
@@ -71,7 +71,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ) = load_data()
     except ConnectionError or ValueError:
         reserve_hl_logger.info(
-            f'Для пользователя {context.user_data["user"]}')
+            f'Для пользователя {user}')
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
@@ -115,6 +115,8 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['text_date'] = text
     context.user_data['keyboard_date'] = reply_markup
 
+    context.user_data['user'] = user
+
     # Вместо считывания базы спектаклей каждый раз из гугл-таблицы, прокидываем
     # Базу в контекст пользователя
     context.user_data['dict_of_shows'] = dict_of_shows
@@ -135,11 +137,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'выбрал',
             query.data,
         ]
@@ -219,11 +221,11 @@ async def choice_option_of_reserve(
     query = update.callback_query
     await query.answer()
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'выбрал',
             query.data,
         ]
@@ -349,11 +351,11 @@ async def check_and_send_buy_info(
         key_option_for_reserve)
     price = chose_reserve_option.get('price')
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'выбрал',
             chose_reserve_option.get('name'),
         ]
@@ -368,7 +370,7 @@ async def check_and_send_buy_info(
         )
 
         reserve_hl_logger.info(
-            f'Для пользователя {context.user_data["user"]}')
+            f'Для пользователя {user}')
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
         context.user_data.clear()
@@ -433,8 +435,7 @@ async def check_and_send_buy_info(
             reserve_hl_logger.info(": ".join(
                 [
                     'Пользователь',
-                    str(context.user_data['user'].id),
-                    str(context.user_data['user'].full_name),
+                    f'{user}',
                     'получил разрешение на бронирование'
                 ]
             ))
@@ -455,8 +456,7 @@ async def check_and_send_buy_info(
                 reserve_hl_logger.error(": ".join(
                     [
                         'Для пользователя подтверждение не сработало, гугл не отвечает',
-                        str(context.user_data['user'].id),
-                        str(context.user_data['user'].full_name),
+                        f'{user}',
                         'Номер строки для обновления',
                         row_in_googlesheet,
                     ]
@@ -576,7 +576,6 @@ __________
         data_for_callback
     )
 
-    user = context.user_data['user']
     chose_reserve_option = context.user_data['chose_reserve_option']
     price = chose_reserve_option.get('price')
 
@@ -683,11 +682,11 @@ __________
 
     context.user_data['client_data']['data_children'] = list_message_text
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'отправил:',
         ],
     ))
@@ -734,7 +733,7 @@ __________
     )
     await update.effective_chat.pin_message(answer.message_id)
 
-    reserve_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
@@ -751,7 +750,7 @@ async def conversation_timeout(
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-
+    user = context.user_data['user']
     if context.user_data['STATE'] == 'ORDER':
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
@@ -784,23 +783,22 @@ async def conversation_timeout(
             reserve_hl_logger.info(": ".join(
                 [
                     'Для пользователя',
-                    f'{context.user_data["user"]}',
+                    f'{user}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя {context.user_data["user"]} отклонение в '
+                text=f'Для пользователя {user} отклонение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
             reserve_hl_logger.error(TimeoutError)
             reserve_hl_logger.error(": ".join(
                 [
-                    f'Для пользователя {context.user_data["user"]} отклонение в '
+                    f'Для пользователя {user} отклонение в '
                     f'авто-режиме не сработало',
-                    f'{context.user_data["user"]}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
@@ -814,12 +812,11 @@ async def conversation_timeout(
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'AFK уже 15 мин'
         ]
     ))
-    reserve_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     return ConversationHandler.END
@@ -885,7 +882,7 @@ async def get_phone_for_waiting(
 
     text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
-    user = update.effective_user
+    user = context.user_data['user']
     text = f'#Лист_ожидания\n' \
            f'Пользователь @{user.username} {user.full_name}\n' \
            f'Запросил добавление в лист ожидания\n' + text
