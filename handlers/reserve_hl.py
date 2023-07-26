@@ -302,7 +302,7 @@ async def choice_option_of_reserve(
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
     for key, item in dict_of_option_for_reserve.items():
-        name = item.get("name")
+        name = item.get('name')
         name = escape_markdown(name, 2)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
                 f'{item.get("price")} руб\n'
@@ -482,14 +482,14 @@ async def check_and_send_buy_info(
 
         keyboard = []
         button_cancel = InlineKeyboardButton(
-            "Отменить",
+            'Отменить',
             callback_data=f'Отменить-res|'
                           f'{query.message.chat_id} {query.message.message_id}'
         )
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        price = chose_reserve_option.get("price")
+        price = chose_reserve_option.get('price')
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
