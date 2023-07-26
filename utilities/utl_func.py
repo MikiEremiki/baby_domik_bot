@@ -110,6 +110,59 @@ def load_show_data() -> Tuple[
     )
 
 
+def load_list_show() -> Dict[str, Any]:
+    """
+    Возвращает 1 словарь из гугл-таблицы с листа "Список спектаклей"
+    Проводит фильтрацию по дате, все прошедшие даты исключаются из выборки
+
+    dict_of_name_show -> key: str, item: Any
+
+    :return: dict
+    """
+
+    qty_shows = len(googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['Список спектаклей_'] + f'A:A'
+    ))
+    data = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['Список спектаклей_'] + f'A2:I{qty_shows}'
+    )
+    utilites_logger.info('Данные загружены')
+
+    dict_of_shows = {}
+    for item in data:
+        id_show: int = int(item[0])
+        name: str = item[1]
+        flag_premiere: bool = True if item[2] == 'TRUE' else False
+        min_age_child: int = int(item[3])
+        flag_birthday: bool = True if item[5] == 'TRUE' else False
+        max_num_child: int = int(item[6])
+        max_num_adult: int = int(item[7])
+        flag_repertoire: bool = True if item[8] == 'TRUE' else False
+
+        if flag_premiere:
+            text = 'ПРЕМЬЕРА. ' + item[3] + '+'
+        else:
+            text = item[3] + '+'
+        full_name_of_show: str = '. '.join([name, text])
+
+        dict_of_shows[id_show] = {
+            'name': name,
+            'flag_premiere': flag_premiere,
+            'min_age_child': min_age_child,
+            'birthday': {
+                'flag': flag_birthday,
+                'max_num_child': max_num_child,
+                'max_num_adult': max_num_adult,
+            },
+            'flag_repertoire': flag_repertoire,
+            'full_name_of_show': full_name_of_show,
+        }
+
+    return (
+        dict_of_shows
+    )
+
+
 def load_option_buy_data() -> Dict[str, Any]:
     dict_of_option_for_reserve = {}
     data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['Варианты стоимости'])
