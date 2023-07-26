@@ -33,7 +33,7 @@ from utilities.settings import (
 utilites_logger = logging.getLogger('bot.utilites')
 
 
-def load_data() -> Tuple[
+def load_show() -> Tuple[
                     Dict[str, str],
                     Dict[str, int],
                     Dict[int, str],
