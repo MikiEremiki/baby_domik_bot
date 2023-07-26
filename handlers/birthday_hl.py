@@ -239,7 +239,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = 'Выберите сколько будет гостей-детей?\n\n' \
            'Праздник рассчитан от 1 до 8 детей.'
-    reply_markup = hlp_func.create_replay_markup_with_number_btn(8)
+    reply_markup = create_replay_markup_with_number_btn(8)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
@@ -262,7 +262,7 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'кол-во детей', qty_child))
 
     text = 'Выберите сколько будет гостей-взрослых\n\nНе более 10 взрослых.'
-    reply_markup = hlp_func.create_replay_markup_with_number_btn(10, 5)
+    reply_markup = create_replay_markup_with_number_btn(10, 5)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
