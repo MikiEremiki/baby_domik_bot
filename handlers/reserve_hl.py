@@ -45,6 +45,7 @@ from utilities.settings import (
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
+ADMIN_GROUP = CHAT_ID_GROUP_ADMIN_1
 
 
 async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,7 +176,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = escape_markdown(name_show, 2)
     date = escape_markdown(date_show, 2)
 
-    if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
+    if update.effective_chat.id == ADMIN_GROUP:
         # Отправка сообщения в админский чат
         text = f'Вы выбрали:\n *{name} {date}*\n' \
                'Выберите время\.\n'
@@ -201,7 +202,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['text_time'] = text
     context.user_data['keyboard_time'] = reply_markup
 
-    if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
+    if update.effective_chat.id == ADMIN_GROUP:
         return 'LIST'
     else:
         return 'TIME'
@@ -537,15 +538,15 @@ async def forward_photo_or_file(
     text = context.user_data['text_for_notification_massage']
 
     res = await context.bot.send_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
         text=f'#Бронирование\n'
              f'Квитанция пользователя @{user.username} {user.full_name}\n'
     )
     await update.effective_message.forward(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
     )
     message_id_for_admin = res.message_id
-    await send_message_to_admin(CHAT_ID_GROUP_ADMIN,
+    await send_message_to_admin(ADMIN_GROUP,
                                 text,
                                 message_id_for_admin,
                                 context)
@@ -580,7 +581,7 @@ __________
     price = chose_reserve_option.get('price')
 
     answer = await context.bot.send_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
              f'Запросил подтверждение брони на сумму {price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
@@ -707,7 +708,7 @@ __________
 
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
-    await send_message_to_admin(CHAT_ID_GROUP_ADMIN,
+    await send_message_to_admin(ADMIN_GROUP,
                                 text,
                                 message_id,
                                 context)
@@ -887,7 +888,7 @@ async def get_phone_for_waiting(
            f'Пользователь @{user.username} {user.full_name}\n' \
            f'Запросил добавление в лист ожидания\n' + text
     await context.bot.send_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
         text=text,
     )
     await update.effective_chat.send_message(
