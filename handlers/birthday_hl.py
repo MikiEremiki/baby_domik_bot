@@ -11,7 +11,6 @@ from telegram import (
     InlineKeyboardMarkup,
 )
 
-from utilities import hlp_func
 from utilities.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     CHAT_ID_MIKIEREMIKI,
