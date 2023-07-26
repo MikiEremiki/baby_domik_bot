@@ -441,8 +441,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             row_in_googlesheet,
                         ]
                     ))
-
-                context.user_data.clear()
         case 'bd':
             await query.edit_message_text(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
@@ -461,6 +459,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   f'команду /{COMMAND_DICT["BD_PAID"][0]}')
     main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
+    context.user_data.clear()
     return ConversationHandler.END
 
 
