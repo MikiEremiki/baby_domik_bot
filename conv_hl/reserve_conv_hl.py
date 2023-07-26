@@ -70,4 +70,5 @@ reserve_conv_hl = ConversationHandler(
         conversation_timeout=15*60,  # 15 мин
         name="reserve",
         persistent=True,
+        allow_reentry=True
     )
