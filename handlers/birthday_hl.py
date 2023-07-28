@@ -57,13 +57,13 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['STATE'] = state
     context.user_data['user'] = update.message.from_user
 
-    one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В Домике'
+    one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
 
     # Отправка сообщения пользователю
     text = 'Выберите место проведения Дня рождения\n\n' \
-           f'{one_option}\nДень рождение в {ADDRESS_OFFICE}\n\n' \
-           f'{two_option}\nДень рождение в предложенном вами месте'
+           f'{one_option}\nВ театре, {ADDRESS_OFFICE}\n\n' \
+           f'{two_option}\nВаше место (дом, квартира или другая площадка)'
     # Определение кнопок для inline клавиатуры
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton(one_option, callback_data=1)],
@@ -91,7 +91,7 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В Домике'
-    text = f'Вы выбрали\n\n{one_option}\nДень рождение в {ADDRESS_OFFICE}'
+    text = f'Вы выбрали\n\n{one_option}\nДень рождения в {ADDRESS_OFFICE}'
     await query.edit_message_text(text)
 
     place = query.data
@@ -116,7 +116,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
-    text = f'Вы выбрали\n\n{two_option}\nДень рождение в предложенном вами месте\n\n'
+    text = f'Вы выбрали\n\n{two_option}\nДень рождения в предложенном вами месте\n\n'
     await query.edit_message_text(text)
 
     place = query.data
@@ -238,8 +238,8 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'возраст', age))
 
     text = 'Выберите сколько будет гостей-детей?\n\n' \
-           'Праздник рассчитан от 1 до 8 детей.'
-    reply_markup = create_replay_markup_with_number_btn(8)
+           'Праздник рассчитан от 1 до 10 детей.'
+    reply_markup = create_replay_markup_with_number_btn(10, 5)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
@@ -288,8 +288,10 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
 
     text = 'Выберите формат проведения Дня рождения\n\n' \
-           f'{one_option} Спектакль + чаепитие\n 15000 руб\n\n' \
-           f'{two_option} Спектакль + чаепитие + дискотека\n 20000 руб'
+           f'{one_option} Спектакль (40 минут) + аренда комнаты под чаепитие (1 час)\n ' \
+           f'15000 руб\n\n' \
+           f'{two_option} Спектакль (40 минут) + аренда комнаты под чаепитие + серебряная дискотека (1 час)\n ' \
+           f'25000 руб'
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton(one_option, callback_data=1),
          InlineKeyboardButton(two_option, callback_data=2)],
