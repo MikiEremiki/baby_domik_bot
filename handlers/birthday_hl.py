@@ -397,7 +397,26 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         text = 'Ваша заявка: '
         for key, item in context.user_data['birthday_data'].items():
-            text += '\n' + key + ': ' + str(item)
+            match key:
+                case 'place':
+                    if item == 1:
+                        item = 'В «Домике»'
+                    elif item == 2:
+                        item = 'На выезде'
+                case 'id_show':
+                    dict_of_shows = context.user_data['dict_of_shows']
+                    item = dict_of_shows[item]['full_name_of_show']
+                case 'format_bd':
+                    if item == 1:
+                        item = 'Спектакль (40 минут) + ' \
+                               'аренда комнаты под чаепитие (1 час) ' \
+                               '-> 15000 руб'
+                    elif item == 2:
+                        item = 'Спектакль (40 минут) + ' \
+                               'аренда комнаты под чаепитие + ' \
+                               'серебряная дискотека (1 час) ' \
+                               '-> 25000 руб'
+            text += '\n' + birthday_data[key] + ': ' + str(item)
 
         context.user_data['text_for_notification_massage'] = text
 
