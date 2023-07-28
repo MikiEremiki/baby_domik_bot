@@ -8,6 +8,7 @@ from telegram.ext import (
 
 from handlers import birthday_hl, main_hl
 from utilities.settings import COMMAND_DICT
+from utilities.utl_func import reset
 
 
 birthday_conv_hl = ConversationHandler(
@@ -17,40 +18,52 @@ birthday_conv_hl = ConversationHandler(
         ],
         states={
             'PLACE': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(birthday_hl.ask_date, pattern='^1$'),
                 CallbackQueryHandler(birthday_hl.ask_address, pattern='^2$'),
             ],
             'ADDRESS': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, birthday_hl.get_address),
             ],
             'DATE': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, birthday_hl.get_date),
             ],
             'TIME': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, birthday_hl.get_time),
             ],
             'CHOOSE': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(birthday_hl.get_show),
             ],
             'AGE': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(birthday_hl.get_age),
             ],
             'QTY_CHILD': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(birthday_hl.get_qty_child),
             ],
             'QTY_ADULT': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(birthday_hl.get_qty_adult),
             ],
             'FORMAT_BD': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(birthday_hl.get_format_bd),
             ],
             'NAME_CHILD': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, birthday_hl.get_name_child),
             ],
             'NAME': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, birthday_hl.get_name),
             ],
             'PHONE': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, birthday_hl.get_phone),
             ],
             ConversationHandler.TIMEOUT: [birthday_hl.TIMEOUT_HANDLER]

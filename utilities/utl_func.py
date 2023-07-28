@@ -18,7 +18,10 @@ from telegram import (
     BotCommandScopeChat,
     BotCommandScopeChatAdministrators,
 )
-from telegram.ext import ContextTypes
+from telegram.ext import (
+    ContextTypes,
+    ConversationHandler
+)
 from telegram.error import BadRequest
 
 from utilities import googlesheets
@@ -238,6 +241,23 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id=update.effective_chat.id,
         text=text
     )
+
+
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    utilites_logger.info(
+        f'{update.effective_user.id}: '
+        f'{update.effective_user.full_name}\n'
+        f'Вызвал команду reset'
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Попробуйте выполнить новый запрос'
+    )
+    utilites_logger.info(
+        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+
+    context.user_data.clear()
+    return ConversationHandler.END
 
 
 async def delete_message_for_job_in_callback(

@@ -8,6 +8,7 @@ from telegram.ext import (
 
 from handlers import reserve_hl, main_hl
 from utilities.settings import COMMAND_DICT
+from utilities.utl_func import reset
 
 
 reserve_conv_hl = ConversationHandler(
@@ -17,20 +18,24 @@ reserve_conv_hl = ConversationHandler(
         ],
         states={
             'DATE': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
                 CallbackQueryHandler(reserve_hl.choice_time),
             ],
             'TIME': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
                 CallbackQueryHandler(main_hl.back_date, pattern='^Назад'),
                 CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
             ],
             'ORDER': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
                 CallbackQueryHandler(main_hl.back_time, pattern='^Назад'),
                 CallbackQueryHandler(reserve_hl.check_and_send_buy_info),
             ],
             'PAID': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
                 MessageHandler(
                     filters.PHOTO | filters.ATTACHMENT,
@@ -38,20 +43,25 @@ reserve_conv_hl = ConversationHandler(
                 ),
             ],
             'FORMA': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, reserve_hl.get_name_adult),
             ],
             'PHONE': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, reserve_hl.get_phone),
             ],
             'CHILDREN': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, reserve_hl.get_name_children),
             ],
             'LIST': [
+                CommandHandler('reset', reset),
                 CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
                 CallbackQueryHandler(main_hl.back_date, pattern='^Назад'),
                 CallbackQueryHandler(reserve_hl.send_clients_data),
             ],
             'CHOOSING': [
+                CommandHandler('reset', reset),
                 MessageHandler(
                     filters.Regex('^(Выбрать другое время)$'),
                     reserve_hl.choice_show
@@ -62,6 +72,7 @@ reserve_conv_hl = ConversationHandler(
                 ),
             ],
             'PHONE_FOR_WAITING': [
+                CommandHandler('reset', reset),
                 MessageHandler(filters.TEXT, reserve_hl.get_phone_for_waiting),
             ],
             ConversationHandler.TIMEOUT: [reserve_hl.TIMEOUT_HANDLER]
