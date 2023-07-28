@@ -11,6 +11,14 @@ from telegram import (
     InlineKeyboardMarkup,
 )
 
+from handlers.sub_hl import (
+    request_phone_number,
+    send_and_del_message_to_remove_kb
+)
+
+from utilities.context import birthday_data
+from utilities.log_func import join_for_log_info
+from utilities.googlesheets import write_client_bd
 from utilities.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     CHAT_ID_MIKIEREMIKI,
