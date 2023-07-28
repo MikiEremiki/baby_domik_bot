@@ -103,7 +103,7 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите желаемую дату проведения праздника',
     )
 
-    context.user_data['birthday_data']['place'] = place
+    context.user_data['birthday_data']['place'] = int(place)
     context.user_data['birthday_data']['address'] = ADDRESS_OFFICE
 
     state = 'DATE'
@@ -128,7 +128,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите адрес проведения дня рождения',
     )
 
-    context.user_data['birthday_data']['place'] = place
+    context.user_data['birthday_data']['place'] = int(place)
 
     state = 'ADDRESS'
     context.user_data['STATE'] = state
@@ -245,7 +245,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['age'] = age
+    context.user_data['birthday_data']['age'] = int(age)
 
     state = 'QTY_CHILD'
     context.user_data['STATE'] = state
@@ -268,7 +268,7 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['qty_child'] = qty_child
+    context.user_data['birthday_data']['qty_child'] = int(qty_child)
 
     state = 'QTY_ADULT'
     context.user_data['STATE'] = state
@@ -302,7 +302,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['qty_adult'] = qty_adult
+    context.user_data['birthday_data']['qty_adult'] = int(qty_adult)
 
     state = 'FORMAT_BD'
     context.user_data['STATE'] = state
@@ -333,7 +333,7 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите как зовут именинника',
     )
 
-    context.user_data['birthday_data']['format_bd'] = format_bd
+    context.user_data['birthday_data']['format_bd'] = int(format_bd)
 
     state = 'NAME_CHILD'
     context.user_data['STATE'] = state
