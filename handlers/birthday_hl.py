@@ -176,7 +176,12 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'время', time))
 
-    dict_of_shows = load_list_show()
+    dict_of_shows: dict = load_list_show()
+
+    dict_of_shows_for_bd: dict = dict_of_shows.copy()
+    for key, item in dict_of_shows.items():
+        if not item['birthday']['flag']:
+            dict_of_shows_for_bd.pop(key)
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль\n'
