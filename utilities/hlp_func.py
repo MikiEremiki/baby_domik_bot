@@ -7,6 +7,7 @@ from telegram import (
 )
 
 from utilities.settings import DICT_OF_EMOJI_FOR_BUTTON
+from utilities.utl_func import yrange
 
 helper_func_logger = logging.getLogger('bot.helper_func')
 
@@ -35,18 +36,20 @@ def create_replay_markup_for_list_of_shows(
     list_btn_of_numbers = []
 
     i = 0
+    y = yrange(len(dict_of_show))
     for key, item in dict_of_show.items():
+        num = next(y) + 1
         button_tmp = None
         match ver:
             case 1:
                 button_tmp = InlineKeyboardButton(
-                    text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[item],
+                    text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[num],
                     callback_data=str(item) + ' | ' + key
                 )
             case 2:
                 button_tmp = InlineKeyboardButton(
-                    text=DICT_OF_EMOJI_FOR_BUTTON[key],
-                    callback_data=key
+                    text=DICT_OF_EMOJI_FOR_BUTTON[num],
+                    callback_data=num
                 )
         list_btn_of_numbers.append(button_tmp)
 
