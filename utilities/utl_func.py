@@ -347,3 +347,10 @@ async def send_message_to_admin(
 def extract_phone_number_from_text(phone):
     phone = re.sub(r'[-\s)(+]', '', phone)
     return re.sub(r'^[78]{,2}(?=9)', '', phone)
+
+
+def yrange(n):
+    i = 0
+    while i < n:
+        yield i
+        i += 1
