@@ -185,12 +185,13 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль\n'
-    for key, item in dict_of_shows.items():
+    for i, item in enumerate(dict_of_shows_for_bd.values()):
         if item['birthday']['flag']:
-            text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {item["full_name_of_show"]}\n'
+            text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} ' \
+                    f'{item["full_name_of_show"]}\n'
 
     reply_markup = create_replay_markup_for_list_of_shows(
-        dict_of_shows, 3, 2, False)
+        dict_of_shows_for_bd, 3, 2, False)
 
     await update.effective_chat.send_message(
         text=text,
