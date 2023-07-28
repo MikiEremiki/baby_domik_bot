@@ -13,7 +13,7 @@ helper_func_logger = logging.getLogger('bot.helper_func')
 
 
 def create_replay_markup_for_list_of_shows(
-        dict_of_show,
+        dict_of_show: dict,
         num_colum=2,
         ver=1,
         add_cancel_btn=True,
