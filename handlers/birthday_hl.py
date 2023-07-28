@@ -25,7 +25,6 @@ from utilities.settings import (
     ADDRESS_OFFICE,
     COMMAND_DICT
 )
-from utilities.log_func import join_for_log_info
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
@@ -36,13 +35,6 @@ from utilities.hlp_func import (
     create_approve_and_reject_replay,
     create_replay_markup_for_list_of_shows,
     create_replay_markup_with_number_btn
-)
-from handlers.sub_hl import (
-    request_phone_number,
-    send_and_del_message_to_remove_kb
-)
-from utilities.googlesheets import (
-    write_client_bd
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
