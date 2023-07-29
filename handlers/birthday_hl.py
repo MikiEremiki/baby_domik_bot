@@ -567,7 +567,9 @@ async def forward_photo_or_file(
 
         context.user_data['message_id_for_admin'] = answer.message_id
     except KeyError:
-        await update.effective_chat.send_message('Сначала необходимо оформить запрос')
+        await update.effective_chat.send_message(
+            'Сначала необходимо оформить запрос'
+        )
         birthday_hl_logger.error(
             f'Пользователь {user}: '
             f'Не оформил заявку, а сразу использовал команду /{COMMAND_DICT["BD_PAID"][0]}'
