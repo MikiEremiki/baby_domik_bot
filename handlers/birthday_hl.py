@@ -290,18 +290,36 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'кол-во взрослых', qty_adult))
 
-    one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
-    two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
+    text = 'Следующий вопрос'
+    reply_markup = None
 
-    text = 'Выберите формат проведения Дня рождения\n\n' \
-           f'{one_option} Спектакль (40 минут) + аренда комнаты под чаепитие (1 час)\n ' \
-           f'15000 руб\n\n' \
-           f'{two_option} Спектакль (40 минут) + аренда комнаты под чаепитие + серебряная дискотека (1 час)\n ' \
-           f'25000 руб'
-    reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(one_option, callback_data=1),
-         InlineKeyboardButton(two_option, callback_data=2)],
-    ])
+    birthday_place = context.user_data['birthday_data']['place']
+    if birthday_place == 1:
+        one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
+        two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
+
+        text = ('Выберите формат проведения Дня рождения\n\n'
+                f'{one_option} Спектакль (40 минут) + '
+                f'аренда комнаты под чаепитие (1 час)\n '
+                f'15000 руб\n\n'
+                f'{two_option} Спектакль (40 минут) + '
+                f'аренда комнаты под чаепитие + серебряная дискотека (1 час)\n '
+                '25000 руб'
+                )
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton(one_option, callback_data=1),
+             InlineKeyboardButton(two_option, callback_data=2)],
+        ])
+    elif birthday_place == 2:
+        text = ('Для формата на Выезде есть только один вариант\n'
+                'Спектакль (40 минут) + Свободная игра с персонажами и '
+                'фотосессия (20 минут)\n'
+                '25000р\n'
+                'Нажмите далее'
+                )
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton('Далее', callback_data=3)]
+        ])
 
     await query.edit_message_text(
         text=text,
@@ -327,12 +345,14 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
 
-    text = 'Вы выбрали формат проведения Дня рождения\n\n'
+    text = 'Формат проведения Дня рождения\n\n'
     match format_bd:
         case '1':
             text += f'{one_option} Спектакль + чаепитие\n 15000 руб'
         case '2':
-            text += f'{two_option} Спектакль + чаепитие + дискотека\n 20000 руб'
+            text += f'{two_option} Спектакль + чаепитие + дискотека\n 25000 руб'
+        case '3':
+            text += f'{two_option} Спектакль + игра + фотосессия\n 25000 руб'
     await query.edit_message_text(text)
 
     await update.effective_chat.send_message(
