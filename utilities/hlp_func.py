@@ -49,7 +49,7 @@ def create_replay_markup_for_list_of_shows(
             case 2:
                 button_tmp = InlineKeyboardButton(
                     text=DICT_OF_EMOJI_FOR_BUTTON[num],
-                    callback_data=num
+                    callback_data=key
                 )
         list_btn_of_numbers.append(button_tmp)
 
