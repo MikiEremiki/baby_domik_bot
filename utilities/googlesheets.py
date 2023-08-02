@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import List, Any
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -43,7 +44,7 @@ def get_data_from_spreadsheet(sheet):
         raise ConnectionError
 
 
-def update_quality_of_seats(row, i):
+def update_quality_of_seats(row: str, qty: int):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
@@ -59,7 +60,7 @@ def update_quality_of_seats(row, i):
         googlesheets_logger.error(err)
 
 
-def write_data_for_reserve(row: int, numbers: int) -> None:
+def write_data_for_reserve(row: str, numbers: List[int]) -> None:
     try:
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'RAW'
@@ -127,7 +128,7 @@ def write_client(
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
-        values = []
+        values: List[Any] = []
 
         age = None
         for i in range(len(client['data_children'])):
