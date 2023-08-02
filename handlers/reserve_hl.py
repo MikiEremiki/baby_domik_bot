@@ -55,7 +55,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state DATE
     """
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
-                              f' {update.message.from_user}')
+                           f' {update.message.from_user}')
     context.user_data['STATE'] = 'START'
     user = update.message.from_user
 
@@ -419,8 +419,7 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            keyboard = []
-            keyboard.append(add_btn_back_and_cancel())
+            keyboard = [add_btn_back_and_cancel()]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             text = f'К сожалению места уже забронировали и свободных мест ' \
@@ -464,14 +463,13 @@ async def check_and_send_buy_info(
                     ]
                 ))
 
-                keyboard = []
-                keyboard.append(add_btn_back_and_cancel())
+                keyboard = [add_btn_back_and_cancel()]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 text = 'К сожалению произошла непредвиденная ошибка\n' \
                        'Нажмите "Назад" и выберите время повторно.\n' \
-                       'Если ошибка повторяется напишите в ЛС в telegram или по ' \
-                       'телефону:\n' \
+                       'Если ошибка повторяется напишите в ЛС в telegram или ' \
+                       'по телефону:\n' \
                        'Татьяна Бурганова @Tanya_domik +79159383529'
                 await query.message.edit_text(
                     text=text,
@@ -747,8 +745,8 @@ async def conversation_timeout(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Informs the user that the operation has timed out, calls :meth:`remove_reply_markup` and
-    ends the conversation.
+    """Informs the user that the operation has timed out,
+    calls :meth:`remove_reply_markup` and ends the conversation.
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
@@ -819,7 +817,8 @@ async def conversation_timeout(
         ]
     ))
     reserve_hl_logger.info(f'Для пользователя {user}')
-    reserve_hl_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    reserve_hl_logger.info(
+        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     return ConversationHandler.END
 
@@ -862,8 +861,8 @@ async def send_clients_data(
 
 
 async def write_list_of_waiting(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',
@@ -873,8 +872,8 @@ async def write_list_of_waiting(
 
 
 async def get_phone_for_waiting(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
 ):
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
