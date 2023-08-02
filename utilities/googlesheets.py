@@ -270,3 +270,81 @@ def write_client_bd(
 
     except HttpError as err:
         googlesheets_logger.error(err)
+
+
+def set_approve_order(bd_data, step=0) -> None:
+    """
+
+    :param bd_data:
+    :type step: 0 - Заявка подтверждена
+    1 - Предоплата
+    2 - Предоплата подтверждена
+    """
+    try:
+        values = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База ДР_'] + 'A:E'
+        )
+        values_header = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База ДР_'] + '1:1'
+        )
+
+        if not values:
+            googlesheets_logger.info('No data found')
+            return
+        if not values_header:
+            googlesheets_logger.info('No data found')
+            return
+
+        colum = 1
+        for i, item in enumerate(values_header[0]):
+            if item == 'Заявка подтверждена':
+                colum += i
+
+        for i, item in enumerate(values):
+            if (item[0] == bd_data['phone'] and
+                    item[2] == bd_data['address'] and
+                    item[3].split()[0] == bd_data['date'] and
+                    item[4] == bd_data['time']):
+                sheet = get_service_sacc(SCOPES).spreadsheets()
+                value_input_option = 'USER_ENTERED'
+                response_value_render_option = 'FORMATTED_VALUE'
+
+                values = [[]]
+                values[0].append(True)
+                googlesheets_logger.info(values)
+
+                value_range_body = {
+                    'values': values,
+                }
+
+                range_sheet = (RANGE_NAME['База ДР_'] +
+                               f'R{i + 1}C{colum + step}:' +
+                               f'R{i + 2}C{colum + step}')
+
+                request = sheet.values().update(
+                    spreadsheetId=SPREADSHEET_ID['Домик'],
+                    range=range_sheet,
+                    valueInputOption=value_input_option,
+                    responseValueRenderOption=response_value_render_option,
+                    body=value_range_body
+                )
+                try:
+                    response = request.execute()
+
+                    googlesheets_logger.info(": ".join(
+                        [
+                            'spreadsheetId: ',
+                            response['spreadsheetId'],
+                            '\n'
+                            'updatedRange: ',
+                            response['updatedRange']
+                        ]
+                    ))
+                except TimeoutError as err:
+                    googlesheets_logger.error(err)
+                    googlesheets_logger.error(value_range_body)
+
+    except HttpError as err:
+        googlesheets_logger.error(err)
