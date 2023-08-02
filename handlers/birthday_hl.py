@@ -619,7 +619,8 @@ async def forward_photo_or_file(
         )
         birthday_hl_logger.error(
             f'Пользователь {user}: '
-            f'Не оформил заявку, а сразу использовал команду /{COMMAND_DICT["BD_PAID"][0]}'
+            'Не оформил заявку, '
+            f'а сразу использовал команду /{COMMAND_DICT["BD_PAID"][0]}'
         )
 
     state = ConversationHandler.END
