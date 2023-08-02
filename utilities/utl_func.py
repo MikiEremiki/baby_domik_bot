@@ -1,12 +1,6 @@
 import logging
 import datetime
-from typing import (
-    Tuple,
-    Dict,
-    Any,
-    List,
-    Union
-)
+from typing import Any, List, Union
 import os
 import re
 
@@ -36,11 +30,11 @@ from utilities.settings import (
 utilites_logger = logging.getLogger('bot.utilites')
 
 
-def load_show_data() -> Tuple[
-                    Dict[str, str],
-                    Dict[str, int],
-                    Dict[int, str],
-                    Dict[str, str]
+def load_show_data() -> tuple[
+    dict[int, dict[Any]],
+    dict[str, int],
+    dict[int, str],
+    dict[str, int]
 ]:
     """
     Возвращает 4 словаря из гугл-таблицы с листа "База спектаклей"
@@ -113,7 +107,7 @@ def load_show_data() -> Tuple[
     )
 
 
-def load_list_show() -> Dict[str, Any]:
+def load_list_show() -> dict[int, dict[str, Any]]:
     """
     Возвращает 1 словарь из гугл-таблицы с листа "Список спектаклей"
     Проводит фильтрацию по дате, все прошедшие даты исключаются из выборки
@@ -166,7 +160,7 @@ def load_list_show() -> Dict[str, Any]:
     )
 
 
-def load_option_buy_data() -> Dict[str, Any]:
+def load_option_buy_data() -> dict[int, dict[str, Any]]:
     dict_of_option_for_reserve = {}
     data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['Варианты стоимости'])
     utilites_logger.info("Данные стоимости броней загружены")
@@ -243,7 +237,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
     utilites_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
