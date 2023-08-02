@@ -31,6 +31,25 @@ from utilities.settings import (
 utilites_logger = logging.getLogger('bot.utilites')
 
 
+def filter_by_date(data_of_dates):
+    first_row = 2
+    date_now = datetime.datetime.now().date()
+    for i, item in enumerate(data_of_dates[1:]):
+        date_tmp = item[0].split()[0] + f'.{date_now.year}'
+        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+        if date_tmp >= date_now:
+            first_row += i
+            break
+    return first_row
+
+
+def get_date(item):
+    date_now = datetime.datetime.now().date()
+    date_tmp = item[1].split()[0] + f'.{date_now.year}'
+    date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+    return date_now, date_tmp
+
+
 def load_show_data() -> tuple[
     dict[int, dict[Any]],
     dict[str, int],
@@ -55,14 +74,7 @@ def load_show_data() -> tuple[
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
-    first_row = 2
-    date_now = datetime.datetime.now().date()
-    for i, item in enumerate(data_of_dates[1:]):
-        date_tmp = item[0].split()[0] + f'.{date_now.year}'
-        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
-        if date_tmp >= date_now:
-            first_row += i
-            break
+    first_row = filter_by_date(data_of_dates)
 
     data = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] + f'A{first_row}:I'
@@ -93,10 +105,10 @@ def load_show_data() -> tuple[
             dict_of_name_show.setdefault(item[0], j)
             dict_of_name_show_flip.setdefault(j, item[0])
 
-        date_now = datetime.datetime.now().date()
-        date_tmp = item[1].split()[0] + f'.{date_now.year}'
-        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
-
+        date_now, date_tmp = get_date(item)
+        # TODO Скорее всего тут можно упростить условие даты и не
+        #  использовать его вовсе, за счёт того, что данные и так содержат
+        #  уже отфильтрованные данные по дате
         if date_tmp >= date_now and item[1] not in dict_of_date_show:
             dict_of_date_show.setdefault(item[1], dict_of_name_show[item[0]])
 
