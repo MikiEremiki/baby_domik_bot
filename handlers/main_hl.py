@@ -12,6 +12,7 @@ from telegram.helpers import escape_markdown
 from utilities.googlesheets import (
     update_quality_of_seats,
     write_data_for_reserve,
+    set_approve_order
 )
 from utilities.settings import COMMAND_DICT
 from utilities.hlp_func import do_italic, do_bold
@@ -245,6 +246,8 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:'
             'Татьяна Бурганова @Tanya_domik +79159383529')
+    context_bd = context.application.user_data.get(int(chat_id))[
+        'birthday_data']
     match data:
         case '1':
             await query.edit_message_text(
@@ -262,6 +265,8 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'Вам будет отправлено сообщение с информацией об оплате'
             )
 
+            set_approve_order(context_bd, 0)
+
         case '2':
             await query.edit_message_text(
                 f'Пользователю {user}\n'
@@ -269,12 +274,12 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             try:
-                # TODO Дополнить запись в гугл-таблице о факте подтверждения
-                #  оплаты администратором
                 await context.bot.delete_message(
                     chat_id=chat_id,
                     message_id=message_id
                 )
+
+                set_approve_order(context_bd, 2)
             except BadRequest:
                 main_handlers_logger.info(
                     f'Cообщение уже удалено'
