@@ -10,6 +10,8 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+from telegram.constants import ParseMode
+from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
     request_phone_number,
@@ -76,7 +78,8 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.effective_chat.send_message(
         text=text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN_V2
     )
 
     context.user_data['birthday_data'] = {}
@@ -323,7 +326,8 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(
         text=text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN_V2
     )
 
     context.user_data['birthday_data']['qty_adult'] = int(qty_adult)
@@ -440,8 +444,12 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data['text_for_notification_massage'] = text
 
-        text += '\n\nПринята, после ее рассмотрения администратор свяжется с вами'
-        message = await update.effective_chat.send_message(text)
+        text += ('\n\nПринята, '
+                 'после ее рассмотрения администратор свяжется с вами')
+        message = await update.effective_chat.send_message(
+            text,
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
         message_id = message.message_id
 
         data_for_callback = [
@@ -464,7 +472,8 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = await context.bot.send_message(
             text=text,
             chat_id=ADMIN_GROUP,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN_V2
         )
 
         context.user_data['message_id_for_admin'] = message.message_id
