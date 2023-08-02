@@ -9,10 +9,14 @@ from handlers import main_hl
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from log.logging_conf import load_log_config
-from utilities.utl_func import echo, reset, send_log, set_menu, print_ud
-from utilities.settings import (
-    API_TOKEN,
-    COMMAND_DICT,
+from utilities.settings import API_TOKEN, COMMAND_DICT
+from utilities.utl_func import (
+    echo,
+    reset,
+    send_log,
+    set_menu,
+    print_ud,
+    set_description
 )
 
 
@@ -30,6 +34,7 @@ def bot():
     )
 
     application.job_queue.run_once(set_menu, 0)
+    application.job_queue.run_once(set_description, 0)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
