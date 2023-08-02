@@ -31,7 +31,8 @@ def bot():
 
     application.job_queue.run_once(set_menu, 0)
 
-    application.add_handler(CommandHandler(COMMAND_DICT['START'][0], main_hl.start))
+    application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
+                                           main_hl.start))
 
     application.add_handler(reserve_conv_hl)
     application.add_handler(birthday_conv_hl)
