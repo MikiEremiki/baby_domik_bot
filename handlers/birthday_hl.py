@@ -194,12 +194,12 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not item['birthday']['flag']:
                 dict_of_shows_for_bd.pop(key)
 
-    # Отправка сообщения пользователю
-    text = 'Выберите спектакль\n'
-    for i, item in enumerate(dict_of_shows_for_bd.values()):
-        if item['birthday']['flag']:
-            text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} ' \
-                    f'{item["full_name_of_show"]}\n'
+        # Отправка сообщения пользователю
+        text = do_bold('Выберите спектакль') + '\n\n'
+        for i, item in enumerate(dict_of_shows_for_bd.values()):
+            if item['birthday']['flag']:
+                text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
+                text += escape_markdown(f'{item["full_name_of_show"]}\n', 2)
 
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_shows_for_bd, 3, 2, False)
@@ -446,10 +446,16 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                'аренда комнаты под чаепитие (1 час) ' \
                                '-> 15000 руб'
                     elif item == 2:
-                        item = 'Спектакль (40 минут) + ' \
-                               'аренда комнаты под чаепитие + ' \
-                               'серебряная дискотека (1 час) ' \
-                               '-> 25000 руб'
+                        item = ('Спектакль (40 минут) + '
+                                'аренда комнаты под чаепитие + '
+                                'серебряная дискотека (1 час) '
+                                '-> 20000 руб')
+                    elif item == 3:
+                        item = ('Спектакль (40 минут) + '
+                                'Свободная игра с персонажами и '
+                                'фотосессия (20 минут)'
+                                '-> 25000 руб')
+
             text += '\n' + do_italic(birthday_data[key])
             text += ': ' + escape_markdown(str(item), 2)
 
@@ -481,6 +487,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Запрос пользователя @{user.username} {user.full_name}\n',
             2
         )
+        text += context.user_data['text_for_notification_massage']
         message = await context.bot.send_message(
             text=text,
             chat_id=ADMIN_GROUP,
