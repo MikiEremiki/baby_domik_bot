@@ -204,10 +204,22 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_shows_for_bd, 3, 2, False)
 
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup
-    )
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
+
+        context.user_data['dict_of_shows'] = dict_of_shows
+    except TimeoutError as err:
+        birthday_hl_logger.error(err)
+        await update.effective_chat.send_message(
+            'Произошел разрыв соединения, попробуйте еще раз\n'
+            'Если проблема повторится вы можете оформить заявку в ЛС '
+            'telegram или по телефону:\n'
+            'Татьяна Бурганова @Tanya_domik +79159383529'
+        )
+        return ConversationHandler.END
 
     context.user_data['birthday_data']['time'] = time
 
