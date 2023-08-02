@@ -50,6 +50,7 @@ def bot():
     application.add_handler(CommandHandler('echo', echo))
     application.add_handler(CommandHandler('log', send_log))
     application.add_handler(CommandHandler('reset', reset))
+    application.add_handler(CommandHandler('print_ud', print_ud))
 
     bot_logger.info('Всё готово к поллингу')
 
