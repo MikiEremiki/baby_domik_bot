@@ -65,9 +65,11 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
 
     # Отправка сообщения пользователю
-    text = 'Выберите место проведения Дня рождения\n\n' \
-           f'{one_option}\nВ театре, {ADDRESS_OFFICE}\n\n' \
-           f'{two_option}\nВаше место (дом, квартира или другая площадка)'
+    text = do_bold('Выберите место проведения Дня рождения\n\n')
+    text += f'{one_option}\n'
+    text += do_italic(f'В театре, {ADDRESS_OFFICE}\n\n')
+    text += f'{two_option}\n'
+    text += do_italic('Ваше место (дом, квартира или другая площадка)')
     # Определение кнопок для inline клавиатуры
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton(one_option, callback_data=1)],
@@ -96,8 +98,10 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В Домике'
-    text = f'Вы выбрали\n\n{one_option}\nДень рождения в {ADDRESS_OFFICE}'
-    await query.edit_message_text(text)
+    text = f'Вы выбрали\n\n'
+    text += f'{one_option}\n'
+    text += do_italic(f'День рождения в {ADDRESS_OFFICE}')
+    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN_V2)
 
     place = query.data
 
@@ -121,8 +125,10 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
-    text = f'Вы выбрали\n\n{two_option}\nДень рождения в предложенном вами месте\n\n'
-    await query.edit_message_text(text)
+    text = f'Вы выбрали\n\n'
+    text += f'{two_option}\n'
+    text += do_italic('День рождения в предложенном вами месте\n\n')
+    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN_V2)
 
     place = query.data
 
@@ -180,13 +186,13 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'время', time))
+    try:
+        dict_of_shows: dict = load_list_show()
 
-    dict_of_shows: dict = load_list_show()
-
-    dict_of_shows_for_bd: dict = dict_of_shows.copy()
-    for key, item in dict_of_shows.items():
-        if not item['birthday']['flag']:
-            dict_of_shows_for_bd.pop(key)
+        dict_of_shows_for_bd: dict = dict_of_shows.copy()
+        for key, item in dict_of_shows.items():
+            if not item['birthday']['flag']:
+                dict_of_shows_for_bd.pop(key)
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль\n'
@@ -195,8 +201,8 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} ' \
                     f'{item["full_name_of_show"]}\n'
 
-    reply_markup = create_replay_markup_for_list_of_shows(
-        dict_of_shows_for_bd, 3, 2, False)
+        reply_markup = create_replay_markup_for_list_of_shows(
+            dict_of_shows_for_bd, 3, 2, False)
 
     await update.effective_chat.send_message(
         text=text,
@@ -204,7 +210,6 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     context.user_data['birthday_data']['time'] = time
-    context.user_data['dict_of_shows'] = dict_of_shows
 
     state = 'CHOOSE'
     context.user_data['STATE'] = state
@@ -303,14 +308,17 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
         one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
         two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
 
-        text = ('Выберите формат проведения Дня рождения\n\n'
-                f'{one_option} Спектакль (40 минут) + '
-                f'аренда комнаты под чаепитие (1 час)\n '
-                f'15000 руб\n\n'
-                f'{two_option} Спектакль (40 минут) + '
-                f'аренда комнаты под чаепитие + серебряная дискотека (1 час)\n '
-                '25000 руб'
-                )
+        text = do_bold('Выберите формат проведения Дня рождения\n\n')
+        text += escape_markdown(
+            f'{one_option} Спектакль (40 минут) + '
+            'аренда комнаты под чаепитие (1 час)\n'
+            ' 15000 руб\n\n'
+            f'{two_option} Спектакль (40 минут) + '
+            'аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
+            ' 25000 руб',
+            2
+        )
+
         reply_markup = InlineKeyboardMarkup([
             [InlineKeyboardButton(one_option, callback_data=1),
              InlineKeyboardButton(two_option, callback_data=2)],
@@ -356,7 +364,7 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case '1':
             text += f'{one_option} Спектакль + чаепитие\n 15000 руб'
         case '2':
-            text += f'{two_option} Спектакль + чаепитие + дискотека\n 25000 руб'
+            text += f'Спектакль + чаепитие + дискотека\n 20000 руб'
         case '3':
             text += f'{two_option} Спектакль + игра + фотосессия\n 25000 руб'
     await query.edit_message_text(text)
@@ -421,7 +429,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['birthday_data']['phone'] = phone
 
     try:
-        text = 'Ваша заявка: '
+        text = do_bold('Ваша заявка: ')
         for key, item in context.user_data['birthday_data'].items():
             match key:
                 case 'place':
@@ -442,7 +450,8 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                'аренда комнаты под чаепитие + ' \
                                'серебряная дискотека (1 час) ' \
                                '-> 25000 руб'
-            text += '\n' + birthday_data[key] + ': ' + str(item)
+            text += '\n' + do_italic(birthday_data[key])
+            text += ': ' + escape_markdown(str(item), 2)
 
         context.user_data['text_for_notification_massage'] = text
 
@@ -467,10 +476,11 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         user = context.user_data['user']
-        text = '#День_рождения\n' \
-               f'Запрос пользователя @{user.username} {user.full_name}'
-        for key, item in context.user_data['birthday_data'].items():
-            text += '\n' + key + ': ' + str(item)
+        text = escape_markdown(
+            '#День_рождения\n'
+            f'Запрос пользователя @{user.username} {user.full_name}\n',
+            2
+        )
         message = await context.bot.send_message(
             text=text,
             chat_id=ADMIN_GROUP,
