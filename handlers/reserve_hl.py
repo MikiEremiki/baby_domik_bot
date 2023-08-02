@@ -196,9 +196,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['date_show'] = date_show
     context.user_data['name_show'] = name_show
 
-    context.user_data['dict_of_shows'].clear()
-    context.user_data['dict_of_name_show_flip'].clear()
-
     # Контекст для возврата назад
     context.user_data['text_time'] = text
     context.user_data['keyboard_time'] = reply_markup
@@ -343,6 +340,8 @@ async def check_and_send_buy_info(
     await query.answer()
 
     context.user_data['STATE'] = 'ORDER'
+    context.user_data['dict_of_shows'].clear()
+    context.user_data['dict_of_name_show_flip'].clear()
 
     date = context.user_data['date_show']
     time = context.user_data['time_of_show']
