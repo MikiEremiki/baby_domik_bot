@@ -538,7 +538,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
            'Пожалуйста внесите оплату в течении 30 минут или нажмите ' \
            'отмена\n\n' \
            '__________\n' \
-           'В случае переноса или отмены необходимо связаться с администратором:' \
+           'В случае переноса или отмены свяжитесь с администратором:' \
            'Татьяна Бурганова @Tanya_domik +79159383529'
 
     message = await update.effective_chat.send_message(
