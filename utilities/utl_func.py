@@ -162,7 +162,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
 def load_option_buy_data() -> dict[int, dict[str, Any]]:
     dict_of_option_for_reserve = {}
-    data = googlesheets.get_data_from_spreadsheet(RANGE_NAME['Варианты стоимости'])
+    data = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['Варианты стоимости'])
     utilites_logger.info("Данные стоимости броней загружены")
 
     for item in data[1:]:
