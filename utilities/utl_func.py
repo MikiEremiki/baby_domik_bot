@@ -120,6 +120,32 @@ def load_show_data() -> tuple[
     )
 
 
+def load_date_show_data() -> List[str]:
+    """
+    Возвращает 1 словарь из гугл-таблицы с листа "База спектаклей"
+    Проводит фильтрацию по дате, все прошедшие даты исключаются из выборки
+
+    dict_of_date_show -> key: str (дата спектакля), item: int (номер спектакля)
+
+    :return: dict
+    """
+    data_of_dates = googlesheets.get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_дата']
+    )
+
+    # Исключаем из загрузки в data спектакли, у которых дата уже прошла
+    first_row = filter_by_date(data_of_dates)
+
+    list_of_date_show = []
+    for item in data_of_dates[first_row:]:
+        if item[0] not in list_of_date_show:
+            list_of_date_show.append(item[0])
+
+    utilites_logger.info('Данные загружены')
+
+    return list_of_date_show
+
+
 def load_list_show() -> dict[int, dict[str, Any]]:
     """
     Возвращает 1 словарь из гугл-таблицы с листа "Список спектаклей"
