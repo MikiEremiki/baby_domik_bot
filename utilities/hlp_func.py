@@ -121,6 +121,7 @@ def create_approve_and_reject_replay(
         message_id,
         data: List
 ):
+    # TODO Исправить необходимость указания data_for_callback
     keyboard = []
 
     button_approve = InlineKeyboardButton(
