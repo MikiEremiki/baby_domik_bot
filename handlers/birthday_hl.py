@@ -239,7 +239,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard_btn = []
     for i in range(2, 7):  # Фиксированно можно выбрать только от 2 до 6 лет
-        keyboard_btn.append(InlineKeyboardButton(i, callback_data=i))
+        keyboard_btn.append(InlineKeyboardButton(str(i), callback_data=str(i)))
 
     reply_markup = InlineKeyboardMarkup([
         keyboard_btn,
