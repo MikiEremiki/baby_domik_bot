@@ -509,7 +509,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data['message_id_for_admin'] = message.message_id
 
-        write_client_bd(context.user_data['birthday_data'])
+        write_client_bd(context.user_data)
 
     except Exception as e:
         birthday_hl_logger.error(e)
