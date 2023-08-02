@@ -487,7 +487,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id = message.message_id
 
         data_for_callback = [
-            row_in_googlesheet := 1,
+            row_in_googlesheet := 2,
             key_option_for_reserve := 2
         ]
 
@@ -597,7 +597,7 @@ async def forward_photo_or_file(
         )
 
         data_for_callback = [
-            row_in_googlesheet := 1,
+            row_in_googlesheet := 2,
             key_option_for_reserve := 2
         ]
 
