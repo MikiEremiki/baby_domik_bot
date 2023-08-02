@@ -195,7 +195,7 @@ def write_client(
 
 
 def write_client_bd(
-        client: dict,
+        bd_data: dict,
 ) -> None:
     try:
         values_column = get_values(
@@ -215,19 +215,21 @@ def write_client_bd(
         response_value_render_option = 'FORMATTED_VALUE'
         values = [[]]
 
-        values[0].append(client['phone'])
-        values[0].append(client['place'])
-        values[0].append(client['address'])
-        values[0].append(client['date'])
-        values[0].append(client['time'])
-        values[0].append(client['id_show'])
-        values[0].append(client['age'])
-        values[0].append(client['qty_child'])
-        values[0].append(client['qty_adult'])
-        values[0].append(client['format_bd'])
-        values[0].append(client['name_child'])
-        values[0].append(client['name'])
-        values[0].append(datetime.now().__str__())
+        date = datetime.now().strftime('%y%m%d %H:%M:%S')
+
+        values[0].append(bd_data['phone'])
+        values[0].append(bd_data['place'])
+        values[0].append(bd_data['address'])
+        values[0].append(bd_data['date'])
+        values[0].append(bd_data['time'])
+        values[0].append(bd_data['id_show'])
+        values[0].append(bd_data['age'])
+        values[0].append(bd_data['qty_child'])
+        values[0].append(bd_data['qty_adult'])
+        values[0].append(bd_data['format_bd'])
+        values[0].append(bd_data['name_child'])
+        values[0].append(bd_data['name'])
+        values[0].append(date)
 
         googlesheets_logger.info(values)
 
