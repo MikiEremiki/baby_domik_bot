@@ -571,9 +571,14 @@ async def forward_photo_or_file(
     )
 
     try:
-        # text = context.user_data['text_for_notification_massage']
-        # TODO Создать сообщение для закрепа
-        # TODO Дополнить запись в гугл-таблице о факте оплаты
+        text = context.user_data['text_for_notification_massage']
+        message = await update.effective_chat.send_message(
+            text,
+            parse_mode=ParseMode.MARKDOWN_V2
+        )
+        await message.pin()
+
+        set_approve_order(context.user_data['birthday_data'], 1)
 
         text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
         message_id_for_admin = context.user_data['message_id_for_admin']
