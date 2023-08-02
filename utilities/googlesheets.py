@@ -35,7 +35,7 @@ def get_data_from_spreadsheet(sheet):
         )
 
         if not values:
-            print('No data found.')
+            googlesheets_logger.info('No data found')
             raise ValueError
 
         return values
@@ -52,7 +52,7 @@ def update_quality_of_seats(row: str, qty: int):
         )
 
         if not values:
-            print('No data found.')
+            googlesheets_logger.info('No data found')
             raise ValueError
 
         return values[0][i]
@@ -119,7 +119,7 @@ def write_client(
         )
 
         if not values_column:
-            print('No data found.')
+            googlesheets_logger.info('No data found')
             return
 
         first_row_for_write = len(values_column)
@@ -204,7 +204,7 @@ def write_client_bd(
         )
 
         if not values_column:
-            print('No data found.')
+            googlesheets_logger.info('No data found.')
             return
 
         first_row_for_write = len(values_column)
