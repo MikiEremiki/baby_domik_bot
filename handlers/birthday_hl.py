@@ -371,17 +371,14 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'формат праздника', format_bd))
 
-    one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
-    two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
-
     text = 'Формат проведения Дня рождения\n\n'
     match format_bd:
         case '1':
-            text += f'{one_option} Спектакль + чаепитие\n 15000 руб'
+            text += f'Спектакль + чаепитие\n 15000 руб'
         case '2':
             text += f'Спектакль + чаепитие + дискотека\n 20000 руб'
         case '3':
-            text += f'{two_option} Спектакль + игра + фотосессия\n 25000 руб'
+            text += f'Спектакль + игра + фотосессия\n 25000 руб'
     await query.edit_message_text(text)
 
     await update.effective_chat.send_message(
