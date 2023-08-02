@@ -327,7 +327,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ' 15000 руб\n\n'
             f'{two_option} Спектакль (40 минут) + '
             'аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
-            ' 25000 руб',
+            ' 20000 руб',
             2
         )
 
@@ -340,7 +340,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Для формата на Выезде есть только один вариант\n\n'
             'Спектакль (40 минут) + Свободная игра с персонажами и '
             'фотосессия (20 минут)\n'
-            '20000р\n\n',
+            '25000р\n\n',
             2
         )
         text += do_italic('Нажмите далее')
