@@ -7,12 +7,14 @@ from telegram.ext import (
 from telegram import Update, ReplyKeyboardRemove
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
+from telegram.helpers import escape_markdown
 
 from utilities.googlesheets import (
     update_quality_of_seats,
     write_data_for_reserve,
 )
 from utilities.settings import COMMAND_DICT
+from utilities.hlp_func import do_italic, do_bold
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -247,11 +249,17 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 query.message.text + '\n\n Заявка подтверждена, ждём предоплату'
             )
 
-            text = 'У нас отличные новости!\n' \
-                   'Мы с радостью проведем день рождения вашего малыша\n\n' \
-                   'Если вы готовы внести предоплату то нажмите на команду ' \
-                   f'/{COMMAND_DICT["BD_PAID"][0]}\n\n' \
-                   'Вам будет отправлено сообщение с информацией об оплате'
+            text = do_bold('У нас отличные новости!\n')
+            text += escape_markdown(
+                'Мы с радостью проведем день рождения вашего малыша\n\n'
+                'Если вы готовы внести предоплату, то нажмите на команду\n'
+                f' /{COMMAND_DICT["BD_PAID"][0]}\n\n',
+                2
+            )
+            text += do_italic(
+                'Вам будет отправлено сообщение с информацией об оплате'
+            )
+
         case '2':
             await query.edit_message_text(
                 f'Пользователю {user}\n'
@@ -275,6 +283,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
+        parse_mode=ParseMode.MARKDOWN_V2
     )
 
 
