@@ -202,16 +202,16 @@ def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
         RANGE_NAME['База клиентов__']
     )
     sheet = (
-        RANGE_NAME['База клиентов_'] +
-        f'!R1C1:R{len(first_colum)}C{len(first_row[0])}'
+            RANGE_NAME['База клиентов_'] +
+            f'!R1C1:R{len(first_colum)}C{len(first_row[0])}'
     )
     data = googlesheets.get_data_from_spreadsheet(sheet)
 
     for item in data[1:]:
         if (
-            item[6] == name and
-            item[7] == date and
-            item[8] == time
+                item[6] == name and
+                item[7] == date and
+                item[8] == time
         ):
             data_clients_data.append(item)
 
