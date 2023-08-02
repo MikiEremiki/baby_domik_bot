@@ -63,8 +63,3 @@ dict_of_shows_v2 = {
         'full_name_of_show': full_name_of_show,
     },
 }
-
-
-class Show:
-    def __init__(self) -> None:
-        super().__init__()
