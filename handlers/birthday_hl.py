@@ -62,7 +62,7 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['user'] = update.message.from_user
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
-    two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
+    two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
 
     # Отправка сообщения пользователю
     text = do_bold('Выберите место проведения Дня рождения\n\n')
@@ -97,7 +97,7 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В Домике'
+    one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
     text = f'Вы выбрали\n\n'
     text += f'{one_option}\n'
     text += do_italic(f'День рождения в {ADDRESS_OFFICE}')
@@ -126,7 +126,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На выезде'
+    two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
     text = f'Вы выбрали\n\n'
     text += f'{two_option}\n'
     text += do_italic('День рождения в предложенном вами месте\n\n')
@@ -137,8 +137,9 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'Выезд', place))
 
+    text = 'Напишите адрес проведения дня рождения\n'
     await update.effective_chat.send_message(
-        text='Напишите адрес проведения дня рождения',
+        text=text,
     )
 
     context.user_data['birthday_data']['place'] = int(place)
@@ -341,7 +342,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     elif birthday_place == 2:
         text = escape_markdown(
-            'Для формата на Выезде есть только один вариант\n\n'
+            'Формат «На выезде»:\n\n'
             'Спектакль (40 минут) + Свободная игра с персонажами и '
             'фотосессия (20 минут)\n'
             '25000р\n\n',
