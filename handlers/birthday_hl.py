@@ -454,9 +454,9 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     item = dict_of_shows[item]['full_name_of_show']
                 case 'format_bd':
                     if item == 1:
-                        item = 'Спектакль (40 минут) + ' \
-                               'аренда комнаты под чаепитие (1 час) ' \
-                               '-> 15000 руб'
+                        item = ('Спектакль (40 минут) + '
+                                'аренда комнаты под чаепитие (1 час) '
+                                '-> 15000 руб')
                     elif item == 2:
                         item = ('Спектакль (40 минут) + '
                                 'аренда комнаты под чаепитие + '
