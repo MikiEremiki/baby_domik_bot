@@ -197,8 +197,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
         await context.bot.send_message(
-            text='Ваша бронь отклонена.\n'
-                 'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n'
+            text='Ваша бронь отклонена.\nДля решения данного вопроса '
+                 'напишите, пожалуйста, в ЛС или позвоните:\n'
                  'Татьяна Бурганова @Tanya_domik +79159383529',
             chat_id=chat_id,
         )
@@ -305,16 +305,16 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
-    text = 'Возникла ошибка\n' \
+    text = 'Возникла ошибка.\n' \
            'Cвяжитесь с администратором:' \
            'Татьяна Бурганова @Tanya_domik +79159383529'
     match data:
         case '1':
-            text = 'Мы рассмотрели Вашу заявку\n' \
-                   'К сожалению мы не сможем провести день рождения вашего ' \
-                   'малыша\n\n' \
-                   'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n' \
-                   'Татьяна Бурганова @Tanya_domik +79159383529'
+            text = ('Мы рассмотрели Вашу заявку.\n'
+                    'К сожалению, мы не сможем провести день рождения вашего '
+                    'малыша\n\nДля решения данного вопроса напишите, '
+                    'пожалуйста, в ЛС или позвоните:\n'
+                    'Татьяна Бурганова @Tanya_domik +79159383529')
 
             await query.edit_message_text(
                 query.message.text + '\n\n Заявка отклонена'
