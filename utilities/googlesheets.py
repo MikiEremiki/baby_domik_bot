@@ -195,7 +195,7 @@ def write_client(
 
 
 def write_client_bd(
-        bd_data: dict,
+        context_data: dict,
 ) -> None:
     try:
         values_column = get_values(
@@ -217,7 +217,8 @@ def write_client_bd(
 
         date = datetime.now().strftime('%y%m%d %H:%M:%S')
 
-        values[0].append(bd_data['phone'])
+        bd_data = context_data['birthday_data']
+        values[0].append(bd_data['phone'])  # 0
         values[0].append(bd_data['place'])
         values[0].append(bd_data['address'])
         values[0].append(bd_data['date'])
@@ -229,7 +230,9 @@ def write_client_bd(
         values[0].append(bd_data['format_bd'])
         values[0].append(bd_data['name_child'])
         values[0].append(bd_data['name'])
-        values[0].append(date)
+        values[0].append(date)  # 12
+        values[0].extend(['FALSE', 'FALSE', 'FALSE'])
+        values[0].append(context_data['user'].id)  # 16
 
         googlesheets_logger.info(values)
 
