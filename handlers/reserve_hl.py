@@ -39,13 +39,12 @@ from utilities.hlp_func import (
     create_approve_and_reject_replay
 )
 from utilities.settings import (
-    CHAT_ID_GROUP_ADMIN,
+    ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
-ADMIN_GROUP = CHAT_ID_GROUP_ADMIN_1
 
 
 async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
