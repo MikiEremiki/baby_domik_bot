@@ -611,7 +611,9 @@ async def forward_photo_or_file(
         )
 
         context.user_data['message_id_for_admin'] = answer.message_id
-    except KeyError:
+    except KeyError as err:
+        birthday_hl_logger.error(err)
+
         await update.effective_chat.send_message(
             'Сначала необходимо оформить запрос'
         )
