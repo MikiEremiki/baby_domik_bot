@@ -336,12 +336,15 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
              InlineKeyboardButton(two_option, callback_data=2)],
         ])
     elif birthday_place == 2:
-        text = ('Для формата на Выезде есть только один вариант\n'
-                'Спектакль (40 минут) + Свободная игра с персонажами и '
-                'фотосессия (20 минут)\n'
-                '25000р\n'
-                'Нажмите далее'
-                )
+        text = escape_markdown(
+            'Для формата на Выезде есть только один вариант\n\n'
+            'Спектакль (40 минут) + Свободная игра с персонажами и '
+            'фотосессия (20 минут)\n'
+            '20000р\n\n',
+            2
+        )
+        text += do_italic('Нажмите далее')
+
         reply_markup = InlineKeyboardMarkup([
             [InlineKeyboardButton('Далее', callback_data=3)]
         ])
