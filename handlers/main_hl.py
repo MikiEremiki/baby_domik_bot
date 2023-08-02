@@ -321,8 +321,6 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             try:
-                # TODO Дополнить запись в гугл-таблице о факте отказа от
-                #  оплаты администратором
                 await context.bot.delete_message(
                     chat_id=chat_id,
                     message_id=message_id
