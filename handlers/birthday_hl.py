@@ -20,7 +20,7 @@ from handlers.sub_hl import (
 
 from utilities.context import birthday_data
 from utilities.log_func import join_for_log_info
-from utilities.googlesheets import write_client_bd
+from utilities.googlesheets import write_client_bd, set_approve_order
 from utilities.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     CHAT_ID_MIKIEREMIKI,
@@ -36,7 +36,9 @@ from utilities.hlp_func import (
     check_phone_number,
     create_approve_and_reject_replay,
     create_replay_markup_for_list_of_shows,
-    create_replay_markup_with_number_btn
+    create_replay_markup_with_number_btn,
+    do_italic,
+    do_bold
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
