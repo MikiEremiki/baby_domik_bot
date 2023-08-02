@@ -355,3 +355,18 @@ def yrange(n):
 def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         print(context.application.user_data.keys())
+
+
+def create_keys_for_sort(item):
+    a, b = item.split()[0].split('.')
+    return b + a
+
+
+def load_and_concat_date_of_shows():
+    list_of_date_show = load_date_show_data()
+    list_of_date_show = sorted(list_of_date_show,
+                               key=create_keys_for_sort)
+    text_date = '\n'.join(item for item in list_of_date_show)
+    return ('\n__________\nВ следующие даты проводятся спектакли, поэтому их '
+            'не указывайте:'
+            f'\n{text_date}')

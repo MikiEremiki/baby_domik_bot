@@ -30,7 +30,8 @@ from utilities.settings import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
-    load_list_show
+    load_list_show,
+    load_and_concat_date_of_shows
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -107,8 +108,10 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'Домик', place))
 
+    text = 'Напишите желаемую дату проведения праздника'
+    text += load_and_concat_date_of_shows()
     await update.effective_chat.send_message(
-        text='Напишите желаемую дату проведения праздника',
+        text=text,
     )
 
     context.user_data['birthday_data']['place'] = int(place)
@@ -151,8 +154,10 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'адрес', address))
 
+    text = 'Напишите желаемую дату проведения праздника'
+    text += load_and_concat_date_of_shows()
     await update.effective_chat.send_message(
-        text='Напишите желаемую дату проведения праздника',
+        text=text,
     )
 
     context.user_data['birthday_data']['address'] = address
