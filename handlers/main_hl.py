@@ -49,7 +49,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
-        dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
+        dict_of_option_for_reserve = context.bot_data[
+            'dict_of_option_for_reserve']
         key_option_for_reserve = int(query.data.split('|')[1].split()[3])
         chose_reserve_option = dict_of_option_for_reserve.get(
             key_option_for_reserve)
@@ -136,7 +137,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
-        dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
+        dict_of_option_for_reserve = context.bot_data[
+            'dict_of_option_for_reserve']
         key_option_for_reserve = int(query.data.split('|')[1].split()[3])
         chose_reserve_option = dict_of_option_for_reserve.get(
             key_option_for_reserve)
@@ -240,9 +242,9 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
-    text = 'Возникла ошибка\n' \
-           'Cвяжитесь с администратором:' \
-           'Татьяна Бурганова @Tanya_domik +79159383529'
+    text = ('Возникла ошибка\n'
+            'Cвяжитесь с администратором:'
+            'Татьяна Бурганова @Tanya_domik +79159383529')
     match data:
         case '1':
             await query.edit_message_text(
@@ -329,9 +331,10 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 main_handlers_logger.info(
                     f'Cообщение уже удалено'
                 )
-            text = 'Ваша бронь отклонена.\n' \
-                   'Для решения данного вопроса, напишите пожалуйста в ЛС или позвоните:\n' \
-                   'Татьяна Бурганова @Tanya_domik +79159383529'
+            text = ('Ваша бронь отклонена.\n'
+                    'Для решения данного вопроса напишите, пожалуйста, '
+                    'в ЛС или позвоните:\n'
+                    'Татьяна Бурганова @Tanya_domik +79159383529')
 
     await context.bot.send_message(
         text=text,
@@ -466,7 +469,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT["BD_PAID"][0]}')
-    main_handlers_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    main_handlers_logger.info(
+        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     context.user_data.clear()
     return ConversationHandler.END
