@@ -334,6 +334,20 @@ async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def set_description(context: ContextTypes.DEFAULT_TYPE) -> None:
+    await context.bot.set_my_description("""Вас приветствует Бэби-театре Домик!
+
+    Этот бот поможет вам:
+
+    - забронировать билет на спектакль
+    - приобрести абонемент
+    - посмотреть наличие свободных мест
+    - записаться в лист ожидания 
+    - забронировать День рождения с театром «Домик»""")
+    await context.bot.set_my_short_description(
+        'Бот-помощник в Бэби-театр «Домик»')
+
+
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat.id in ADMIN_ID:
         try:
@@ -401,8 +415,7 @@ def create_keys_for_sort(item):
 
 
 def load_and_concat_date_of_shows():
-    list_of_date_show = load_date_show_data()
-    list_of_date_show = sorted(list_of_date_show,
+    list_of_date_show = sorted(load_date_show_data(),
                                key=create_keys_for_sort)
     text_date = '\n'.join(item for item in list_of_date_show)
     return ('\n__________\nВ следующие даты проводятся спектакли, поэтому их '
