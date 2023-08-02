@@ -267,7 +267,7 @@ async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
     default_commands = [
         BotCommand(COMMAND_DICT['START'][0], COMMAND_DICT['START'][1]),
         BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
-        BotCommand(COMMAND_DICT['BD_REQUEST'][0], COMMAND_DICT['BD_REQUEST'][1]),
+        BotCommand(COMMAND_DICT['BD_ORDER'][0], COMMAND_DICT['BD_ORDER'][1]),
     ]
     admin_group_commands = [
         BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),

@@ -13,7 +13,7 @@ from utilities.utl_func import reset
 
 birthday_conv_hl = ConversationHandler(
         entry_points=[
-            CommandHandler(COMMAND_DICT['BD_REQUEST'][0],
+            CommandHandler(COMMAND_DICT['BD_ORDER'][0],
                            birthday_hl.choice_place),
         ],
         states={
@@ -70,7 +70,7 @@ birthday_conv_hl = ConversationHandler(
         },
         fallbacks=[CommandHandler('help', main_hl.help_command)],
         conversation_timeout=30*60,  # 30 мин
-        name='bd_request',
+        name='bd_order',
         persistent=True,
         allow_reentry=True
     )

@@ -26,7 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
              f'/{COMMAND_DICT["RESERVE"][0]} - чтобы выбрать и оплатить билет на'
              f' спектакль для просмотра в нашем театре\n'
-             f'/{COMMAND_DICT["BD_REQUEST"][0]} - чтобы оформить заявку на '
+             f'/{COMMAND_DICT["BD_ORDER"][0]} - чтобы оформить заявку на '
              f'проведение дня рождения в театре или по вашему адресу\n',
         reply_markup=ReplyKeyboardRemove()
     )
@@ -444,7 +444,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case 'bd':
             await query.edit_message_text(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT["BD_REQUEST"][0]} - для повторной '
+                     f'/{COMMAND_DICT["BD_ORDER"][0]} - для повторной '
                      f'отправки заявки на проведение Дня рождения\n'
                      f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
                      f'запуска процедуры внесения предоплаты, если ваша заявка '
