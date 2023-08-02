@@ -604,7 +604,7 @@ async def forward_photo_or_file(
         )
 
         answer = await context.bot.send_message(
-            chat_id=CHAT_ID_GROUP_ADMIN_1,
+            chat_id=ADMIN_GROUP,
             text=f'Пользователь @{user.username} {user.full_name}\n'
                  f'Запросил подтверждение брони на сумму 5000 руб\n',
             reply_markup=reply_markup
