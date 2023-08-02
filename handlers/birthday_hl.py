@@ -23,7 +23,7 @@ from utilities.log_func import join_for_log_info
 from utilities.googlesheets import write_client_bd, set_approve_order
 from utilities.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
-    CHAT_ID_MIKIEREMIKI,
+    ADMIN_GROUP,
     ADDRESS_OFFICE,
     COMMAND_DICT
 )
@@ -42,7 +42,6 @@ from utilities.hlp_func import (
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
-ADMIN_GROUP = CHAT_ID_GROUP_ADMIN_1
 
 
 async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
