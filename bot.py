@@ -5,14 +5,18 @@ from telegram.ext import (
     PicklePersistence
 )
 
-import handlers.main_hl as hl
+from handlers import main_hl
 from conv_hl.reserve_conv_hl import reserve_conv_hl
-from conv_hl.birthday_conv_hl import birthday_conv_hl
-from log_debug.logging_conf import load_log_config
-from utilities.utilities import echo, send_log, set_menu
-from utilities.settings import (
-    API_TOKEN,
-    COMMAND_DICT,
+from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
+from log.logging_conf import load_log_config
+from utilities.settings import API_TOKEN, COMMAND_DICT
+from utilities.utl_func import (
+    echo,
+    reset,
+    send_log,
+    set_menu,
+    print_ud,
+    set_description
 )
 
 
@@ -30,15 +34,28 @@ def bot():
     )
 
     application.job_queue.run_once(set_menu, 0)
+    application.job_queue.run_once(set_description, 0)
 
-    application.add_handler(CommandHandler(COMMAND_DICT['START'][0], hl.start))
+    application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
+                                           main_hl.start))
 
     application.add_handler(reserve_conv_hl)
-    application.add_handler(CallbackQueryHandler(hl.confirm, pattern='^Разрешить'))
-    application.add_handler(CallbackQueryHandler(hl.reject, pattern='^Отклонить'))
+    application.add_handler(birthday_conv_hl)
+    application.add_handler(birthday_paid_conv_hl)
+
+    application.add_handler(CallbackQueryHandler(main_hl.confirm_reserve,
+                                                 pattern='^confirm-reserve'))
+    application.add_handler(CallbackQueryHandler(main_hl.reject_reserve,
+                                                 pattern='^reject-reserve'))
+    application.add_handler(CallbackQueryHandler(main_hl.confirm_birthday,
+                                                 pattern='^confirm-birthday'))
+    application.add_handler(CallbackQueryHandler(main_hl.reject_birthday,
+                                                 pattern='^reject-birthday'))
 
     application.add_handler(CommandHandler('echo', echo))
     application.add_handler(CommandHandler('log', send_log))
+    application.add_handler(CommandHandler('reset', reset))
+    application.add_handler(CommandHandler('print_ud', print_ud))
 
     bot_logger.info('Всё готово к поллингу')
 

@@ -1,0 +1,17 @@
+birthday_data = {
+        'place': 'Место',
+        'address': 'Адрес',
+        'date': 'Дата',
+        'time': 'Время',
+        'id_show': 'Спектакль',
+        'age': 'Возраст именинника',
+        'qty_child': 'Кол-во детей',
+        'qty_adult': 'Кол-во взрослых',
+        'format_bd': 'Формат праздника',
+        'name_child': 'Имя именинника',
+        'name': 'Контактное лицо',
+        'phone': 'Контактный телефон',
+        # 'flag_approve_request': bool,
+        # 'flag_prepayment': bool,
+        # 'flag_approve_prepayment': bool,
+    }

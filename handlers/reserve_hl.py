@@ -16,9 +16,30 @@ from telegram import (
 from telegram.constants import ParseMode
 from telegram.helpers import escape_markdown
 
-from utilities import googlesheets, utilities
+from handlers.sub_hl import (
+    request_phone_number,
+    send_and_del_message_to_remove_kb
+)
+from utilities.googlesheets import (
+    write_data_for_reserve,
+    write_client,
+    update_quality_of_seats
+)
+from utilities.utl_func import (
+    extract_phone_number_from_text,
+    load_show_data,
+    load_option_buy_data,
+    add_btn_back_and_cancel,
+    send_message_to_admin,
+    load_clients_data
+)
+from utilities.hlp_func import (
+    check_phone_number,
+    create_replay_markup_for_list_of_shows,
+    create_approve_and_reject_replay
+)
 from utilities.settings import (
-    CHAT_ID_GROUP_ADMIN,
+    ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
 )
@@ -33,16 +54,12 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state DATE
     """
-
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
-                              f' {update.message.from_user}')
+                           f' {update.message.from_user}')
     context.user_data['STATE'] = 'START'
-    context.user_data['user'] = update.message.from_user
+    user = update.message.from_user
 
-    answer = await update.effective_chat.send_message(
-        text='Загружаем данные спектаклей',
-        reply_markup=ReplyKeyboardRemove()
-    )
+    message = await send_and_del_message_to_remove_kb(update)
 
     # Загрузка базы спектаклей из гугл-таблицы
     try:
@@ -51,10 +68,10 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dict_of_name_show,
             dict_of_name_show_flip,
             dict_of_date_show
-        ) = utilities.load_data()
+        ) = load_show_data()
     except ConnectionError or ValueError:
         reserve_hl_logger.info(
-            f'Для пользователя {context.user_data["user"]}')
+            f'Для пользователя {user}')
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
@@ -75,34 +92,10 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    # Определение кнопок для inline клавиатуры
-    keyboard = []
-    list_btn_of_numbers = []
-
-    i = 0
-    for key, item in dict_of_date_show.items():
-        button_tmp = InlineKeyboardButton(
-            text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[item],
-            callback_data=str(item) + ' | ' + key
-        )
-        list_btn_of_numbers.append(button_tmp)
-
-        i += 1
-        # Две кнопки в строке так как для узких экранов телефонов дни недели
-        # обрезаются
-        if i % 2 == 0:
-            i = 0
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
-
-    button_tmp = InlineKeyboardButton(
-        "Отменить",
-        callback_data='Отменить'
+    reply_markup = create_replay_markup_for_list_of_shows(
+        dict_of_date_show,
+        postfix_for_callback='res'
     )
-    keyboard.append([button_tmp])
-    reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Отправка сообщения пользователю
     text = 'Выберите спектакль и дату\n'
@@ -111,23 +104,22 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.delete_message(
         chat_id=update.effective_chat.id,
-        message_id=answer.message_id
+        message_id=message.message_id
     )
-    answer = await update.effective_chat.send_message(
+    await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup
     )
-
-    context.user_data['message_id'] = answer.message_id
 
     # Контекст для возврата назад
     context.user_data['text_date'] = text
     context.user_data['keyboard_date'] = reply_markup
 
+    context.user_data['user'] = user
+
     # Вместо считывания базы спектаклей каждый раз из гугл-таблицы, прокидываем
     # Базу в контекст пользователя
     context.user_data['dict_of_shows'] = dict_of_shows
-    context.user_data['dict_of_name_show'] = dict_of_name_show
     context.user_data['dict_of_name_show_flip'] = dict_of_name_show_flip
 
     return 'DATE'
@@ -144,11 +136,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'выбрал',
             query.data,
         ]
@@ -176,13 +168,13 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard.append([button_tmp])
 
-    keyboard.append(utilities.add_btn_back_and_cancel())
+    keyboard.append(add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name = escape_markdown(name_show, 2)
     date = escape_markdown(date_show, 2)
 
-    if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
+    if update.effective_chat.id == ADMIN_GROUP:
         # Отправка сообщения в админский чат
         text = f'Вы выбрали:\n *{name} {date}*\n' \
                'Выберите время\.\n'
@@ -208,7 +200,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['text_time'] = text
     context.user_data['keyboard_time'] = reply_markup
 
-    if update.effective_chat.id == CHAT_ID_GROUP_ADMIN:
+    if update.effective_chat.id == ADMIN_GROUP:
         return 'LIST'
     else:
         return 'TIME'
@@ -228,11 +220,11 @@ async def choice_option_of_reserve(
     query = update.callback_query
     await query.answer()
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'выбрал',
             query.data,
         ]
@@ -272,10 +264,10 @@ async def choice_option_of_reserve(
         )
         return 'CHOOSING'
 
-    availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+    availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 4)
 
-    dict_of_option_for_reserve = utilities.load_option_buy_data()
+    dict_of_option_for_reserve = load_option_buy_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
@@ -300,13 +292,13 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(utilities.add_btn_back_and_cancel())
+    keyboard.append(add_btn_back_and_cancel())
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
     for key, item in dict_of_option_for_reserve.items():
-        name = item.get("name")
+        name = item.get('name')
         name = escape_markdown(name, 2)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
                 f'{item.get("price")} руб\n'
@@ -348,6 +340,8 @@ async def check_and_send_buy_info(
     await query.answer()
 
     context.user_data['STATE'] = 'ORDER'
+    context.user_data['dict_of_shows'].clear()
+    context.user_data['dict_of_name_show_flip'].clear()
 
     date = context.user_data['date_show']
     time = context.user_data['time_of_show']
@@ -358,11 +352,11 @@ async def check_and_send_buy_info(
         key_option_for_reserve)
     price = chose_reserve_option.get('price')
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'выбрал',
             chose_reserve_option.get('name'),
         ]
@@ -377,7 +371,7 @@ async def check_and_send_buy_info(
         )
 
         reserve_hl_logger.info(
-            f'Для пользователя {context.user_data["user"]}')
+            f'Для пользователя {user}')
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
         context.user_data.clear()
@@ -405,9 +399,9 @@ async def check_and_send_buy_info(
         row_in_googlesheet = context.user_data['row_in_googlesheet']
 
         # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+        availibale_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+        nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 5)
 
         # Проверка доступности нужного кол-ва мест, за время взаимодействия с
@@ -424,8 +418,7 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            keyboard = []
-            keyboard.append(utilities.add_btn_back_and_cancel())
+            keyboard = [add_btn_back_and_cancel()]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             text = f'К сожалению места уже забронировали и свободных мест ' \
@@ -442,8 +435,7 @@ async def check_and_send_buy_info(
             reserve_hl_logger.info(": ".join(
                 [
                     'Пользователь',
-                    str(context.user_data['user'].id),
-                    str(context.user_data['user'].full_name),
+                    f'{user}',
                     'получил разрешение на бронирование'
                 ]
             ))
@@ -456,7 +448,7 @@ async def check_and_send_buy_info(
                 chose_reserve_option.get('quality_of_children'))
 
             try:
-                googlesheets.confirm(
+                write_data_for_reserve(
                     row_in_googlesheet,
                     [new_number_of_seats, new_nonconfirm_number_of_seats]
                 )
@@ -464,21 +456,19 @@ async def check_and_send_buy_info(
                 reserve_hl_logger.error(": ".join(
                     [
                         'Для пользователя подтверждение не сработало, гугл не отвечает',
-                        str(context.user_data['user'].id),
-                        str(context.user_data['user'].full_name),
+                        f'{user}',
                         'Номер строки для обновления',
                         row_in_googlesheet,
                     ]
                 ))
 
-                keyboard = []
-                keyboard.append(utilities.add_btn_back_and_cancel())
+                keyboard = [add_btn_back_and_cancel()]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 text = 'К сожалению произошла непредвиденная ошибка\n' \
                        'Нажмите "Назад" и выберите время повторно.\n' \
-                       'Если ошибка повторяется напишите в ЛС в telegram или по ' \
-                       'телефону:\n' \
+                       'Если ошибка повторяется напишите в ЛС в telegram или ' \
+                       'по телефону:\n' \
                        'Татьяна Бурганова @Tanya_domik +79159383529'
                 await query.message.edit_text(
                     text=text,
@@ -488,14 +478,14 @@ async def check_and_send_buy_info(
 
         keyboard = []
         button_cancel = InlineKeyboardButton(
-            "Отменить",
-            callback_data=f'Отменить|'
+            'Отменить',
+            callback_data=f'Отменить-res|'
                           f'{query.message.chat_id} {query.message.message_id}'
         )
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        price = chose_reserve_option.get("price")
+        price = chose_reserve_option.get('price')
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
@@ -546,14 +536,18 @@ async def forward_photo_or_file(
     text = context.user_data['text_for_notification_massage']
 
     res = await context.bot.send_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
-        text=f'Квитанция пользователя @{user.username} {user.full_name}\n',
+        chat_id=ADMIN_GROUP,
+        text=f'#Бронирование\n'
+             f'Квитанция пользователя @{user.username} {user.full_name}\n'
     )
     await update.effective_message.forward(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
     )
     message_id_for_admin = res.message_id
-    await utilities.send_message_to_admin(text, message_id_for_admin, context)
+    await send_message_to_admin(ADMIN_GROUP,
+                                text,
+                                message_id_for_admin,
+                                context)
 
     # Сообщение для опроса
     await update.effective_chat.send_message("""Для подтверждения брони 
@@ -569,29 +563,23 @@ __________
     # Сообщение для администратора
     row_in_googlesheet = context.user_data['row_in_googlesheet']
     key_option_for_reserve = context.user_data['key_option_for_reserve']
-    keyboard = []
-    button_approve = InlineKeyboardButton(
-        "Подтвердить",
-        callback_data=f'Разрешить|'
-                      f'{chat_id} {message_id} '
-                      f'{row_in_googlesheet} {key_option_for_reserve}'
+    data_for_callback = [
+        row_in_googlesheet,
+        key_option_for_reserve
+    ]
+
+    reply_markup = create_approve_and_reject_replay(
+        'reserve',
+        chat_id,
+        message_id,
+        data_for_callback
     )
 
-    button_cancel = InlineKeyboardButton(
-        "Отклонить",
-        callback_data=f'Отклонить|'
-                      f'{chat_id} {message_id} '
-                      f'{row_in_googlesheet} {key_option_for_reserve}'
-    )
-    keyboard.append([button_approve, button_cancel])
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    user = context.user_data['user']
     chose_reserve_option = context.user_data['chose_reserve_option']
-    price = chose_reserve_option.get("price")
+    price = chose_reserve_option.get('price')
 
     answer = await context.bot.send_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
              f'Запросил подтверждение брони на сумму {price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
@@ -625,19 +613,13 @@ async def get_name_adult(
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["STATE"] = 'PHONE'
 
-    text = update.effective_message.text
-    text = re.sub(r'[-\s)(+]', '', text)
-    text = re.sub(r'^[78]{,2}(?=9)', '', text)
-
-    if len(text) != 10 or text[0] != '9':
-        await update.effective_chat.send_message(
-            text=f'Возможно вы ошиблись, вы указали {text} \n'
-                 'Напишите ваш номер телефона еще раз пожалуйста\n'
-                 'Идеальный пример из 10 цифр: 9991234455'
-        )
+    phone = update.effective_message.text
+    phone = extract_phone_number_from_text(phone)
+    if check_phone_number(phone):
+        await request_phone_number(update, phone)
         return 'PHONE'
 
-    context.user_data['client_data']['phone'] = text
+    context.user_data['client_data']['phone'] = phone
 
     await update.effective_chat.send_message(
         text="""Напишите, имя и возраст ребенка.
@@ -699,17 +681,17 @@ __________
 
     context.user_data['client_data']['data_children'] = list_message_text
 
+    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'отправил:',
         ],
     ))
     reserve_hl_logger.info(context.user_data['client_data'])
 
-    googlesheets.write_client(
+    write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
         context.user_data['chose_reserve_option']
@@ -721,9 +703,13 @@ __________
         text,
     ])
     message_id = context.user_data['message_id_for_admin']
+
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
-    await utilities.send_message_to_admin(text, message_id, context)
+    await send_message_to_admin(ADMIN_GROUP,
+                                text,
+                                message_id,
+                                context)
 
     await update.effective_chat.send_message(
         'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '
@@ -746,7 +732,7 @@ __________
     )
     await update.effective_chat.pin_message(answer.message_id)
 
-    reserve_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
@@ -758,12 +744,12 @@ async def conversation_timeout(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Informs the user that the operation has timed out, calls :meth:`remove_reply_markup` and
-    ends the conversation.
+    """Informs the user that the operation has timed out,
+    calls :meth:`remove_reply_markup` and ends the conversation.
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-
+    user = context.user_data['user']
     if context.user_data['STATE'] == 'ORDER':
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
@@ -776,9 +762,9 @@ async def conversation_timeout(
         row_in_googlesheet = context.user_data['row_in_googlesheet']
 
         # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = googlesheets.update_quality_of_seats(
+        availibale_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = googlesheets.update_quality_of_seats(
+        nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 5)
 
         old_number_of_seats = int(
@@ -788,7 +774,7 @@ async def conversation_timeout(
             nonconfirm_number_of_seats_now) - int(
             chose_reserve_option.get('quality_of_children'))
         try:
-            googlesheets.confirm(
+            write_data_for_reserve(
                 row_in_googlesheet,
                 [old_number_of_seats, old_nonconfirm_number_of_seats]
             )
@@ -796,23 +782,22 @@ async def conversation_timeout(
             reserve_hl_logger.info(": ".join(
                 [
                     'Для пользователя',
-                    f'{context.user_data["user"]}',
+                    f'{user}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя {context.user_data["user"]} отклонение в '
+                text=f'Для пользователя {user} отклонение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
             reserve_hl_logger.error(TimeoutError)
             reserve_hl_logger.error(": ".join(
                 [
-                    f'Для пользователя {context.user_data["user"]} отклонение в '
+                    f'Для пользователя {user} отклонение в '
                     f'авто-режиме не сработало',
-                    f'{context.user_data["user"]}',
                     'Номер строки для обновления',
                     row_in_googlesheet,
                 ]
@@ -826,13 +811,13 @@ async def conversation_timeout(
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'AFK уже 15 мин'
         ]
     ))
-    reserve_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
-    reserve_hl_logger.info(f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+    reserve_hl_logger.info(f'Для пользователя {user}')
+    reserve_hl_logger.info(
+        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
 
     return ConversationHandler.END
 
@@ -851,7 +836,7 @@ async def send_clients_data(
     date = context.user_data['date_show']
     time = query.data.split(' | ')[0]
 
-    clients_data = utilities.load_clients_data(name, date, time)
+    clients_data = load_clients_data(name, date, time)
     text = f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))
     for i, item1 in enumerate(clients_data):
@@ -875,8 +860,8 @@ async def send_clients_data(
 
 
 async def write_list_of_waiting(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',
@@ -886,28 +871,23 @@ async def write_list_of_waiting(
 
 
 async def get_phone_for_waiting(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
 ):
-    text = update.effective_message.text
-    text = re.sub(r'[-\s)(+]', '', text)
-    text = re.sub(r'^[78]{,2}(?=9)', '', text)
-
-    if len(text) != 10 or text[0] != '9':
-        await update.effective_chat.send_message(
-            text=f'Возможно вы ошиблись, вы указали {text} \n'
-                 'Напишите ваш номер телефона еще раз пожалуйста\n'
-                 'Идеальный пример из 10 цифр: 9991234455'
-        )
+    phone = update.effective_message.text
+    phone = extract_phone_number_from_text(phone)
+    if check_phone_number(phone):
+        await request_phone_number(update, phone)
         return 'PHONE'
 
-    text = context.user_data['text_for_list_waiting'] + '+7' + text
+    text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
-    user = update.effective_user
-    text = f'Пользователь @{user.username} {user.full_name}\n' \
+    user = context.user_data['user']
+    text = f'#Лист_ожидания\n' \
+           f'Пользователь @{user.username} {user.full_name}\n' \
            f'Запросил добавление в лист ожидания\n' + text
     await context.bot.send_message(
-        chat_id=CHAT_ID_GROUP_ADMIN,
+        chat_id=ADMIN_GROUP,
         text=text,
     )
     await update.effective_chat.send_message(

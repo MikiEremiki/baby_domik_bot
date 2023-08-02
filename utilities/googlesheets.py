@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import List, Any
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -14,7 +15,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_service_sacc(scopes):
     credentials = service_account.Credentials.from_service_account_file(
-        'credentials.json', scopes=scopes)
+        'utilities/credentials.json', scopes=scopes)
 
     return build('sheets', 'v4', credentials=credentials)
 
@@ -34,7 +35,7 @@ def get_data_from_spreadsheet(sheet):
         )
 
         if not values:
-            print('No data found.')
+            googlesheets_logger.info('No data found')
             raise ValueError
 
         return values
@@ -43,7 +44,7 @@ def get_data_from_spreadsheet(sheet):
         raise ConnectionError
 
 
-def update_quality_of_seats(row, i):
+def update_quality_of_seats(row: str, qty: int):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
@@ -51,15 +52,15 @@ def update_quality_of_seats(row, i):
         )
 
         if not values:
-            print('No data found.')
+            googlesheets_logger.info('No data found')
             raise ValueError
 
-        return values[0][i]
+        return values[0][qty]
     except HttpError as err:
         googlesheets_logger.error(err)
 
 
-def confirm(row: int, numbers: int) -> None:
+def write_data_for_reserve(row: str, numbers: List[int]) -> None:
     try:
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'RAW'
@@ -118,7 +119,7 @@ def write_client(
         )
 
         if not values_column:
-            print('No data found.')
+            googlesheets_logger.info('No data found')
             return
 
         first_row_for_write = len(values_column)
@@ -127,7 +128,7 @@ def write_client(
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
-        values = []
+        values: List[Any] = []
 
         age = None
         for i in range(len(client['data_children'])):
@@ -188,6 +189,162 @@ def write_client(
             ))
         except TimeoutError:
             googlesheets_logger.error(value_range_body)
+
+    except HttpError as err:
+        googlesheets_logger.error(err)
+
+
+def write_client_bd(
+        context_data: dict,
+) -> None:
+    try:
+        values_column = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База ДР']
+        )
+
+        if not values_column:
+            googlesheets_logger.info('No data found.')
+            return
+
+        first_row_for_write = len(values_column)
+        last_row_for_write = first_row_for_write
+
+        sheet = get_service_sacc(SCOPES).spreadsheets()
+        value_input_option = 'USER_ENTERED'
+        response_value_render_option = 'FORMATTED_VALUE'
+        values = [[]]
+
+        date = datetime.now().strftime('%y%m%d %H:%M:%S')
+
+        bd_data = context_data['birthday_data']
+        values[0].append(bd_data['phone'])  # 0
+        values[0].append(bd_data['place'])
+        values[0].append(bd_data['address'])
+        values[0].append(bd_data['date'])
+        values[0].append(bd_data['time'])
+        values[0].append(bd_data['id_show'])
+        values[0].append(bd_data['age'])
+        values[0].append(bd_data['qty_child'])
+        values[0].append(bd_data['qty_adult'])
+        values[0].append(bd_data['format_bd'])
+        values[0].append(bd_data['name_child'])
+        values[0].append(bd_data['name'])
+        values[0].append(date)  # 12
+        values[0].extend(['FALSE', 'FALSE', 'FALSE'])
+        values[0].append(context_data['user'].id)  # 16
+
+        googlesheets_logger.info(values)
+
+        end_column_index = len(values[0])
+
+        value_range_body = {
+            'values': values,
+        }
+
+        range_sheet = (RANGE_NAME['База ДР_'] +
+                       f'R{first_row_for_write + 1}C1:' +
+                       f'R{last_row_for_write + 1}C{end_column_index}')
+
+        request = sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID['Домик'],
+            range=range_sheet,
+            valueInputOption=value_input_option,
+            responseValueRenderOption=response_value_render_option,
+            body=value_range_body
+        )
+        try:
+            response = request.execute()
+
+            googlesheets_logger.info(": ".join(
+                [
+                    'spreadsheetId: ',
+                    response['spreadsheetId'],
+                    '\n'
+                    'updatedRange: ',
+                    response['updatedRange']
+                ]
+            ))
+        except TimeoutError:
+            googlesheets_logger.error(value_range_body)
+
+    except HttpError as err:
+        googlesheets_logger.error(err)
+
+
+def set_approve_order(bd_data, step=0) -> None:
+    """
+
+    :param bd_data:
+    :type step: 0 - Заявка подтверждена
+    1 - Предоплата
+    2 - Предоплата подтверждена
+    """
+    try:
+        values = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База ДР_'] + 'A:E'
+        )
+        values_header = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['База ДР_'] + '1:1'
+        )
+
+        if not values:
+            googlesheets_logger.info('No data found')
+            return
+        if not values_header:
+            googlesheets_logger.info('No data found')
+            return
+
+        colum = 1
+        for i, item in enumerate(values_header[0]):
+            if item == 'Заявка подтверждена':
+                colum += i
+
+        for i, item in enumerate(values):
+            if (item[0] == bd_data['phone'] and
+                    item[2] == bd_data['address'] and
+                    item[3].split()[0] == bd_data['date'] and
+                    item[4] == bd_data['time']):
+                sheet = get_service_sacc(SCOPES).spreadsheets()
+                value_input_option = 'USER_ENTERED'
+                response_value_render_option = 'FORMATTED_VALUE'
+
+                values = [[]]
+                values[0].append(True)
+                googlesheets_logger.info(values)
+
+                value_range_body = {
+                    'values': values,
+                }
+
+                range_sheet = (RANGE_NAME['База ДР_'] +
+                               f'R{i + 1}C{colum + step}:' +
+                               f'R{i + 2}C{colum + step}')
+
+                request = sheet.values().update(
+                    spreadsheetId=SPREADSHEET_ID['Домик'],
+                    range=range_sheet,
+                    valueInputOption=value_input_option,
+                    responseValueRenderOption=response_value_render_option,
+                    body=value_range_body
+                )
+                try:
+                    response = request.execute()
+
+                    googlesheets_logger.info(": ".join(
+                        [
+                            'spreadsheetId: ',
+                            response['spreadsheetId'],
+                            '\n'
+                            'updatedRange: ',
+                            response['updatedRange']
+                        ]
+                    ))
+                except TimeoutError as err:
+                    googlesheets_logger.error(err)
+                    googlesheets_logger.error(value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
