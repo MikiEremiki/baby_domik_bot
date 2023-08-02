@@ -55,7 +55,7 @@ def update_quality_of_seats(row: str, qty: int):
             googlesheets_logger.info('No data found')
             raise ValueError
 
-        return values[0][i]
+        return values[0][qty]
     except HttpError as err:
         googlesheets_logger.error(err)
 
