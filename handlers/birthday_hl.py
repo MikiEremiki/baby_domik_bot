@@ -632,8 +632,8 @@ async def conversation_timeout(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Informs the user that the operation has timed out, calls :meth:`remove_reply_markup` and
-    ends the conversation.
+    """Informs the user that the operation has timed out,
+    calls :meth:`remove_reply_markup` and ends the conversation.
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
