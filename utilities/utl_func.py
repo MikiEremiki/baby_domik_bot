@@ -22,6 +22,7 @@ from utilities import googlesheets
 from utilities.settings import (
     RANGE_NAME,
     COMMAND_DICT,
+    CHAT_ID_MIKIEREMIKI,
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
     ADMIN_ID,
@@ -349,3 +350,8 @@ def yrange(n):
     while i < n:
         yield i
         i += 1
+
+
+def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
+        print(context.application.user_data.keys())
