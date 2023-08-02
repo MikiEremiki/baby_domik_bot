@@ -29,7 +29,7 @@ context_user_data: Dict = {
         'name_child': str,
         'name': str,
         'phone': str,
-        # 'flag_approve_request': bool,
+        # 'flag_approve_order': bool,
         # 'flag_prepayment': bool,
         # 'flag_approve_prepayment': bool,
     },
