@@ -353,13 +353,13 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
-                document='log.txt'
+                document='log/log.txt'
             )
             i = 1
-            while os.path.exists(f'log_debug/log.txt.{i}'):
+            while os.path.exists(f'log/log.txt.{i}'):
                 await context.bot.send_document(
                     chat_id=update.effective_chat.id,
-                    document=f'log_debug/log.txt.{i}'
+                    document=f'log/log.txt.{i}'
                 )
         except FileExistsError:
             utilites_logger.info('Файл логов не найден')
