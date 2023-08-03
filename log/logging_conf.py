@@ -1,6 +1,6 @@
 import logging.handlers
 
-LOG_FILENAME = 'log\log.txt'
+LOG_FILENAME = 'log/log.txt'
 
 
 def load_log_config():
