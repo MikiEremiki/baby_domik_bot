@@ -69,6 +69,9 @@ def load_show_data() -> tuple[
     """
     # TODO Переписать структуру словарей с учетом добавления отдельного листа
     #  с базой по спектаклям
+    # TODO Выделить загрузку базы спектаклей в отдельную задачу и хранить ее
+    #  сразу в
+    #  bot_data
     data_of_dates = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_дата']
     )
@@ -129,6 +132,8 @@ def load_date_show_data() -> List[str]:
 
     :return: dict
     """
+    # TODO Выделить загрузку дат в отдельную задачу и хранить ее сразу в
+    #  bot_data
     data_of_dates = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_дата']
     )
@@ -155,7 +160,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
     :return: dict
     """
-
+    # TODO Выделить загрузку спектаклей в отдельную задачу и хранить ее сразу в
+    #  bot_data
     qty_shows = len(googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['Список спектаклей_'] + f'A:A'
     ))
@@ -200,6 +206,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
 
 def load_ticket_data() -> dict[int, dict[str, Any]]:
+    # TODO Выделить загрузку билетов в отдельную задачу и хранить ее сразу в
+    #  bot_data
     dict_of_tickets = {}
     data = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['Варианты стоимости'])
