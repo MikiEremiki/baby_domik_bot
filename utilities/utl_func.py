@@ -211,7 +211,7 @@ def load_ticket_data() -> dict[int, dict[str, Any]]:
     dict_of_tickets = {}
     data = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['Варианты стоимости'])
-    utilites_logger.info("Данные стоимости броней загружены")
+    utilites_logger.info('Данные стоимости броней загружены')
 
     for item in data[1:]:
         if len(item) == 0:
