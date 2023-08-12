@@ -267,6 +267,7 @@ async def choice_option_of_reserve(
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 4)
 
+    # TODO Заменить загрузку из базы на чтение из контекста
     dict_of_tickets = load_ticket_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
