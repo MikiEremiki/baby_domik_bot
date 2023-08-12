@@ -1,6 +1,5 @@
 from typing import (
     Dict,
-    Optional,
 )
 from telegram import (
     User,
@@ -10,7 +9,7 @@ from telegram import (
 
 context_user_data: Dict = {
     'STATE': str,
-    'user': Optional[User],
+    'user': User,
     'message_id': Message.message_id[int | str],  # На данный момент только для удаления
     'message_id_for_admin': Message.message_id[int | str],  # На данный момент только для удаления
     'message_id_to_pin': Message.message_id[int | str],
