@@ -18,7 +18,7 @@ from handlers.sub_hl import (
     send_and_del_message_to_remove_kb
 )
 
-from utilities.context import birthday_data
+from utilities.schemas.context import birthday_data
 from utilities.log_func import join_for_log_info
 from utilities.googlesheets import write_client_bd, set_approve_order
 from utilities.settings import (
