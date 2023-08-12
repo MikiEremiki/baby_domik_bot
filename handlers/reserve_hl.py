@@ -302,7 +302,7 @@ async def choice_option_of_reserve(
         name = item.get('name')
         name = escape_markdown(name, 2)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
-                f'{item.get("price")} руб\n'
+                f'{item.get("cost_main")} руб\n'
         if item.get('name') == 'Индивидуальный запрос':
             text += """\_\_\_\_\_\_\_\_\_\_
 Варианты со скидками:\n"""
@@ -351,7 +351,7 @@ async def check_and_send_buy_info(
     dict_of_tickets = context.bot_data['dict_of_tickets']
     chose_reserve_option = dict_of_tickets.get(
         key_option_for_reserve)
-    price = chose_reserve_option.get('price')
+    cost_main = chose_reserve_option.get('cost_main')
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -388,7 +388,7 @@ async def check_and_send_buy_info(
                f'В {time}\n' \
                f'Вариант бронирования: \n' \
                f'{chose_reserve_option.get("name")} ' \
-               f'{price}руб\n'
+               f'{cost_main}руб\n'
 
         context.user_data['text_for_notification_massage'] = text
 
@@ -486,13 +486,13 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        price = chose_reserve_option.get('price')
+        cost_main = chose_reserve_option.get('cost_main')
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
 
-    К оплате {price} руб
+    К оплате {cost_main} руб
 
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
 
@@ -577,12 +577,12 @@ __________
     )
 
     chose_reserve_option = context.user_data['chose_reserve_option']
-    price = chose_reserve_option.get('price')
+    cost_main = chose_reserve_option.get('cost_main')
 
     answer = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {price} руб\n'
+             f'Запросил подтверждение брони на сумму {cost_main} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
         reply_markup=reply_markup
