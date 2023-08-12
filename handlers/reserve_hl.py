@@ -28,7 +28,7 @@ from utilities.googlesheets import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     load_show_data,
-    load_option_buy_data,
+    load_ticket_data,
     add_btn_back_and_cancel,
     send_message_to_admin,
     load_clients_data
@@ -267,12 +267,12 @@ async def choice_option_of_reserve(
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 4)
 
-    dict_of_option_for_reserve = load_option_buy_data()
+    dict_of_tickets = load_ticket_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
-    for key, item in dict_of_option_for_reserve.items():
-        quality_of_children = dict_of_option_for_reserve[key].get(
+    for key, item in dict_of_tickets.items():
+        quality_of_children = dict_of_tickets[key].get(
             'quality_of_children')
 
         # Если свободных мест меньше, чем требуется для варианта
@@ -297,7 +297,7 @@ async def choice_option_of_reserve(
 
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
-    for key, item in dict_of_option_for_reserve.items():
+    for key, item in dict_of_tickets.items():
         name = item.get('name')
         name = escape_markdown(name, 2)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
@@ -318,7 +318,7 @@ _Если нет желаемых вариантов для выбора, зна
         reply_markup=reply_markup
     )
 
-    context.bot_data['dict_of_option_for_reserve'] = dict_of_option_for_reserve
+    context.bot_data['dict_of_tickets'] = dict_of_tickets
 
     return 'ORDER'
 
@@ -347,8 +347,8 @@ async def check_and_send_buy_info(
     time = context.user_data['time_of_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
-    dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
-    chose_reserve_option = dict_of_option_for_reserve.get(
+    dict_of_tickets = context.bot_data['dict_of_tickets']
+    chose_reserve_option = dict_of_tickets.get(
         key_option_for_reserve)
     price = chose_reserve_option.get('price')
 

@@ -199,8 +199,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     )
 
 
-def load_option_buy_data() -> dict[int, dict[str, Any]]:
-    dict_of_option_for_reserve = {}
+def load_ticket_data() -> dict[int, dict[str, Any]]:
+    dict_of_tickets = {}
     data = googlesheets.get_data_from_spreadsheet(
         RANGE_NAME['Варианты стоимости'])
     utilites_logger.info("Данные стоимости броней загружены")
@@ -208,7 +208,7 @@ def load_option_buy_data() -> dict[int, dict[str, Any]]:
     for item in data[1:]:
         if len(item) == 0:
             break
-        dict_of_option_for_reserve[int(item[0])] = {
+        dict_of_tickets[int(item[0])] = {
             'name': item[1],
             'price': int(item[2]),
             'quality_of_children': int(item[3]),
@@ -216,7 +216,7 @@ def load_option_buy_data() -> dict[int, dict[str, Any]]:
             'flag_individual': bool(int(item[5])),
         }
 
-    return dict_of_option_for_reserve
+    return dict_of_tickets
 
 
 def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
