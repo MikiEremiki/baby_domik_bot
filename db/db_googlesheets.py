@@ -190,7 +190,7 @@ def load_ticket_data() -> List[Ticket]:
     list_of_tickets = []
 
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Варианты стоимости тест'])
+        RANGE_NAME['Варианты стоимости'])
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
     for item in data[3:]:
