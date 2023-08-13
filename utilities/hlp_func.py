@@ -44,7 +44,7 @@ def create_replay_markup_for_list_of_shows(
         match ver:
             case 1:
                 button_tmp = InlineKeyboardButton(
-                    text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[num],
+                    text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[item],
                     callback_data=str(item) + ' | ' + key
                 )
             case 2:
