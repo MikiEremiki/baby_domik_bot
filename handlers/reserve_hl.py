@@ -270,19 +270,19 @@ async def choice_option_of_reserve(
         row_in_googlesheet, 4)
 
     # TODO Заменить загрузку из базы на чтение из контекста
-    dict_of_tickets = load_ticket_data()
+    list_of_tickets = load_ticket_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
-    for key, item in dict_of_tickets.items():
-        quality_of_children = dict_of_tickets[key].get(
-            'quality_of_children')
+    for i, ticket in enumerate(list_of_tickets):
+        key = ticket.id_ticket
+        quality_of_children = ticket.quality_of_children
 
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
         if int(quality_of_children) <= int(availibale_number_of_seats_now):
             button_tmp = InlineKeyboardButton(
-                text=str(key),
+                text=str(i + 1),
                 callback_data=str(key)
             )
             list_btn_of_numbers.append(button_tmp)
@@ -300,12 +300,13 @@ async def choice_option_of_reserve(
 
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
-    for key, item in dict_of_tickets.items():
-        name = item.get('name')
+    for i, ticket in enumerate(list_of_tickets):
+        key = ticket.id_ticket
+        name = ticket.name
         name = escape_markdown(name, 2)
-        text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
-                f'{item.get("cost_main")} руб\n'
-        if item.get('name') == 'Индивидуальный запрос':
+        text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} \| '
+                 f'{ticket.cost_main} руб\n')
+        if key == 5:
             text += """\_\_\_\_\_\_\_\_\_\_
 Варианты со скидками:\n"""
     text += """\_\_\_\_\_\_\_\_\_\_
@@ -321,7 +322,7 @@ _Если нет желаемых вариантов для выбора, зна
         reply_markup=reply_markup
     )
 
-    context.bot_data['dict_of_tickets'] = dict_of_tickets
+    context.bot_data['list_of_tickets'] = list_of_tickets
 
     return 'ORDER'
 
