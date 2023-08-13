@@ -48,7 +48,7 @@ def update_quality_of_seats(row: str, qty: int):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            f'База спектаклей!{row}:{row}'
+            f'{RANGE_NAME["База спектаклей_"]}{row}:{row}'
         )
 
         if not values:

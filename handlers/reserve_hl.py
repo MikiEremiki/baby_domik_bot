@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import datetime
 
 from telegram.ext import (
     ContextTypes,
@@ -20,6 +21,11 @@ from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb
 )
+from db.db_googlesheets import (
+    load_clients_data,
+    load_show_data,
+    load_ticket_data,
+)
 from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
@@ -27,11 +33,8 @@ from utilities.googlesheets import (
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
-    load_show_data,
-    load_option_buy_data,
     add_btn_back_and_cancel,
     send_message_to_admin,
-    load_clients_data
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -168,7 +171,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel())
+    keyboard.append(add_btn_back_and_cancel('res'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name = escape_markdown(name_show, 2)
@@ -232,6 +235,7 @@ async def choice_option_of_reserve(
     context.user_data["STATE"] = 'TIME'
 
     time, row_in_googlesheet, number = query.data.split(' | ')
+    date = context.user_data['date_show']
 
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_of_show'] = time
@@ -241,7 +245,6 @@ async def choice_option_of_reserve(
 
         await query.edit_message_reply_markup()
 
-        date = context.user_data['date_show']
         name_show = context.user_data['name_show']
         text = f'Вы выбрали:\n' \
                f'{name_show}\n' \
@@ -267,19 +270,20 @@ async def choice_option_of_reserve(
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 4)
 
-    dict_of_option_for_reserve = load_option_buy_data()
+    # TODO Заменить загрузку из базы на чтение из контекста
+    list_of_tickets = load_ticket_data()
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
-    for key, item in dict_of_option_for_reserve.items():
-        quality_of_children = dict_of_option_for_reserve[key].get(
-            'quality_of_children')
+    for i, ticket in enumerate(list_of_tickets):
+        key = ticket.id_ticket
+        quality_of_children = ticket.quality_of_children
 
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
         if int(quality_of_children) <= int(availibale_number_of_seats_now):
             button_tmp = InlineKeyboardButton(
-                text=str(key),
+                text=str(i + 1),
                 callback_data=str(key)
             )
             list_btn_of_numbers.append(button_tmp)
@@ -292,17 +296,27 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel())
+    keyboard.append(add_btn_back_and_cancel('res'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
-    for key, item in dict_of_option_for_reserve.items():
-        name = item.get('name')
+
+    date_now = datetime.now().date()
+    date_tmp = date.split()[0] + f'.{date_now.year}'
+    date = datetime.strptime(date_tmp, f'%d.%m.%Y')
+
+    for i, ticket in enumerate(list_of_tickets):
+        key = ticket.id_ticket
+        name = ticket.name
         name = escape_markdown(name, 2)
-        text += f'{DICT_OF_EMOJI_FOR_BUTTON[key]} {name} \| ' \
-                f'{item.get("price")} руб\n'
-        if item.get('name') == 'Индивидуальный запрос':
+
+        ticket.date_show = date
+        price = ticket.price
+
+        text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} \| '
+                 f'{price} руб\n')
+        if key == 5:
             text += """\_\_\_\_\_\_\_\_\_\_
 Варианты со скидками:\n"""
     text += """\_\_\_\_\_\_\_\_\_\_
@@ -318,7 +332,7 @@ _Если нет желаемых вариантов для выбора, зна
         reply_markup=reply_markup
     )
 
-    context.bot_data['dict_of_option_for_reserve'] = dict_of_option_for_reserve
+    context.bot_data['list_of_tickets'] = list_of_tickets
 
     return 'ORDER'
 
@@ -347,10 +361,10 @@ async def check_and_send_buy_info(
     time = context.user_data['time_of_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
-    dict_of_option_for_reserve = context.bot_data['dict_of_option_for_reserve']
-    chose_reserve_option = dict_of_option_for_reserve.get(
+    dict_of_tickets = context.bot_data['dict_of_tickets']
+    chose_reserve_option = dict_of_tickets.get(
         key_option_for_reserve)
-    price = chose_reserve_option.get('price')
+    cost_main = chose_reserve_option.get('cost_main')
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -387,7 +401,7 @@ async def check_and_send_buy_info(
                f'В {time}\n' \
                f'Вариант бронирования: \n' \
                f'{chose_reserve_option.get("name")} ' \
-               f'{price}руб\n'
+               f'{cost_main}руб\n'
 
         context.user_data['text_for_notification_massage'] = text
 
@@ -418,7 +432,7 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            keyboard = [add_btn_back_and_cancel()]
+            keyboard = [add_btn_back_and_cancel('res')]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             text = f'К сожалению места уже забронировали и свободных мест ' \
@@ -462,7 +476,7 @@ async def check_and_send_buy_info(
                     ]
                 ))
 
-                keyboard = [add_btn_back_and_cancel()]
+                keyboard = [add_btn_back_and_cancel('res')]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 text = 'К сожалению произошла непредвиденная ошибка\n' \
@@ -485,13 +499,13 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        price = chose_reserve_option.get('price')
+        cost_main = chose_reserve_option.get('cost_main')
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
 
-    К оплате {price} руб
+    К оплате {cost_main} руб
 
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
 
@@ -576,12 +590,12 @@ __________
     )
 
     chose_reserve_option = context.user_data['chose_reserve_option']
-    price = chose_reserve_option.get('price')
+    cost_main = chose_reserve_option.get('cost_main')
 
     answer = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {price} руб\n'
+             f'Запросил подтверждение брони на сумму {cost_main} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
         reply_markup=reply_markup

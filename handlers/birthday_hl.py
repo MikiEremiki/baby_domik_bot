@@ -17,8 +17,8 @@ from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb
 )
-
-from utilities.context import birthday_data
+from db.db_googlesheets import load_list_show
+from utilities.schemas.context import birthday_data
 from utilities.log_func import join_for_log_info
 from utilities.googlesheets import write_client_bd, set_approve_order
 from utilities.settings import (
@@ -30,7 +30,6 @@ from utilities.settings import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
-    load_list_show,
     load_and_concat_date_of_shows
 )
 from utilities.hlp_func import (
