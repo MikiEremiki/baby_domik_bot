@@ -41,11 +41,11 @@ def add_btn_back_and_cancel(
     if postfix_for_callback:
         callback_data += f'-{postfix_for_callback}'
     button_back = InlineKeyboardButton(
-        "Назад",
+        'Назад',
         callback_data='Назад'
     )
     button_cancel = InlineKeyboardButton(
-        "Отменить",
+        'Отменить',
         callback_data=callback_data
     )
     return [button_back, button_cancel]
