@@ -5,6 +5,7 @@ from typing import Any, List
 from utilities.googlesheets import get_data_from_spreadsheet
 from utilities.utl_func import filter_by_date, get_date
 from utilities.settings import RANGE_NAME
+from utilities.schemas.ticket import Ticket
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
@@ -164,41 +165,24 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     )
 
 
-def load_ticket_data() -> dict[int, dict[str, Any]]:
+def load_ticket_data() -> List[Ticket]:
     # TODO Выделить загрузку билетов в отдельную задачу и хранить ее сразу в
     #  bot_data
-    dict_of_tickets = {}
+    list_of_tickets = []
+
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Варианты стоимости'])
+        RANGE_NAME['Варианты стоимости тест'])
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
-    for item in data[1:]:
+    for item in data[3:]:
         if len(item) == 0:
             break
-        dict_of_tickets[int(item[0])] = {
-            'name': item[1],
-            'cost_basic': None,
-            'cost_main': int(item[2]),
-            'cost_privilege': None,
-            'discount_main': None,
-            'discount_privilege': None,
-            'period_start_change_price': None,
-            'period_end_changes_price': None,
-            'cost_main_in_period': None,
-            'cost_privilege_in_period': None,
-            'discount_basic_in_period': None,
-            'cost_basic_in_period': None,
-            'quality_of_children': int(item[3]),
-            'price_child_for_one_ticket': None,
-            'quality_of_adult': int(item[4]),
-            'price_adult_for_one_ticket': None,
-            'flag_individual': bool(int(item[5])),
-            'flag_season_ticket': None,
-            'quality_visits_by_ticket': None,
-            'ticket_category': None,
-        }
+        tmp_dict = {}
+        for i, value in enumerate(item):
+            tmp_dict[data[1][i]] = value
+        list_of_tickets.append(Ticket(**tmp_dict))
 
-    return dict_of_tickets
+    return list_of_tickets
 
 
 def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
