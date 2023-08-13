@@ -1,13 +1,32 @@
 import logging
+import datetime
 
 from typing import Any, List
 
 from utilities.googlesheets import get_data_from_spreadsheet
-from utilities.utl_func import filter_by_date, get_date
 from utilities.settings import RANGE_NAME
 from utilities.schemas.ticket import Ticket
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
+
+
+def filter_by_date(data_of_dates):
+    first_row = 2
+    date_now = datetime.datetime.now().date()
+    for i, item in enumerate(data_of_dates[1:]):
+        date_tmp = item[0].split()[0] + f'.{date_now.year}'
+        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+        if date_tmp >= date_now:
+            first_row += i
+            break
+    return first_row
+
+
+def get_date(item):
+    date_now = datetime.datetime.now().date()
+    date_tmp = item[1].split()[0] + f'.{date_now.year}'
+    date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+    return date_now, date_tmp
 
 
 def load_show_data() -> tuple[

@@ -1,8 +1,7 @@
 import logging
-import datetime
-from typing import List, Union
 import os
 import re
+from typing import List, Union
 
 from telegram import (
     Update,
@@ -30,26 +29,6 @@ from utilities.settings import (
 utilites_logger = logging.getLogger('bot.utilites')
 
 
-def filter_by_date(data_of_dates):
-    first_row = 2
-    date_now = datetime.datetime.now().date()
-    for i, item in enumerate(data_of_dates[1:]):
-        date_tmp = item[0].split()[0] + f'.{date_now.year}'
-        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
-        if date_tmp >= date_now:
-            first_row += i
-            break
-    return first_row
-
-
-def get_date(item):
-    date_now = datetime.datetime.now().date()
-    date_tmp = item[1].split()[0] + f'.{date_now.year}'
-    date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
-    return date_now, date_tmp
-
-
-def add_btn_back_and_cancel() -> List[object]:
     """
 
     :return: List
