@@ -69,7 +69,7 @@ def create_replay_markup_for_list_of_shows(
         if postfix_for_callback:
             callback_data += f'-{postfix_for_callback}'
         button_tmp = InlineKeyboardButton(
-            "Отменить",
+            'Отменить',
             callback_data=callback_data
         )
         keyboard.append([button_tmp])

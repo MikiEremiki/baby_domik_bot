@@ -29,6 +29,9 @@ from utilities.settings import (
 utilites_logger = logging.getLogger('bot.utilites')
 
 
+def add_btn_back_and_cancel(
+        postfix_for_callback=None
+) -> List[InlineKeyboardButton]:
     """
 
     :return: List
