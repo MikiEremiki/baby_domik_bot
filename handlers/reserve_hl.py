@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import datetime
 
 from telegram.ext import (
     ContextTypes,
@@ -234,6 +235,7 @@ async def choice_option_of_reserve(
     context.user_data["STATE"] = 'TIME'
 
     time, row_in_googlesheet, number = query.data.split(' | ')
+    date = context.user_data['date_show']
 
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_of_show'] = time
@@ -243,7 +245,6 @@ async def choice_option_of_reserve(
 
         await query.edit_message_reply_markup()
 
-        date = context.user_data['date_show']
         name_show = context.user_data['name_show']
         text = f'Вы выбрали:\n' \
                f'{name_show}\n' \
@@ -300,12 +301,21 @@ async def choice_option_of_reserve(
 
     # Отправка сообщения пользователю
     text = 'Выберите подходящий вариант бронирования:\n'
+
+    date_now = datetime.now().date()
+    date_tmp = date.split()[0] + f'.{date_now.year}'
+    date = datetime.strptime(date_tmp, f'%d.%m.%Y')
+
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.id_ticket
         name = ticket.name
         name = escape_markdown(name, 2)
+
+        ticket.date_show = date
+        price = ticket.price
+
         text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} \| '
-                 f'{ticket.cost_main} руб\n')
+                 f'{price} руб\n')
         if key == 5:
             text += """\_\_\_\_\_\_\_\_\_\_
 Варианты со скидками:\n"""
