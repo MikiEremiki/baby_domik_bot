@@ -407,7 +407,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=message_id
                 )
 
-                chose_reserve_option = context.user_data['chose_reserve_option']
+                chose_ticket = context.user_data['chose_ticket']
 
                 # Номер строки для извлечения актуального числа доступных мест
                 row_in_googlesheet = context.user_data['row_in_googlesheet']
@@ -420,10 +420,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 old_number_of_seats = int(
                     availibale_number_of_seats_now) + int(
-                    chose_reserve_option.get('quality_of_children'))
+                    chose_ticket.quality_of_children)
                 old_nonconfirm_number_of_seats = int(
                     nonconfirm_number_of_seats_now) - int(
-                    chose_reserve_option.get('quality_of_children'))
+                    chose_ticket.quality_of_children)
                 try:
                     write_data_for_reserve(
                         row_in_googlesheet,
