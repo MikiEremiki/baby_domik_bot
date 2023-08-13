@@ -170,7 +170,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel())
+    keyboard.append(add_btn_back_and_cancel('res'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name = escape_markdown(name_show, 2)
@@ -295,7 +295,7 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel())
+    keyboard.append(add_btn_back_and_cancel('res'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Отправка сообщения пользователю
@@ -421,7 +421,7 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            keyboard = [add_btn_back_and_cancel()]
+            keyboard = [add_btn_back_and_cancel('res')]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             text = f'К сожалению места уже забронировали и свободных мест ' \
@@ -465,7 +465,7 @@ async def check_and_send_buy_info(
                     ]
                 ))
 
-                keyboard = [add_btn_back_and_cancel()]
+                keyboard = [add_btn_back_and_cancel('res')]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 text = 'К сожалению произошла непредвиденная ошибка\n' \

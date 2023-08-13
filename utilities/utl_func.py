@@ -33,16 +33,20 @@ def add_btn_back_and_cancel(
         postfix_for_callback=None
 ) -> List[InlineKeyboardButton]:
     """
-
+    :param postfix_for_callback: Добавление дополнительной приписки для
+    корректного определения случая при использовании отмены
     :return: List
     """
+    callback_data = 'Отменить'
+    if postfix_for_callback:
+        callback_data += f'-{postfix_for_callback}'
     button_back = InlineKeyboardButton(
         "Назад",
         callback_data='Назад'
     )
     button_cancel = InlineKeyboardButton(
         "Отменить",
-        callback_data='Отменить'
+        callback_data=callback_data
     )
     return [button_back, button_cancel]
 
