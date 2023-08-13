@@ -20,6 +20,11 @@ from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb
 )
+from db.db_googlesheets import (
+    load_clients_data,
+    load_show_data,
+    load_ticket_data,
+)
 from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
@@ -27,11 +32,8 @@ from utilities.googlesheets import (
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
-    load_show_data,
-    load_ticket_data,
     add_btn_back_and_cancel,
     send_message_to_admin,
-    load_clients_data
 )
 from utilities.hlp_func import (
     check_phone_number,
