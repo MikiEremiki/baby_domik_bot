@@ -1,21 +1,18 @@
 import logging
 
-from telegram.ext import (
-    ContextTypes,
-    ConversationHandler,
-)
+from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
+from utilities.settings import COMMAND_DICT
+from utilities.hlp_func import do_italic, do_bold
 from utilities.googlesheets import (
     update_quality_of_seats,
     write_data_for_reserve,
     set_approve_order
 )
-from utilities.settings import COMMAND_DICT
-from utilities.hlp_func import do_italic, do_bold
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
