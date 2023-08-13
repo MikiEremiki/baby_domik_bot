@@ -46,6 +46,7 @@ from utilities.settings import (
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
 )
+from utilities.schemas.ticket import Ticket
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
@@ -361,10 +362,12 @@ async def check_and_send_buy_info(
     time = context.user_data['time_of_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
-    dict_of_tickets = context.bot_data['dict_of_tickets']
-    chose_reserve_option = dict_of_tickets.get(
-        key_option_for_reserve)
-    cost_main = chose_reserve_option.get('cost_main')
+    list_of_tickets = context.bot_data['list_of_tickets']
+    chose_ticket: Ticket = None
+    for ticket in list_of_tickets:
+        if ticket.id_ticket == key_option_for_reserve:
+            chose_ticket = ticket
+    cost_main = chose_ticket.cost_main
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -372,12 +375,12 @@ async def check_and_send_buy_info(
             'Пользователь',
             f'{user}',
             'выбрал',
-            chose_reserve_option.get('name'),
+            chose_ticket.name,
         ]
     ))
 
     # Если пользователь выбрал не стандартный вариант
-    if chose_reserve_option.get('flag_individual'):
+    if chose_ticket.flag_individual:
         text = 'Для оформления данного варианта обращайтесь в ЛС в telegram ' \
                'или по телефону:\n Татьяна Бурганова @Tanya_domik +79159383529'
         await query.message.edit_text(
@@ -400,7 +403,7 @@ async def check_and_send_buy_info(
                f'{date}\n' \
                f'В {time}\n' \
                f'Вариант бронирования: \n' \
-               f'{chose_reserve_option.get("name")} ' \
+               f'{chose_ticket.name} ' \
                f'{cost_main}руб\n'
 
         context.user_data['text_for_notification_massage'] = text
@@ -420,8 +423,8 @@ async def check_and_send_buy_info(
 
         # Проверка доступности нужного кол-ва мест, за время взаимодействия с
         # ботом, могли изменить базу в ручную или забронировать места раньше
-        if int(availibale_number_of_seats_now) < int(chose_reserve_option.get(
-                'quality_of_children')):
+        if (int(availibale_number_of_seats_now) <
+                int(chose_ticket.quality_of_children)):
             reserve_hl_logger.info(": ".join(
                 [
                     'Мест не достаточно',
@@ -456,10 +459,10 @@ async def check_and_send_buy_info(
 
             new_number_of_seats = int(
                 availibale_number_of_seats_now) - int(
-                chose_reserve_option.get('quality_of_children'))
+                chose_ticket.quality_of_children)
             new_nonconfirm_number_of_seats = int(
                 nonconfirm_number_of_seats_now) + int(
-                chose_reserve_option.get('quality_of_children'))
+                chose_ticket.quality_of_children)
 
             try:
                 write_data_for_reserve(
@@ -499,7 +502,7 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        cost_main = chose_reserve_option.get('cost_main')
+        cost_main = chose_ticket.cost_main
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
@@ -517,10 +520,10 @@ __________
             reply_markup=reply_markup
         )
 
-        context.user_data['chose_reserve_option'] = chose_reserve_option
+        context.user_data['chose_ticket'] = chose_ticket
         context.user_data['key_option_for_reserve'] = key_option_for_reserve
-        context.user_data['quality_of_children'] = chose_reserve_option.get(
-            'quality_of_children')
+        context.user_data['quality_of_children'] = (
+            chose_ticket.quality_of_children)
         context.chat_data['message_id'] = message.message_id
 
     return 'PAID'
