@@ -1,9 +1,9 @@
 from typing import (
-    Dict,
+    Dict
 )
 
-from ticket import dict_of_tickets
+from ticket import list_of_tickets
 
 context_bot_data: Dict = {
-    'dict_of_tickets': dict_of_tickets
+    'list_of_tickets': list_of_tickets
 }
