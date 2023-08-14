@@ -47,7 +47,9 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
-        chose_ticket = context.user_data['chose_ticket']
+        chat_id = query.data.split('|')[1].split()[0]
+        chose_ticket = context.application.user_data.get(int(chat_id))[
+            'chose_ticket']
 
         row_in_googlesheet = query.data.split('|')[1].split()[2]
 
@@ -131,7 +133,9 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
-        chose_ticket = context.user_data['chose_ticket']
+        chat_id = query.data.split('|')[1].split()[0]
+        chose_ticket = context.application.user_data.get(int(chat_id))[
+            'chose_ticket']
 
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = query.data.split('|')[1].split()[2]
