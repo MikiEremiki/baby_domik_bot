@@ -367,7 +367,7 @@ async def check_and_send_buy_info(
     for ticket in list_of_tickets:
         if ticket.id_ticket == key_option_for_reserve:
             chose_ticket = ticket
-    cost_main = chose_ticket.cost_main
+    price = chose_ticket.price
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -404,7 +404,7 @@ async def check_and_send_buy_info(
                f'В {time}\n' \
                f'Вариант бронирования: \n' \
                f'{chose_ticket.name} ' \
-               f'{cost_main}руб\n'
+               f'{price}руб\n'
 
         context.user_data['text_for_notification_massage'] = text
 
@@ -502,13 +502,13 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        cost_main = chose_ticket.cost_main
+        price = chose_ticket.price
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Забронировать билет можно только по 100% предоплате.
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
 
-    К оплате {cost_main} руб
+    К оплате {price} руб
 
 Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
 
@@ -592,13 +592,13 @@ __________
         data_for_callback
     )
 
-    chose_reserve_option = context.user_data['chose_reserve_option']
-    cost_main = chose_reserve_option.get('cost_main')
+    chose_ticket = context.user_data['chose_ticket']
+    price = chose_ticket.price
 
     answer = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {cost_main} руб\n'
+             f'Запросил подтверждение брони на сумму {price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
         reply_markup=reply_markup
@@ -711,7 +711,7 @@ __________
     write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
-        context.user_data['chose_reserve_option']
+        context.user_data['chose_ticket']
     )
 
     text = '\n'.join([
@@ -773,7 +773,7 @@ async def conversation_timeout(
             'новый запрос'
         )
 
-        chose_reserve_option = context.user_data['chose_reserve_option']
+        chose_ticket = context.user_data['chose_ticket']
 
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = context.user_data['row_in_googlesheet']
@@ -786,10 +786,10 @@ async def conversation_timeout(
 
         old_number_of_seats = int(
             availibale_number_of_seats_now) + int(
-            chose_reserve_option.get('quality_of_children'))
+            chose_ticket.quality_of_children)
         old_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
+            chose_ticket.quality_of_children)
         try:
             write_data_for_reserve(
                 row_in_googlesheet,

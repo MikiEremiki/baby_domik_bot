@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from utilities.settings import RANGE_NAME, SPREADSHEET_ID
+from utilities.schemas.ticket import Ticket
 
 googlesheets_logger = logging.getLogger('bot.googlesheets')
 
@@ -105,7 +106,7 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 def write_client(
         client: dict,
         row_in_data_show: str,
-        dict_reserve_option: dict
+        ticket: Ticket
 ) -> None:
     try:
         values_column = get_values(
@@ -151,10 +152,13 @@ def write_client(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
             values[i].extend(values_row[0])
             values[i].append(datetime.now().__str__())
-            for key, value in dict_reserve_option.items():
-                if key == 'flag_individual':
-                    break
-                values[i].append(value)
+
+            # add ticket info
+            values[i].append(ticket.name)
+            values[i].append(ticket.price)
+            values[i].append(ticket.quality_of_children)
+            values[i].append(ticket.quality_of_adult)
+
             values[i].append(bool(i))
         googlesheets_logger.info(values)
 

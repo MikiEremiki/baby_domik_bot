@@ -47,11 +47,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
-        dict_of_option_for_reserve = context.bot_data[
-            'dict_of_option_for_reserve']
-        key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-        chose_reserve_option = dict_of_option_for_reserve.get(
-            key_option_for_reserve)
+        chose_ticket = context.user_data['chose_ticket']
 
         row_in_googlesheet = query.data.split('|')[1].split()[2]
 
@@ -60,7 +56,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         new_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
+            chose_ticket.quality_of_children)
         try:
             write_data_for_reserve(
                 row_in_googlesheet,
@@ -135,11 +131,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = text_query_split[text_query_split.find(' ') + 1:]
 
     try:
-        dict_of_option_for_reserve = context.bot_data[
-            'dict_of_option_for_reserve']
-        key_option_for_reserve = int(query.data.split('|')[1].split()[3])
-        chose_reserve_option = dict_of_option_for_reserve.get(
-            key_option_for_reserve)
+        chose_ticket = context.user_data['chose_ticket']
 
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = query.data.split('|')[1].split()[2]
@@ -152,10 +144,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         old_number_of_seats = int(
             availibale_number_of_seats_now) + int(
-            chose_reserve_option.get('quality_of_children'))
+            chose_ticket.quality_of_children)
         old_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
-            chose_reserve_option.get('quality_of_children'))
+            chose_ticket.quality_of_children)
 
         try:
             write_data_for_reserve(
