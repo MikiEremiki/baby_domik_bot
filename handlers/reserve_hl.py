@@ -752,7 +752,6 @@ __________
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-    context.user_data.clear()
 
     return ConversationHandler.END
 
