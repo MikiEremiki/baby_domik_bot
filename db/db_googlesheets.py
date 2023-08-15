@@ -220,9 +220,11 @@ def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
 
     for item in data[1:]:
         if (
-                item[6] == name and
-                item[7] == date and
-                item[8] == time
+            # В таблице сломалось форматирование в некоторых строках,
+                # чтобы за ним не следить я всё перевел в нижний регистр
+                item[6].lower() == name.lower() and
+                item[7].lower() == date.lower() and
+                item[8].lower() == time.lower()
         ):
             data_clients_data.append(item)
 
