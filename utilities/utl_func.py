@@ -105,6 +105,9 @@ async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
         BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
     ]
     admin_commands = default_commands + admin_group_commands
+    admin_commands += [
+        BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
+    ]
 
     for chat_id in ADMIN_GROUP_ID:
         try:

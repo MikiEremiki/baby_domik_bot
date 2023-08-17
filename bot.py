@@ -10,6 +10,7 @@ from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from log.logging_conf import load_log_config
 from utilities.settings import API_TOKEN, COMMAND_DICT
+from handlers.timeweb_hl import get_balance
 from utilities.utl_func import (
     echo,
     reset,
@@ -57,6 +58,9 @@ def bot():
     application.add_handler(CommandHandler('log', send_log))
     application.add_handler(CommandHandler('reset', reset))
     application.add_handler(CommandHandler('print_ud', print_ud))
+
+    application.add_handler(CommandHandler(COMMAND_DICT['CB_TW'][0],
+                                           get_balance))
 
     bot_logger.info('Всё готово к поллингу')
 
