@@ -23,7 +23,6 @@ from utilities.settings import (
     CHAT_ID_MIKIEREMIKI,
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
-    ADMIN_ID,
 )
 
 utilites_logger = logging.getLogger('bot.utilites')
@@ -143,20 +142,19 @@ async def set_description(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_chat.id in ADMIN_ID:
-        try:
+    try:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document='log/log.txt'
+        )
+        i = 1
+        while os.path.exists(f'log/log.txt.{i}'):
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
-                document='log/log.txt'
+                document=f'log/log.txt.{i}'
             )
-            i = 1
-            while os.path.exists(f'log/log.txt.{i}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/log.txt.{i}'
-                )
-        except FileExistsError:
-            utilites_logger.info('Файл логов не найден')
+    except FileExistsError:
+        utilites_logger.info('Файл логов не найден')
 
 
 async def send_message_to_admin(
