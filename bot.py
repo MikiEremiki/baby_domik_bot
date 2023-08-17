@@ -9,6 +9,7 @@ from telegram.ext import (
 from handlers import main_hl
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
+from conv_hl.afisha_conv_hl import afisha_conv_hl
 from log.logging_conf import load_log_config
 from handlers.timeweb_hl import get_balance
 from utilities.settings import ADMIN_CHAT_ID
@@ -46,6 +47,7 @@ def bot():
     application.add_handler(reserve_conv_hl)
     application.add_handler(birthday_conv_hl)
     application.add_handler(birthday_paid_conv_hl)
+    application.add_handler(afisha_conv_hl)
 
     application.add_handler(CallbackQueryHandler(main_hl.confirm_reserve,
                                                  pattern='^confirm-reserve'))
