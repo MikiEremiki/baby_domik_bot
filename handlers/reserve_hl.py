@@ -96,6 +96,16 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
+    afisha: dict = context.bot_data.get('afisha', False)
+
+    list_of_months = sorted(set(int(item[3:5]) for item in
+                                dict_of_date_show.keys()))
+
+    if afisha:
+        for num_month, file_id in afisha.items():
+            if num_month in list_of_months:
+                await update.effective_chat.send_photo(file_id)
+
     reply_markup = create_replay_markup_for_list_of_shows(
         dict_of_date_show,
         postfix_for_callback='res'
