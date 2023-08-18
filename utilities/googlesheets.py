@@ -149,7 +149,10 @@ def write_client(
             else:
                 values[i].append(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
-            values[i].extend(values_row[0])
+
+            values[i].append(values_row[0][0])  # Спектакль
+            values[i].append(values_row[0][1].split()[0])  # Дата
+            values[i].append(values_row[0][2])  # Время показа
             values[i].append(datetime.now().__str__())
 
             # add ticket info
