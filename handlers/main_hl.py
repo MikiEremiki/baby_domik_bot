@@ -476,7 +476,15 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Название не должно быть просто help
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    main_handlers_logger.info(": ".join(
+        [
+            'Пользователь',
+            f'{update.effective_user}',
+            'Вызвал help',
+        ]
+    ))
     # TODO Прописать логику использования help
-    pass
+    await update.effective_chat.send_message('Текущая операция сброшена.\n'
+                                             'Выполните новую команду')
+    return ConversationHandler.END
