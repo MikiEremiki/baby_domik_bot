@@ -74,9 +74,9 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 
         range_sheet = ''
         if len(numbers) == 1:
-            range_sheet = f'База спектаклей!F{row}'
+            range_sheet = f'{RANGE_NAME["База спектаклей_"]}F{row}'
         elif len(numbers) == 2:
-            range_sheet = f'База спектаклей!E{row}:F{row}'
+            range_sheet = f'{RANGE_NAME["База спектаклей_"]}E{row}:F{row}'
 
         request = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID['Домик'],
