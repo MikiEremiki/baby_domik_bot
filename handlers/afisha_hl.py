@@ -50,6 +50,7 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     afisha_hl_logger.info(f'Пользователь прислал картинку: {file_id}')
 
+    context.bot_data.setdefault('afisha', {})
     context.bot_data['afisha'].setdefault(
         context.user_data['month_afisha'],
         file_id
