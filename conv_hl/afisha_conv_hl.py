@@ -19,10 +19,10 @@ afisha_conv_hl = ConversationHandler(
         ],
         states={
             1: [
-                MessageHandler(filters.PHOTO, afisha_hl.set_month),
+                CallbackQueryHandler(afisha_hl.set_month),
             ],
             2: [
-                CallbackQueryHandler(afisha_hl.check),
+                MessageHandler(filters.PHOTO, afisha_hl.check),
             ],
         },
         fallbacks=[CommandHandler('help', main_hl.help_command)],
