@@ -38,6 +38,7 @@ def bot():
         .build()
     )
 
+    # TODO Переписать через специальный метод к Application.post_init
     application.job_queue.run_once(set_menu, 0)
     application.job_queue.run_once(set_description, 0)
 
