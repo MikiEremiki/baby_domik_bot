@@ -10,10 +10,11 @@ from telegram import (
     BotCommandScopeDefault,
     BotCommandScopeChat,
     BotCommandScopeChatAdministrators,
+    constants
 )
 from telegram.ext import (
     ContextTypes,
-    ConversationHandler
+    ConversationHandler,
 )
 from telegram.error import BadRequest
 
@@ -53,17 +54,21 @@ def add_btn_back_and_cancel(
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     utilites_logger.info(
         f'{update.effective_user.id}: '
-        f'{update.effective_user.full_name}\n'
+        f'{update.effective_user.full_name} '
         f'Вызвал команду echo'
     )
-    text = ' '.join([
-        str(update.effective_chat.id),
-        'from',
-        str(update.effective_user.id)
-    ])
+    text = ('chat_id = <code>' +
+            str(update.effective_chat.id) + '</code>\n' +
+            'user_id = <code>' +
+            str(update.effective_user.id) + '</code>\n' +
+            'is_forum = <code>' +
+            str(update.effective_chat.is_forum) + '</code>\n' +
+            'message_thread_id = <code>' +
+            str(update.message.message_thread_id) + '</code>')
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=text
+        text=text,
+        parse_mode=constants.ParseMode.HTML
     )
 
 
