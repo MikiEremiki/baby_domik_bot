@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
-from utilities.settings import COMMAND_DICT
+from utilities.settings import COMMAND_DICT, ADMIN_GROUP
 from utilities.hlp_func import do_italic, do_bold
 from utilities.googlesheets import (
     update_quality_of_seats,
@@ -476,7 +476,52 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Название не должно быть просто help
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    main_handlers_logger.info(": ".join(
+        [
+            'Пользователь',
+            f'{update.effective_user}',
+            'Вызвал help',
+        ]
+    ))
     # TODO Прописать логику использования help
-    pass
+    await update.effective_chat.send_message('Текущая операция сброшена.\n'
+                                             'Выполните новую команду')
+    return ConversationHandler.END
+
+
+async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    main_handlers_logger.info('FEEDBACK')
+    main_handlers_logger.info(update.effective_user)
+    main_handlers_logger.info(update.message)
+
+    user = update.effective_user
+
+    text = (
+        'К сожалению, у меня пока нет полномочий для помощи по любым вопросам\n'
+        'Я переслал ваше сообщение Администратору, дождитесь ответа\n\n'
+        'Также проверьте, пожалуйста:\n <i>Настройки > Конфиденциальность > '
+        'Пересылка сообщений</i>\n'
+        'Если установлен вариант <code>Мои контакты</code> или '
+        '<code>Никто</code>, добавьте бота в исключения, иначе Администратор '
+        'не сможет с вами связаться\n\n'
+        'После смены настроек отправьте сообщение еще раз или перешлите в '
+        'этот чат предыдущее сообщение\n\n'
+        'Вместо смены настроек можете написать свой номер телефона или '
+        'связаться самостоятельно\n\n'
+        '<u>Контакты для связи:</u>\n'
+        'Татьяна Бурганова @Tanya_domik +79159383529'
+    )
+    await update.effective_chat.send_message(text, parse_mode=ParseMode.HTML)
+
+    chat_id = ADMIN_GROUP
+    message = await update.message.forward(chat_id, message_thread_id=8)
+    await context.bot.send_message(
+        chat_id,
+        f'Сообщение от пользователя @{user.username} '
+        f'<a href="tg://user?id={user.id}">{user.full_name}</a>',
+        parse_mode=ParseMode.HTML,
+        reply_to_message_id=message.message_id,
+        message_thread_id=message.message_thread_id
+    )
+

@@ -50,7 +50,7 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_id = update.message.photo[0].file_id
 
     afisha_hl_logger.info(f'Пользователь прислал картинку: {file_id}')
-
+    
     context.bot_data['afisha'][month] = file_id
 
     context.user_data.pop('month_afisha')

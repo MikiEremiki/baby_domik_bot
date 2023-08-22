@@ -74,9 +74,9 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 
         range_sheet = ''
         if len(numbers) == 1:
-            range_sheet = f'База спектаклей!F{row}'
+            range_sheet = f'{RANGE_NAME["База спектаклей_"]}F{row}'
         elif len(numbers) == 2:
-            range_sheet = f'База спектаклей!E{row}:F{row}'
+            range_sheet = f'{RANGE_NAME["База спектаклей_"]}E{row}:F{row}'
 
         request = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID['Домик'],
@@ -140,7 +140,6 @@ def write_client(
                     values[i].append(item[0])
                     if len(item[1]) < 5:
                         age = item[1]
-                        # item[1] = f'=NOW()-YEAR(F{first_row_for_write + i + 1})'
                         item[1] = ''
                     values[i].append(item[1])
                 else:
@@ -150,7 +149,10 @@ def write_client(
             else:
                 values[i].append(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
-            values[i].extend(values_row[0])
+
+            values[i].append(values_row[0][0])  # Спектакль
+            values[i].append(values_row[0][1].split()[0])  # Дата
+            values[i].append(values_row[0][2])  # Время показа
             values[i].append(datetime.now().__str__())
 
             # add ticket info
