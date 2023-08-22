@@ -863,12 +863,13 @@ async def send_clients_data(
     time = query.data.split(' | ')[0]
 
     clients_data = load_clients_data(name, date, time)
-    text = f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
+    text = f'#Показ\n'
+    text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))
     for i, item1 in enumerate(clients_data):
         text += '\n__________\n'
         text += str(i + 1) + '| '
-        text += item1[1]
+        text += '<b>' + item1[1] + '</b>'
         text += '\n+7' + item1[2]
         if item1[3] != '':
             text += '\nИмя ребенка: '
@@ -880,7 +881,8 @@ async def send_clients_data(
             text += '\nСпособ брони:\n'
             text += item1[10] + ' '
     await query.edit_message_text(
-        text=text
+        text=text,
+        parse_mode=ParseMode.HTML
     )
     return ConversationHandler.END
 
