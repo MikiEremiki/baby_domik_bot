@@ -46,14 +46,13 @@ async def set_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    month = context.user_data['month_afisha']
     file_id = update.message.photo[0].file_id
 
     afisha_hl_logger.info(f'Пользователь прислал картинку: {file_id}')
 
-    context.bot_data['afisha'].setdefault(
-        context.user_data['month_afisha'],
-        file_id
-    )
+    context.bot_data['afisha'][month] = file_id
+
     context.user_data.pop('month_afisha')
 
     await update.effective_chat.send_message(

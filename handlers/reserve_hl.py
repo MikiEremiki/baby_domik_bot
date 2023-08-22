@@ -14,7 +14,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, ChatType
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
@@ -101,7 +101,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     list_of_months = sorted(set(int(item[3:5]) for item in
                                 dict_of_date_show.keys()))
 
-    if afisha:
+    if afisha and update.effective_chat.type == ChatType.PRIVATE:
         for num_month, file_id in afisha.items():
             if num_month in list_of_months:
                 await update.effective_chat.send_photo(file_id)
