@@ -3,7 +3,8 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     PicklePersistence,
-    filters
+    filters,
+    MessageHandler
 )
 
 from handlers import main_hl
@@ -74,6 +75,17 @@ def bot():
             get_balance,
             filters=filters.Chat(chat_id=ADMIN_CHAT_ID)
         )
+    )
+
+    application.add_handler(MessageHandler(
+        filters.ChatType.PRIVATE & (filters.TEXT |
+                                    filters.ATTACHMENT |
+                                    filters.VIDEO |
+                                    filters.PHOTO |
+                                    filters.FORWARDED |
+                                    filters.Document.IMAGE |
+                                    filters.Document.PDF),
+        main_hl.feedback_send_msg)
     )
 
     bot_logger.info('Всё готово к поллингу')
