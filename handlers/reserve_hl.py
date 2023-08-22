@@ -534,7 +534,7 @@ __________
         context.user_data['key_option_for_reserve'] = key_option_for_reserve
         context.user_data['quality_of_children'] = (
             chose_ticket.quality_of_children)
-        context.chat_data['message_id'] = message.message_id
+        context.user_data['message_id'] = message.message_id
 
     return 'PAID'
 
@@ -550,7 +550,7 @@ async def forward_photo_or_file(
     """
     context.user_data['STATE'] = 'PAID'
 
-    message_id = context.chat_data['message_id']
+    message_id = context.user_data['message_id']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопки

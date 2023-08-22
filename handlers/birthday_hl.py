@@ -550,7 +550,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.chat_data['message_id'] = message.message_id
+    context.user_data['message_id'] = message.message_id
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -565,7 +565,7 @@ async def forward_photo_or_file(
     Пересылает картинку или файл.
     """
     user = context.user_data['user']
-    message_id = context.chat_data['message_id']
+    message_id = context.user_data['message_id']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопку отмены
