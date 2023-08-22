@@ -726,7 +726,7 @@ __________
 
     text = '\n'.join([
         context.user_data['client_data']['name_adult'],
-        context.user_data['client_data']['phone'],
+        '+7' + context.user_data['client_data']['phone'],
         text,
     ])
     message_id = context.user_data['message_id_for_admin']

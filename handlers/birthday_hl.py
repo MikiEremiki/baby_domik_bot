@@ -471,6 +471,8 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 'Свободная игра с персонажами и '
                                 'фотосессия (20 минут)'
                                 '-> 25000 руб')
+                case 'phone':
+                    item = '+7' + item
 
             text += '\n' + do_italic(birthday_data[key])
             text += ': ' + escape_markdown(str(item), 2)
