@@ -373,7 +373,7 @@ async def check_and_send_buy_info(
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
     list_of_tickets = context.bot_data['list_of_tickets']
-    chose_ticket: Ticket = None
+    chose_ticket: Ticket = list_of_tickets[0]
     for ticket in list_of_tickets:
         if ticket.id_ticket == key_option_for_reserve:
             chose_ticket = ticket
@@ -889,7 +889,7 @@ async def send_clients_data(
 
 async def write_list_of_waiting(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        _: ContextTypes.DEFAULT_TYPE
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',

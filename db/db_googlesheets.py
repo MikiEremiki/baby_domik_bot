@@ -49,8 +49,7 @@ def load_show_data() -> tuple[
     # TODO Переписать структуру словарей с учетом добавления отдельного листа
     #  с базой по спектаклям
     # TODO Выделить загрузку базы спектаклей в отдельную задачу и хранить ее
-    #  сразу в
-    #  bot_data
+    #  сразу в bot_data
     data_of_dates = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_дата']
     )
@@ -214,7 +213,7 @@ def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
     )
     sheet = (
             RANGE_NAME['База клиентов_'] +
-            f'!R1C1:R{len(first_colum)}C{len(first_row[0])}'
+            f'R1C1:R{len(first_colum)}C{len(first_row[0])}'
     )
     data = get_data_from_spreadsheet(sheet)
 

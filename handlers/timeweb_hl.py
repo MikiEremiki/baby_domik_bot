@@ -11,7 +11,7 @@ timeweb_hl_logger = logging.getLogger('bot.timeweb_hl')
 locale.setlocale(locale.LC_TIME, '')
 
 
-async def get_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_balance(update: Update, _: ContextTypes.DEFAULT_TYPE):
     timeweb_hl_logger.info(f'Пользователь {update.effective_user} запросил '
                            f'баланс сервера')
     response = request_finances_info()

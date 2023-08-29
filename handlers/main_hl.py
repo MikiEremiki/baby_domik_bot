@@ -17,7 +17,7 @@ from utilities.googlesheets import (
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
@@ -40,7 +40,6 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
-    # Способ защиты от многократного нажатия
     await query.edit_message_reply_markup()
 
     text_query_split = query.message.text.split('\n')[0]
@@ -302,9 +301,9 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split('|')[0][-1]
     chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
-    text = 'Возникла ошибка.\n' \
-           'Cвяжитесь с администратором:' \
-           'Татьяна Бурганова @Tanya_domik +79159383529'
+    text = ('Возникла ошибка\n'
+            'Cвяжитесь с администратором:'
+            'Татьяна Бурганова @Tanya_domik +79159383529')
     match data:
         case '1':
             text = ('Мы рассмотрели Вашу заявку.\n'
@@ -476,7 +475,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     main_handlers_logger.info(": ".join(
         [
             'Пользователь',
@@ -524,4 +523,3 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_to_message_id=message.message_id,
         message_thread_id=message.message_thread_id
     )
-

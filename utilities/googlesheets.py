@@ -170,9 +170,9 @@ def write_client(
             'values': values,
         }
 
-        range_sheet = f'Клиентская база!' \
-                      f'R{first_row_for_write + 1}C1:' \
-                      f'R{last_row_for_write + 1}C{end_column_index}'
+        range_sheet = (RANGE_NAME['База клиентов_'] +
+                       f'R{first_row_for_write + 1}C1:'
+                       f'R{last_row_for_write + 1}C{end_column_index}')
 
         request = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID['Домик'],
