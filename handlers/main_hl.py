@@ -43,14 +43,12 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    text_query_split = query.message.text.split('\n')[0]
-    user = text_query_split[text_query_split.find(' ') + 1:]
+    chat_id = query.data.split('|')[1].split()[0]
+    user_data = context.application.user_data.get(int(chat_id))
+    user = user_data['user']
 
     try:
-        chat_id = query.data.split('|')[1].split()[0]
-        chose_ticket = context.application.user_data.get(int(chat_id))[
-            'chose_ticket']
-
+        chose_ticket = user_data['chose_ticket']
         row_in_googlesheet = query.data.split('|')[1].split()[2]
 
         nonconfirm_number_of_seats_now = update_quality_of_seats(
@@ -132,15 +130,12 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    text_query_split = query.message.text.split('\n')[0]
-    user = text_query_split[text_query_split.find(' ') + 1:]
+    chat_id = query.data.split('|')[1].split()[0]
+    user_data = context.application.user_data.get(int(chat_id))
+    user = user_data['user']
 
     try:
-        chat_id = query.data.split('|')[1].split()[0]
-        chose_ticket = context.application.user_data.get(int(chat_id))[
-            'chose_ticket']
-
-        # Номер строки для извлечения актуального числа доступных мест
+        chose_ticket = user_data['chose_ticket']
         row_in_googlesheet = query.data.split('|')[1].split()[2]
 
         await write_old_seat_info(update,
@@ -196,17 +191,16 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    text_query_split = query.message.text.split('\n')[0]
-    user = text_query_split[text_query_split.find(' ') + 1:]
+    chat_id = query.data.split('|')[1].split()[0]
+    user_data = context.application.user_data.get(int(chat_id))
+    user = user_data['user']
 
     data = query.data.split('|')[0][-1]
-    chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:'
             'Татьяна Бурганова @Tanya_domik +79159383529')
-    context_bd = context.application.user_data.get(int(chat_id))[
-        'birthday_data']
+    context_bd = user_data['birthday_data']
     match data:
         case '1':
             await query.edit_message_text(
@@ -258,11 +252,11 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_reply_markup()
 
-    text_query_split = query.message.text.split('\n')[0]
-    user = text_query_split[text_query_split.find(' ') + 1:]
+    chat_id = query.data.split('|')[1].split()[0]
+    user_data = context.application.user_data.get(int(chat_id))
+    user = user_data['user']
 
     data = query.data.split('|')[0][-1]
-    chat_id = query.data.split('|')[1].split()[0]
     message_id = query.data.split('|')[1].split()[1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:'
