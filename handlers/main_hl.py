@@ -7,7 +7,10 @@ from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import write_old_seat_info
-from utilities.settings import COMMAND_DICT, ADMIN_GROUP
+from utilities.settings import (
+    COMMAND_DICT,
+    ADMIN_GROUP,
+    FEEDBACK_THREAD_ID_GROUP_ADMIN)
 from utilities.hlp_func import do_italic, do_bold
 from utilities.googlesheets import (
     update_quality_of_seats,
@@ -434,7 +437,10 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(text, parse_mode=ParseMode.HTML)
 
     chat_id = ADMIN_GROUP
-    message = await update.message.forward(chat_id, message_thread_id=8)
+    message = await update.message.forward(
+        chat_id,
+        message_thread_id=FEEDBACK_THREAD_ID_GROUP_ADMIN
+    )
     await context.bot.send_message(
         chat_id,
         f'Сообщение от пользователя @{user.username} '
