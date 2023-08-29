@@ -19,7 +19,8 @@ from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
     request_phone_number,
-    send_and_del_message_to_remove_kb
+    send_and_del_message_to_remove_kb,
+    write_old_seat_info
 )
 from db.db_googlesheets import (
     load_clients_data,
@@ -787,47 +788,10 @@ async def conversation_timeout(
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = context.user_data['row_in_googlesheet']
 
-        # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 5)
-
-        old_number_of_seats = int(
-            availibale_number_of_seats_now) + int(
-            chose_ticket.quality_of_children)
-        old_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_ticket.quality_of_children)
-        try:
-            write_data_for_reserve(
-                row_in_googlesheet,
-                [old_number_of_seats, old_nonconfirm_number_of_seats]
-            )
-
-            reserve_hl_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{user}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя {user} отклонение в '
-                     f'авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
-            )
-            reserve_hl_logger.error(TimeoutError)
-            reserve_hl_logger.error(": ".join(
-                [
-                    f'Для пользователя {user} отклонение в '
-                    f'авто-режиме не сработало',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
+        await write_old_seat_info(update,
+                                  user,
+                                  row_in_googlesheet,
+                                  chose_ticket)
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(

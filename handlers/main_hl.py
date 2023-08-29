@@ -6,6 +6,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
+from handlers.sub_hl import write_old_seat_info
 from utilities.settings import COMMAND_DICT, ADMIN_GROUP
 from utilities.hlp_func import do_italic, do_bold
 from utilities.googlesheets import (
@@ -142,48 +143,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = query.data.split('|')[1].split()[2]
 
-        # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 4)
-        nonconfirm_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 5)
-
-        old_number_of_seats = int(
-            availibale_number_of_seats_now) + int(
-            chose_ticket.quality_of_children)
-        old_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_ticket.quality_of_children)
-
-        try:
-            write_data_for_reserve(
-                row_in_googlesheet,
-                [old_number_of_seats, old_nonconfirm_number_of_seats]
-            )
-
-            main_handlers_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{user}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя {user} отклонение в '
-                     f'авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
-            )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
-                [
-                    f'Для пользователя {user} отклонение в '
-                    f'авто-режиме не сработало',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
-                ]
-            ))
+        await write_old_seat_info(update,
+                                  user,
+                                  row_in_googlesheet,
+                                  chose_ticket)
 
         await query.edit_message_text(
             text=f'Пользователю {user} отклонена бронь'
@@ -411,47 +374,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Номер строки для извлечения актуального числа доступных мест
                 row_in_googlesheet = context.user_data['row_in_googlesheet']
 
-                # Обновляем кол-во доступных мест
-                availibale_number_of_seats_now = update_quality_of_seats(
-                    row_in_googlesheet, 4)
-                nonconfirm_number_of_seats_now = update_quality_of_seats(
-                    row_in_googlesheet, 5)
-
-                old_number_of_seats = int(
-                    availibale_number_of_seats_now) + int(
-                    chose_ticket.quality_of_children)
-                old_nonconfirm_number_of_seats = int(
-                    nonconfirm_number_of_seats_now) - int(
-                    chose_ticket.quality_of_children)
-                try:
-                    write_data_for_reserve(
-                        row_in_googlesheet,
-                        [old_number_of_seats, old_nonconfirm_number_of_seats]
-                    )
-
-                    main_handlers_logger.info(": ".join(
-                        [
-                            'Для пользователя',
-                            f'{user}',
-                            'Номер строки для обновления',
-                            row_in_googlesheet,
-                        ]
-                    ))
-                except TimeoutError:
-                    await update.effective_chat.send_message(
-                        text=f'Для пользователя @{user.username} {user.full_name} отклонение в '
-                             f'авто-режиме не сработало\n'
-                             f'Номер строки для обновления:\n{row_in_googlesheet}'
-                    )
-                    main_handlers_logger.error(TimeoutError)
-                    main_handlers_logger.error(": ".join(
-                        [
-                            f'Для пользователя {user} отклонение в '
-                            f'авто-режиме не сработало',
-                            'Номер строки для обновления',
-                            row_in_googlesheet,
-                        ]
-                    ))
+                await write_old_seat_info(update,
+                                          user,
+                                          row_in_googlesheet,
+                                          chose_ticket)
         case 'bd':
             await query.edit_message_text(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'

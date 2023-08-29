@@ -5,6 +5,11 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 
+from utilities.googlesheets import (
+    update_quality_of_seats,
+    write_data_for_reserve
+)
+
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
 
@@ -21,3 +26,54 @@ async def send_and_del_message_to_remove_kb(update: Update):
         text='Загружаем данные',
         reply_markup=ReplyKeyboardRemove()
     )
+
+
+async def write_old_seat_info(
+        update: Update,
+        user,
+        row_in_googlesheet,
+        chose_ticket
+):
+
+    # Обновляем кол-во доступных мест
+    availibale_number_of_seats_now = update_quality_of_seats(
+        row_in_googlesheet, 4)
+    nonconfirm_number_of_seats_now = update_quality_of_seats(
+        row_in_googlesheet, 5)
+
+    old_number_of_seats = int(
+        availibale_number_of_seats_now) + int(
+        chose_ticket.quality_of_children)
+    old_nonconfirm_number_of_seats = int(
+        nonconfirm_number_of_seats_now) - int(
+        chose_ticket.quality_of_children)
+
+    try:
+        write_data_for_reserve(
+            row_in_googlesheet,
+            [old_number_of_seats, old_nonconfirm_number_of_seats]
+        )
+
+        sub_hl_logger.info(": ".join(
+            [
+                'Для пользователя',
+                f'{user}',
+                'Номер строки для обновления',
+                row_in_googlesheet,
+            ]
+        ))
+    except TimeoutError:
+        await update.effective_chat.send_message(
+            text=f'Для пользователя @{user.username} {user.full_name} '
+                 f'отклонение в авто-режиме не сработало\n'
+                 f'Номер строки для обновления:\n{row_in_googlesheet}'
+        )
+        sub_hl_logger.error(TimeoutError)
+        sub_hl_logger.error(": ".join(
+            [
+                f'Для пользователя {user} отклонение в '
+                f'авто-режиме не сработало',
+                'Номер строки для обновления',
+                row_in_googlesheet,
+            ]
+        ))

@@ -174,27 +174,11 @@ def write_client(
                        f'R{first_row_for_write + 1}C1:'
                        f'R{last_row_for_write + 1}C{end_column_index}')
 
-        request = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID['Домик'],
-            range=range_sheet,
-            valueInputOption=value_input_option,
-            responseValueRenderOption=response_value_render_option,
-            body=value_range_body
-        )
-        try:
-            response = request.execute()
-
-            googlesheets_logger.info(": ".join(
-                [
-                    'spreadsheetId: ',
-                    response['spreadsheetId'],
-                    '\n'
-                    'updatedRange: ',
-                    response['updatedRange']
-                ]
-            ))
-        except TimeoutError:
-            googlesheets_logger.error(value_range_body)
+        execute_request_googlesheet(sheet,
+                                    range_sheet,
+                                    value_input_option,
+                                    response_value_render_option,
+                                    value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
@@ -252,27 +236,11 @@ def write_client_bd(
                        f'R{first_row_for_write + 1}C1:' +
                        f'R{last_row_for_write + 1}C{end_column_index}')
 
-        request = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID['Домик'],
-            range=range_sheet,
-            valueInputOption=value_input_option,
-            responseValueRenderOption=response_value_render_option,
-            body=value_range_body
-        )
-        try:
-            response = request.execute()
-
-            googlesheets_logger.info(": ".join(
-                [
-                    'spreadsheetId: ',
-                    response['spreadsheetId'],
-                    '\n'
-                    'updatedRange: ',
-                    response['updatedRange']
-                ]
-            ))
-        except TimeoutError:
-            googlesheets_logger.error(value_range_body)
+        execute_request_googlesheet(sheet,
+                                    range_sheet,
+                                    value_input_option,
+                                    response_value_render_option,
+                                    value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
@@ -329,28 +297,42 @@ def set_approve_order(bd_data, step=0) -> None:
                                f'R{i + 1}C{colum + step}:' +
                                f'R{i + 2}C{colum + step}')
 
-                request = sheet.values().update(
-                    spreadsheetId=SPREADSHEET_ID['Домик'],
-                    range=range_sheet,
-                    valueInputOption=value_input_option,
-                    responseValueRenderOption=response_value_render_option,
-                    body=value_range_body
-                )
-                try:
-                    response = request.execute()
-
-                    googlesheets_logger.info(": ".join(
-                        [
-                            'spreadsheetId: ',
-                            response['spreadsheetId'],
-                            '\n'
-                            'updatedRange: ',
-                            response['updatedRange']
-                        ]
-                    ))
-                except TimeoutError as err:
-                    googlesheets_logger.error(err)
-                    googlesheets_logger.error(value_range_body)
+                execute_request_googlesheet(sheet,
+                                            range_sheet,
+                                            value_input_option,
+                                            response_value_render_option,
+                                            value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
+
+
+def execute_request_googlesheet(
+        sheet,
+        range_sheet,
+        value_input_option,
+        response_value_render_option,
+        value_range_body
+):
+    request = sheet.values().update(
+        spreadsheetId=SPREADSHEET_ID['Домик'],
+        range=range_sheet,
+        valueInputOption=value_input_option,
+        responseValueRenderOption=response_value_render_option,
+        body=value_range_body
+    )
+    try:
+        response = request.execute()
+
+        googlesheets_logger.info(": ".join(
+            [
+                'spreadsheetId: ',
+                response['spreadsheetId'],
+                '\n'
+                'updatedRange: ',
+                response['updatedRange']
+            ]
+        ))
+    except TimeoutError as err:
+        googlesheets_logger.error(err)
+        googlesheets_logger.error(value_range_body)
