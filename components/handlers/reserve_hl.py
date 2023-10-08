@@ -47,7 +47,7 @@ from utilities.settings import (
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
 )
-from utilities.schemas.ticket import Ticket
+from utilities.schemas.ticket import BaseTicket
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
@@ -62,6 +62,7 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                            f' {update.message.from_user}')
     context.user_data['STATE'] = 'START'
+    context.user_data.setdefault('reserve_data', {})
     user = update.message.from_user
 
     message = await send_and_del_message_to_remove_kb(update)
@@ -207,7 +208,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN_V2
     )
 
-    context.user_data['key_of_name_show'] = key_of_name_show
     context.user_data['date_show'] = date_show
     context.user_data['name_show'] = name_show
 
@@ -250,7 +250,7 @@ async def choice_option_of_reserve(
     date = context.user_data['date_show']
 
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
-    context.user_data['time_of_show'] = time
+    context.user_data['time_show'] = time
 
     if int(number) == 0:
         reserve_hl_logger.info('Мест нет')
@@ -288,7 +288,7 @@ async def choice_option_of_reserve(
     keyboard = []
     list_btn_of_numbers = []
     for i, ticket in enumerate(list_of_tickets):
-        key = ticket.id_ticket
+        key = ticket.base_ticket_id
         quality_of_children = ticket.quality_of_children
 
         # Если свободных мест меньше, чем требуется для варианта
@@ -319,7 +319,7 @@ async def choice_option_of_reserve(
     date = datetime.strptime(date_tmp, f'%d.%m.%Y')
 
     for i, ticket in enumerate(list_of_tickets):
-        key = ticket.id_ticket
+        key = ticket.base_ticket_id
         name = ticket.name
         name = escape_markdown(name, 2)
 
@@ -370,13 +370,13 @@ async def check_and_send_buy_info(
     context.user_data['dict_of_name_show_flip'].clear()
 
     date = context.user_data['date_show']
-    time = context.user_data['time_of_show']
+    time = context.user_data['time_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
     list_of_tickets = context.bot_data['list_of_tickets']
-    chose_ticket: Ticket = list_of_tickets[0]
+    chose_ticket: BaseTicket = list_of_tickets[0]
     for ticket in list_of_tickets:
-        if ticket.id_ticket == key_option_for_reserve:
+        if ticket.base_ticket_id == key_option_for_reserve:
             chose_ticket = ticket
     price = chose_ticket.price
 
@@ -532,9 +532,6 @@ __________
         )
 
         context.user_data['chose_ticket'] = chose_ticket
-        context.user_data['key_option_for_reserve'] = key_option_for_reserve
-        context.user_data['quality_of_children'] = (
-            chose_ticket.quality_of_children)
         context.user_data['message_id'] = message.message_id
 
     return 'PAID'
@@ -589,24 +586,16 @@ __________
     )
 
     # Сообщение для администратора
-    row_in_googlesheet = context.user_data['row_in_googlesheet']
-    key_option_for_reserve = context.user_data['key_option_for_reserve']
-    data_for_callback = [
-        row_in_googlesheet,
-        key_option_for_reserve
-    ]
-
     reply_markup = create_approve_and_reject_replay(
         'reserve',
-        chat_id,
-        message_id,
-        data_for_callback
+        update.effective_user.id,
+        message_id
     )
 
     chose_ticket = context.user_data['chose_ticket']
     price = chose_ticket.price
 
-    answer = await context.bot.send_message(
+    message = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
              f'Запросил подтверждение брони на сумму {price} руб\n'
@@ -615,7 +604,7 @@ __________
         reply_markup=reply_markup
     )
 
-    context.user_data['message_id_for_admin'] = answer.message_id
+    context.user_data['message_id_for_admin'] = message.message_id
 
     return 'FORMA'
 
@@ -730,13 +719,13 @@ __________
         '+7' + context.user_data['client_data']['phone'],
         text,
     ])
-    message_id = context.user_data['message_id_for_admin']
+    message_id_for_admin = context.user_data['message_id_for_admin']
 
     # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
     # 'CHILDREN' state, написал обходной путь для этого
     await send_message_to_admin(ADMIN_GROUP,
                                 text,
-                                message_id,
+                                message_id_for_admin,
                                 context)
 
     await update.effective_chat.send_message(
@@ -755,10 +744,10 @@ __________
 __________
 Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
         "RESERVE"][0]}"""
-    answer = await update.effective_chat.send_message(
+    message = await update.effective_chat.send_message(
         text=text
     )
-    await update.effective_chat.pin_message(answer.message_id)
+    await message.pin()
 
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(

@@ -1,6 +1,10 @@
+import pathlib
+import os
 import logging.handlers
 
 LOG_FILENAME = 'log/log.txt'
+if not pathlib.Path('log/').exists():
+    os.mkdir('log')
 
 
 def load_log_config():

@@ -20,8 +20,11 @@ from utilities.utl_func import (
     reset,
     send_log,
     set_menu,
+    set_description,
     print_ud,
-    set_description
+    clean_ud,
+    get_location,
+    get_contact, request_contact_location,
 )
 
 
@@ -30,7 +33,7 @@ def bot():
     bot_logger.info('Инициализация бота')
 
     # TODO Предусмотреть создание папки, на случай если ее нет
-    persistence = PicklePersistence(filepath="db/conversationbot")
+    persistence = PicklePersistence(filepath="components/db/conversationbot")
     application = (
         Application.builder()
         .token(API_TOKEN)
@@ -64,6 +67,7 @@ def bot():
     application.add_handler(CommandHandler('reset', reset))
 
     application.add_handler(CommandHandler('print_ud', print_ud))
+    application.add_handler(CommandHandler('clean_ud', clean_ud))
     application.add_handler(CommandHandler(
         'log',
         send_log,
@@ -77,6 +81,11 @@ def bot():
         )
     )
 
+    application.add_handler(CommandHandler('rcl',
+                                           request_contact_location))
+    application.add_handler(MessageHandler(filters.LOCATION, get_location))
+    application.add_handler(MessageHandler(filters.CONTACT, get_contact))
+
     application.add_handler(MessageHandler(
         filters.ChatType.PRIVATE & (filters.TEXT |
                                     filters.ATTACHMENT |
@@ -85,7 +94,7 @@ def bot():
                                     filters.FORWARDED |
                                     filters.Document.IMAGE |
                                     filters.Document.PDF),
-        main_hl.feedback_send_msg)
+        main_hl.feedback_send_msg),
     )
 
     bot_logger.info('Всё готово к поллингу')

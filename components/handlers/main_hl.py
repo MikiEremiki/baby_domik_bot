@@ -52,7 +52,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         chose_ticket = user_data['chose_ticket']
-        row_in_googlesheet = query.data.split('|')[1].split()[2]
+        row_in_googlesheet = user_data['row_in_googlesheet']
 
         nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 5)
@@ -367,8 +367,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
                 chose_ticket = context.user_data['chose_ticket']
-
-                # Номер строки для извлечения актуального числа доступных мест
                 row_in_googlesheet = context.user_data['row_in_googlesheet']
 
                 await write_old_seat_info(update,

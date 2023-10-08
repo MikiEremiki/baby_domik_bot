@@ -5,7 +5,7 @@ from typing import Any, List
 
 from utilities.googlesheets import get_data_from_spreadsheet
 from utilities.settings import RANGE_NAME
-from utilities.schemas.ticket import Ticket
+from utilities.schemas.ticket import BaseTicket
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
@@ -150,7 +150,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
     dict_of_shows = {}
     for item in data:
-        id_show: int = int(item[0])
+        show_id: int = int(item[0])
         name: str = item[1]
         flag_premiere: bool = True if item[2] == 'TRUE' else False
         min_age_child: int = int(item[3])
@@ -163,9 +163,9 @@ def load_list_show() -> dict[int, dict[str, Any]]:
             text = 'ПРЕМЬЕРА. ' + item[3] + '+'
         else:
             text = item[3] + '+'
-        full_name_of_show: str = '. '.join([name, text])
+        full_name: str = '. '.join([name, text])
 
-        dict_of_shows[id_show] = {
+        dict_of_shows[show_id] = {
             'name': name,
             'flag_premiere': flag_premiere,
             'min_age_child': min_age_child,
@@ -175,7 +175,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
                 'max_num_adult': max_num_adult,
             },
             'flag_repertoire': flag_repertoire,
-            'full_name_of_show': full_name_of_show,
+            'full_name': full_name,
         }
 
     return (
@@ -183,7 +183,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     )
 
 
-def load_ticket_data() -> List[Ticket]:
+def load_ticket_data() -> List[BaseTicket]:
     # TODO Выделить загрузку билетов в отдельную задачу и хранить ее сразу в
     #  bot_data
     list_of_tickets = []
@@ -198,7 +198,7 @@ def load_ticket_data() -> List[Ticket]:
         tmp_dict = {}
         for i, value in enumerate(item):
             tmp_dict[data[1][i]] = value
-        list_of_tickets.append(Ticket(**tmp_dict))
+        list_of_tickets.append(BaseTicket(**tmp_dict))
 
     return list_of_tickets
 

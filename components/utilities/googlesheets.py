@@ -7,7 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from utilities.settings import RANGE_NAME, SPREADSHEET_ID
-from utilities.schemas.ticket import Ticket
+from utilities.schemas.ticket import BaseTicket
 
 googlesheets_logger = logging.getLogger('bot.googlesheets')
 
@@ -106,7 +106,7 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 def write_client(
         client: dict,
         row_in_data_show: str,
-        ticket: Ticket
+        ticket: BaseTicket
 ) -> None:
     try:
         values_column = get_values(
@@ -153,7 +153,7 @@ def write_client(
             values[i].append(values_row[0][0])  # Спектакль
             values[i].append(values_row[0][1].split()[0])  # Дата
             values[i].append(values_row[0][2])  # Время показа
-            values[i].append(datetime.now().__str__())
+            values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
             # add ticket info
             values[i].append(ticket.name)
@@ -213,7 +213,7 @@ def write_client_bd(
         values[0].append(bd_data['address'])
         values[0].append(bd_data['date'])
         values[0].append(bd_data['time'])
-        values[0].append(bd_data['id_show'])
+        values[0].append(bd_data['show_id'])
         values[0].append(bd_data['age'])
         values[0].append(bd_data['qty_child'])
         values[0].append(bd_data['qty_adult'])

@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from pprint import pprint
 from typing import List, Union
 
 from telegram import (
@@ -10,7 +11,7 @@ from telegram import (
     BotCommandScopeDefault,
     BotCommandScopeChat,
     BotCommandScopeChatAdministrators,
-    constants
+    constants, ReplyKeyboardMarkup, KeyboardButton
 )
 from telegram.ext import (
     ContextTypes,
@@ -159,6 +160,7 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 chat_id=update.effective_chat.id,
                 document=f'log/log.txt.{i}'
             )
+            i += 1
     except FileExistsError:
         utilites_logger.info('Файл логов не найден')
 
@@ -202,9 +204,42 @@ def yrange(n):
         i += 1
 
 
-def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        print(context.application.user_data.keys())
+        pprint(context.application.user_data)
+
+
+async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
+        for key, item in context.application.user_data.items():
+            if context.application.user_data[key].get('dict_of_name_show_v2'):
+                del context.application.user_data[key]['dict_of_name_show_v2']
+            if context.application.user_data[key].get('dict_of_shows'):
+                del context.application.user_data[key]['dict_of_shows']
+            if context.application.user_data[key].get('date_show'):
+                del context.application.user_data[key]['date_show']
+            if context.application.user_data[key].get('name_show'):
+                del context.application.user_data[key]['name_show']
+            if context.application.user_data[key].get('dict_of_name_show_flip'):
+                del context.application.user_data[key]['dict_of_name_show_flip']
+            if context.application.user_data[key].get('text_date'):
+                del context.application.user_data[key]['text_date']
+            if context.application.user_data[key].get('keyboard_date'):
+                del context.application.user_data[key]['keyboard_date']
+            if context.application.user_data[key].get('keyboard_time'):
+                del context.application.user_data[key]['keyboard_time']
+            if context.application.user_data[key].get(
+                    'text_for_notification_massage'):
+                del context.application.user_data[key][
+                    'text_for_notification_massage']
+            if context.application.user_data[key].get('text_time'):
+                del context.application.user_data[key]['text_time']
+            if context.application.user_data[key].get('birthday_data'):
+                del context.application.user_data[key]['birthday_data']
+            utilites_logger.info(key)
+            utilites_logger.info(item.get('user', 'Нет такого'))
+            context.application.mark_data_for_update_persistence(key)
+            await context.application.update_persistence()
 
 
 def create_keys_for_sort(item):
@@ -219,3 +254,36 @@ def load_and_concat_date_of_shows():
     return ('\n__________\nВ следующие даты проводятся спектакли, поэтому их '
             'не указывайте:'
             f'\n{text_date}')
+
+
+async def request_contact_location(
+        update: Update,
+        _: ContextTypes.DEFAULT_TYPE
+):
+    location_keyboard = KeyboardButton(text="send_location",
+                                       request_location=True)
+    contact_keyboard = KeyboardButton(text="send_contact",
+                                      request_contact=True)
+    custom_keyboard = [[location_keyboard, contact_keyboard]]
+    reply_markup = ReplyKeyboardMarkup(custom_keyboard,
+                                       resize_keyboard=True,
+                                       one_time_keyboard=True)
+    await update.effective_user.send_message(
+        text="Не могли бы вы поделиться со мной своими местоположением и "
+             "контактами?",
+        reply_markup=reply_markup
+    )
+
+
+async def get_location(
+        update: Update,
+        _: ContextTypes.DEFAULT_TYPE
+):
+    print(update.message.location)
+
+
+async def get_contact(
+        update: Update,
+        _: ContextTypes.DEFAULT_TYPE
+):
+    print(update.message.contact)

@@ -441,7 +441,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await request_phone_number(update, phone)
         return 'PHONE'
 
-    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
     context.user_data['birthday_data']['phone'] = phone
 
     try:
@@ -453,9 +453,9 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         item = 'В «Домике»'
                     elif item == 2:
                         item = 'На выезде'
-                case 'id_show':
+                case 'show_id':
                     dict_of_shows = context.user_data['dict_of_shows']
-                    item = dict_of_shows[item]['full_name_of_show']
+                    item = dict_of_shows[item]['full_name']
                 case 'format_bd':
                     if item == 1:
                         item = ('Спектакль (40 минут) + '
@@ -487,16 +487,10 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         message_id = message.message_id
 
-        data_for_callback = [
-            row_in_googlesheet := 2,
-            key_option_for_reserve := 2
-        ]
-
         reply_markup = create_approve_and_reject_replay(
             'birthday-1',
-            chat_id,
-            message_id,
-            data_for_callback
+            user_id,
+            message_id
         )
 
         user = context.user_data['user']
@@ -597,26 +591,19 @@ async def forward_photo_or_file(
             chat_id=ADMIN_GROUP,
         )
 
-        data_for_callback = [
-            row_in_googlesheet := 2,
-            key_option_for_reserve := 2
-        ]
-
         reply_markup = create_approve_and_reject_replay(
             'birthday-2',
-            chat_id,
-            message_id,
-            data_for_callback
+            update.effective_user.id,
+            message_id
         )
 
-        answer = await context.bot.send_message(
+        await context.bot.send_message(
             chat_id=ADMIN_GROUP,
             text=f'Пользователь @{user.username} {user.full_name}\n'
                  f'Запросил подтверждение брони на сумму 5000 руб\n',
             reply_markup=reply_markup
         )
 
-        context.user_data['message_id_for_admin'] = answer.message_id
     except KeyError as err:
         birthday_hl_logger.error(err)
 
