@@ -231,8 +231,6 @@ def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
 
     for item in data[1:]:
         if (
-            # В таблице сломалось форматирование в некоторых строках,
-                # чтобы за ним не следить я всё перевел в нижний регистр
                 item[dict_name_column['full_name']].lower() == name.lower() and
                 item[dict_name_column['date_show']].lower() == date.lower() and
                 item[dict_name_column['time_show']].lower() == time.lower()
