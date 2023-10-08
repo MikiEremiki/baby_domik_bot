@@ -25,7 +25,7 @@ from utilities.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     ADMIN_GROUP,
     ADDRESS_OFFICE,
-    COMMAND_DICT
+    COMMAND_DICT, FILE_ID_QR
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
@@ -531,18 +531,21 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append([button_cancel])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = '    Внесите предоплату 5000 руб\n\n' \
-           'Оплата осуществляется переводом на карту Сбербанка по номеру ' \
-           'телефона +79159383529 - Татьяна Александровна Б.\n\n' \
-           'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)\n' \
-           'Пожалуйста внесите оплату в течении 30 минут или нажмите ' \
-           'отмена\n\n' \
-           '__________\n' \
-           'В случае переноса или отмены свяжитесь с администратором:' \
-           'Татьяна Бурганова @Tanya_domik +79159383529'
+    text = ('    Внесите предоплату 5000 руб\n\n'
+            'Оплатить можно:\n'
+            ' - По qr-коду\n'
+            ' - Переводом в банк Точка по номеру телефона +79159383529' 
+            '- Татьяна Александровна Б.\n\n'
+            'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)\n'
+            'Пожалуйста внесите оплату в течении 30 минут или нажмите '
+            'отмена\n\n'
+            '__________\n'
+            'В случае переноса или отмены свяжитесь с администратором:'
+            'Татьяна Бурганова @Tanya_domik +79159383529')
 
-    message = await update.effective_chat.send_message(
-        text=text,
+    message = await update.effective_chat.send_photo(
+        photo=FILE_ID_QR,
+        caption=text,
         reply_markup=reply_markup
     )
 

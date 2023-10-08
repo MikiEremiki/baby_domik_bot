@@ -4,6 +4,7 @@ from telegram import (
     Update,
     ReplyKeyboardRemove,
 )
+from telegram.error import BadRequest
 
 from utilities.googlesheets import (
     update_quality_of_seats,
@@ -77,3 +78,11 @@ async def write_old_seat_info(
                 row_in_googlesheet,
             ]
         ))
+
+
+async def delete_afisha_media_group(context):
+    for message in context.user_data['afisha_media_group']:
+        try:
+            await message.delete()
+        except BadRequest as e:
+            sub_hl_logger.error(e)

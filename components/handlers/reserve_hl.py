@@ -21,7 +21,7 @@ from telegram.helpers import escape_markdown
 from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb,
-    write_old_seat_info
+    write_old_seat_info, delete_afisha_media_group
 )
 from db.db_googlesheets import (
     load_clients_data,
@@ -46,7 +46,7 @@ from utilities.hlp_func import (
 from utilities.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
-    DICT_OF_EMOJI_FOR_BUTTON,
+    DICT_OF_EMOJI_FOR_BUTTON, FILE_ID_QR,
 )
 from utilities.schemas.ticket import BaseTicket
 
@@ -104,10 +104,11 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 dict_of_date_show.keys()))
 
     if afisha and update.effective_chat.type == ChatType.PRIVATE:
-        await update.effective_chat.send_media_group([
+        messages = await update.effective_chat.send_media_group([
             InputMediaPhoto(file_id) for num_month, file_id in
             afisha.items() if num_month in list_of_months
         ])
+        context.user_data['afisha_media_group'] = messages
 
     reply_markup = create_replay_markup_for_list_of_shows(
         dict_of_date_show,
@@ -256,13 +257,17 @@ async def choice_option_of_reserve(
     if int(number) == 0:
         reserve_hl_logger.info('Мест нет')
 
-        await query.edit_message_reply_markup()
-
         name_show = context.user_data['name_show']
-        text = f'Вы выбрали:\n' \
-               f'{name_show}\n' \
-               f'{date}\n' \
-               f'В {time}\n'
+        text = (f'Вы выбрали:\n'
+                f'{name_show}\n'
+                f'{date}\n'
+                f'В {time}\n')
+        await query.edit_message_text(text)
+
+        text = (f'Вы выбрали:\n'
+                f'{name_show}\n'
+                f'{date}\n'
+                f'В {time}\n')
         context.user_data['text_for_list_waiting'] = text
         reply_keyboard = [
             ['Выбрать другое время'],
@@ -278,6 +283,7 @@ async def choice_option_of_reserve(
                  'или записаться в лист ожидания на эту дату и время?',
             reply_markup=reply_markup
         )
+        await delete_afisha_media_group(context)
         return 'CHOOSING'
 
     availibale_number_of_seats_now = update_quality_of_seats(
@@ -356,8 +362,7 @@ async def check_and_send_buy_info(
 ):
     """
     Проверяет кол-во доступных мест, для выбранного варианта пользователем и
-    отправляет сообщение об оплате или о необходимости выбрать другое время с
-    двумя кнопками "Назад" или "Отмена"
+    отправляет сообщение об оплате
 
     :return:
         возвращает state PAID,
@@ -366,9 +371,9 @@ async def check_and_send_buy_info(
     query = update.callback_query
     await query.answer()
 
+    await delete_afisha_media_group(context)
+
     context.user_data['STATE'] = 'ORDER'
-    context.user_data['dict_of_shows'].clear()
-    context.user_data['dict_of_name_show_flip'].clear()
 
     date = context.user_data['date_show']
     time = context.user_data['time_show']
@@ -410,13 +415,13 @@ async def check_and_send_buy_info(
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
         # памятку
-        text = f'Вы выбрали:\n' \
-               f'{name_show}\n' \
-               f'{date}\n' \
-               f'В {time}\n' \
-               f'Вариант бронирования: \n' \
-               f'{chose_ticket.name} ' \
-               f'{price}руб\n'
+        text = (f'Вы выбрали:\n'
+                f'{name_show}\n'
+                f'{date}\n'
+                f'В {time}\n'
+                f'Вариант бронирования:\n'
+                f'{chose_ticket.name} '
+                f'{price}руб\n')
 
         context.user_data['text_for_notification_massage'] = text
 
@@ -447,19 +452,33 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            keyboard = [add_btn_back_and_cancel('res')]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            text = f'К сожалению места уже забронировали и свободных мест ' \
-                   f'Для {name_show}\n' \
-                   f'{date} в {time}\n осталось: ' \
-                   f'{availibale_number_of_seats_now}шт\n' \
-                   f'Пожалуйста нажмите "Назад" и выберите другое время.'
-            await query.message.edit_text(
+            await query.message.delete()
+            text = (f'Вы выбрали:\n'
+                    f'{name_show}\n'
+                    f'{date}\n'
+                    f'В {time}\n')
+            context.user_data['text_for_list_waiting'] = text
+            text = ('К сожалению места уже забронировали и свободных мест для\n'
+                    f'{name_show}\n'
+                    f'{date} в {time}\n'
+                    f' Осталось: {availibale_number_of_seats_now}шт\n\n'
+                    'Вы хотите выбрать другое время '
+                    'или записаться в лист ожидания на эту дату и время?')
+            reply_keyboard = [
+                ['Выбрать другое время'],
+                ['Записаться в лист ожидания'],
+            ]
+            reply_markup = ReplyKeyboardMarkup(
+                reply_keyboard,
+                resize_keyboard=True,
+                one_time_keyboard=True
+            )
+            await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup
             )
-            return 'ORDER'
+            await delete_afisha_media_group(context)
+            return 'CHOOSING'
         else:
             reserve_hl_logger.info(": ".join(
                 [
@@ -515,14 +534,18 @@ async def check_and_send_buy_info(
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         price = chose_ticket.price
-        message = await context.bot.send_message(
+        message = await context.bot.send_photo(
             chat_id=update.effective_chat.id,
-            text=f"""Забронировать билет можно только по 100% предоплате.
+            photo=FILE_ID_QR,
+            caption=f"""Забронировать билет можно только по 100% предоплате.
 Но вы не переживайте, если вдруг вы не сможете придти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
 
     К оплате {price} руб
 
-Оплатить можно переводом на карту Сбербанка по номеру телефона +79159383529 - Татьяна Александровна Б.
+Оплатить можно:
+ - По qr-коду
+ - Переводом в банк Точка по номеру телефона +79159383529 
+- Татьяна Александровна Б.
 
 ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
 Вам необходимо сделать оплату в течении 15 мин, или бронь будет отменена.
@@ -534,6 +557,9 @@ __________
 
         context.user_data['chose_ticket'] = chose_ticket
         context.user_data['message_id'] = message.message_id
+
+        context.user_data['dict_of_shows'].clear()
+        context.user_data['dict_of_name_show_flip'].clear()
 
     return 'PAID'
 

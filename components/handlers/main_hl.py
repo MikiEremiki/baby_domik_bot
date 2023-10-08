@@ -6,7 +6,7 @@ from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
-from handlers.sub_hl import write_old_seat_info
+from handlers.sub_hl import write_old_seat_info, delete_afisha_media_group
 from utilities.settings import (
     COMMAND_DICT,
     ADMIN_GROUP,
@@ -352,7 +352,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split('|')[0].split('-')[-1]
     match data:
         case 'res':
-            await query.edit_message_text(
+            await delete_afisha_media_group(context)
+            await query.delete_message()
+            await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
                      f'/{COMMAND_DICT["RESERVE"][0]} - для повторного '
                      f'резервирования свободных мест на спектакль'
@@ -374,7 +376,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                           row_in_googlesheet,
                                           chose_ticket)
         case 'bd':
-            await query.edit_message_text(
+            await query.delete_message()
+            await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
                      f'/{COMMAND_DICT["BD_ORDER"][0]} - для повторной '
                      f'отправки заявки на проведение Дня рождения\n'
