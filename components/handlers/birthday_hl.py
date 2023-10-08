@@ -203,7 +203,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, item in enumerate(dict_of_shows_for_bd.values()):
             if item['birthday']['flag']:
                 text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
-                text += escape_markdown(f'{item["full_name_of_show"]}\n', 2)
+                text += escape_markdown(f'{item["full_name"]}\n', 2)
 
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_shows_for_bd, 3, 2, False)
