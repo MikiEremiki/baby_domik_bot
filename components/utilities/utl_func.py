@@ -11,7 +11,10 @@ from telegram import (
     BotCommandScopeDefault,
     BotCommandScopeChat,
     BotCommandScopeChatAdministrators,
-    constants, ReplyKeyboardMarkup, KeyboardButton
+    constants,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    KeyboardButton,
 )
 from telegram.ext import (
     ContextTypes,
@@ -279,6 +282,10 @@ async def get_location(
         update: Update,
         _: ContextTypes.DEFAULT_TYPE
 ):
+    await update.effective_chat.send_message(
+        'Вы можете выбрать другую команду',
+        reply_markup=ReplyKeyboardRemove()
+    )
     print(update.message.location)
 
 
@@ -286,4 +293,8 @@ async def get_contact(
         update: Update,
         _: ContextTypes.DEFAULT_TYPE
 ):
+    await update.effective_chat.send_message(
+        'Вы можете выбрать другую команду',
+        reply_markup=ReplyKeyboardRemove()
+    )
     print(update.message.contact)
