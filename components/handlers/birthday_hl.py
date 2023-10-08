@@ -236,10 +236,10 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    id_show = query.data
+    show_id = query.data
 
     birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'Спектакль', id_show))
+        context.user_data['user'].id, 'Спектакль', show_id))
 
     keyboard_btn = []
     for i in range(2, 7):  # Фиксированно можно выбрать только от 2 до 6 лет
@@ -253,7 +253,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['id_show'] = int(id_show)
+    context.user_data['birthday_data']['show_id'] = int(show_id)
 
     state = 'AGE'
     context.user_data['STATE'] = state
