@@ -89,15 +89,15 @@ time: str = '17:00'
 
 # Старая версия словаря со спектаклями, используется в reserve
 dict_of_shows = {
-    'name_of_show': name,
-    'date': date,
-    'time': time,
-    'total_children_seats': int,
-    'available_children_seats': int,
-    'non_confirm_children_seats': int,
-    'total_adult_seats': int,
-    'available_adult_seats': int,
-    'non_confirm_adult_seats': int
+    'name_show': name,
+    'date_show': date,
+    'time_show': time,
+    'qty_child': int,
+    'qty_child_free_seat': int,
+    'qty_child_nonconfirm_seat': int,
+    'qty_adult': int,
+    'qty_adult_free_seat': int,
+    'qty_adult_nonconfirm_seat': int
 }
 
 dict_of_date_show: Dict
@@ -111,7 +111,7 @@ dict_of_name_show: Dict
 name: str = 'name_show'
 
 dict_of_name_show = {
-    'name_of_show': name,
+    'name_show': name,
 }
 
 dict_of_shows_v2: Dict[int: Dict, ...]

@@ -1,7 +1,7 @@
 venv/*
 .idea/*
 __pycache__/*
-components/utilities/credentials.json
+credentials.json
 components/utilities/settings.py
 log/log.txt*
 components/db/conversationbot

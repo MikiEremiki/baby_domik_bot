@@ -19,7 +19,8 @@ async def load_afisha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = create_replay_markup_with_number_btn(12, 6)
 
     await update.effective_chat.send_message(
-        text='Укажите месяц с которым будет связана афиша',
+        text='Укажите месяц с которым будет связана афиша\n'
+             'Для отмены нажми /help',
         reply_markup=reply_markup
     )
 

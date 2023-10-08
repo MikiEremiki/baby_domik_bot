@@ -16,7 +16,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_service_sacc(scopes):
     credentials = service_account.Credentials.from_service_account_file(
-        'utilities/credentials.json', scopes=scopes)
+        'credentials.json', scopes=scopes)
 
     return build('sheets', 'v4', credentials=credentials)
 
@@ -45,7 +45,7 @@ def get_data_from_spreadsheet(sheet):
         raise ConnectionError
 
 
-def update_quality_of_seats(row: str, qty: int):
+def update_quality_of_seats(row: str, key):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
@@ -56,7 +56,9 @@ def update_quality_of_seats(row: str, qty: int):
             googlesheets_logger.info('No data found')
             raise ValueError
 
-        return values[0][qty]
+        dict_column_name = get_column_name('База спектаклей_')
+
+        return values[0][dict_column_name[key]]
     except HttpError as err:
         googlesheets_logger.error(err)
 
@@ -74,9 +76,9 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 
         range_sheet = ''
         if len(numbers) == 1:
-            range_sheet = f'{RANGE_NAME["База спектаклей_"]}F{row}'
+            range_sheet = f'{RANGE_NAME["База спектаклей_"]}J{row}'
         elif len(numbers) == 2:
-            range_sheet = f'{RANGE_NAME["База спектаклей_"]}E{row}:F{row}'
+            range_sheet = f'{RANGE_NAME["База спектаклей_"]}I{row}:J{row}'
 
         request = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID['Домик'],
@@ -116,7 +118,7 @@ def write_client(
         values_row = get_values(
             SPREADSHEET_ID['Домик'],
             RANGE_NAME[
-                'База спектаклей_'] + f'A{row_in_data_show}:C{row_in_data_show}'
+                'База спектаклей_'] + f'{row_in_data_show}:{row_in_data_show}'
         )
 
         if not values_column:
@@ -150,9 +152,15 @@ def write_client(
                 values[i].append(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
 
-            values[i].append(values_row[0][0])  # Спектакль
-            values[i].append(values_row[0][1].split()[0])  # Дата
-            values[i].append(values_row[0][2])  # Время показа
+            dict_column_name = get_column_name('База спектаклей_')
+
+            # Спектакль
+            values[i].append(values_row[0][dict_column_name['name_show']])
+            # Дата
+            values[i].append(values_row[0][dict_column_name['date_show']]
+                             .split()[0])
+            # Время показа
+            values[i].append(values_row[0][dict_column_name['time_show']])
             values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
             # add ticket info
@@ -336,3 +344,14 @@ def execute_request_googlesheet(
     except TimeoutError as err:
         googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)
+
+
+def get_column_name(name_sheet):
+    data_column_name = get_data_from_spreadsheet(
+            RANGE_NAME[name_sheet] + f'2:2'
+        )
+    dict_column_name = {}
+    for i, item in enumerate(data_column_name[0]):
+        dict_column_name[item] = i
+
+    return dict_column_name

@@ -13,6 +13,7 @@ from telegram import (
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    InputMediaPhoto,
 )
 from telegram.constants import ParseMode, ChatType
 from telegram.helpers import escape_markdown
@@ -80,7 +81,6 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Для пользователя {user}')
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-
         await update.effective_chat.send_message(
             'К сожалению я сегодня на техническом обслуживании\n'
             'Но вы можете забронировать место по старинке в ЛС telegram или по '
@@ -104,9 +104,10 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 dict_of_date_show.keys()))
 
     if afisha and update.effective_chat.type == ChatType.PRIVATE:
-        for num_month, file_id in afisha.items():
-            if num_month in list_of_months:
-                await update.effective_chat.send_photo(file_id)
+        await update.effective_chat.send_media_group([
+            InputMediaPhoto(file_id) for num_month, file_id in
+            afisha.items() if num_month in list_of_months
+        ])
 
     reply_markup = create_replay_markup_for_list_of_shows(
         dict_of_date_show,
@@ -175,9 +176,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Определение кнопок для inline клавиатуры с исключением вариантов где
     # свободных мест уже не осталось
     for key, item in dict_of_shows.items():
-        if item['name_of_show'] == name_show and item['date'] == date_show:
-            time = item['time']
-            number = item['available_children_seats']
+        if item['name_show'] == name_show and item['date_show'] == date_show:
+            time = item['time_show']
+            number = item['qty_child_free_seat']
             button_tmp = InlineKeyboardButton(
                 text=time + ' | ' + str(number) + ' шт свободно',
                 callback_data=time + ' | ' + str(key) + ' | ' + str(number)
@@ -280,7 +281,7 @@ async def choice_option_of_reserve(
         return 'CHOOSING'
 
     availibale_number_of_seats_now = update_quality_of_seats(
-        row_in_googlesheet, 4)
+        row_in_googlesheet, 'qty_child_free_seat')
 
     # TODO Заменить загрузку из базы на чтение из контекста
     list_of_tickets = load_ticket_data()
@@ -428,9 +429,9 @@ async def check_and_send_buy_info(
 
         # Обновляем кол-во доступных мест
         availibale_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 4)
+            row_in_googlesheet, 'qty_child_free_seat')
         nonconfirm_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 5)
+            row_in_googlesheet, 'qty_child_nonconfirm_seat')
 
         # Проверка доступности нужного кол-ва мест, за время взаимодействия с
         # ботом, могли изменить базу в ручную или забронировать места раньше

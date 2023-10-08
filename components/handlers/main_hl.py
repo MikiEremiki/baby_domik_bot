@@ -55,7 +55,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         row_in_googlesheet = user_data['row_in_googlesheet']
 
         nonconfirm_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 5)
+            row_in_googlesheet, 'qty_child_nonconfirm_seat')
 
         new_nonconfirm_number_of_seats = int(
             nonconfirm_number_of_seats_now) - int(
@@ -76,7 +76,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя {user} подтверждение в '
+                text=f'Для пользователя @{user.username} {user.full_name} подтверждение в '
                      f'авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
@@ -91,7 +91,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю {user} подтверждена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} подтверждена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -139,7 +139,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         chose_ticket = user_data['chose_ticket']
-        row_in_googlesheet = query.data.split('|')[1].split()[2]
+        row_in_googlesheet = user_data['row_in_googlesheet']
 
         await write_old_seat_info(update,
                                   user,
@@ -147,7 +147,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   chose_ticket)
 
         await query.edit_message_text(
-            text=f'Пользователю {user} отклонена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} отклонена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -225,7 +225,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         case '2':
             await query.edit_message_text(
-                f'Пользователю {user}\n'
+                f'Пользователю @{user.username} {user.full_name}\n'
                 f'подтверждена бронь'
             )
 
@@ -277,7 +277,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         case '2':
             await query.edit_message_text(
-                f'Пользователю {user}\n'
+                f'Пользователю @{user.username} {user.full_name}\n'
                 f'отклонена бронь'
             )
 
@@ -406,7 +406,7 @@ async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     ))
     # TODO Прописать логику использования help
     await update.effective_chat.send_message('Текущая операция сброшена.\n'
-                                             'Выполните новую команду')
+                                             'Можете выполните новую команду')
     return ConversationHandler.END
 
 

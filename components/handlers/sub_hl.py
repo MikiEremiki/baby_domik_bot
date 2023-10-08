@@ -37,9 +37,9 @@ async def write_old_seat_info(
 
     # Обновляем кол-во доступных мест
     availibale_number_of_seats_now = update_quality_of_seats(
-        row_in_googlesheet, 4)
+        row_in_googlesheet, 'qty_child_free_seat')
     nonconfirm_number_of_seats_now = update_quality_of_seats(
-        row_in_googlesheet, 5)
+        row_in_googlesheet, 'qty_child_nonconfirm_seat')
 
     old_number_of_seats = int(
         availibale_number_of_seats_now) + int(
