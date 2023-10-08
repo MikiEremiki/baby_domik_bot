@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=66.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["components"]
+
+[project]
+name = "BabyDomikBot"
+version = "2"
+authors = [
+    { name = "Mikhail Eremin", email = "mr.eremin.ma@ya.ru" },
+]
+license = { file = "LICENSE" }
+description = "Telegram bot on top of python-telegram-bot"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
