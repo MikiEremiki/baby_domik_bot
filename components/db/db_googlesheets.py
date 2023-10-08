@@ -224,15 +224,18 @@ def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
             RANGE_NAME['База клиентов_'] +
             f'R1C1:R{len(first_colum)}C{len(first_row[0])}'
     )
+
+    dict_name_column = get_column_name('База клиентов_')
+
     data = get_data_from_spreadsheet(sheet)
 
     for item in data[1:]:
         if (
             # В таблице сломалось форматирование в некоторых строках,
                 # чтобы за ним не следить я всё перевел в нижний регистр
-                item[6].lower() == name.lower() and
-                item[7].lower() == date.lower() and
-                item[8].lower() == time.lower()
+                item[dict_name_column['full_name']].lower() == name.lower() and
+                item[dict_name_column['date_show']].lower() == date.lower() and
+                item[dict_name_column['time_show']].lower() == time.lower()
         ):
             data_clients_data.append(item)
 
