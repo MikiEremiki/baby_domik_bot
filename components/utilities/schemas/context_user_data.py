@@ -1,5 +1,5 @@
 from typing import (
-    Dict,
+    Dict, List,
 )
 from telegram import (
     User,
@@ -49,5 +49,10 @@ context_user_data: Dict = {
         'row_in_googlesheet': str,
         'chose_ticket': BaseTicket,
     },
-    'month_afisha': int
+    'month_afisha': int,
+    'client_data': {
+        'name_adult': str,
+        'phone': str,
+        'data_children': List[List[str]],
+    }
 }
