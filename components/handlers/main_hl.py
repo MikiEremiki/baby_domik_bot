@@ -2,7 +2,7 @@ import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, ChatType
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
@@ -352,7 +352,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split('|')[0].split('-')[-1]
     match data:
         case 'res':
-            await delete_afisha_media_group(context)
+            if update.effective_chat.type == ChatType.PRIVATE:
+                await delete_afisha_media_group(context)
             await query.delete_message()
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
