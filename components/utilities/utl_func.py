@@ -19,6 +19,7 @@ from telegram import (
 from telegram.ext import (
     ContextTypes,
     ConversationHandler,
+    ExtBot,
 )
 from telegram.error import BadRequest
 
@@ -101,7 +102,8 @@ async def delete_message_for_job_in_callback(
     )
 
 
-async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
+async def set_menu(bot: ExtBot) -> None:
+    utilites_logger.info('Начало настройки команд')
     default_commands = [
         BotCommand(COMMAND_DICT['START'][0], COMMAND_DICT['START'][1]),
         BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
@@ -120,25 +122,28 @@ async def set_menu(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     for chat_id in ADMIN_GROUP_ID:
         try:
-            await context.bot.set_my_commands(
+            await bot.set_my_commands(
                 commands=admin_group_commands,
                 scope=BotCommandScopeChatAdministrators(chat_id=chat_id)
             )
+            utilites_logger.info('Команды для админ группы настроены')
         except BadRequest:
             utilites_logger.error(f'Бот не состоит в группе {chat_id}')
     for chat_id in ADMIN_CHAT_ID:
-        await context.bot.set_my_commands(
+        await bot.set_my_commands(
             commands=admin_commands,
             scope=BotCommandScopeChat(chat_id=chat_id)
         )
-    await context.bot.set_my_commands(
+        utilites_logger.info('Команды для администраторов настроены')
+    await bot.set_my_commands(
         commands=default_commands,
         scope=BotCommandScopeDefault()
     )
+    utilites_logger.info('Команды для всех пользователей настроены')
 
 
-async def set_description(context: ContextTypes.DEFAULT_TYPE) -> None:
-    await context.bot.set_my_description("""Вас приветствует Бэби-театре Домик!
+async def set_description(bot: ExtBot) -> None:
+    await bot.set_my_description("""Вас приветствует Бэби-театре Домик!
 
     Этот бот поможет вам:
 
@@ -147,8 +152,9 @@ async def set_description(context: ContextTypes.DEFAULT_TYPE) -> None:
     - посмотреть наличие свободных мест
     - записаться в лист ожидания 
     - забронировать День рождения с театром «Домик»""")
-    await context.bot.set_my_short_description(
+    await bot.set_my_short_description(
         'Бот-помощник в Бэби-театр «Домик»')
+    utilites_logger.info('Описания для бота установлены')
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

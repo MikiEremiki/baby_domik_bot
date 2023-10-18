@@ -28,6 +28,11 @@ from utilities.utl_func import (
 )
 
 
+async def post_init(application: Application):
+    await set_menu(application.bot)
+    await set_description(application.bot)
+
+
 def bot():
     bot_logger = load_log_config()
     bot_logger.info('Инициализация бота')
@@ -38,13 +43,10 @@ def bot():
         Application.builder()
         .token(API_TOKEN)
         .persistence(persistence)
+        .post_init(post_init)
 
         .build()
     )
-
-    # TODO Переписать через специальный метод к Application.post_init
-    application.job_queue.run_once(set_menu, 0)
-    application.job_queue.run_once(set_description, 0)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
