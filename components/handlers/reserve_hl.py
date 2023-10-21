@@ -13,7 +13,6 @@ from telegram import (
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
-    InputMediaPhoto,
 )
 from telegram.constants import ParseMode, ChatType
 from telegram.helpers import escape_markdown
@@ -160,25 +159,23 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                            f' {user}')
 
-    afisha: dict = context.bot_data.get('afisha', False)
+    dict_of_name_show = context.user_data['dict_of_name_show']
+    dict_of_date_show = context.user_data['dict_of_date_show']
 
-    photo = False
-    if afisha and update.effective_chat.type == ChatType.PRIVATE:
-        messages = await update.effective_chat.send_media_group([
-            InputMediaPhoto(file_id) for num_month, file_id in
-            afisha.items() if num_month in list_of_months
-        ])
-        context.user_data['afisha_media_group'] = messages
-
+    number_of_month_str = query.data
     reply_markup = create_replay_markup_for_list_of_shows(
         dict_of_date_show,
-        postfix_for_callback='res'
+        postfix_for_callback='res',
+        number_of_month=number_of_month_str,
+        add_back_btn=True
     )
 
-    # Отправка сообщения пользователю
+    filter_show_id = enum_current_show(dict_of_date_show, number_of_month_str)
+
     text = 'Выберите спектакль и дату\n'
     for key, item in dict_of_name_show.items():
-        text += f'{DICT_OF_EMOJI_FOR_BUTTON[item]} {key}\n'
+        if item in filter_show_id.keys():
+            text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
 
     await context.bot.delete_message(
         chat_id=update.effective_chat.id,
