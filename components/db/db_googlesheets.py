@@ -167,6 +167,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         max_num_adult: int = int(item[dict_name_column['max_num_adult_bd']])
         flag_repertoire: bool = True if item[dict_name_column[
             'flag_active_repertoire']] == 'TRUE' else False
+        flag_cost_by_pic: bool = True if item[dict_name_column[
+            'flag_cost_by_pic']] == 'TRUE' else False
 
         if flag_premiere:
             text = 'ПРЕМЬЕРА. ' + item[dict_name_column['min_age_child']] + '+'
