@@ -17,16 +17,20 @@ def create_replay_markup_for_list_of_shows(
         num_colum=2,
         ver=1,
         add_cancel_btn=True,
-        postfix_for_callback=None
+        add_back_btn=False,
+        postfix_for_callback=None,
+        number_of_month=None
 ):
     """
     Создает inline клавиатуру
+    :param number_of_month: номер месяца
     :param dict_of_show: Словарь со списком спектаклей
     :param num_colum: Кол-во кнопок в строке
     :param ver:
     ver = 1 для бронирования обычного спектакля
     ver = 2 для бронирования дня рождения
-    :param add_cancel_btn: если True, то добавляет кнопку отмены
+    :param add_back_btn: если True, то добавляет кнопку Назад
+    :param add_cancel_btn: если True, то добавляет кнопку Отмены
     :param postfix_for_callback: Добавление дополнительной приписки для
     корректного определения случая при использовании отмены
     :return: InlineKeyboardMarkup
@@ -34,18 +38,24 @@ def create_replay_markup_for_list_of_shows(
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
+    if number_of_month:
+        filter_show_id = enum_current_show(dict_of_show, number_of_month)
 
     i = 0
     y = yrange(len(dict_of_show))
     for key, item in dict_of_show.items():
+        if number_of_month is not None and key[3:5] != number_of_month:
+            continue
         num = next(y) + 1
         button_tmp = None
         match ver:
             case 1:
-                button_tmp = InlineKeyboardButton(
-                    text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[item],
-                    callback_data=str(item) + ' | ' + key
-                )
+                if item in filter_show_id.keys():
+                    button_tmp = InlineKeyboardButton(
+                        text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[
+                            filter_show_id[item]],
+                        callback_data=str(item) + ' | ' + key
+                    )
             case 2:
                 button_tmp = InlineKeyboardButton(
                     text=DICT_OF_EMOJI_FOR_BUTTON[num],
@@ -63,6 +73,14 @@ def create_replay_markup_for_list_of_shows(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
+    list_end_btn = []
+    if add_back_btn:
+        callback_data = 'Назад'
+        button_tmp = InlineKeyboardButton(
+            'Назад',
+            callback_data=callback_data
+        )
+        list_end_btn.append(button_tmp)
     if add_cancel_btn:
         callback_data = 'Отменить'
         if postfix_for_callback:
@@ -71,7 +89,9 @@ def create_replay_markup_for_list_of_shows(
             'Отменить',
             callback_data=callback_data
         )
-        keyboard.append([button_tmp])
+        list_end_btn.append(button_tmp)
+    if len(list_end_btn):
+        keyboard.append(list_end_btn)
     return InlineKeyboardMarkup(keyboard)
 
 
