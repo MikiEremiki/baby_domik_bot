@@ -214,6 +214,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
+    await query.delete_message()
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -265,7 +266,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                'Вы также можете выбрать вариант с 0 кол\-вом мест ' \
                'и записаться в лист ожидания на данное время'
 
-    await query.message.edit_text(
+    await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
         parse_mode=ParseMode.MARKDOWN_V2
