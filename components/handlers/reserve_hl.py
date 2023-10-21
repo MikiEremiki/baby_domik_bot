@@ -199,14 +199,9 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['text_date'] = text
     context.user_data['keyboard_date'] = reply_markup
 
-    context.user_data['user'] = user
-
-    # Вместо считывания базы спектаклей каждый раз из гугл-таблицы, прокидываем
-    # Базу в контекст пользователя
-    context.user_data['dict_of_shows'] = dict_of_shows
-    context.user_data['dict_of_name_show_flip'] = dict_of_name_show_flip
-
-    return 'DATE'
+    state = 'DATE'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
