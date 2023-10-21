@@ -177,14 +177,23 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if item in filter_show_id.keys():
             text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
 
-    await context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=message.message_id
+    photo = (
+        context.bot_data
+        .get('afisha', {})
+        .get(int(query.data), False)
     )
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup
-    )
+    if update.effective_chat.type == ChatType.PRIVATE and photo:
+        message = await update.effective_chat.send_photo(
+            photo=photo,
+            caption=text,
+            reply_markup=reply_markup
+        )
+        context.user_data['afisha_media'] = [message]
+    else:
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup
+        )
 
     # Контекст для возврата назад
     context.user_data['text_date'] = text
