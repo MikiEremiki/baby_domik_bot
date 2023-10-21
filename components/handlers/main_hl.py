@@ -2,11 +2,11 @@ import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
-from telegram.constants import ParseMode, ChatType
+from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
-from handlers.sub_hl import write_old_seat_info, delete_afisha_media_group
+from handlers.sub_hl import write_old_seat_info
 from utilities.settings import (
     COMMAND_DICT,
     ADMIN_GROUP,

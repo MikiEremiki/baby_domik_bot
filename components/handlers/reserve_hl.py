@@ -20,7 +20,7 @@ from telegram.helpers import escape_markdown
 from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb,
-    write_old_seat_info, delete_afisha_media_group
+    write_old_seat_info,
 )
 from db.db_googlesheets import (
     load_clients_data,
@@ -345,7 +345,6 @@ async def choice_option_of_reserve(
                  'или записаться в лист ожидания на эту дату и время?',
             reply_markup=reply_markup
         )
-        await delete_afisha_media_group(context)
         return 'CHOOSING'
 
     availibale_number_of_seats_now = update_quality_of_seats(
@@ -432,8 +431,6 @@ async def check_and_send_buy_info(
     """
     query = update.callback_query
     await query.answer()
-
-    await delete_afisha_media_group(context)
 
     context.user_data['STATE'] = 'ORDER'
 
@@ -539,7 +536,6 @@ async def check_and_send_buy_info(
                 text=text,
                 reply_markup=reply_markup
             )
-            await delete_afisha_media_group(context)
             return 'CHOOSING'
         else:
             reserve_hl_logger.info(": ".join(
