@@ -36,6 +36,8 @@ context_user_data: Dict = {
         # 'flag_approve_prepayment': bool,
     },
     'reserve_data': {
+        'text_show': str,  # текст для возврата назад в State SHOW
+        'keyboard_show': InlineKeyboardMarkup,
         'text_date': str,  # текст для возврата назад в State DATE
         'keyboard_date': InlineKeyboardMarkup,
         'text_time': str,  # текст для возврата назад в State TIME

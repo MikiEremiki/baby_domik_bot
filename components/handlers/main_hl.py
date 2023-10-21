@@ -301,6 +301,26 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+
+    :param update:
+    :param context:
+    :return:
+    """
+    query = update.callback_query
+    await query.answer()
+    await query.delete_message()
+
+    text = context.user_data['text_show']
+    reply_markup = context.user_data['keyboard_show']
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+    return 'SHOW'
+
+
 async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
@@ -352,8 +372,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split('|')[0].split('-')[-1]
     match data:
         case 'res':
-            if update.effective_chat.type == ChatType.PRIVATE:
-                await delete_afisha_media_group(context)
             await query.delete_message()
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
