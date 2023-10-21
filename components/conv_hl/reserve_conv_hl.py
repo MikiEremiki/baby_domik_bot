@@ -54,7 +54,7 @@ states = {
     'CHOOSING': [
         MessageHandler(
             filters.Regex('^(Выбрать другое время)$'),
-            reserve_hl.choice_show
+            reserve_hl.choice_month
         ),
         MessageHandler(
             filters.Regex('^(Записаться в лист ожидания)$'),
