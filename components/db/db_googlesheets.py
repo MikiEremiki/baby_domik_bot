@@ -158,15 +158,15 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     for item in data:
         show_id: int = int(item[dict_name_column['show_id']])
         name: str = item[dict_name_column['name']]
-        flag_premiere: bool = True if item[dict_name_column['flag_active_premiere']] == 'TRUE' else \
-            False
+        flag_premiere: bool = True if item[dict_name_column[
+            'flag_active_premiere']] == 'TRUE' else False
         min_age_child: int = int(item[dict_name_column['min_age_child']])
-        flag_birthday: bool = True if item[dict_name_column['flag_active_bd']] == 'TRUE' else \
-            False
+        flag_birthday: bool = True if item[dict_name_column[
+            'flag_active_bd']] == 'TRUE' else False
         max_num_child: int = int(item[dict_name_column['max_num_child_bd']])
         max_num_adult: int = int(item[dict_name_column['max_num_adult_bd']])
-        flag_repertoire: bool = True if item[dict_name_column['flag_active_repertoire']] == 'TRUE' \
-            else False
+        flag_repertoire: bool = True if item[dict_name_column[
+            'flag_active_repertoire']] == 'TRUE' else False
 
         if flag_premiere:
             text = 'ПРЕМЬЕРА. ' + item[dict_name_column['min_age_child']] + '+'
@@ -184,7 +184,9 @@ def load_list_show() -> dict[int, dict[str, Any]]:
                 'max_num_adult': max_num_adult,
             },
             'flag_repertoire': flag_repertoire,
+            'flag_cost_by_pic': flag_cost_by_pic,
             'full_name': full_name,
+
         }
 
     return (
