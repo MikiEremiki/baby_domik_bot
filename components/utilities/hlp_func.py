@@ -167,3 +167,16 @@ def do_italic(text):
 
 def do_bold(text):
     return f'*{escape_markdown(text, 2)}*'
+
+
+def enum_current_show(dict_of_date_show: dict, num: str) -> dict:
+    filter_show_id = {}
+    i = 1
+    for key, item in dict_of_date_show.items():
+        if num is not None and key[3:5] != num:
+            continue
+        if item not in filter_show_id.keys():
+            filter_show_id[item] = i
+            i += 1
+
+    return filter_show_id
