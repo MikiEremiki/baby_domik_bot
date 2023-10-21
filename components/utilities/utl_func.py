@@ -35,25 +35,32 @@ utilites_logger = logging.getLogger('bot.utilites')
 
 
 def add_btn_back_and_cancel(
-        postfix_for_callback=None
+        postfix_for_callback=None,
+        back_btn=True
 ) -> List[InlineKeyboardButton]:
     """
     :param postfix_for_callback: Добавление дополнительной приписки для
     корректного определения случая при использовании отмены
+    :param back_btn: Опциональное добавление кнопки назад
     :return: List
     """
     callback_data = 'Отменить'
+    list_btn = []
+
     if postfix_for_callback:
         callback_data += f'-{postfix_for_callback}'
-    button_back = InlineKeyboardButton(
-        'Назад',
-        callback_data='Назад'
-    )
+    if back_btn:
+        button_back = InlineKeyboardButton(
+            'Назад',
+            callback_data='Назад'
+        )
+        list_btn.append(button_back)
     button_cancel = InlineKeyboardButton(
         'Отменить',
         callback_data=callback_data
     )
-    return [button_back, button_cancel]
+    list_btn.append(button_cancel)
+    return list_btn
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
