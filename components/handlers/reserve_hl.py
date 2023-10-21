@@ -41,7 +41,7 @@ from utilities.utl_func import (
 from utilities.hlp_func import (
     check_phone_number,
     create_replay_markup_for_list_of_shows,
-    create_approve_and_reject_replay
+    create_approve_and_reject_replay, enum_current_show
 )
 from utilities.settings import (
     ADMIN_GROUP,
@@ -53,22 +53,23 @@ from utilities.schemas.ticket import BaseTicket
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
 
-async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Функция отправляет пользователю список спектаклей с датами.
+    Функция отправляет пользователю список месяцев.
 
     С сообщением передается inline клавиатура для выбора подходящего варианта
-    :return: возвращает state DATE
+    :return: возвращает state SHOW
     """
-    reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
+    state = 'START'
+
+    reserve_hl_logger.info(f'Пользователь начал выбор месяца:'
                            f' {update.message.from_user}')
-    context.user_data['STATE'] = 'START'
+
     context.user_data.setdefault('reserve_data', {})
     user = update.message.from_user
 
     message = await send_and_del_message_to_remove_kb(update)
 
-    # Загрузка базы спектаклей из гугл-таблицы
     try:
         (
             dict_of_shows,
@@ -80,16 +81,19 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reserve_hl_logger.info(
             f'Для пользователя {user}')
         reserve_hl_logger.info(
-            f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+            f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
             'К сожалению я сегодня на техническом обслуживании\n'
             'Но вы можете забронировать место по старинке в ЛС telegram или по '
             'телефону:\n'
             'Татьяна Бурганова @Tanya_domik +79159383529'
         )
-
         return ConversationHandler.END
     except TimeoutError:
+        reserve_hl_logger.info(
+            f'Для пользователя {user}')
+        reserve_hl_logger.info(
+            f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
             'Произошел разрыв соединения, попробуйте еще раз\n'
             'Если проблема повторится вы можете забронировать место в ЛС '
@@ -98,11 +102,67 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    afisha: dict = context.bot_data.get('afisha', False)
-
     list_of_months = sorted(set(int(item[3:5]) for item in
                                 dict_of_date_show.keys()))
 
+    keyboard = []
+
+    for item in list_of_months:
+        button_tmp = InlineKeyboardButton(
+            text=str(item),
+            callback_data=str(item)
+        )
+        keyboard.append([button_tmp])
+
+    keyboard.append(add_btn_back_and_cancel('res', False))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    text = 'Выберите месяц'
+
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=message.message_id
+    )
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+
+    context.user_data['user'] = user
+
+    # Контекст для возврата назад
+    context.user_data['text_show'] = text
+    context.user_data['keyboard_show'] = reply_markup
+
+    context.user_data['dict_of_shows'] = dict_of_shows
+    context.user_data['dict_of_name_show'] = dict_of_name_show
+    context.user_data['dict_of_name_show_flip'] = dict_of_name_show_flip
+    context.user_data['dict_of_date_show'] = dict_of_date_show
+
+    state = 'SHOW'
+    context.user_data['STATE'] = state
+    return state
+
+
+async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Функция отправляет пользователю список спектаклей с датами.
+
+    С сообщением передается inline клавиатура для выбора подходящего варианта
+    :return: возвращает state DATE
+    """
+    query = update.callback_query
+    await query.answer()
+    await query.delete_message()
+
+    user = context.user_data['user']
+
+    reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
+                           f' {user}')
+
+    afisha: dict = context.bot_data.get('afisha', False)
+
+    photo = False
     if afisha and update.effective_chat.type == ChatType.PRIVATE:
         messages = await update.effective_chat.send_media_group([
             InputMediaPhoto(file_id) for num_month, file_id in
