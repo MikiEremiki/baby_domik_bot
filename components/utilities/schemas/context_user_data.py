@@ -56,5 +56,6 @@ context_user_data: Dict = {
         'name_adult': str,
         'phone': str,
         'data_children': List[List[str]],
-    }
+    },
+    'afisha_media': List[Message]
 }
