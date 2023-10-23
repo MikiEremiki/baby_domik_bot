@@ -11,23 +11,29 @@ from utilities.settings import COMMAND_DICT
 from utilities.utl_func import reset
 
 states = {
+    'MONTH': [
+        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        CallbackQueryHandler(reserve_hl.choice_show_and_date),
+    ],
     'SHOW': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        CallbackQueryHandler(main_hl.back_month, pattern='^Назад-month'),
         CallbackQueryHandler(reserve_hl.choice_show),
     ],
     'DATE': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_show, pattern='^Назад'),
+        CallbackQueryHandler(main_hl.back_month, pattern='^Назад-month'),
+        CallbackQueryHandler(main_hl.back_show, pattern='^Назад-show'),
         CallbackQueryHandler(reserve_hl.choice_time),
     ],
     'TIME': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_date, pattern='^Назад'),
+        CallbackQueryHandler(main_hl.back_date, pattern='^Назад-date'),
         CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
     ],
     'ORDER': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_time, pattern='^Назад'),
+        CallbackQueryHandler(main_hl.back_time, pattern='^Назад-time'),
         CallbackQueryHandler(reserve_hl.check_and_send_buy_info),
     ],
     'PAID': [
