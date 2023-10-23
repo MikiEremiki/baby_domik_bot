@@ -84,8 +84,12 @@ def load_show_data() -> tuple[
 
         if item[dict_column_name['name_show']] not in dict_of_name_show:
             j += 1
-            dict_of_name_show.setdefault(item[dict_column_name['name_show']], j)
-            dict_of_name_show_flip.setdefault(j, item[dict_column_name['name_show']])
+            dict_of_name_show.setdefault(
+                item[dict_column_name['name_show']],
+                j)
+            dict_of_name_show_flip.setdefault(
+                j,
+                item[dict_column_name['name_show']])
 
         date_now, date_tmp = get_date(item, dict_column_name)
         # TODO Скорее всего тут можно упростить условие даты и не
