@@ -91,6 +91,10 @@ class BaseTicket(BaseModel):
         else:
             return self.cost_main
 
+    @price.setter
+    def price(self, new_cost) -> None:
+        self.cost_main = new_cost
+
     def __repr__(self):
         return self.base_ticket_id
 
