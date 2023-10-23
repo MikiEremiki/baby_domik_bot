@@ -149,15 +149,16 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     """
     # TODO Выделить загрузку спектаклей в отдельную задачу и хранить ее сразу в
     #  bot_data
+    dict_name_column = get_column_name('Список спектаклей_')
+
     qty_shows = len(get_data_from_spreadsheet(
         RANGE_NAME['Список спектаклей_'] + f'A:A'
     ))
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Список спектаклей_'] + f'A3:K{qty_shows}'
+        RANGE_NAME['Список спектаклей_'] +
+        f'R3C1:R{qty_shows}C{len(dict_name_column)}'
     )
     db_googlesheets_logger.info('Данные загружены')
-
-    dict_name_column = get_column_name('Список спектаклей_')
 
     dict_of_shows = {}
     for item in data:
@@ -206,8 +207,16 @@ def load_ticket_data() -> List[BaseTicket]:
     #  bot_data
     list_of_tickets = []
 
+    dict_name_column = get_column_name('Варианты стоимости_')
+
+    qty_shows = len(get_data_from_spreadsheet(
+        RANGE_NAME['Варианты стоимости_'] + f'A:A'
+    ))
+
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Варианты стоимости'])
+        RANGE_NAME['Варианты стоимости_'] +
+        f'R1C1:R{qty_shows}C{len(dict_name_column)}'
+    )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
     for item in data[2:]:
