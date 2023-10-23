@@ -58,10 +58,12 @@ def load_show_data() -> tuple[
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
     first_row = filter_by_date(data_of_dates)
 
-    data = get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_'] + f'A{first_row}:J'
-    )
     dict_column_name = get_column_name('База спектаклей_')
+    data = get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_'] + f'R{first_row}C1:'
+                                         f'R{len(data_of_dates)}'
+                                         f'C{len(dict_column_name)}'
+    )
 
     db_googlesheets_logger.info('Данные загружены')
 
@@ -121,8 +123,15 @@ def load_date_show_data() -> List[str]:
     """
     # TODO Выделить загрузку дат в отдельную задачу и хранить ее сразу в
     #  bot_data
+    dict_name_column = get_column_name('База спектаклей_')
+    qty_shows = len(get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_'] + f'A:A'
+    ))
+
     data_of_dates = get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_дата']
+        RANGE_NAME['База спектаклей_'] +
+        f'R1C{dict_name_column["date_show"]+1}:'
+        f'R{qty_shows}C{dict_name_column["date_show"]+1}'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
