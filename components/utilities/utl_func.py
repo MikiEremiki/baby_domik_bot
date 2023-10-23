@@ -306,3 +306,14 @@ async def get_contact(
         reply_markup=ReplyKeyboardRemove()
     )
     print(update.message.contact)
+
+
+def create_btn(text, postfix_for_callback):
+    callback_data = text
+    if postfix_for_callback:
+        callback_data += f'-{postfix_for_callback}'
+    btn = InlineKeyboardButton(
+        text,
+        callback_data=callback_data
+    )
+    return btn
