@@ -11,7 +11,7 @@ db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
 
 def filter_by_date(data_of_dates):
-    first_row = 1
+    first_row = 3
     date_now = datetime.datetime.now().date()
     for i, item in enumerate(data_of_dates[2:]):
         date_tmp = item[0].split()[0] + f'.{date_now.year}'
