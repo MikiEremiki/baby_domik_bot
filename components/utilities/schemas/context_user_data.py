@@ -57,6 +57,8 @@ context_user_data: Dict = {
         'dict_of_shows': dict,
         'dict_of_name_show': dict,
         'dict_of_name_show_flip': dict,
+        'dict_of_date_show': dict,
+        'number_of_month_str': str,
         'name_show': str,
         'date_show': str,
         'time_show': str,
