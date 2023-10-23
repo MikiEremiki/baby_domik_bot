@@ -6,8 +6,8 @@ from telegram import (
 )
 from telegram.helpers import escape_markdown
 
-from utilities.settings import DICT_OF_EMOJI_FOR_BUTTON
-from utilities.utl_func import yrange
+from utilities.settings import DICT_OF_EMOJI_FOR_BUTTON, support_data
+from utilities.utl_func import yrange, add_btn_back_and_cancel
 
 helper_func_logger = logging.getLogger('bot.helper_func')
 
@@ -17,22 +17,30 @@ def create_replay_markup_for_list_of_shows(
         num_colum=2,
         ver=1,
         add_cancel_btn=True,
-        add_back_btn=False,
-        postfix_for_callback=None,
-        number_of_month=None
+        postfix_for_cancel=None,
+        add_back_btn=True,
+        postfix_for_back=None,
+        number_of_month=None,
+        number_of_show=None,
+        dict_of_events_show: dict = None
 ):
     """
     Создает inline клавиатуру
     :param number_of_month: номер месяца
+    :param number_of_show: номер спектакля при загрузке всех дат из расписания
     :param dict_of_show: Словарь со списком спектаклей
     :param num_colum: Кол-во кнопок в строке
     :param ver:
     ver = 1 для бронирования обычного спектакля
     ver = 2 для бронирования дня рождения
+    ver = 3 для бронирования в декабре
+    :param add_cancel_btn: если True, то добавляет кнопку Отменить
     :param add_back_btn: если True, то добавляет кнопку Назад
-    :param add_cancel_btn: если True, то добавляет кнопку Отмены
-    :param postfix_for_callback: Добавление дополнительной приписки для
-    корректного определения случая при использовании отмены
+    :param postfix_for_cancel: Добавление дополнительной приписки для
+    корректного определения случая при использовании Отменить
+    :param postfix_for_back: Добавление дополнительной приписки для
+    корректного определения случая при использовании Назад
+    :param dict_of_events_show:
     :return: InlineKeyboardMarkup
     """
     # Определение кнопок для inline клавиатуры
