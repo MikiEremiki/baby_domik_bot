@@ -82,6 +82,9 @@ def load_show_data() -> tuple[
             'qty_child': item[dict_column_name['qty_child']],
             'qty_child_free_seat': item[dict_column_name['qty_child_free_seat']],
             'qty_child_nonconfirm_seat': item[dict_column_name['qty_child_nonconfirm_seat']],
+            'flag_gift': True if item[dict_column_name['flag_gift']] == 'TRUE' else False,
+            'flag_christmas_tree': True if item[dict_column_name['flag_christmas_tree']] == 'TRUE' else False,
+            'flag_santa': True if item[dict_column_name['flag_santa']] == 'TRUE' else False,
         }
 
         if item[dict_column_name['name_show']] not in dict_of_name_show:
@@ -182,8 +185,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         max_num_adult: int = int(item[dict_name_column['max_num_adult_bd']])
         flag_repertoire: bool = True if item[dict_name_column[
             'flag_active_repertoire']] == 'TRUE' else False
-        flag_cost_by_pic: bool = True if item[dict_name_column[
-            'flag_cost_by_pic']] == 'TRUE' else False
+        flag_indiv_cost: bool = True if item[dict_name_column[
+            'flag_indiv_cost']] == 'TRUE' else False
 
         if flag_premiere:
             text = 'ПРЕМЬЕРА. ' + item[dict_name_column['min_age_child']] + '+'
@@ -201,7 +204,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
                 'max_num_adult': max_num_adult,
             },
             'flag_repertoire': flag_repertoire,
-            'flag_cost_by_pic': flag_cost_by_pic,
+            'flag_indiv_cost': flag_indiv_cost,
             'full_name': full_name,
 
         }
