@@ -36,12 +36,24 @@ context_user_data: Dict = {
         # 'flag_approve_prepayment': bool,
     },
     'reserve_data': {
-        'text_show': str,  # текст для возврата назад в State SHOW
-        'keyboard_show': InlineKeyboardMarkup,
-        'text_date': str,  # текст для возврата назад в State DATE
-        'keyboard_date': InlineKeyboardMarkup,
-        'text_time': str,  # текст для возврата назад в State TIME
-        'keyboard_time': InlineKeyboardMarkup,
+        'back': {
+            'month': {
+                'text': str,  # текст для возврата назад в State MONTH
+                'keyboard': InlineKeyboardMarkup
+            },
+            'show': {
+                'text': str,  # текст для возврата назад в State SHOW
+                'keyboard': InlineKeyboardMarkup
+            },
+            'date': {
+                'text': str,  # текст для возврата назад в State DATE
+                'keyboard': InlineKeyboardMarkup
+            },
+            'time': {
+                'text': str,  # текст для возврата назад в State TIME
+                'keyboard': InlineKeyboardMarkup
+            },
+        },
         'dict_of_shows': dict,
         'dict_of_name_show': dict,
         'dict_of_name_show_flip': dict,
