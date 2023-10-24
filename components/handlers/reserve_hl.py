@@ -14,7 +14,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-from telegram.constants import ParseMode, ChatType
+from telegram.constants import ParseMode, ChatType, ChatAction
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
@@ -26,6 +26,7 @@ from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
     load_ticket_data,
+    load_list_show,
 )
 from utilities.googlesheets import (
     write_data_for_reserve,
@@ -40,12 +41,18 @@ from utilities.utl_func import (
 from utilities.hlp_func import (
     check_phone_number,
     create_replay_markup_for_list_of_shows,
-    create_approve_and_reject_replay, enum_current_show
+    create_approve_and_reject_replay,
+    enum_current_show_by_month,
+    add_text_of_show_and_numerate
 )
 from utilities.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
-    DICT_OF_EMOJI_FOR_BUTTON, FILE_ID_QR,
+    DICT_OF_EMOJI_FOR_BUTTON,
+    FILE_ID_QR,
+    ticket_cost,
+    dict_convert_month_number_to_str,
+    support_data,
 )
 from utilities.schemas.ticket import BaseTicket
 
@@ -57,7 +64,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Функция отправляет пользователю список месяцев.
 
     С сообщением передается inline клавиатура для выбора подходящего варианта
-    :return: возвращает state SHOW
+    :return: возвращает state MONTH
     """
     state = 'START'
 
@@ -108,12 +115,15 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for item in list_of_months:
         button_tmp = InlineKeyboardButton(
-            text=str(item),
+            text=dict_convert_month_number_to_str[item],
             callback_data=str(item)
         )
         keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel('res', False))
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel='res',
+        add_back_btn=False
+    ))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = 'Выберите месяц'
@@ -130,20 +140,23 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['user'] = user
 
     # Контекст для возврата назад
-    context.user_data['text_show'] = text
-    context.user_data['keyboard_show'] = reply_markup
+    context.user_data['text_month'] = text
+    context.user_data['keyboard_month'] = reply_markup
 
     context.user_data['dict_of_shows'] = dict_of_shows
     context.user_data['dict_of_name_show'] = dict_of_name_show
     context.user_data['dict_of_name_show_flip'] = dict_of_name_show_flip
     context.user_data['dict_of_date_show'] = dict_of_date_show
 
-    state = 'SHOW'
+    state = 'MONTH'
     context.user_data['STATE'] = state
     return state
 
 
-async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_show_and_date(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     """
     Функция отправляет пользователю список спектаклей с датами.
 
@@ -163,24 +176,56 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dict_of_date_show = context.user_data['dict_of_date_show']
 
     number_of_month_str = query.data
-    reply_markup = create_replay_markup_for_list_of_shows(
-        dict_of_date_show,
-        postfix_for_callback='res',
-        number_of_month=number_of_month_str,
-        add_back_btn=True
-    )
+    filter_show_id = enum_current_show_by_month(dict_of_date_show,
+                                                number_of_month_str)
 
-    filter_show_id = enum_current_show(dict_of_date_show, number_of_month_str)
+    if number_of_month_str == '12':
+        text = 'Выберите спектакль\n'
+        text = add_text_of_show_and_numerate(text,
+                                             dict_of_name_show,
+                                             filter_show_id)
+        keyboard = []
+        for key, item in dict_of_name_show.items():
+            if item in filter_show_id.keys():
+                button_tmp = InlineKeyboardButton(
+                    text=f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]}',
+                    callback_data=str(item)
+                )
+                if len(keyboard) == 0:
+                    keyboard.append([button_tmp])
+                else:
+                    keyboard[0].append(button_tmp)
 
-    text = 'Выберите спектакль и дату\n'
-    for key, item in dict_of_name_show.items():
-        if item in filter_show_id.keys():
-            text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
+        keyboard.append(add_btn_back_and_cancel(
+            postfix_for_cancel='res',
+            add_back_btn=True,
+            postfix_for_back='month'
+        ))
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        state = 'SHOW'
+        context.user_data['text_show'] = text
+        context.user_data['keyboard_show'] = reply_markup
+    else:
+        text = 'Выберите спектакль и дату\n'
+        text = add_text_of_show_and_numerate(text,
+                                             dict_of_name_show,
+                                             filter_show_id)
+        reply_markup = create_replay_markup_for_list_of_shows(
+            dict_of_date_show,
+            add_cancel_btn=True,
+            postfix_for_cancel='res',
+            postfix_for_back='month',
+            number_of_month=number_of_month_str,
+        )
+        state = 'DATE'
+        context.user_data['text_date'] = text
+        context.user_data['keyboard_date'] = reply_markup
 
     photo = (
         context.bot_data
         .get('afisha', {})
-        .get(int(query.data), False)
+        .get(int(number_of_month_str), False)
     )
     if update.effective_chat.type == ChatType.PRIVATE and photo:
         message = await update.effective_chat.send_photo(
@@ -191,6 +236,89 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['afisha_media'] = [message]
     else:
         await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup
+        )
+
+    context.user_data['number_of_month_str'] = number_of_month_str
+
+    context.user_data['STATE'] = state
+    return state
+
+
+async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Функция отправляет пользователю сообщения по выбранному спектаклю варианты
+    времени и кол-во свободных мест
+
+    С сообщением передается inline клавиатура для выбора подходящего варианта
+    :return: возвращает state TIME
+    """
+    query = update.callback_query
+    await query.answer()
+
+    user = context.user_data['user']
+    reserve_hl_logger.info(": ".join(
+        [
+            'Пользователь',
+            f'{user}',
+            'выбрал',
+            query.data,
+        ]
+    ))
+
+    dict_of_shows = context.user_data['dict_of_shows']
+    dict_of_date_show = context.user_data['dict_of_date_show']
+    dict_of_name_show_flip = context.user_data['dict_of_name_show_flip']
+    number_of_month_str = context.user_data['number_of_month_str']
+    name_of_show = dict_of_name_show_flip[int(query.data)]
+    number_of_show = int(query.data)
+
+    reply_markup = create_replay_markup_for_list_of_shows(
+        dict_of_date_show,
+        ver=3,
+        add_cancel_btn=True,
+        postfix_for_cancel='res',
+        postfix_for_back='show',
+        number_of_month=number_of_month_str,
+        number_of_show=number_of_show,
+        dict_of_events_show=dict_of_shows
+    )
+
+    text = f'Вы выбрали\n {name_of_show}\nВыберите дату\n\n'
+    flag_gift = False
+    flag_christmas_tree = False
+    flag_santa = False
+
+    for event in dict_of_shows.values():
+        if name_of_show == event['name_show']:
+            if event['flag_gift']:
+                flag_gift = True
+            if event['flag_christmas_tree']:
+                flag_christmas_tree = True
+            if event['flag_santa']:
+                flag_santa = True
+
+    if flag_gift:
+        text += f'{support_data["Подарок"][0]} - {support_data["Подарок"][1]}\n'
+    if flag_christmas_tree:
+        text += f'{support_data["Елка"][0]} - {support_data["Елка"][1]}\n'
+    if flag_santa:
+        text += f'{support_data["Дед"][0]} - {support_data["Дед"][1]}\n'
+
+    photo = (
+        context.bot_data
+        .get('afisha', {})
+        .get(int(number_of_month_str), False)
+    )
+    if update.effective_chat.type == ChatType.PRIVATE and photo:
+        message = await query.edit_message_caption(
+            caption=text,
+            reply_markup=reply_markup
+        )
+        context.user_data['afisha_media'] = [message]
+    else:
+        await query.edit_message_text(
             text=text,
             reply_markup=reply_markup
         )
@@ -240,6 +368,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # свободных мест уже не осталось
     for key, item in dict_of_shows.items():
         if item['name_show'] == name_show and item['date_show'] == date_show:
+            show_id = item['show_id']
             time = item['time_show']
             number = item['qty_child_free_seat']
             button_tmp = InlineKeyboardButton(
@@ -248,7 +377,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel('res'))
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
+                                            postfix_for_back='date'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name = escape_markdown(name_show, 2)
@@ -274,6 +404,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['date_show'] = date_show
     context.user_data['name_show'] = name_show
+    context.user_data['show_id'] = int(show_id)
 
     # Контекст для возврата назад
     context.user_data['text_time'] = text
@@ -299,6 +430,8 @@ async def choice_option_of_reserve(
     query = update.callback_query
     await query.answer()
 
+    await update.effective_chat.send_action(ChatAction.TYPING)
+
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
@@ -311,7 +444,7 @@ async def choice_option_of_reserve(
     context.user_data["STATE"] = 'TIME'
 
     time, row_in_googlesheet, number = query.data.split(' | ')
-    date = context.user_data['date_show']
+    date: str = context.user_data['date_show']
 
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_show'] = time
@@ -350,13 +483,30 @@ async def choice_option_of_reserve(
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 'qty_child_free_seat')
 
+    dict_of_shows: dict = load_list_show()
+    show_id = context.user_data['show_id']
+    flag_indiv_cost = False
+    for key, item in dict_of_shows.items():
+        if key == show_id:
+            flag_indiv_cost = item['flag_indiv_cost']
+
+    dict_of_shows = context.user_data['dict_of_shows']
+    event = dict_of_shows[int(row_in_googlesheet)]
+    if event['flag_gift']:
+        option = 'Подарок'
+    if event['flag_christmas_tree']:
+        option = 'Ёлка'
+    if event['show_id'] == '13':
+        option = 'Чтение'
+
     # TODO Заменить загрузку из базы на чтение из контекста
     list_of_tickets = load_ticket_data()
-    # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
+        if flag_indiv_cost and key // 100 != 1:
+            continue
         quality_of_children = ticket.quality_of_children
 
         # Если свободных мест меньше, чем требуется для варианта
@@ -370,49 +520,65 @@ async def choice_option_of_reserve(
 
             # Позволяет управлять кол-вом кнопок в ряду
             # Максимальное кол-во кнопок в ряду равно 8
-            if key % 5 == 0:
+            if (i + 1) % 5 == 0:
                 keyboard.append(list_btn_of_numbers)
                 list_btn_of_numbers = []
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel('res'))
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
+                                            postfix_for_back='time'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Отправка сообщения пользователю
-    text = 'Выберите подходящий вариант бронирования:\n'
+    name_show = context.user_data['name_show']
+    text = (f'Вы выбрали:\n'
+            f'<b>{name_show}\n'
+            f'{date}\n'
+            f'В {time}</b>\n')
+    text += 'Выберите подходящий вариант бронирования:\n'
 
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
-    date = datetime.strptime(date_tmp, f'%d.%m.%Y')
+    date: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
 
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
         name = ticket.name
-        name = escape_markdown(name, 2)
 
-        ticket.date_show = date
+        ticket.date_show = date  # Для расчета стоимости в периоде или нет
         price = ticket.price
 
-        text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} \| '
-                 f'{price} руб\n')
-        if key == 5:
-            text += """\_\_\_\_\_\_\_\_\_\_
-Варианты со скидками:\n"""
-    text += """\_\_\_\_\_\_\_\_\_\_
-_Если вы хотите оформить несколько билетов, то каждая бронь оформляется отдельно\._
-\_\_\_\_\_\_\_\_\_\_
-_Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления\. 
-В таком случае вернитесь назад и выберете другое время\._
+        if flag_indiv_cost:
+            if key // 100 == 1:
+                if date.weekday() in range(5):
+                    price = ticket_cost[option]['будни'][key]
+                else:
+                    price = ticket_cost[option]['выходные'][key]
+                text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                         f'{price} руб\n')
+                ticket.price = price
+        else:
+            text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                     f'{price} руб\n')
+
+            if key == 5:
+                text += "__________\n    Варианты со скидками:\n"
+
+    text += """__________
+<i>Если вы хотите оформить несколько билетов, то каждая бронь оформляется 
+отдельно.</i>
+__________
+<i>Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления. 
+В таком случае вернитесь назад и выберете другое время.</i>
 """
 
     await query.message.edit_text(
         text=text,
-        parse_mode=ParseMode.MARKDOWN_V2,
+        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup
     )
 
-    context.bot_data['list_of_tickets'] = list_of_tickets
+    context.user_data['list_of_tickets'] = list_of_tickets
 
     return 'ORDER'
 
@@ -438,7 +604,7 @@ async def check_and_send_buy_info(
     time = context.user_data['time_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
-    list_of_tickets = context.bot_data['list_of_tickets']
+    list_of_tickets = context.user_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     for ticket in list_of_tickets:
         if ticket.base_ticket_id == key_option_for_reserve:

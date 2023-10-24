@@ -11,7 +11,7 @@ db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
 
 def filter_by_date(data_of_dates):
-    first_row = 1
+    first_row = 3
     date_now = datetime.datetime.now().date()
     for i, item in enumerate(data_of_dates[2:]):
         date_tmp = item[0].split()[0] + f'.{date_now.year}'
@@ -58,10 +58,12 @@ def load_show_data() -> tuple[
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
     first_row = filter_by_date(data_of_dates)
 
-    data = get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_'] + f'A{first_row}:J'
-    )
     dict_column_name = get_column_name('База спектаклей_')
+    data = get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_'] + f'R{first_row}C1:'
+                                         f'R{len(data_of_dates)}'
+                                         f'C{len(dict_column_name)}'
+    )
 
     db_googlesheets_logger.info('Данные загружены')
 
@@ -73,18 +75,26 @@ def load_show_data() -> tuple[
     for i, item in enumerate(data):
         i += first_row - 1
         dict_of_shows[i + 1] = {
+            'show_id': item[dict_column_name['show_id']],
             'name_show': item[dict_column_name['name_show']],
             'date_show': item[dict_column_name['date_show']],
             'time_show': item[dict_column_name['time_show']],
             'qty_child': item[dict_column_name['qty_child']],
             'qty_child_free_seat': item[dict_column_name['qty_child_free_seat']],
             'qty_child_nonconfirm_seat': item[dict_column_name['qty_child_nonconfirm_seat']],
+            'flag_gift': True if item[dict_column_name['flag_gift']] == 'TRUE' else False,
+            'flag_christmas_tree': True if item[dict_column_name['flag_christmas_tree']] == 'TRUE' else False,
+            'flag_santa': True if item[dict_column_name['flag_santa']] == 'TRUE' else False,
         }
 
         if item[dict_column_name['name_show']] not in dict_of_name_show:
             j += 1
-            dict_of_name_show.setdefault(item[dict_column_name['name_show']], j)
-            dict_of_name_show_flip.setdefault(j, item[dict_column_name['name_show']])
+            dict_of_name_show.setdefault(
+                item[dict_column_name['name_show']],
+                j)
+            dict_of_name_show_flip.setdefault(
+                j,
+                item[dict_column_name['name_show']])
 
         date_now, date_tmp = get_date(item, dict_column_name)
         # TODO Скорее всего тут можно упростить условие даты и не
@@ -116,8 +126,15 @@ def load_date_show_data() -> List[str]:
     """
     # TODO Выделить загрузку дат в отдельную задачу и хранить ее сразу в
     #  bot_data
+    dict_name_column = get_column_name('База спектаклей_')
+    qty_shows = len(get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей_'] + f'A:A'
+    ))
+
     data_of_dates = get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_дата']
+        RANGE_NAME['База спектаклей_'] +
+        f'R1C{dict_name_column["date_show"]+1}:'
+        f'R{qty_shows}C{dict_name_column["date_show"]+1}'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
@@ -144,29 +161,32 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     """
     # TODO Выделить загрузку спектаклей в отдельную задачу и хранить ее сразу в
     #  bot_data
+    dict_name_column = get_column_name('Список спектаклей_')
+
     qty_shows = len(get_data_from_spreadsheet(
         RANGE_NAME['Список спектаклей_'] + f'A:A'
     ))
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Список спектаклей_'] + f'A3:K{qty_shows}'
+        RANGE_NAME['Список спектаклей_'] +
+        f'R3C1:R{qty_shows}C{len(dict_name_column)}'
     )
     db_googlesheets_logger.info('Данные загружены')
-
-    dict_name_column = get_column_name('Список спектаклей_')
 
     dict_of_shows = {}
     for item in data:
         show_id: int = int(item[dict_name_column['show_id']])
         name: str = item[dict_name_column['name']]
-        flag_premiere: bool = True if item[dict_name_column['flag_active_premiere']] == 'TRUE' else \
-            False
+        flag_premiere: bool = True if item[dict_name_column[
+            'flag_active_premiere']] == 'TRUE' else False
         min_age_child: int = int(item[dict_name_column['min_age_child']])
-        flag_birthday: bool = True if item[dict_name_column['flag_active_bd']] == 'TRUE' else \
-            False
+        flag_birthday: bool = True if item[dict_name_column[
+            'flag_active_bd']] == 'TRUE' else False
         max_num_child: int = int(item[dict_name_column['max_num_child_bd']])
         max_num_adult: int = int(item[dict_name_column['max_num_adult_bd']])
-        flag_repertoire: bool = True if item[dict_name_column['flag_active_repertoire']] == 'TRUE' \
-            else False
+        flag_repertoire: bool = True if item[dict_name_column[
+            'flag_active_repertoire']] == 'TRUE' else False
+        flag_indiv_cost: bool = True if item[dict_name_column[
+            'flag_indiv_cost']] == 'TRUE' else False
 
         if flag_premiere:
             text = 'ПРЕМЬЕРА. ' + item[dict_name_column['min_age_child']] + '+'
@@ -184,7 +204,9 @@ def load_list_show() -> dict[int, dict[str, Any]]:
                 'max_num_adult': max_num_adult,
             },
             'flag_repertoire': flag_repertoire,
+            'flag_indiv_cost': flag_indiv_cost,
             'full_name': full_name,
+
         }
 
     return (
@@ -197,8 +219,16 @@ def load_ticket_data() -> List[BaseTicket]:
     #  bot_data
     list_of_tickets = []
 
+    dict_name_column = get_column_name('Варианты стоимости_')
+
+    qty_shows = len(get_data_from_spreadsheet(
+        RANGE_NAME['Варианты стоимости_'] + f'A:A'
+    ))
+
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Варианты стоимости'])
+        RANGE_NAME['Варианты стоимости_'] +
+        f'R1C1:R{qty_shows}C{len(dict_name_column)}'
+    )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
     for item in data[2:]:

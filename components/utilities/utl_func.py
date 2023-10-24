@@ -35,31 +35,26 @@ utilites_logger = logging.getLogger('bot.utilites')
 
 
 def add_btn_back_and_cancel(
-        postfix_for_callback=None,
-        back_btn=True
+        add_cancel_btn=True,
+        postfix_for_cancel=None,
+        add_back_btn=True,
+        postfix_for_back=None
 ) -> List[InlineKeyboardButton]:
     """
-    :param postfix_for_callback: Добавление дополнительной приписки для
-    корректного определения случая при использовании отмены
-    :param back_btn: Опциональное добавление кнопки назад
-    :return: List
+    :param add_cancel_btn: Опциональное добавление кнопки Отменить
+    :param add_back_btn: Опциональное добавление кнопки Назад
+    :param postfix_for_cancel: Добавление дополнительной приписки для
+    корректного определения случая при использовании Отменить
+    :param postfix_for_back: Добавление дополнительной приписки для
+    корректного определения случая при использовании Назад
+    :return: List[InlineKeyboardButton]
     """
-    callback_data = 'Отменить'
     list_btn = []
 
-    if postfix_for_callback:
-        callback_data += f'-{postfix_for_callback}'
-    if back_btn:
-        button_back = InlineKeyboardButton(
-            'Назад',
-            callback_data='Назад'
-        )
-        list_btn.append(button_back)
-    button_cancel = InlineKeyboardButton(
-        'Отменить',
-        callback_data=callback_data
-    )
-    list_btn.append(button_cancel)
+    if add_back_btn:
+        list_btn.append(create_btn('Назад', postfix_for_back))
+    if add_cancel_btn:
+        list_btn.append(create_btn('Отменить', postfix_for_cancel))
     return list_btn
 
 
@@ -311,3 +306,14 @@ async def get_contact(
         reply_markup=ReplyKeyboardRemove()
     )
     print(update.message.contact)
+
+
+def create_btn(text, postfix_for_callback):
+    callback_data = text
+    if postfix_for_callback:
+        callback_data += f'-{postfix_for_callback}'
+    btn = InlineKeyboardButton(
+        text,
+        callback_data=callback_data
+    )
+    return btn

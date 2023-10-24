@@ -1,6 +1,4 @@
-from typing import (
-    Dict, List,
-)
+from typing import Dict, List
 from telegram import (
     User,
     Message,
@@ -36,25 +34,28 @@ context_user_data: Dict = {
         # 'flag_approve_prepayment': bool,
     },
     'reserve_data': {
-        'text_show': str,  # текст для возврата назад в State SHOW
-        'keyboard_show': InlineKeyboardMarkup,
-        'text_date': str,  # текст для возврата назад в State DATE
-        'keyboard_date': InlineKeyboardMarkup,
-        'text_time': str,  # текст для возврата назад в State TIME
-        'keyboard_time': InlineKeyboardMarkup,
-        'dict_of_shows': dict,
+        'back': {
+            str: {
+                'text': str,  # текст для возврата назад в State MONTH
+                'keyboard': InlineKeyboardMarkup
+            },
+        },
         'dict_of_name_show': dict,
         'dict_of_name_show_flip': dict,
+        'dict_of_date_show': dict,
+        'number_of_month_str': str,
         'name_show': str,
         'date_show': str,
         'time_show': str,
         'row_in_googlesheet': str,
         'chose_ticket': BaseTicket,
     },
+    'dict_of_shows': dict,
     'month_afisha': int,
     'client_data': {
         'name_adult': str,
         'phone': str,
         'data_children': List[List[str]],
-    }
+    },
+    'afisha_media': List[Message]
 }

@@ -155,7 +155,10 @@ def write_client(
             dict_column_name = get_column_name('База спектаклей_')
 
             # Спектакль
-            values[i].append(values_row[0][dict_column_name['name_show']])
+            values[i].append(values_row[0][dict_column_name['show_id']])
+            values[i].append(
+                f"=ВПР(G{last_row_for_write};'{RANGE_NAME['Список спектаклей']}'!$A$3:$E;5)"
+            )
             # Дата
             values[i].append(values_row[0][dict_column_name['date_show']]
                              .split()[0])
@@ -164,6 +167,7 @@ def write_client(
             values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
             # add ticket info
+            values[i].append(ticket.base_ticket_id)
             values[i].append(ticket.name)
             values[i].append(ticket.price)
             values[i].append(ticket.quality_of_children)

@@ -2,7 +2,7 @@ import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, ChatType
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
@@ -301,7 +301,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def back_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
     :param update:
@@ -312,12 +312,39 @@ async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.delete_message()
 
-    text = context.user_data['text_show']
-    reply_markup = context.user_data['keyboard_show']
+    text = context.user_data['text_month']
+    reply_markup = context.user_data['keyboard_month']
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup
     )
+    return 'MONTH'
+
+
+async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+
+    :param update:
+    :param context:
+    :return:
+    """
+    query = update.callback_query
+    await query.answer()
+
+    text = context.user_data['text_show']
+    reply_markup = context.user_data['keyboard_show']
+    try:
+        await query.edit_message_caption(
+            caption=text,
+            reply_markup=reply_markup
+        )
+    except BadRequest as e:
+        main_handlers_logger.error(e)
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup
+        )
     return 'SHOW'
 
 
@@ -333,10 +360,33 @@ async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = context.user_data['text_date']
     reply_markup = context.user_data['keyboard_date']
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup
-    )
+
+    try:
+        number_of_month_str = context.user_data['number_of_month_str']
+        await query.delete_message()
+        photo = (
+            context.bot_data
+            .get('afisha', {})
+            .get(int(number_of_month_str), False)
+        )
+        if update.effective_chat.type == ChatType.PRIVATE and photo:
+            message = await update.effective_chat.send_photo(
+                photo=photo,
+                caption=text,
+                reply_markup=reply_markup
+            )
+            context.user_data['afisha_media'] = [message]
+        else:
+            await update.effective_chat.send_message(
+                text=text,
+                reply_markup=reply_markup
+            )
+    except BadRequest as e:
+        main_handlers_logger.error(e)
+        await query.edit_message_text(
+            text,
+            reply_markup=reply_markup
+        )
     return 'DATE'
 
 
