@@ -70,6 +70,26 @@ def create_replay_markup_for_list_of_shows(
                     text=DICT_OF_EMOJI_FOR_BUTTON[num],
                     callback_data=key
                 )
+            case 3:
+                if number_of_month:
+                    filter_show_id = enum_current_show_by_month(dict_of_show,
+                                                                number_of_month)
+                    if item in filter_show_id.keys() and item == number_of_show:
+                        text = key
+                        for event in dict_of_events_show.values():
+                            if key == event['date_show']:
+                                if event['flag_gift']:
+                                    text += f'{support_data["Подарок"][0]}'
+                                if event['flag_christmas_tree']:
+                                    text += f'{support_data["Елка"][0]}'
+                                if event['flag_santa']:
+                                    text += f'{support_data["Дед"][0]}'
+                        button_tmp = InlineKeyboardButton(
+                            text=text,
+                            callback_data=str(item) + ' | ' + key
+                        )
+                    else:
+                        continue
         list_btn_of_numbers.append(button_tmp)
 
         i += 1
