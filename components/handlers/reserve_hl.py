@@ -444,7 +444,7 @@ async def choice_option_of_reserve(
     context.user_data["STATE"] = 'TIME'
 
     time, row_in_googlesheet, number = query.data.split(' | ')
-    date = context.user_data['date_show']
+    date: str = context.user_data['date_show']
 
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_show'] = time
@@ -501,7 +501,6 @@ async def choice_option_of_reserve(
 
     # TODO Заменить загрузку из базы на чтение из контекста
     list_of_tickets = load_ticket_data()
-    # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
     for i, ticket in enumerate(list_of_tickets):
@@ -534,14 +533,13 @@ async def choice_option_of_reserve(
 
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
-    date = datetime.strptime(date_tmp, f'%d.%m.%Y')
+    date: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
 
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
         name = ticket.name
-        name = escape_markdown(name, 2)
 
-        ticket.date_show = date
+        ticket.date_show = date  # Для расчета стоимости в периоде или нет
         price = ticket.price
 
         if flag_indiv_cost:
