@@ -26,6 +26,7 @@ from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
     load_ticket_data,
+    load_list_show,
 )
 from utilities.googlesheets import (
     write_data_for_reserve,
@@ -166,22 +167,51 @@ async def choice_show_and_date(
     dict_of_date_show = context.user_data['dict_of_date_show']
 
     number_of_month_str = query.data
-    reply_markup = create_replay_markup_for_list_of_shows(
-        dict_of_date_show,
-        postfix_for_callback='res',
-        number_of_month=number_of_month_str,
-        add_back_btn=True
-    )
+    filter_show_id = enum_current_show_by_month(dict_of_date_show,
+                                                number_of_month_str)
 
-    filter_show_id = enum_current_show(dict_of_date_show, number_of_month_str)
+    if number_of_month_str == '12':
+        text = 'Выберите спектакль\n'
+        text = add_text_of_show_and_numerate(text,
+                                             dict_of_name_show,
+                                             filter_show_id)
+        keyboard = []
+        for key, item in dict_of_name_show.items():
+            if item in filter_show_id.keys():
+                button_tmp = InlineKeyboardButton(
+                    text=f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]}',
+                    callback_data=str(item)
+                )
+                if len(keyboard) == 0:
+                    keyboard.append([button_tmp])
+                else:
+                    keyboard[0].append(button_tmp)
 
-    text = 'Выберите спектакль и дату\n'
-    for key, item in dict_of_name_show.items():
-        if item in filter_show_id.keys():
-            text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
+        keyboard.append(add_btn_back_and_cancel(
+            postfix_for_cancel='res',
+            add_back_btn=True,
+            postfix_for_back='month'
+        ))
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
         state = 'SHOW'
         context.user_data['text_show'] = text
         context.user_data['keyboard_show'] = reply_markup
+    else:
+        text = 'Выберите спектакль и дату\n'
+        text = add_text_of_show_and_numerate(text,
+                                             dict_of_name_show,
+                                             filter_show_id)
+        reply_markup = create_replay_markup_for_list_of_shows(
+            dict_of_date_show,
+            add_cancel_btn=True,
+            postfix_for_cancel='res',
+            postfix_for_back='month',
+            number_of_month=number_of_month_str,
+        )
+        state = 'DATE'
+        context.user_data['text_date'] = text
+        context.user_data['keyboard_date'] = reply_markup
 
     photo = (
         context.bot_data
@@ -357,6 +387,22 @@ async def choice_option_of_reserve(
 
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 'qty_child_free_seat')
+
+    dict_of_shows: dict = load_list_show()
+    show_id = context.user_data['show_id']
+    flag_indiv_cost = False
+    for key, item in dict_of_shows.items():
+        if key == show_id:
+            flag_indiv_cost = item['flag_indiv_cost']
+
+    dict_of_shows = context.user_data['dict_of_shows']
+    event = dict_of_shows[int(row_in_googlesheet)]
+    if event['flag_gift']:
+        option = 'Подарок'
+    if event['flag_christmas_tree']:
+        option = 'Ёлка'
+    if event['show_id'] == '13':
+        option = 'Чтение'
 
     # TODO Заменить загрузку из базы на чтение из контекста
     list_of_tickets = load_ticket_data()
