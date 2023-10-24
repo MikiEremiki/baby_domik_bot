@@ -578,7 +578,7 @@ __________
         reply_markup=reply_markup
     )
 
-    context.bot_data['list_of_tickets'] = list_of_tickets
+    context.user_data['list_of_tickets'] = list_of_tickets
 
     return 'ORDER'
 
@@ -604,7 +604,7 @@ async def check_and_send_buy_info(
     time = context.user_data['time_show']
     name_show = context.user_data['name_show']
     key_option_for_reserve = int(query.data)
-    list_of_tickets = context.bot_data['list_of_tickets']
+    list_of_tickets = context.user_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     for ticket in list_of_tickets:
         if ticket.base_ticket_id == key_option_for_reserve:
