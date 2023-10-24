@@ -14,7 +14,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-from telegram.constants import ParseMode, ChatType
+from telegram.constants import ParseMode, ChatType, ChatAction
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
@@ -298,6 +298,8 @@ async def choice_option_of_reserve(
     """
     query = update.callback_query
     await query.answer()
+
+    await update.effective_chat.send_action(ChatAction.TYPING)
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
