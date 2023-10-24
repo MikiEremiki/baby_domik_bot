@@ -207,7 +207,7 @@ def do_bold(text):
     return f'*{escape_markdown(text, 2)}*'
 
 
-def enum_current_show(dict_of_date_show: dict, num: str) -> dict:
+def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
     filter_show_id = {}
     i = 1
     for key, item in dict_of_date_show.items():
