@@ -57,7 +57,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Функция отправляет пользователю список месяцев.
 
     С сообщением передается inline клавиатура для выбора подходящего варианта
-    :return: возвращает state SHOW
+    :return: возвращает state MONTH
     """
     state = 'START'
 
@@ -130,20 +130,23 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['user'] = user
 
     # Контекст для возврата назад
-    context.user_data['text_show'] = text
-    context.user_data['keyboard_show'] = reply_markup
+    context.user_data['text_month'] = text
+    context.user_data['keyboard_month'] = reply_markup
 
     context.user_data['dict_of_shows'] = dict_of_shows
     context.user_data['dict_of_name_show'] = dict_of_name_show
     context.user_data['dict_of_name_show_flip'] = dict_of_name_show_flip
     context.user_data['dict_of_date_show'] = dict_of_date_show
 
-    state = 'SHOW'
+    state = 'MONTH'
     context.user_data['STATE'] = state
     return state
 
 
-async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_show_and_date(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     """
     Функция отправляет пользователю список спектаклей с датами.
 
@@ -176,6 +179,9 @@ async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for key, item in dict_of_name_show.items():
         if item in filter_show_id.keys():
             text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
+        state = 'SHOW'
+        context.user_data['text_show'] = text
+        context.user_data['keyboard_show'] = reply_markup
 
     photo = (
         context.bot_data
