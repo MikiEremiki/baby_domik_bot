@@ -101,14 +101,13 @@ def load_show_data() -> tuple[
                 j,
                 item[dict_column_name['name_show']])
 
-        date_now, date_tmp = get_date(item, dict_column_name)
-        # TODO Скорее всего тут можно упростить условие даты и не
-        #  использовать его вовсе, за счёт того, что данные и так содержат
-        #  уже отфильтрованные данные по дате
-        if (date_tmp >= date_now and
-                item[dict_column_name['date_show']] not in dict_of_date_show):
+        if item[dict_column_name['date_show']] not in dict_of_date_show:
             dict_of_date_show.setdefault(
                 item[dict_column_name['date_show']],
+                {dict_of_name_show[item[dict_column_name['name_show']]]}
+            )
+        else:
+            dict_of_date_show[item[dict_column_name['date_show']]].add(
                 dict_of_name_show[item[dict_column_name['name_show']]]
             )
 

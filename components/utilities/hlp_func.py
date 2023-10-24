@@ -49,56 +49,58 @@ def create_replay_markup_for_list_of_shows(
 
     i = 0
     y = yrange(len(dict_of_show))
-    for key, item in dict_of_show.items():
-        if number_of_month is not None and key[3:5] != number_of_month:
-            continue
-        num = next(y) + 1
-        button_tmp = None
-        match ver:
-            case 1:
-                if number_of_month:
-                    filter_show_id = enum_current_show_by_month(dict_of_show,
-                                                                number_of_month)
-                    if item in filter_show_id.keys():
-                        button_tmp = InlineKeyboardButton(
-                            text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[
-                                filter_show_id[item]],
-                            callback_data=str(item) + ' | ' + key
-                        )
-            case 2:
-                button_tmp = InlineKeyboardButton(
-                    text=DICT_OF_EMOJI_FOR_BUTTON[num],
-                    callback_data=key
-                )
-            case 3:
-                if number_of_month:
-                    filter_show_id = enum_current_show_by_month(dict_of_show,
-                                                                number_of_month)
-                    if item in filter_show_id.keys() and item == number_of_show:
-                        text = key
-                        for event in dict_of_events_show.values():
-                            if key == event['date_show']:
-                                if event['flag_gift']:
-                                    text += f'{support_data["Подарок"][0]}'
-                                if event['flag_christmas_tree']:
-                                    text += f'{support_data["Елка"][0]}'
-                                if event['flag_santa']:
-                                    text += f'{support_data["Дед"][0]}'
-                        button_tmp = InlineKeyboardButton(
-                            text=text,
-                            callback_data=str(item) + ' | ' + key
-                        )
-                    else:
-                        continue
-        list_btn_of_numbers.append(button_tmp)
+    for key, items in dict_of_show.items():
+        for item in items:
+            if number_of_month is not None and key[3:5] != number_of_month:
+                continue
+            num = next(y) + 1
+            button_tmp = None
+            match ver:
+                case 1:
+                    if number_of_month:
+                        filter_show_id = enum_current_show_by_month(dict_of_show,
+                                                                    number_of_month)
 
-        i += 1
-        # Две кнопки в строке так как для узких экранов телефонов дни недели
-        # обрезаются
-        if i % num_colum == 0:
-            i = 0
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
+                        if item in filter_show_id.keys():
+                            button_tmp = InlineKeyboardButton(
+                                text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[
+                                    filter_show_id[item]],
+                                callback_data=str(item) + ' | ' + key
+                            )
+                case 2:
+                    button_tmp = InlineKeyboardButton(
+                        text=DICT_OF_EMOJI_FOR_BUTTON[num],
+                        callback_data=key
+                    )
+                case 3:
+                    if number_of_month:
+                        filter_show_id = enum_current_show_by_month(dict_of_show,
+                                                                    number_of_month)
+                        if item in filter_show_id.keys() and item == number_of_show:
+                            text = key
+                            for event in dict_of_events_show.values():
+                                if key == event['date_show']:
+                                    if event['flag_gift']:
+                                        text += f'{support_data["Подарок"][0]}'
+                                    if event['flag_christmas_tree']:
+                                        text += f'{support_data["Елка"][0]}'
+                                    if event['flag_santa']:
+                                        text += f'{support_data["Дед"][0]}'
+                            button_tmp = InlineKeyboardButton(
+                                text=text,
+                                callback_data=str(item) + ' | ' + key
+                            )
+                        else:
+                            continue
+            list_btn_of_numbers.append(button_tmp)
+
+            i += 1
+            # Две кнопки в строке так как для узких экранов телефонов дни недели
+            # обрезаются
+            if i % num_colum == 0:
+                i = 0
+                keyboard.append(list_btn_of_numbers)
+                list_btn_of_numbers = []
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
@@ -210,12 +212,13 @@ def do_bold(text):
 def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
     filter_show_id = {}
     i = 1
-    for key, item in dict_of_date_show.items():
+    for key, items in dict_of_date_show.items():
         if num is not None and key[3:5] != num:
             continue
-        if item not in filter_show_id.keys():
-            filter_show_id[item] = i
-            i += 1
+        for item in items:
+            if item not in filter_show_id.keys():
+                filter_show_id[item] = i
+                i += 1
 
     return filter_show_id
 
