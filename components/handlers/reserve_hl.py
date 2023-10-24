@@ -41,7 +41,9 @@ from utilities.utl_func import (
 from utilities.hlp_func import (
     check_phone_number,
     create_replay_markup_for_list_of_shows,
-    create_approve_and_reject_replay, enum_current_show
+    create_approve_and_reject_replay,
+    enum_current_show_by_month,
+    add_text_of_show_and_numerate
 )
 from utilities.settings import (
     ADMIN_GROUP,
@@ -448,21 +450,33 @@ async def choice_option_of_reserve(
         ticket.date_show = date
         price = ticket.price
 
-        text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} \| '
-                 f'{price} руб\n')
-        if key == 5:
-            text += """\_\_\_\_\_\_\_\_\_\_
-Варианты со скидками:\n"""
-    text += """\_\_\_\_\_\_\_\_\_\_
-_Если вы хотите оформить несколько билетов, то каждая бронь оформляется отдельно\._
-\_\_\_\_\_\_\_\_\_\_
-_Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления\. 
-В таком случае вернитесь назад и выберете другое время\._
+        if flag_indiv_cost:
+            if key // 100 == 1:
+                if date.weekday() in range(5):
+                    price = ticket_cost[option]['будни'][key]
+                else:
+                    price = ticket_cost[option]['выходные'][key]
+                text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                         f'{price} руб\n')
+                ticket.price = price
+        else:
+            text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                     f'{price} руб\n')
+
+            if key == 5:
+                text += "__________\n    Варианты со скидками:\n"
+
+    text += """__________
+<i>Если вы хотите оформить несколько билетов, то каждая бронь оформляется 
+отдельно.</i>
+__________
+<i>Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления. 
+В таком случае вернитесь назад и выберете другое время.</i>
 """
 
     await query.message.edit_text(
         text=text,
-        parse_mode=ParseMode.MARKDOWN_V2,
+        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup
     )
 
