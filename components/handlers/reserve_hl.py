@@ -111,7 +111,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for item in list_of_months:
         button_tmp = InlineKeyboardButton(
-            text=str(item),
+            text=dict_convert_month_number_to_str[item],
             callback_data=str(item)
         )
         keyboard.append([button_tmp])
