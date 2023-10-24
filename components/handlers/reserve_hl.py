@@ -368,6 +368,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # свободных мест уже не осталось
     for key, item in dict_of_shows.items():
         if item['name_show'] == name_show and item['date_show'] == date_show:
+            show_id = item['show_id']
             time = item['time_show']
             number = item['qty_child_free_seat']
             button_tmp = InlineKeyboardButton(
@@ -403,6 +404,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['date_show'] = date_show
     context.user_data['name_show'] = name_show
+    context.user_data['show_id'] = int(show_id)
 
     # Контекст для возврата назад
     context.user_data['text_time'] = text
