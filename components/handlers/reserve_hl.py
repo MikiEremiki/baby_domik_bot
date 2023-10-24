@@ -505,6 +505,8 @@ async def choice_option_of_reserve(
     list_btn_of_numbers = []
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
+        if flag_indiv_cost and key // 100 != 1:
+            continue
         quality_of_children = ticket.quality_of_children
 
         # Если свободных мест меньше, чем требуется для варианта
