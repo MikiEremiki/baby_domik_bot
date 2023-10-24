@@ -371,8 +371,16 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             show_id = item['show_id']
             time = item['time_show']
             number = item['qty_child_free_seat']
+            text = time
+            if item['flag_gift']:
+                text += f'{support_data["Подарок"][0]}'
+            if item['flag_christmas_tree']:
+                text += f'{support_data["Елка"][0]}'
+            if item['flag_santa']:
+                text += f'{support_data["Дед"][0]}'
+            text += ' | ' + str(number) + ' шт свободно'
             button_tmp = InlineKeyboardButton(
-                text=time + ' | ' + str(number) + ' шт свободно',
+                text=text,
                 callback_data=time + ' | ' + str(key) + ' | ' + str(number)
             )
             keyboard.append([button_tmp])

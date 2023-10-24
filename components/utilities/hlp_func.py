@@ -78,14 +78,23 @@ def create_replay_markup_for_list_of_shows(
                                                                     number_of_month)
                         if item in filter_show_id.keys() and item == number_of_show:
                             text = key
+                            flag_gift = False
+                            flag_christmas_tree = False
+                            flag_santa = False
                             for event in dict_of_events_show.values():
                                 if key == event['date_show']:
                                     if event['flag_gift']:
-                                        text += f'{support_data["Подарок"][0]}'
+                                        flag_gift = True
                                     if event['flag_christmas_tree']:
-                                        text += f'{support_data["Елка"][0]}'
+                                        flag_christmas_tree = True
                                     if event['flag_santa']:
-                                        text += f'{support_data["Дед"][0]}'
+                                        flag_santa = True
+                            if flag_gift:
+                                text += f'{support_data["Подарок"][0]}'
+                            if flag_christmas_tree:
+                                text += f'{support_data["Елка"][0]}'
+                            if flag_santa:
+                                text += f'{support_data["Дед"][0]}'
                             button_tmp = InlineKeyboardButton(
                                 text=text,
                                 callback_data=str(item) + ' | ' + key
