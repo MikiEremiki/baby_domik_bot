@@ -240,6 +240,89 @@ async def choice_show_and_date(
             reply_markup=reply_markup
         )
 
+    context.user_data['number_of_month_str'] = number_of_month_str
+
+    context.user_data['STATE'] = state
+    return state
+
+
+async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Функция отправляет пользователю сообщения по выбранному спектаклю варианты
+    времени и кол-во свободных мест
+
+    С сообщением передается inline клавиатура для выбора подходящего варианта
+    :return: возвращает state TIME
+    """
+    query = update.callback_query
+    await query.answer()
+
+    user = context.user_data['user']
+    reserve_hl_logger.info(": ".join(
+        [
+            'Пользователь',
+            f'{user}',
+            'выбрал',
+            query.data,
+        ]
+    ))
+
+    dict_of_shows = context.user_data['dict_of_shows']
+    dict_of_date_show = context.user_data['dict_of_date_show']
+    dict_of_name_show_flip = context.user_data['dict_of_name_show_flip']
+    number_of_month_str = context.user_data['number_of_month_str']
+    name_of_show = dict_of_name_show_flip[int(query.data)]
+    number_of_show = int(query.data)
+
+    reply_markup = create_replay_markup_for_list_of_shows(
+        dict_of_date_show,
+        ver=3,
+        add_cancel_btn=True,
+        postfix_for_cancel='res',
+        postfix_for_back='show',
+        number_of_month=number_of_month_str,
+        number_of_show=number_of_show,
+        dict_of_events_show=dict_of_shows
+    )
+
+    text = f'Вы выбрали\n {name_of_show}\nВыберите дату\n\n'
+    flag_gift = False
+    flag_christmas_tree = False
+    flag_santa = False
+
+    for event in dict_of_shows.values():
+        if name_of_show == event['name_show']:
+            if event['flag_gift']:
+                flag_gift = True
+            if event['flag_christmas_tree']:
+                flag_christmas_tree = True
+            if event['flag_santa']:
+                flag_santa = True
+
+    if flag_gift:
+        text += f'{support_data["Подарок"][0]} - {support_data["Подарок"][1]}\n'
+    if flag_christmas_tree:
+        text += f'{support_data["Елка"][0]} - {support_data["Елка"][1]}\n'
+    if flag_santa:
+        text += f'{support_data["Дед"][0]} - {support_data["Дед"][1]}\n'
+
+    photo = (
+        context.bot_data
+        .get('afisha', {})
+        .get(int(number_of_month_str), False)
+    )
+    if update.effective_chat.type == ChatType.PRIVATE and photo:
+        message = await query.edit_message_caption(
+            caption=text,
+            reply_markup=reply_markup
+        )
+        context.user_data['afisha_media'] = [message]
+    else:
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup
+        )
+
     # Контекст для возврата назад
     context.user_data['text_date'] = text
     context.user_data['keyboard_date'] = reply_markup
