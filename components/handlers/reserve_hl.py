@@ -518,7 +518,7 @@ async def choice_option_of_reserve(
 
             # Позволяет управлять кол-вом кнопок в ряду
             # Максимальное кол-во кнопок в ряду равно 8
-            if key % 5 == 0:
+            if (i + 1) % 5 == 0:
                 keyboard.append(list_btn_of_numbers)
                 list_btn_of_numbers = []
     if len(list_btn_of_numbers):
