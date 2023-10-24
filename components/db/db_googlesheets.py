@@ -1,7 +1,7 @@
 import logging
 import datetime
 
-from typing import Any, List
+from typing import Any, List, Tuple, Dict
 
 from utilities.googlesheets import get_data_from_spreadsheet, get_column_name
 from utilities.settings import RANGE_NAME
@@ -242,7 +242,11 @@ def load_ticket_data() -> List[BaseTicket]:
     return list_of_tickets
 
 
-def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
+def load_clients_data(
+        name: str,
+        date: str,
+        time: str
+) -> Tuple[List[List[str]], Dict[str, str]]:
     data_clients_data = []
     first_colum = get_data_from_spreadsheet(
         RANGE_NAME['База клиентов']
@@ -267,4 +271,4 @@ def load_clients_data(name: str, date: str, time: str) -> List[List[str]]:
         ):
             data_clients_data.append(item)
 
-    return data_clients_data
+    return data_clients_data, dict_name_column

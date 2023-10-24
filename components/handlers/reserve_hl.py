@@ -1066,24 +1066,24 @@ async def send_clients_data(
     date = context.user_data['date_show']
     time = query.data.split(' | ')[0]
 
-    clients_data = load_clients_data(name, date, time)
+    clients_data, name_column = load_clients_data(name, date, time)
     text = f'#Показ\n'
     text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))
     for i, item1 in enumerate(clients_data):
         text += '\n__________\n'
         text += str(i + 1) + '| '
-        text += '<b>' + item1[1] + '</b>'
-        text += '\n+7' + item1[2]
-        if item1[3] != '':
+        text += '<b>' + item1[name_column['callback_name']] + '</b>'
+        text += '\n+7' + item1[name_column['callback_phone']]
+        if item1[name_column['child_name']] != '':
             text += '\nИмя ребенка: '
-            text += item1[3] + ' '
-        if item1[5] != '':
+            text += item1[name_column['child_name']] + ' '
+        if item1[name_column['child_age']] != '':
             text += '\nВозраст: '
-            text += item1[5] + ' '
-        if item1[10] != '':
+            text += item1[name_column['child_age']] + ' '
+        if item1[name_column['name']] != '':
             text += '\nСпособ брони:\n'
-            text += item1[10] + ' '
+            text += item1[name_column['name']] + ' '
     await query.edit_message_text(
         text=text,
         parse_mode=ParseMode.HTML
