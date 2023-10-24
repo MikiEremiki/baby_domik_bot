@@ -374,12 +374,14 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             time = item['time_show']
             number = item['qty_child_free_seat']
             text = time
+            text_emoji = ''
             if item['flag_gift']:
-                text += f'{support_data["Подарок"][0]}'
+                text_emoji += f'{support_data["Подарок"][0]}'
             if item['flag_christmas_tree']:
-                text += f'{support_data["Елка"][0]}'
+                text_emoji += f'{support_data["Елка"][0]}'
             if item['flag_santa']:
-                text += f'{support_data["Дед"][0]}'
+                text_emoji += f'{support_data["Дед"][0]}'
+            text += text_emoji
             text += ' | ' + str(number) + ' шт свободно'
             button_tmp = InlineKeyboardButton(
                 text=text,
@@ -455,20 +457,36 @@ async def choice_option_of_reserve(
     context.user_data['row_in_googlesheet'] = row_in_googlesheet
     context.user_data['time_show'] = time
 
+    dict_of_shows = context.user_data['dict_of_shows']
+    event = dict_of_shows[int(row_in_googlesheet)]
+    text_emoji = ''
+    if event['flag_gift']:
+        text_emoji += f'{support_data["Подарок"][0]}'
+        option = 'Подарок'
+    if event['flag_christmas_tree']:
+        text_emoji += f'{support_data["Елка"][0]}'
+        option = 'Ёлка'
+    if event['flag_santa']:
+        text_emoji += f'{support_data["Дед"][0]}'
+    if event['show_id'] == '10' or event['show_id'] == '8':
+        option = 'Чтение'
+
+    context.user_data['text_emoji'] = text_emoji
+
     if int(number) == 0:
         reserve_hl_logger.info('Мест нет')
 
         name_show = context.user_data['name_show']
         text = (f'Вы выбрали:\n'
-                f'{name_show}\n'
+                f'<b>{name_show}\n'
                 f'{date}\n'
-                f'В {time}\n')
-        await query.edit_message_text(text)
+                f'В {time}</b>\n'
+                f'{text_emoji}\n')
+        await query.edit_message_text(
+            text=text,
+            parse_mode=ParseMode.HTML
+        )
 
-        text = (f'Вы выбрали:\n'
-                f'{name_show}\n'
-                f'{date}\n'
-                f'В {time}\n')
         context.user_data['text_for_list_waiting'] = text
         reply_keyboard = [
             ['Выбрать другое время'],
@@ -495,15 +513,6 @@ async def choice_option_of_reserve(
     for key, item in dict_of_shows.items():
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
-
-    dict_of_shows = context.user_data['dict_of_shows']
-    event = dict_of_shows[int(row_in_googlesheet)]
-    if event['flag_gift']:
-        option = 'Подарок'
-    if event['flag_christmas_tree']:
-        option = 'Ёлка'
-    if event['show_id'] == '13':
-        option = 'Чтение'
 
     # TODO Заменить загрузку из базы на чтение из контекста
     list_of_tickets = load_ticket_data()
@@ -540,7 +549,8 @@ async def choice_option_of_reserve(
     text = (f'Вы выбрали:\n'
             f'<b>{name_show}\n'
             f'{date}\n'
-            f'В {time}</b>\n')
+            f'В {time}</b>\n'
+            f'{text_emoji}\n')
     text += 'Выберите подходящий вариант бронирования:\n'
 
     date_now = datetime.now().date()
@@ -609,6 +619,7 @@ async def check_and_send_buy_info(
     date = context.user_data['date_show']
     time = context.user_data['time_show']
     name_show = context.user_data['name_show']
+    text_emoji = context.user_data['text_emoji']
     key_option_for_reserve = int(query.data)
     list_of_tickets = context.user_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
@@ -650,6 +661,7 @@ async def check_and_send_buy_info(
                 f'{name_show}\n'
                 f'{date}\n'
                 f'В {time}\n'
+                f'{text_emoji}\n'
                 f'Вариант бронирования:\n'
                 f'{chose_ticket.name} '
                 f'{price}руб\n')
@@ -687,11 +699,13 @@ async def check_and_send_buy_info(
             text = (f'Вы выбрали:\n'
                     f'{name_show}\n'
                     f'{date}\n'
-                    f'В {time}\n')
+                    f'В {time}\n'
+                    f'{text_emoji}\n')
             context.user_data['text_for_list_waiting'] = text
             text = ('К сожалению места уже забронировали и свободных мест для\n'
                     f'{name_show}\n'
                     f'{date} в {time}\n'
+                    f'{text_emoji}\n'
                     f' Осталось: {availibale_number_of_seats_now}шт\n\n'
                     'Вы хотите выбрать другое время '
                     'или записаться в лист ожидания на эту дату и время?')
