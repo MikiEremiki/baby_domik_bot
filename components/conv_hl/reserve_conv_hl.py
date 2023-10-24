@@ -18,7 +18,7 @@ states = {
     'SHOW': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
         CallbackQueryHandler(main_hl.back_month, pattern='^Назад-month'),
-        CallbackQueryHandler(reserve_hl.choice_show),
+        CallbackQueryHandler(reserve_hl.choice_date),
     ],
     'DATE': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),

@@ -246,7 +246,7 @@ async def choice_show_and_date(
     return state
 
 
-async def choice_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю варианты
     времени и кол-во свободных мест
