@@ -47,6 +47,7 @@ context_user_data: Dict = {
         'name_show': str,
         'date_show': str,
         'time_show': str,
+        'text_emoji': str,
         'row_in_googlesheet': str,
         'chose_ticket': BaseTicket,
     },
