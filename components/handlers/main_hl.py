@@ -373,19 +373,22 @@ async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = await update.effective_chat.send_photo(
                 photo=photo,
                 caption=text,
-                reply_markup=reply_markup
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML
             )
             context.user_data['afisha_media'] = [message]
         else:
             await update.effective_chat.send_message(
                 text=text,
-                reply_markup=reply_markup
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML
             )
     except BadRequest as e:
         main_handlers_logger.error(e)
         await query.edit_message_text(
             text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
         )
     return 'DATE'
 
@@ -405,7 +408,7 @@ async def back_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(
         text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN_V2
+        parse_mode=ParseMode.HTML
     )
     return 'TIME'
 
