@@ -80,11 +80,16 @@ def load_show_data() -> tuple[
             'date_show': item[dict_column_name['date_show']],
             'time_show': item[dict_column_name['time_show']],
             'qty_child': item[dict_column_name['qty_child']],
-            'qty_child_free_seat': item[dict_column_name['qty_child_free_seat']],
-            'qty_child_nonconfirm_seat': item[dict_column_name['qty_child_nonconfirm_seat']],
-            'flag_gift': True if item[dict_column_name['flag_gift']] == 'TRUE' else False,
-            'flag_christmas_tree': True if item[dict_column_name['flag_christmas_tree']] == 'TRUE' else False,
-            'flag_santa': True if item[dict_column_name['flag_santa']] == 'TRUE' else False,
+            'qty_child_free_seat': item[
+                dict_column_name['qty_child_free_seat']],
+            'qty_child_nonconfirm_seat': item[
+                dict_column_name['qty_child_nonconfirm_seat']],
+            'flag_gift': True if item[dict_column_name[
+                'flag_gift']] == 'TRUE' else False,
+            'flag_christmas_tree': True if item[dict_column_name[
+                'flag_christmas_tree']] == 'TRUE' else False,
+            'flag_santa': True if item[dict_column_name[
+                'flag_santa']] == 'TRUE' else False,
         }
 
         if item[dict_column_name['name_show']] not in dict_of_name_show:
@@ -133,8 +138,8 @@ def load_date_show_data() -> List[str]:
 
     data_of_dates = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] +
-        f'R1C{dict_name_column["date_show"]+1}:'
-        f'R{qty_shows}C{dict_name_column["date_show"]+1}'
+        f'R1C{dict_name_column["date_show"] + 1}:'
+        f'R{qty_shows}C{dict_name_column["date_show"] + 1}'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
