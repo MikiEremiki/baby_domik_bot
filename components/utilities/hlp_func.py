@@ -46,8 +46,6 @@ def create_replay_markup_for_list_of_shows(
     # Определение кнопок для inline клавиатуры
     keyboard = []
     list_btn_of_numbers = []
-    if number_of_month:
-        filter_show_id = enum_current_show(dict_of_show, number_of_month)
 
     i = 0
     y = yrange(len(dict_of_show))
@@ -58,12 +56,15 @@ def create_replay_markup_for_list_of_shows(
         button_tmp = None
         match ver:
             case 1:
-                if item in filter_show_id.keys():
-                    button_tmp = InlineKeyboardButton(
-                        text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[
-                            filter_show_id[item]],
-                        callback_data=str(item) + ' | ' + key
-                    )
+                if number_of_month:
+                    filter_show_id = enum_current_show_by_month(dict_of_show,
+                                                                number_of_month)
+                    if item in filter_show_id.keys():
+                        button_tmp = InlineKeyboardButton(
+                            text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[
+                                filter_show_id[item]],
+                            callback_data=str(item) + ' | ' + key
+                        )
             case 2:
                 button_tmp = InlineKeyboardButton(
                     text=DICT_OF_EMOJI_FOR_BUTTON[num],
