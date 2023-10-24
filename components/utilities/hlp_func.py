@@ -102,23 +102,12 @@ def create_replay_markup_for_list_of_shows(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    list_end_btn = []
-    if add_back_btn:
-        callback_data = 'Назад'
-        button_tmp = InlineKeyboardButton(
-            'Назад',
-            callback_data=callback_data
-        )
-        list_end_btn.append(button_tmp)
-    if add_cancel_btn:
-        callback_data = 'Отменить'
-        if postfix_for_callback:
-            callback_data += f'-{postfix_for_callback}'
-        button_tmp = InlineKeyboardButton(
-            'Отменить',
-            callback_data=callback_data
-        )
-        list_end_btn.append(button_tmp)
+    list_end_btn = add_btn_back_and_cancel(
+        add_cancel_btn,
+        postfix_for_cancel,
+        add_back_btn,
+        postfix_for_back
+    )
     if len(list_end_btn):
         keyboard.append(list_end_btn)
     return InlineKeyboardMarkup(keyboard)
