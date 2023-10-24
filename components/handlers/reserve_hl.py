@@ -48,7 +48,11 @@ from utilities.hlp_func import (
 from utilities.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
-    DICT_OF_EMOJI_FOR_BUTTON, FILE_ID_QR,
+    DICT_OF_EMOJI_FOR_BUTTON,
+    FILE_ID_QR,
+    ticket_cost,
+    dict_convert_month_number_to_str,
+    support_data,
 )
 from utilities.schemas.ticket import BaseTicket
 
@@ -116,7 +120,10 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel('res', False))
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel='res',
+        add_back_btn=False
+    ))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = 'Выберите месяц'
@@ -218,7 +225,7 @@ async def choice_show_and_date(
     photo = (
         context.bot_data
         .get('afisha', {})
-        .get(int(query.data), False)
+        .get(int(number_of_month_str), False)
     )
     if update.effective_chat.type == ChatType.PRIVATE and photo:
         message = await update.effective_chat.send_photo(
@@ -286,7 +293,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard.append([button_tmp])
 
-    keyboard.append(add_btn_back_and_cancel('res'))
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
+                                            postfix_for_back='date'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name = escape_markdown(name_show, 2)
@@ -432,7 +440,8 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel('res'))
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
+                                            postfix_for_back='time'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     # Отправка сообщения пользователю
