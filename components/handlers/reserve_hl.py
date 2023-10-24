@@ -50,9 +50,9 @@ from utilities.settings import (
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
     FILE_ID_QR,
-    ticket_cost,
-    dict_convert_month_number_to_str,
-    support_data,
+    TICKET_COST,
+    DICT_CONVERT_MONTH_NUMBER_TO_STR,
+    SUPPORT_DATA,
 )
 from utilities.schemas.ticket import BaseTicket
 
@@ -115,7 +115,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for item in list_of_months:
         button_tmp = InlineKeyboardButton(
-            text=dict_convert_month_number_to_str[item],
+            text=DICT_CONVERT_MONTH_NUMBER_TO_STR[item],
             callback_data=str(item)
         )
         keyboard.append([button_tmp])
@@ -300,11 +300,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 flag_santa = True
 
     if flag_gift:
-        text += f'{support_data["Подарок"][0]} - {support_data["Подарок"][1]}\n'
+        text += f'{SUPPORT_DATA["Подарок"][0]} - {SUPPORT_DATA["Подарок"][1]}\n'
     if flag_christmas_tree:
-        text += f'{support_data["Елка"][0]} - {support_data["Елка"][1]}\n'
+        text += f'{SUPPORT_DATA["Елка"][0]} - {SUPPORT_DATA["Елка"][1]}\n'
     if flag_santa:
-        text += f'{support_data["Дед"][0]} - {support_data["Дед"][1]}\n'
+        text += f'{SUPPORT_DATA["Дед"][0]} - {SUPPORT_DATA["Дед"][1]}\n'
 
     photo = (
         context.bot_data
@@ -376,11 +376,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = time
             text_emoji = ''
             if item['flag_gift']:
-                text_emoji += f'{support_data["Подарок"][0]}'
+                text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
             if item['flag_christmas_tree']:
-                text_emoji += f'{support_data["Елка"][0]}'
+                text_emoji += f'{SUPPORT_DATA["Елка"][0]}'
             if item['flag_santa']:
-                text_emoji += f'{support_data["Дед"][0]}'
+                text_emoji += f'{SUPPORT_DATA["Дед"][0]}'
             text += text_emoji
             text += ' | ' + str(number) + ' шт свободно'
             button_tmp = InlineKeyboardButton(
@@ -461,13 +461,13 @@ async def choice_option_of_reserve(
     event = dict_of_shows[int(row_in_googlesheet)]
     text_emoji = ''
     if event['flag_gift']:
-        text_emoji += f'{support_data["Подарок"][0]}'
+        text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
         option = 'Подарок'
     if event['flag_christmas_tree']:
-        text_emoji += f'{support_data["Елка"][0]}'
+        text_emoji += f'{SUPPORT_DATA["Елка"][0]}'
         option = 'Ёлка'
     if event['flag_santa']:
-        text_emoji += f'{support_data["Дед"][0]}'
+        text_emoji += f'{SUPPORT_DATA["Дед"][0]}'
     if event['show_id'] == '10' or event['show_id'] == '8':
         option = 'Чтение'
 
@@ -567,9 +567,9 @@ async def choice_option_of_reserve(
         if flag_indiv_cost:
             if key // 100 == 1:
                 if date.weekday() in range(5):
-                    price = ticket_cost[option]['будни'][key]
+                    price = TICKET_COST[option]['будни'][key]
                 else:
-                    price = ticket_cost[option]['выходные'][key]
+                    price = TICKET_COST[option]['выходные'][key]
                 text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
                          f'{price} руб\n')
                 ticket.price = price

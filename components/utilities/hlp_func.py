@@ -6,7 +6,7 @@ from telegram import (
 )
 from telegram.helpers import escape_markdown
 
-from utilities.settings import DICT_OF_EMOJI_FOR_BUTTON, support_data
+from utilities.settings import DICT_OF_EMOJI_FOR_BUTTON, SUPPORT_DATA
 from utilities.utl_func import yrange, add_btn_back_and_cancel
 
 helper_func_logger = logging.getLogger('bot.helper_func')
@@ -90,11 +90,11 @@ def create_replay_markup_for_list_of_shows(
                                     if event['flag_santa']:
                                         flag_santa = True
                             if flag_gift:
-                                text += f'{support_data["Подарок"][0]}'
+                                text += f'{SUPPORT_DATA["Подарок"][0]}'
                             if flag_christmas_tree:
-                                text += f'{support_data["Елка"][0]}'
+                                text += f'{SUPPORT_DATA["Елка"][0]}'
                             if flag_santa:
-                                text += f'{support_data["Дед"][0]}'
+                                text += f'{SUPPORT_DATA["Дед"][0]}'
                             button_tmp = InlineKeyboardButton(
                                 text=text,
                                 callback_data=str(item) + ' | ' + key
@@ -244,17 +244,17 @@ def add_text_of_show_and_numerate(
     for key, item in dict_of_show.items():
         if item in filter_show_id.keys():
             text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
-            if support_data['Подарок'][0] in key:
+            if SUPPORT_DATA['Подарок'][0] in key:
                 flag_gift = True
-            if support_data['Елка'][0] in key:
+            if SUPPORT_DATA['Елка'][0] in key:
                 flag_christmas_tree = True
-            if support_data['Дед'][0] in key:
+            if SUPPORT_DATA['Дед'][0] in key:
                 flag_santa = True
 
     if flag_gift:
-        text += f'{support_data["Подарок"][0]} - {support_data["Подарок"][1]}\n'
+        text += f'{SUPPORT_DATA["Подарок"][0]} - {SUPPORT_DATA["Подарок"][1]}\n'
     if flag_christmas_tree:
-        text += f'{support_data["Елка"][0]} - {support_data["Елка"][1]}\n'
+        text += f'{SUPPORT_DATA["Елка"][0]} - {SUPPORT_DATA["Елка"][1]}\n'
     if flag_santa:
-        text += f'{support_data["Дед"][0]} - {support_data["Дед"][1]}\n'
+        text += f'{SUPPORT_DATA["Дед"][0]} - {SUPPORT_DATA["Дед"][1]}\n'
     return text
