@@ -285,7 +285,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dict_of_events_show=dict_of_shows
     )
 
-    text = f'Вы выбрали\n {name_of_show}\nВыберите дату\n\n'
+    text = f'Вы выбрали\n <b>{name_of_show}</b>\n<i>Выберите дату</i>\n\n'
     flag_gift = False
     flag_christmas_tree = False
     flag_santa = False
@@ -314,13 +314,15 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == ChatType.PRIVATE and photo:
         message = await query.edit_message_caption(
             caption=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
         )
         context.user_data['afisha_media'] = [message]
     else:
         await query.edit_message_text(
             text=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
         )
 
     # Контекст для возврата назад
@@ -389,25 +391,21 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             postfix_for_back='date'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    name = escape_markdown(name_show, 2)
-    date = escape_markdown(date_show, 2)
-
+    text = f'Вы выбрали:\n <b>{name_show}\n{date_show}</b>\n'
     if update.effective_chat.id == ADMIN_GROUP:
         # Отправка сообщения в админский чат
-        text = f'Вы выбрали:\n *{name} {date}*\n' \
-               'Выберите время\.\n'
+        text += 'Выберите время'
     else:
         # Отправка сообщения пользователю
-        text = f'Вы выбрали:\n *{name}*\n' \
-               '_Выберите удобное время\.\n' \
-               '1 ребенок \= 1 место_\n\n' \
-               'Вы также можете выбрать вариант с 0 кол\-вом мест ' \
-               'и записаться в лист ожидания на данное время'
+        text += ('<i>Выберите удобное время\n'
+                 '1 ребенок = 1 место</i>\n\n'
+                 'Вы также можете выбрать вариант с 0 кол-вом мест '
+                 'и записаться в лист ожидания на данное время')
 
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN_V2
+        parse_mode=ParseMode.HTML
     )
 
     context.user_data['date_show'] = date_show
