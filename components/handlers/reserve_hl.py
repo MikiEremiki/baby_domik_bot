@@ -530,8 +530,12 @@ async def choice_option_of_reserve(
                                             postfix_for_back='time'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Отправка сообщения пользователю
-    text = 'Выберите подходящий вариант бронирования:\n'
+    name_show = context.user_data['name_show']
+    text = (f'Вы выбрали:\n'
+            f'<b>{name_show}\n'
+            f'{date}\n'
+            f'В {time}</b>\n')
+    text += 'Выберите подходящий вариант бронирования:\n'
 
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
