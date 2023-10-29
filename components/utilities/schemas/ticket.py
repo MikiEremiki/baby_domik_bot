@@ -42,8 +42,8 @@ class BaseTicket(BaseModel):
     quality_of_children: int = 0  # Кол-во детск мест
     # price_child_for_one_ticket: int  # Сумма за 1 билет
     quality_of_adult: int = 0  # Кол-во взр мест
-    quality_of_add_adult: int = 0  # Кол-во доп взр мест
     # price_adult_for_one_ticket: int  # Сумма за 1 билет
+    quality_of_add_adult: int = 0  # Кол-во доп взр мест
     flag_individual: bool = False  # Флаг для индивидуального обращения
     # flag_season_ticket: bool  # Флаг абонемент
     # quality_visits_by_ticket: str  # Общее кол-во посещений по билету
@@ -129,12 +129,15 @@ class Ticket(BaseModel):
     buy_date: datetime
 
 
+
+
 if __name__ == '__main__':
     ticket = BaseTicket(
         base_ticket_id=1,
         name='1р+1в',
         cost_main=1000,
         quality_of_adult=1,
-        quality_of_children=1,
-        ticket_category=0
+        quality_of_children=1
     )
+
+    print(ticket)
