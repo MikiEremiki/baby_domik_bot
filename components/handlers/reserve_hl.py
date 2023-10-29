@@ -1084,9 +1084,10 @@ async def send_clients_data(
 
     name = context.user_data['name_show']
     date = context.user_data['date_show']
+    show_id = context.user_data['show_id']
     time = query.data.split(' | ')[0]
 
-    clients_data, name_column = load_clients_data(name, date, time)
+    clients_data, name_column = load_clients_data(show_id, date, time)
     text = f'#Показ\n'
     text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))

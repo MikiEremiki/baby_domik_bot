@@ -247,7 +247,7 @@ def load_ticket_data() -> List[BaseTicket]:
 
 
 def load_clients_data(
-        name: str,
+        show_id: int,
         date: str,
         time: str
 ) -> Tuple[List[List[str]], Dict[str, str]]:
@@ -269,7 +269,7 @@ def load_clients_data(
 
     for item in data[1:]:
         if (
-                item[dict_name_column['full_name']].lower() == name.lower() and
+                item[dict_name_column['show_id']] == str(show_id) and
                 item[dict_name_column['date_show']].lower() == date.lower() and
                 item[dict_name_column['time_show']].lower() == time.lower()
         ):
