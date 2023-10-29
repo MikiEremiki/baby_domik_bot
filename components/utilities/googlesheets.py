@@ -157,7 +157,10 @@ def write_client(
             # Спектакль
             values[i].append(values_row[0][dict_column_name['show_id']])
             values[i].append(
-                f"=ВПР(G{last_row_for_write};'{RANGE_NAME['Список спектаклей']}'!$A$3:$E;5)"
+                f"=ВПР(G{last_row_for_write};"
+                f"'{RANGE_NAME['Список спектаклей']}'!$A$3:$E;"
+                f'MATCH("name";'
+                f"'Репертуар'!$2:$2;0))"
             )
             # Дата
             values[i].append(values_row[0][dict_column_name['date_show']]
