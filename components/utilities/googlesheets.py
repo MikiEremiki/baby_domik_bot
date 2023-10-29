@@ -178,6 +178,8 @@ def write_client(
                              ticket.quality_of_add_adult)
 
             values[i].append(bool(i))
+            values[i].append(False)
+            values[i].append(bool(i))
         googlesheets_logger.info(values)
 
         end_column_index = len(values[0])
