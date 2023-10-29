@@ -438,6 +438,7 @@ async def choice_option_of_reserve(
     """
     query = update.callback_query
     await query.answer()
+    await query.edit_message_text('Загружаю данные по билетам...')
 
     await update.effective_chat.send_action(ChatAction.TYPING)
 
@@ -611,14 +612,39 @@ async def check_and_send_buy_info(
     """
     query = update.callback_query
     await query.answer()
+    await query.edit_message_text('Готовлю информацию об оплате...')
+
+    user = context.user_data['user']
+    reserve_hl_logger.info(": ".join(
+        [
+            'Пользователь',
+            f'{user}',
+            'выбрал',
+            query.data,
+        ]
+    ))
 
     context.user_data['STATE'] = 'ORDER'
+
+    try:
+        key_option_for_reserve = int(query.data)
+    except ValueError as e:
+        reserve_hl_logger.error(e)
+        text = '<i>Произошла ошибка. Выберите время еще раз</i>\n'
+        text += context.user_data['text_time']
+        reply_markup = context.user_data['keyboard_time']
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
+        )
+        return 'TIME'
 
     date = context.user_data['date_show']
     time = context.user_data['time_show']
     name_show = context.user_data['name_show']
     text_emoji = context.user_data['text_emoji']
-    key_option_for_reserve = int(query.data)
     list_of_tickets = context.bot_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     for ticket in list_of_tickets:
@@ -669,7 +695,8 @@ async def check_and_send_buy_info(
         await query.message.edit_text(
             text=text
         )
-
+        message = await update.effective_chat.send_message(
+            'Проверяю наличие свободных мест...')
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = context.user_data['row_in_googlesheet']
 
@@ -776,6 +803,7 @@ async def check_and_send_buy_info(
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         price = chose_ticket.price
+        await message.delete()
         message = await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=FILE_ID_QR,
