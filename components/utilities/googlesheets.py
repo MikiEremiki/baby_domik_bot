@@ -171,7 +171,8 @@ def write_client(
             values[i].append(ticket.name)
             values[i].append(ticket.price)
             values[i].append(ticket.quality_of_children)
-            values[i].append(ticket.quality_of_adult)
+            values[i].append(ticket.quality_of_adult +
+                             ticket.quality_of_add_adult)
 
             values[i].append(bool(i))
         googlesheets_logger.info(values)
