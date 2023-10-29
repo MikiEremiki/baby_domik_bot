@@ -56,7 +56,7 @@ def update_quality_of_seats(row: str, key):
             googlesheets_logger.info('No data found')
             raise ValueError
 
-        dict_column_name = get_column_name('База спектаклей_')
+        dict_column_name, len_column = get_column_info('База спектаклей_')
 
         return values[0][dict_column_name[key]]
     except HttpError as err:
@@ -152,7 +152,7 @@ def write_client(
                 values[i].append(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
 
-            dict_column_name = get_column_name('База спектаклей_')
+            dict_column_name, len_column = get_column_info('База спектаклей_')
 
             # Спектакль
             values[i].append(values_row[0][dict_column_name['show_id']])
@@ -350,7 +350,7 @@ def execute_request_googlesheet(
         googlesheets_logger.error(value_range_body)
 
 
-def get_column_name(name_sheet):
+def get_column_info(name_sheet):
     data_column_name = get_data_from_spreadsheet(
             RANGE_NAME[name_sheet] + f'2:2'
         )
@@ -358,4 +358,10 @@ def get_column_name(name_sheet):
     for i, item in enumerate(data_column_name[0]):
         dict_column_name[item] = i
 
-    return dict_column_name
+    if len(dict_column_name) != len(data_column_name[0]):
+        googlesheets_logger.warning(
+            'dict_column_name, len(data_column_name[0] не равны')
+        googlesheets_logger.warning(
+            f'{len(dict_column_name)} != {len(data_column_name[0])}')
+
+    return dict_column_name, len(data_column_name[0])
