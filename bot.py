@@ -26,6 +26,7 @@ from utilities.utl_func import (
 async def post_init(application: Application):
     await set_menu(application.bot)
     await set_description(application.bot)
+    set_ticket_data(application)
 
 
 def bot():
