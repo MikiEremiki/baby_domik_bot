@@ -72,17 +72,13 @@ def bot():
         update_ticket_data,
         filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
     application.add_handler(CommandHandler(
-        'log',
+        COMMAND_DICT['LOG'][0],
         send_log,
-        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)
-    ))
-    application.add_handler(
-        CommandHandler(
-            COMMAND_DICT['CB_TW'][0],
-            get_balance,
-            filters=filters.Chat(chat_id=ADMIN_CHAT_ID)
-        )
-    )
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['CB_TW'][0],
+        get_balance,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
 
     application.add_handler(CommandHandler('rcl',
                                            request_contact_location))
