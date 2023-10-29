@@ -53,6 +53,7 @@ from utilities.settings import (
     TICKET_COST,
     DICT_CONVERT_MONTH_NUMBER_TO_STR,
     SUPPORT_DATA,
+    RESERVE_TIMEOUT,
 )
 from utilities.schemas.ticket import BaseTicket
 
@@ -514,8 +515,7 @@ async def choice_option_of_reserve(
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
 
-    # TODO Заменить загрузку из базы на чтение из контекста
-    list_of_tickets = load_ticket_data()
+    list_of_tickets = context.bot_data['list_of_tickets']
     keyboard = []
     list_btn_of_numbers = []
     for i, ticket in enumerate(list_of_tickets):
@@ -594,8 +594,6 @@ __________
         reply_markup=reply_markup
     )
 
-    context.user_data['list_of_tickets'] = list_of_tickets
-
     return 'ORDER'
 
 
@@ -621,7 +619,7 @@ async def check_and_send_buy_info(
     name_show = context.user_data['name_show']
     text_emoji = context.user_data['text_emoji']
     key_option_for_reserve = int(query.data)
-    list_of_tickets = context.user_data['list_of_tickets']
+    list_of_tickets = context.bot_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     for ticket in list_of_tickets:
         if ticket.base_ticket_id == key_option_for_reserve:
@@ -791,10 +789,11 @@ async def check_and_send_buy_info(
  - Переводом в банк Точка по номеру телефона +79159383529 
 - Татьяна Александровна Б.
 
-ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)
-Вам необходимо сделать оплату в течении 15 мин, или бронь будет отменена.
+ВАЖНО! Прислать сюда электронный чек/квитанцию об оплате (файл или скриншот)
+Необходимо отправить чек в течении {RESERVE_TIMEOUT} мин или бронь будет 
+ОТМЕНЕНА!
 __________
-Для успешного подтверждения брони, после отправки квитанции, необходимо 
+Для подтверждения брони администратором, после отправки чека, необходимо 
 заполнить анкету (она придет автоматически)""",
             reply_markup=reply_markup
         )
@@ -963,8 +962,18 @@ __________
         message_text = text.split()
         list_message_text.append(message_text)
 
+    chose_ticket = context.user_data['chose_ticket']
     if not isinstance(list_message_text[0], list):
+        await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
+        return 'CHILDREN'
+    if len(list_message_text) != chose_ticket.quality_of_children:
+        await update.effective_chat.send_message(
+            f'Кол-во детей, которое определено: {len(list_message_text)}\n'
+            f'Кол-во детей, согласно выбранному билету: '
+            f'{chose_ticket.quality_of_children}\n'
+            f'Повторите ввод еще раз, проверьте что каждый ребенок на '
+            f'отдельной строке.\n\nНапример:\nИван 1\nСергей 01.01.2000')
         return 'CHILDREN'
 
     context.user_data['client_data']['data_children'] = list_message_text
@@ -1062,7 +1071,7 @@ async def conversation_timeout(
         [
             'Пользователь',
             f'{user}',
-            'AFK уже 15 мин'
+            f'AFK уже {RESERVE_TIMEOUT} мин'
         ]
     ))
     reserve_hl_logger.info(f'Для пользователя {user}')

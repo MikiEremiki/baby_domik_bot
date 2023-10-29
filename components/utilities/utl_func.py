@@ -20,10 +20,11 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     ExtBot,
+    Application,
 )
 from telegram.error import BadRequest
 
-from db.db_googlesheets import load_date_show_data
+from db.db_googlesheets import load_date_show_data, load_ticket_data
 from utilities.settings import (
     COMMAND_DICT,
     CHAT_ID_MIKIEREMIKI,
@@ -120,6 +121,7 @@ async def set_menu(bot: ExtBot) -> None:
     admin_commands += [
         BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
         BotCommand(COMMAND_DICT['AFISHA'][0], COMMAND_DICT['AFISHA'][1]),
+        BotCommand(COMMAND_DICT['UP_T_DATA'][0], COMMAND_DICT['UP_T_DATA'][1]),
     ]
 
     for chat_id in ADMIN_GROUP_ID:
@@ -136,7 +138,7 @@ async def set_menu(bot: ExtBot) -> None:
             commands=admin_commands,
             scope=BotCommandScopeChat(chat_id=chat_id)
         )
-        utilites_logger.info('Команды для администраторов настроены')
+    utilites_logger.info('Команды для администраторов настроены')
     await bot.set_my_commands(
         commands=default_commands,
         scope=BotCommandScopeDefault()
@@ -157,6 +159,10 @@ async def set_description(bot: ExtBot) -> None:
     await bot.set_my_short_description(
         'Бот-помощник в Бэби-театр «Домик»')
     utilites_logger.info('Описания для бота установлены')
+
+
+def set_ticket_data(application: Application):
+    application.bot_data['list_of_tickets'] = load_ticket_data()
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -251,6 +257,24 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
             utilites_logger.info(item.get('user', 'Нет такого'))
             context.application.mark_data_for_update_persistence(key)
             await context.application.update_persistence()
+
+
+async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    param = context.args
+    if len(param) == 0:
+        await update.effective_chat.send_message(
+            'Не было передано ни какого ключа'
+        )
+    else:
+        try:
+            del context.bot_data[context.args[0]]
+            await update.effective_chat.send_message(
+                f'{context.args[0]} ключ успешно удален'
+            )
+        except KeyError:
+            await update.effective_chat.send_message(
+                f'{context.args[0]} ключа не существует в bot_data'
+            )
 
 
 def create_keys_for_sort(item):

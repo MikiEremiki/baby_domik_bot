@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 from handlers import reserve_hl, main_hl
-from utilities.settings import COMMAND_DICT
+from utilities.settings import COMMAND_DICT, RESERVE_TIMEOUT
 from utilities.utl_func import reset
 
 states = {
@@ -83,7 +83,7 @@ reserve_conv_hl = ConversationHandler(
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],
-    conversation_timeout=15 * 60,  # 15 мин
+    conversation_timeout=RESERVE_TIMEOUT * 60,
     name="reserve",
     persistent=True,
     allow_reentry=True

@@ -56,7 +56,7 @@ def update_quality_of_seats(row: str, key):
             googlesheets_logger.info('No data found')
             raise ValueError
 
-        dict_column_name = get_column_name('База спектаклей_')
+        dict_column_name, len_column = get_column_info('База спектаклей_')
 
         return values[0][dict_column_name[key]]
     except HttpError as err:
@@ -135,7 +135,7 @@ def write_client(
 
         age = None
         for i in range(len(client['data_children'])):
-            values.append([first_row_for_write + i])
+            values.append([int(values_column[-1][0]) + 1])
             for key, item in client.items():
                 if key == 'data_children':
                     item = item[i]
@@ -152,12 +152,15 @@ def write_client(
                 values[i].append(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
 
-            dict_column_name = get_column_name('База спектаклей_')
+            dict_column_name, len_column = get_column_info('База спектаклей_')
 
             # Спектакль
             values[i].append(values_row[0][dict_column_name['show_id']])
             values[i].append(
-                f"=ВПР(G{last_row_for_write};'{RANGE_NAME['Список спектаклей']}'!$A$3:$E;5)"
+                f"=ВПР(G{last_row_for_write};"
+                f"'{RANGE_NAME['Список спектаклей']}'!$A$3:$E;"
+                f'MATCH("name";'
+                f"'Репертуар'!$2:$2;0))"
             )
             # Дата
             values[i].append(values_row[0][dict_column_name['date_show']]
@@ -171,8 +174,11 @@ def write_client(
             values[i].append(ticket.name)
             values[i].append(ticket.price)
             values[i].append(ticket.quality_of_children)
-            values[i].append(ticket.quality_of_adult)
+            values[i].append(ticket.quality_of_adult +
+                             ticket.quality_of_add_adult)
 
+            values[i].append(bool(i))
+            values[i].append(False)
             values[i].append(bool(i))
         googlesheets_logger.info(values)
 
@@ -350,7 +356,7 @@ def execute_request_googlesheet(
         googlesheets_logger.error(value_range_body)
 
 
-def get_column_name(name_sheet):
+def get_column_info(name_sheet):
     data_column_name = get_data_from_spreadsheet(
             RANGE_NAME[name_sheet] + f'2:2'
         )
@@ -358,4 +364,10 @@ def get_column_name(name_sheet):
     for i, item in enumerate(data_column_name[0]):
         dict_column_name[item] = i
 
-    return dict_column_name
+    if len(dict_column_name) != len(data_column_name[0]):
+        googlesheets_logger.warning(
+            'dict_column_name, len(data_column_name[0] не равны')
+        googlesheets_logger.warning(
+            f'{len(dict_column_name)} != {len(data_column_name[0])}')
+
+    return dict_column_name, len(data_column_name[0])
