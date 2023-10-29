@@ -135,7 +135,7 @@ def write_client(
 
         age = None
         for i in range(len(client['data_children'])):
-            values.append([first_row_for_write + i])
+            values.append([int(values_column[-1][0]) + 1])
             for key, item in client.items():
                 if key == 'data_children':
                     item = item[i]
