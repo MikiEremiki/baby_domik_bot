@@ -137,7 +137,7 @@ async def set_menu(bot: ExtBot) -> None:
             commands=admin_commands,
             scope=BotCommandScopeChat(chat_id=chat_id)
         )
-        utilites_logger.info('Команды для администраторов настроены')
+    utilites_logger.info('Команды для администраторов настроены')
     await bot.set_my_commands(
         commands=default_commands,
         scope=BotCommandScopeDefault()
