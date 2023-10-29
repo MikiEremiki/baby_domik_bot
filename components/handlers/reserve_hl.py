@@ -960,8 +960,18 @@ __________
         message_text = text.split()
         list_message_text.append(message_text)
 
+    chose_ticket = context.user_data['chose_ticket']
     if not isinstance(list_message_text[0], list):
+        await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
+        return 'CHILDREN'
+    if len(list_message_text) != chose_ticket.quality_of_children:
+        await update.effective_chat.send_message(
+            f'Кол-во детей, которое определено: {len(list_message_text)}\n'
+            f'Кол-во детей, согласно выбранному билету: '
+            f'{chose_ticket.quality_of_children}\n'
+            f'Повторите ввод еще раз, проверьте что каждый ребенок на '
+            f'отдельной строке.\n\nНапример:\nИван 1\nСергей 01.01.2000')
         return 'CHILDREN'
 
     context.user_data['client_data']['data_children'] = list_message_text
