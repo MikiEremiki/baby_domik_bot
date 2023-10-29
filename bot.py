@@ -66,6 +66,11 @@ def bot():
 
     application.add_handler(CommandHandler('print_ud', print_ud))
     application.add_handler(CommandHandler('clean_ud', clean_ud))
+    application.add_handler(CommandHandler('clean_bd', clean_bd))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['UP_T_DATA'][0],
+        update_ticket_data,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
     application.add_handler(CommandHandler(
         'log',
         send_log,
