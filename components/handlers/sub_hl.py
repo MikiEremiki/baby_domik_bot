@@ -4,7 +4,9 @@ from telegram import (
     Update,
     ReplyKeyboardRemove,
 )
+from telegram.ext import ContextTypes
 
+from db.db_googlesheets import load_ticket_data
 from utilities.googlesheets import (
     update_quality_of_seats,
     write_data_for_reserve
@@ -34,7 +36,6 @@ async def write_old_seat_info(
         row_in_googlesheet,
         chose_ticket
 ):
-
     # Обновляем кол-во доступных мест
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 'qty_child_free_seat')
@@ -77,3 +78,10 @@ async def write_old_seat_info(
                 row_in_googlesheet,
             ]
         ))
+
+
+async def update_ticket_data(
+        _: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    context.bot_data['list_of_tickets'] = load_ticket_data()
