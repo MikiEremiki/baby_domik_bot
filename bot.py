@@ -7,24 +7,19 @@ from telegram.ext import (
     MessageHandler
 )
 
+from log.logging_conf import load_log_config
 from handlers import main_hl
+from handlers.sub_hl import update_ticket_data
+from handlers.timeweb_hl import get_balance
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from conv_hl.afisha_conv_hl import afisha_conv_hl
-from log.logging_conf import load_log_config
-from handlers.timeweb_hl import get_balance
-from utilities.settings import ADMIN_CHAT_ID
-from utilities.settings import API_TOKEN, COMMAND_DICT
+from utilities.settings import ADMIN_CHAT_ID, API_TOKEN, COMMAND_DICT
 from utilities.utl_func import (
-    echo,
-    reset,
-    send_log,
-    set_menu,
-    set_description,
-    print_ud,
-    clean_ud,
-    get_location,
-    get_contact, request_contact_location,
+    echo, reset, send_log,
+    set_menu, set_description, set_ticket_data,
+    get_location, get_contact, request_contact_location,
+    print_ud, clean_ud, clean_bd,
 )
 
 
