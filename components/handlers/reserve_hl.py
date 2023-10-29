@@ -593,8 +593,6 @@ __________
         reply_markup=reply_markup
     )
 
-    context.user_data['list_of_tickets'] = list_of_tickets
-
     return 'ORDER'
 
 
