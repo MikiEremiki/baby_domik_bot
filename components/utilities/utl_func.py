@@ -258,6 +258,24 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.application.update_persistence()
 
 
+async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    param = context.args
+    if len(param) == 0:
+        await update.effective_chat.send_message(
+            'Не было передано ни какого ключа'
+        )
+    else:
+        try:
+            del context.bot_data[context.args[0]]
+            await update.effective_chat.send_message(
+                f'{context.args[0]} ключ успешно удален'
+            )
+        except KeyError:
+            await update.effective_chat.send_message(
+                f'{context.args[0]} ключа не существует в bot_data'
+            )
+
+
 def create_keys_for_sort(item):
     a, b = item.split()[0].split('.')
     return b + a
