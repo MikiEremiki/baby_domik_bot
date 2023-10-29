@@ -81,7 +81,13 @@ async def write_old_seat_info(
 
 
 async def update_ticket_data(
-        _: Update,
+        update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
     context.bot_data['list_of_tickets'] = load_ticket_data()
+    text = 'Билеты обновлены'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+    for item in context.bot_data['list_of_tickets']:
+        sub_hl_logger.info(f'{str(item)}')
