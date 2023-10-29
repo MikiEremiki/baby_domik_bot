@@ -20,10 +20,11 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     ExtBot,
+    Application,
 )
 from telegram.error import BadRequest
 
-from db.db_googlesheets import load_date_show_data
+from db.db_googlesheets import load_date_show_data, load_ticket_data
 from utilities.settings import (
     COMMAND_DICT,
     CHAT_ID_MIKIEREMIKI,
@@ -157,6 +158,10 @@ async def set_description(bot: ExtBot) -> None:
     await bot.set_my_short_description(
         'Бот-помощник в Бэби-театр «Домик»')
     utilites_logger.info('Описания для бота установлены')
+
+
+def set_ticket_data(application: Application):
+    application.bot_data['list_of_tickets'] = load_ticket_data()
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
