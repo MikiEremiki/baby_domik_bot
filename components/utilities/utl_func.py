@@ -121,6 +121,7 @@ async def set_menu(bot: ExtBot) -> None:
     admin_commands += [
         BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
         BotCommand(COMMAND_DICT['AFISHA'][0], COMMAND_DICT['AFISHA'][1]),
+        BotCommand(COMMAND_DICT['UP_T_DATA'][0], COMMAND_DICT['UP_T_DATA'][1]),
     ]
 
     for chat_id in ADMIN_GROUP_ID:
