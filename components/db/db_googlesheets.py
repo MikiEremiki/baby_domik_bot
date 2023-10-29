@@ -248,7 +248,9 @@ def load_ticket_data() -> List[BaseTicket]:
                     db_googlesheets_logger.error(item)
                     db_googlesheets_logger.error(e)
         try:
-            list_of_tickets.append(BaseTicket(**tmp_dict))
+            ticket = BaseTicket(**tmp_dict)
+            if ticket.flag_active:
+                list_of_tickets.append(ticket)
         except ValidationError as exc:
             db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
             db_googlesheets_logger.error(tmp_dict)
