@@ -3,7 +3,8 @@ import datetime
 
 from typing import Any, List, Tuple, Dict
 
-from utilities.googlesheets import get_data_from_spreadsheet, get_column_name
+from pydantic import ValidationError
+
 from utilities.googlesheets import get_data_from_spreadsheet, get_column_info
 from utilities.settings import RANGE_NAME
 from utilities.schemas.ticket import BaseTicket
@@ -236,14 +237,23 @@ def load_ticket_data() -> List[BaseTicket]:
     )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
-    for item in data[2:]:
-        if len(item) == 0:
-            break
+    fields_ticket = [*BaseTicket.model_fields.keys()]
+    for item in data[1:]:
         tmp_dict = {}
-        for i, value in enumerate(item):
-            tmp_dict[data[1][i]] = value
-        list_of_tickets.append(BaseTicket(**tmp_dict))
+        for value in fields_ticket:
+            try:
+                tmp_dict[value] = item[dict_column_name[value]]
+            except KeyError as e:
+                if e.args[0] != 'date_show_tmp':
+                    db_googlesheets_logger.error(item)
+                    db_googlesheets_logger.error(e)
+        try:
+            list_of_tickets.append(BaseTicket(**tmp_dict))
+        except ValidationError as exc:
+            db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
+            db_googlesheets_logger.error(tmp_dict)
 
+    db_googlesheets_logger.info('Список билетов загружен')
     return list_of_tickets
 
 
