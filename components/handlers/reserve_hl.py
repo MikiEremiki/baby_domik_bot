@@ -514,8 +514,7 @@ async def choice_option_of_reserve(
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
 
-    # TODO Заменить загрузку из базы на чтение из контекста
-    list_of_tickets = load_ticket_data()
+    list_of_tickets = context.bot_data['list_of_tickets']
     keyboard = []
     list_btn_of_numbers = []
     for i, ticket in enumerate(list_of_tickets):
