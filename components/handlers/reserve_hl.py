@@ -674,6 +674,7 @@ async def check_and_send_buy_info(
             f'{user}',
             'выбрал',
             chose_ticket.name,
+            price,
         ]
     ))
 
