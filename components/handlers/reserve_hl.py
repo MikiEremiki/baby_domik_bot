@@ -462,6 +462,7 @@ async def choice_option_of_reserve(
     dict_of_shows = context.user_data['dict_of_shows']
     event = dict_of_shows[int(row_in_googlesheet)]
     text_emoji = ''
+    option = ''
     if event['flag_gift']:
         text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
         option = 'Подарок'
@@ -473,6 +474,7 @@ async def choice_option_of_reserve(
     if event['show_id'] == '10' or event['show_id'] == '8':
         option = 'Чтение'
 
+    context.user_data['option'] = option
     context.user_data['text_emoji'] = text_emoji
 
     if int(number) == 0:
@@ -515,6 +517,7 @@ async def choice_option_of_reserve(
     for key, item in dict_of_shows.items():
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
+            context.user_data['flag_indiv_cost'] = flag_indiv_cost
 
     list_of_tickets = context.bot_data['list_of_tickets']
     keyboard = []
@@ -556,7 +559,8 @@ async def choice_option_of_reserve(
 
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
-    date: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
+    date_for_price: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
+    context.user_data['date_for_price'] = date_for_price
 
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
@@ -567,13 +571,12 @@ async def choice_option_of_reserve(
 
         if flag_indiv_cost:
             if key // 100 == 1:
-                if date.weekday() in range(5):
+                if date_for_price.weekday() in range(5):
                     price = TICKET_COST[option]['будни'][key]
                 else:
                     price = TICKET_COST[option]['выходные'][key]
                 text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
                          f'{price} руб\n')
-                ticket.price = price
         else:
             text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
                      f'{price} руб\n')
@@ -644,13 +647,25 @@ async def check_and_send_buy_info(
     date = context.user_data['date_show']
     time = context.user_data['time_show']
     name_show = context.user_data['name_show']
+    flag_indiv_cost = context.user_data['flag_indiv_cost']
+    option = context.user_data['option']
     text_emoji = context.user_data['text_emoji']
     list_of_tickets = context.bot_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
+    price = chose_ticket.price
     for ticket in list_of_tickets:
         if ticket.base_ticket_id == key_option_for_reserve:
             chose_ticket = ticket
-    price = chose_ticket.price
+            price = chose_ticket.price
+
+            key = chose_ticket.base_ticket_id
+            if flag_indiv_cost:
+                if key // 100 == 1:
+                    date_for_price = context.user_data['date_for_price']
+                    if date_for_price.weekday() in range(5):
+                        price = TICKET_COST[option]['будни'][key]
+                    else:
+                        price = TICKET_COST[option]['выходные'][key]
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
