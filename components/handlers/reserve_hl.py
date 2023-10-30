@@ -905,13 +905,12 @@ __________
         message_id
     )
 
-    chose_ticket = context.user_data['chose_ticket']
-    price = chose_ticket.price
+    chose_price = context.user_data['chose_price']
 
     message = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {price} руб\n'
+             f'Запросил подтверждение брони на сумму {chose_price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
         reply_markup=reply_markup
