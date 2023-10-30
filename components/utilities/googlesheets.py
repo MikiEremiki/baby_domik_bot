@@ -108,7 +108,8 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 def write_client(
         client: dict,
         row_in_data_show: str,
-        ticket: BaseTicket
+        ticket: BaseTicket,
+        price: int,
 ) -> None:
     try:
         values_column = get_values(
@@ -172,7 +173,7 @@ def write_client(
             # add ticket info
             values[i].append(ticket.base_ticket_id)
             values[i].append(ticket.name)
-            values[i].append(ticket.price)
+            values[i].append(price)
             values[i].append(ticket.quality_of_children)
             values[i].append(ticket.quality_of_adult +
                              ticket.quality_of_add_adult)

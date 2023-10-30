@@ -817,7 +817,6 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        price = chose_ticket.price
         await message.delete()
         message = await context.bot.send_photo(
             chat_id=update.effective_chat.id,
@@ -842,6 +841,7 @@ __________
         )
 
         context.user_data['chose_ticket'] = chose_ticket
+        context.user_data['chose_price'] = price
         context.user_data['message_id'] = message.message_id
 
         context.user_data['dict_of_shows'].clear()
@@ -1006,6 +1006,7 @@ __________
         list_message_text.append(message_text)
 
     chose_ticket = context.user_data['chose_ticket']
+    chose_price = context.user_data['chose_price']
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
@@ -1034,7 +1035,8 @@ __________
     write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
-        context.user_data['chose_ticket']
+        context.user_data['chose_ticket'],
+        context.user_data['chose_price'],
     )
 
     text = '\n'.join([
