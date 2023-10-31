@@ -1185,7 +1185,7 @@ async def get_phone_for_waiting(
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
-        return 'PHONE'
+        return 'PHONE_FOR_WAITING'
 
     text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
