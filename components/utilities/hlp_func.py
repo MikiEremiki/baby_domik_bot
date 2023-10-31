@@ -50,14 +50,14 @@ def create_replay_markup_for_list_of_shows(
     i = 0
     y = yrange(len(dict_of_show))
     for key, items in dict_of_show.items():
+        if (number_of_month is not None and
+                key[3:5] != number_of_month):
+            continue
         num = next(y) + 1
         button_tmp = None
         match ver:
             case 1:
                 for item in items:
-                    if (number_of_month is not None and
-                            key[3:5] != number_of_month):
-                        continue
                     if number_of_month:
                         filter_show_id = enum_current_show_by_month(
                             dict_of_show, number_of_month)
@@ -75,9 +75,6 @@ def create_replay_markup_for_list_of_shows(
                 )
             case 3:
                 for item in items:
-                    if (number_of_month is not None and
-                            key[3:5] != number_of_month):
-                        continue
                     if number_of_month:
                         filter_show_id = enum_current_show_by_month(
                             dict_of_show, number_of_month)
