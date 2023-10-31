@@ -77,6 +77,7 @@ def load_show_data() -> tuple[
     for i, item in enumerate(data):
         i += first_row - 1
         dict_of_shows[i + 1] = {
+            'event_id': item[dict_column_name['event_id']],
             'show_id': item[dict_column_name['show_id']],
             'name_show': item[dict_column_name['name_show']],
             'date_show': item[dict_column_name['date_show']],
