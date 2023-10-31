@@ -1006,7 +1006,6 @@ __________
         list_message_text.append(message_text)
 
     chose_ticket = context.user_data['chose_ticket']
-    chose_price = context.user_data['chose_price']
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
@@ -1032,11 +1031,12 @@ __________
     ))
     reserve_hl_logger.info(context.user_data['client_data'])
 
+    chose_price = context.user_data['chose_price']
     write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
-        context.user_data['chose_ticket'],
-        context.user_data['chose_price'],
+        chose_ticket,
+        chose_price,
     )
 
     text = '\n'.join([
