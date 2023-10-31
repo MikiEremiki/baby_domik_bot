@@ -15,7 +15,6 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 from telegram.constants import ParseMode, ChatType, ChatAction
-from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
     request_phone_number,
@@ -25,7 +24,6 @@ from handlers.sub_hl import (
 from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
-    load_ticket_data,
     load_list_show,
 )
 from utilities.googlesheets import (
