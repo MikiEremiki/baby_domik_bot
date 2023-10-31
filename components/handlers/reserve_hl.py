@@ -1196,6 +1196,7 @@ async def get_phone_for_waiting(
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,
+        parse_mode=ParseMode.HTML
     )
     await update.effective_chat.send_message(
         text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
