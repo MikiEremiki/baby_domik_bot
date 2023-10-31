@@ -29,7 +29,8 @@ from db.db_googlesheets import (
 from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
-    update_quality_of_seats
+    write_client_list_waiting,
+    update_quality_of_seats,
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
@@ -1198,6 +1199,7 @@ async def get_phone_for_waiting(
         text=text,
         parse_mode=ParseMode.HTML
     )
+    write_client_list_waiting(context)
     await update.effective_chat.send_message(
         text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
     Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
