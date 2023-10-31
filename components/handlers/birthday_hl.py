@@ -206,7 +206,12 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text += escape_markdown(f'{item["full_name"]}\n', 2)
 
         reply_markup = create_replay_markup_for_list_of_shows(
-            dict_of_shows_for_bd, 3, 2, False)
+            dict_of_shows_for_bd,
+            3,
+            2,
+            add_cancel_btn=False,
+            add_back_btn=False,
+        )
 
         await update.effective_chat.send_message(
             text=text,
