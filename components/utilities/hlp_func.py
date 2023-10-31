@@ -50,16 +50,17 @@ def create_replay_markup_for_list_of_shows(
     i = 0
     y = yrange(len(dict_of_show))
     for key, items in dict_of_show.items():
-        for item in items:
-            if number_of_month is not None and key[3:5] != number_of_month:
-                continue
-            num = next(y) + 1
-            button_tmp = None
-            match ver:
-                case 1:
+        num = next(y) + 1
+        button_tmp = None
+        match ver:
+            case 1:
+                for item in items:
+                    if (number_of_month is not None and
+                            key[3:5] != number_of_month):
+                        continue
                     if number_of_month:
-                        filter_show_id = enum_current_show_by_month(dict_of_show,
-                                                                    number_of_month)
+                        filter_show_id = enum_current_show_by_month(
+                            dict_of_show, number_of_month)
 
                         if item in filter_show_id.keys():
                             button_tmp = InlineKeyboardButton(
@@ -67,16 +68,21 @@ def create_replay_markup_for_list_of_shows(
                                     filter_show_id[item]],
                                 callback_data=str(item) + ' | ' + key
                             )
-                case 2:
-                    button_tmp = InlineKeyboardButton(
-                        text=DICT_OF_EMOJI_FOR_BUTTON[num],
-                        callback_data=key
-                    )
-                case 3:
+            case 2:
+                button_tmp = InlineKeyboardButton(
+                    text=DICT_OF_EMOJI_FOR_BUTTON[num],
+                    callback_data=key
+                )
+            case 3:
+                for item in items:
+                    if (number_of_month is not None and
+                            key[3:5] != number_of_month):
+                        continue
                     if number_of_month:
-                        filter_show_id = enum_current_show_by_month(dict_of_show,
-                                                                    number_of_month)
-                        if item in filter_show_id.keys() and item == number_of_show:
+                        filter_show_id = enum_current_show_by_month(
+                            dict_of_show, number_of_month)
+                        if (item in filter_show_id.keys() and
+                                item == number_of_show):
                             text = key
                             flag_gift = False
                             flag_christmas_tree = False
@@ -101,15 +107,15 @@ def create_replay_markup_for_list_of_shows(
                             )
                         else:
                             continue
-            list_btn_of_numbers.append(button_tmp)
+        list_btn_of_numbers.append(button_tmp)
 
-            i += 1
-            # Две кнопки в строке так как для узких экранов телефонов дни недели
-            # обрезаются
-            if i % num_colum == 0:
-                i = 0
-                keyboard.append(list_btn_of_numbers)
-                list_btn_of_numbers = []
+        i += 1
+        # Две кнопки в строке так как для узких экранов телефонов дни недели
+        # обрезаются
+        if i % num_colum == 0:
+            i = 0
+            keyboard.append(list_btn_of_numbers)
+            list_btn_of_numbers = []
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
