@@ -5,6 +5,7 @@ from typing import List, Any
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from telegram.ext import ContextTypes
 
 from utilities.settings import RANGE_NAME, SPREADSHEET_ID
 from utilities.schemas.ticket import BaseTicket
@@ -253,6 +254,66 @@ def write_client_bd(
 
         range_sheet = (RANGE_NAME['База ДР_'] +
                        f'R{first_row_for_write + 1}C1:' +
+                       f'R{last_row_for_write + 1}C{end_column_index}')
+
+        execute_request_googlesheet(sheet,
+                                    range_sheet,
+                                    value_input_option,
+                                    response_value_render_option,
+                                    value_range_body)
+
+    except HttpError as err:
+        googlesheets_logger.error(err)
+
+
+def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        values_column = get_values(
+            SPREADSHEET_ID['Домик'],
+            RANGE_NAME['Лист ожидания']
+        )
+
+        if not values_column:
+            googlesheets_logger.info('No data found')
+            return
+
+        first_row_for_write = len(values_column)
+        last_row_for_write = first_row_for_write + 1
+
+        sheet = get_service_sacc(SCOPES).spreadsheets()
+        value_input_option = 'USER_ENTERED'
+        response_value_render_option = 'FORMATTED_VALUE'
+        values: List[List[Any]] = [[]]
+
+        date = datetime.now().strftime('%y%m%d %H:%M:%S')
+
+        values[0].append(context.user_data['user'].id)
+        values[0].append(context.user_data['user'].username)
+        values[0].append(context.user_data['user'].full_name)
+        values[0].append(context.user_data['phone'])
+        values[0].append(date)
+        values[0].append(context.user_data['event_id'])
+        for i in range(5):
+            values[0].append(
+                f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{i+1};FALSE);'
+                f'\'Расписание\'!$1:$253;'
+                f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
+                f'0)'
+            )
+        values[0].append(
+            '=IF(INDIRECT("R"&ROW()&"C"&COLUMN()-1;False)>0;"Позвонить";)'
+        )
+
+        googlesheets_logger.info(values)
+
+        end_column_index = len(values[0])
+
+        value_range_body = {
+            'values': values,
+        }
+
+        range_sheet = (RANGE_NAME['Лист ожидания_'] +
+                       f'R{first_row_for_write + 1}C1:'
                        f'R{last_row_for_write + 1}C{end_column_index}')
 
         execute_request_googlesheet(sheet,

@@ -15,7 +15,6 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 from telegram.constants import ParseMode, ChatType, ChatAction
-from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
     request_phone_number,
@@ -25,13 +24,13 @@ from handlers.sub_hl import (
 from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
-    load_ticket_data,
     load_list_show,
 )
 from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
-    update_quality_of_seats
+    write_client_list_waiting,
+    update_quality_of_seats,
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
@@ -374,6 +373,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             show_id = item['show_id']
             time = item['time_show']
             number = item['qty_child_free_seat']
+            if int(number) < 0:
+                number = 0
             text = time
             text_emoji = ''
             if item['flag_gift']:
@@ -461,6 +462,7 @@ async def choice_option_of_reserve(
 
     dict_of_shows = context.user_data['dict_of_shows']
     event = dict_of_shows[int(row_in_googlesheet)]
+    context.user_data['event_id'] = event['event_id']
     text_emoji = ''
     option = ''
     if event['flag_gift']:
@@ -674,6 +676,7 @@ async def check_and_send_buy_info(
             f'{user}',
             'выбрал',
             chose_ticket.name,
+            str(price),
         ]
     ))
 
@@ -1005,7 +1008,6 @@ __________
         list_message_text.append(message_text)
 
     chose_ticket = context.user_data['chose_ticket']
-    chose_price = context.user_data['chose_price']
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
@@ -1031,11 +1033,12 @@ __________
     ))
     reserve_hl_logger.info(context.user_data['client_data'])
 
+    chose_price = context.user_data['chose_price']
     write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
-        context.user_data['chose_ticket'],
-        context.user_data['chose_price'],
+        chose_ticket,
+        chose_price,
     )
 
     text = '\n'.join([
@@ -1184,8 +1187,9 @@ async def get_phone_for_waiting(
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
-        return 'PHONE'
+        return 'PHONE_FOR_WAITING'
 
+    context.user_data['phone'] = phone
     text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
     user = context.user_data['user']
@@ -1195,7 +1199,9 @@ async def get_phone_for_waiting(
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,
+        parse_mode=ParseMode.HTML
     )
+    write_client_list_waiting(context)
     await update.effective_chat.send_message(
         text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
     Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""

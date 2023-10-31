@@ -89,6 +89,8 @@ time: str = '17:00'
 
 # Старая версия словаря со спектаклями, используется в reserve
 dict_of_shows = {
+    'event_id': int,
+    'show_id': int,
     'name_show': name,
     'date_show': date,
     'time_show': time,
