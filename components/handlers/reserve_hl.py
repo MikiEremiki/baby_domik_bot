@@ -462,6 +462,7 @@ async def choice_option_of_reserve(
 
     dict_of_shows = context.user_data['dict_of_shows']
     event = dict_of_shows[int(row_in_googlesheet)]
+    context.user_data['event_id'] = event['event_id']
     text_emoji = ''
     option = ''
     if event['flag_gift']:
@@ -1188,6 +1189,7 @@ async def get_phone_for_waiting(
         await request_phone_number(update, phone)
         return 'PHONE_FOR_WAITING'
 
+    context.user_data['phone'] = phone
     text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
     user = context.user_data['user']
