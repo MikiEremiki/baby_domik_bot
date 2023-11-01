@@ -359,7 +359,7 @@ def set_approve_order(bd_data, step=0) -> None:
         for i, item in enumerate(values):
             if (item[0] == bd_data['phone'] and
                     item[2] == bd_data['address'] and
-                    item[3].split()[0] == bd_data['date'] and
+                    item[3] == bd_data['date'] and
                     item[4] == bd_data['time']):
                 sheet = get_service_sacc(SCOPES).spreadsheets()
                 value_input_option = 'USER_ENTERED'
