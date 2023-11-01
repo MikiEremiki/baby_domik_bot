@@ -104,6 +104,8 @@ def create_replay_markup_for_list_of_shows(
                             )
                         else:
                             continue
+        if button_tmp is None:
+            continue
         list_btn_of_numbers.append(button_tmp)
 
         i += 1
