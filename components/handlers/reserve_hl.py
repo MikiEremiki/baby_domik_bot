@@ -1026,7 +1026,16 @@ __________
         message_text = text.split()
         list_message_text.append(message_text)
 
-    chose_ticket = context.user_data['chose_ticket']
+    try:
+        chose_ticket = context.user_data['chose_ticket']
+    except KeyError as e:
+        await update.effective_chat.send_message(
+            'Произошел технический сбой.\n'
+            f'Повторите, пожалуйста, бронирование еще раз\n'
+            f'/{COMMAND_DICT["RESERVE"][0]}\n'
+            'Приносим извинения за предоставленные неудобства.'
+        )
+        return ConversationHandler.END
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
