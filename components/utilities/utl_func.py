@@ -76,7 +76,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
-        parse_mode=constants.ParseMode.HTML
+        parse_mode=constants.ParseMode.HTML,
+        message_thread_id=update.effective_message.message_thread_id
     )
 
 
