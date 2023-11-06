@@ -647,7 +647,7 @@ async def conversation_timeout(
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-
+    user = context.user_data['user']
     if context.user_data['STATE'] == 'PAID':
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
@@ -662,12 +662,11 @@ async def conversation_timeout(
     birthday_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'AFK уже 30 мин'
         ]
     ))
-    birthday_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    birthday_hl_logger.info(f'Для пользователя {user}')
     birthday_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
