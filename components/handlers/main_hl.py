@@ -17,6 +17,7 @@ from utilities.googlesheets import (
     write_data_for_reserve,
     set_approve_order
 )
+from utilities.utl_func import is_admin
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -42,6 +43,10 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     используемое в ConversationHandler и возвращает свободные места для
     доступа к бронированию
     """
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: подтвердить бронь')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -129,6 +134,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Отправляет оповещение об отказе в бронировании, удаляет сообщение
     используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
     """
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: отклонить бронь')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -190,6 +199,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: подтвердить день рождения')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -251,6 +264,10 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: отклонить день рождения')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -316,7 +333,8 @@ async def back_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = context.user_data['keyboard_month']
     await update.effective_chat.send_message(
         text=text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        message_thread_id=query.message.message_thread_id
     )
     return 'MONTH'
 
@@ -343,7 +361,8 @@ async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            message_thread_id=query.message.message_thread_id
         )
     return 'SHOW'
 
@@ -374,14 +393,16 @@ async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 photo=photo,
                 caption=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
             )
             context.user_data['afisha_media'] = [message]
         else:
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
             )
     except BadRequest as e:
         main_handlers_logger.error(e)
@@ -429,7 +450,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
                      f'/{COMMAND_DICT["RESERVE"][0]} - для повторного '
-                     f'резервирования свободных мест на спектакль'
+                     f'резервирования свободных мест на спектакль',
+                message_thread_id=query.message.message_thread_id
             )
 
             if '|' in query.data:
@@ -455,7 +477,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'отправки заявки на проведение Дня рождения\n'
                      f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
                      f'запуска процедуры внесения предоплаты, если ваша заявка '
-                     f'была одобрена'
+                     f'была одобрена',
+                message_thread_id=query.message.message_thread_id
             )
 
     try:
@@ -480,8 +503,10 @@ async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         ]
     ))
     # TODO Прописать логику использования help
-    await update.effective_chat.send_message('Текущая операция сброшена.\n'
-                                             'Можете выполните новую команду')
+    await update.effective_chat.send_message(
+        'Текущая операция сброшена.\nМожете выполните новую команду',
+        message_thread_id=update.message.message_thread_id
+    )
     return ConversationHandler.END
 
 

@@ -66,6 +66,13 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state MONTH
     """
+    if update.effective_message.is_topic_message:
+        thread_id = (context.bot_data['dict_topics_name']
+                     .get('Списки на показы', None))
+        if update.effective_message.message_thread_id != thread_id:
+            await update.effective_message.reply_text(
+                'Выполните команду в правильном топике')
+            return ConversationHandler.END
     state = 'START'
 
     reserve_hl_logger.info(f'Пользователь начал выбор месяца:'
@@ -89,10 +96,11 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
-            'К сожалению я сегодня на техническом обслуживании\n'
-            'Но вы можете забронировать место по старинке в ЛС telegram или по '
-            'телефону:\n'
-            'Татьяна Бурганова @Tanya_domik +79159383529'
+            text='К сожалению я сегодня на техническом обслуживании\n'
+                 'Но вы можете забронировать место по старинке в ЛС telegram или по '
+                 'телефону:\n'
+                 'Татьяна Бурганова @Tanya_domik +79159383529',
+            message_thread_id=update.message.message_thread_id
         )
         return ConversationHandler.END
     except TimeoutError:
@@ -101,10 +109,11 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
-            'Произошел разрыв соединения, попробуйте еще раз\n'
-            'Если проблема повторится вы можете забронировать место в ЛС '
-            'telegram или по телефону:\n'
-            'Татьяна Бурганова @Tanya_domik +79159383529'
+            text='Произошел разрыв соединения, попробуйте еще раз\n'
+                 'Если проблема повторится вы можете забронировать место в ЛС '
+                 'telegram или по телефону:\n'
+                 'Татьяна Бурганова @Tanya_domik +79159383529',
+            message_thread_id=update.message.message_thread_id
         )
         return ConversationHandler.END
 
@@ -134,7 +143,8 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.effective_chat.send_message(
         text=text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        message_thread_id=update.message.message_thread_id
     )
 
     context.user_data['user'] = user
@@ -237,7 +247,8 @@ async def choice_show_and_date(
     else:
         await update.effective_chat.send_message(
             text=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            message_thread_id=update.callback_query.message.message_thread_id
         )
 
     context.user_data['number_of_month_str'] = number_of_month_str
@@ -409,7 +420,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
+        message_thread_id=update.callback_query.message.message_thread_id
     )
 
     context.user_data['date_show'] = date_show
@@ -715,6 +727,7 @@ async def check_and_send_buy_info(
         )
         message = await update.effective_chat.send_message(
             'Проверяю наличие свободных мест...')
+        await update.effective_chat.send_action(ChatAction.TYPING)
         # Номер строки для извлечения актуального числа доступных мест
         row_in_googlesheet = context.user_data['row_in_googlesheet']
 
@@ -876,19 +889,24 @@ async def forward_photo_or_file(
     user = context.user_data['user']
     text = context.user_data['text_for_notification_massage']
 
+    thread_id = (context.bot_data['dict_topics_name']
+                 .get('Бронирование спектаклей', None))
     res = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'#Бронирование\n'
-             f'Квитанция пользователя @{user.username} {user.full_name}\n'
+             f'Квитанция пользователя @{user.username} {user.full_name}\n',
+        message_thread_id=thread_id
     )
     await update.effective_message.forward(
         chat_id=ADMIN_GROUP,
+        message_thread_id=thread_id
     )
     message_id_for_admin = res.message_id
     await send_message_to_admin(ADMIN_GROUP,
                                 text,
                                 message_id_for_admin,
-                                context)
+                                context,
+                                thread_id)
 
     # Сообщение для опроса
     await update.effective_chat.send_message("""Для подтверждения брони 
@@ -916,7 +934,8 @@ __________
              f'Запросил подтверждение брони на сумму {chose_price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        message_thread_id=thread_id
     )
 
     context.user_data['message_id_for_admin'] = message.message_id
@@ -974,6 +993,8 @@ async def get_name_children(
 ):
     context.user_data["STATE"] = 'CHILDREN'
 
+    await update.effective_chat.send_action(ChatAction.TYPING)
+
     text = update.effective_message.text
     text_for_message = """Проверьте, что указали дату или возраст правильно
 Возможные форматы записи:
@@ -1007,7 +1028,16 @@ __________
         message_text = text.split()
         list_message_text.append(message_text)
 
-    chose_ticket = context.user_data['chose_ticket']
+    try:
+        chose_ticket = context.user_data['chose_ticket']
+    except KeyError as e:
+        await update.effective_chat.send_message(
+            'Произошел технический сбой.\n'
+            f'Повторите, пожалуйста, бронирование еще раз\n'
+            f'/{COMMAND_DICT["RESERVE"][0]}\n'
+            'Приносим извинения за предоставленные неудобства.'
+        )
+        return ConversationHandler.END
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
@@ -1034,7 +1064,7 @@ __________
     reserve_hl_logger.info(context.user_data['client_data'])
 
     chose_price = context.user_data['chose_price']
-    write_client(
+    record_ids = write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
         chose_ticket,
@@ -1046,14 +1076,18 @@ __________
         '+7' + context.user_data['client_data']['phone'],
         text,
     ])
+    text += '\n\n'
+    for record in record_ids:
+        text += f'#id{record} '
     message_id_for_admin = context.user_data['message_id_for_admin']
 
-    # Возникла ошибка, когда сообщение удалено, то бот по кругу находится в
-    # 'CHILDREN' state, написал обходной путь для этого
+    thread_id = (context.bot_data['dict_topics_name']
+                 .get('Бронирование спектаклей', None))
     await send_message_to_admin(ADMIN_GROUP,
                                 text,
                                 message_id_for_admin,
-                                context)
+                                context,
+                                thread_id)
 
     await update.effective_chat.send_message(
         'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '
@@ -1111,7 +1145,8 @@ async def conversation_timeout(
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(
-            'От Вас долго не было ответа, пожалуйста выполните новый запрос'
+            'От Вас долго не было ответа, пожалуйста выполните новый запрос',
+            message_thread_id=update.effective_message.message_thread_id
         )
 
     reserve_hl_logger.info(": ".join(
@@ -1140,10 +1175,12 @@ async def send_clients_data(
 
     name = context.user_data['name_show']
     date = context.user_data['date_show']
-    show_id = context.user_data['show_id']
-    time = query.data.split(' | ')[0]
+    dict_of_shows = context.user_data['dict_of_shows']
+    time, row_in_googlesheet, number = query.data.split(' | ')
+    event = dict_of_shows[int(row_in_googlesheet)]
+    event_id = event['event_id']
 
-    clients_data, name_column = load_clients_data(show_id, date, time)
+    clients_data, name_column = load_clients_data(event_id)
     text = f'#Показ\n'
     text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))
@@ -1193,13 +1230,16 @@ async def get_phone_for_waiting(
     text = context.user_data['text_for_list_waiting'] + '+7' + phone
 
     user = context.user_data['user']
+    thread_id = (context.bot_data['dict_topics_name']
+                 .get('Лист ожидания', None))
     text = f'#Лист_ожидания\n' \
            f'Пользователь @{user.username} {user.full_name}\n' \
            f'Запросил добавление в лист ожидания\n' + text
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
+        message_thread_id=thread_id
     )
     write_client_list_waiting(context)
     await update.effective_chat.send_message(

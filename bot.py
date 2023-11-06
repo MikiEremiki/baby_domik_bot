@@ -14,12 +14,13 @@ from handlers.timeweb_hl import get_balance
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from conv_hl.afisha_conv_hl import afisha_conv_hl
-from utilities.settings import ADMIN_CHAT_ID, API_TOKEN, COMMAND_DICT
+from utilities.settings import API_TOKEN, ADMIN_CHAT_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
     set_menu, set_description, set_ticket_data,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
+    create_or_connect_topic, del_topic,
 )
 
 
@@ -78,6 +79,14 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['CB_TW'][0],
         get_balance,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['TOPIC_START'][0],
+        create_or_connect_topic,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['TOPIC_DEL'][0],
+        del_topic,
         filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
 
     application.add_handler(CommandHandler('rcl',

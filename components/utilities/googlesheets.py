@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List, Any
+from typing import List, Any, Optional
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -111,7 +111,7 @@ def write_client(
         row_in_data_show: str,
         ticket: BaseTicket,
         price: int,
-) -> None:
+) -> Optional[List[int]]:
     try:
         values_column = get_values(
             SPREADSHEET_ID['Домик'],
@@ -134,10 +134,13 @@ def write_client(
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
         values: List[Any] = []
+        record_ids = []
 
         age = None
         for i in range(len(client['data_children'])):
-            values.append([int(values_column[-1][0]) + 1])
+            record_id = int(values_column[-1][0]) + 1 + i
+            values.append([record_id])
+            record_ids.append(record_id)
             for key, item in client.items():
                 if key == 'data_children':
                     item = item[i]
@@ -157,18 +160,14 @@ def write_client(
             dict_column_name, len_column = get_column_info('База спектаклей_')
 
             # Спектакль
-            values[i].append(values_row[0][dict_column_name['show_id']])
-            values[i].append(
-                f"=ВПР(G{last_row_for_write};"
-                f"'{RANGE_NAME['Список спектаклей']}'!$A$3:$E;"
-                f'MATCH("name";'
-                f"'Репертуар'!$2:$2;0))"
-            )
-            # Дата
-            values[i].append(values_row[0][dict_column_name['date_show']]
-                             .split()[0])
-            # Время показа
-            values[i].append(values_row[0][dict_column_name['time_show']])
+            values[i].append(values_row[0][dict_column_name['event_id']])
+            for j in range(4):
+                values[i].append(
+                    f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{j + 1};FALSE);'
+                    f'\'Расписание\'!$1:$253;'
+                    f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
+                    f'0)'
+                )
             values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
             # add ticket info
@@ -200,6 +199,7 @@ def write_client(
                                     response_value_render_option,
                                     value_range_body)
 
+        return record_ids
     except HttpError as err:
         googlesheets_logger.error(err)
 

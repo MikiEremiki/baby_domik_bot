@@ -10,7 +10,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, ChatAction
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
@@ -186,6 +186,7 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_chat.send_action(ChatAction.TYPING)
     time = update.effective_message.text
 
     birthday_hl_logger.info(join_for_log_info(
@@ -505,11 +506,14 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             2
         )
         text += context.user_data['text_for_notification_massage']
+        thread_id = (context.bot_data['dict_topics_name']
+                     .get('Выездные мероприятия', None))
         message = await context.bot.send_message(
             text=text,
             chat_id=ADMIN_GROUP,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN_V2
+            parse_mode=ParseMode.MARKDOWN_V2,
+            message_thread_id=thread_id
         )
 
         context.user_data['message_id_for_admin'] = message.message_id
@@ -590,13 +594,17 @@ async def forward_photo_or_file(
 
         text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
         message_id_for_admin = context.user_data['message_id_for_admin']
+        thread_id = (context.bot_data['dict_topics_name']
+                     .get('Выездные мероприятия', None))
         await send_message_to_admin(ADMIN_GROUP,
                                     text,
                                     message_id_for_admin,
-                                    context)
+                                    context,
+                                    thread_id)
 
         await update.effective_message.forward(
             chat_id=ADMIN_GROUP,
+            message_thread_id=thread_id
         )
 
         reply_markup = create_approve_and_reject_replay(
@@ -609,7 +617,8 @@ async def forward_photo_or_file(
             chat_id=ADMIN_GROUP,
             text=f'Пользователь @{user.username} {user.full_name}\n'
                  f'Запросил подтверждение брони на сумму 5000 руб\n',
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            message_thread_id=thread_id
         )
 
     except KeyError as err:
@@ -638,7 +647,7 @@ async def conversation_timeout(
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-
+    user = context.user_data['user']
     if context.user_data['STATE'] == 'PAID':
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
@@ -653,12 +662,11 @@ async def conversation_timeout(
     birthday_hl_logger.info(": ".join(
         [
             'Пользователь',
-            str(context.user_data['user'].id),
-            str(context.user_data['user'].full_name),
+            f'{user}',
             'AFK уже 30 мин'
         ]
     ))
-    birthday_hl_logger.info(f'Для пользователя {context.user_data["user"]}')
+    birthday_hl_logger.info(f'Для пользователя {user}')
     birthday_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data["STATE"]}')
     context.user_data.clear()
