@@ -993,6 +993,8 @@ async def get_name_children(
 ):
     context.user_data["STATE"] = 'CHILDREN'
 
+    await update.effective_chat.send_action(ChatAction.TYPING)
+
     text = update.effective_message.text
     text_for_message = """Проверьте, что указали дату или возраст правильно
 Возможные форматы записи:
