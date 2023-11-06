@@ -1064,7 +1064,7 @@ __________
     reserve_hl_logger.info(context.user_data['client_data'])
 
     chose_price = context.user_data['chose_price']
-    write_client(
+    record_ids = write_client(
         context.user_data['client_data'],
         context.user_data['row_in_googlesheet'],
         chose_ticket,
@@ -1076,6 +1076,9 @@ __________
         '+7' + context.user_data['client_data']['phone'],
         text,
     ])
+    text += '\n\n'
+    for record in record_ids:
+        text += f'#id{record} '
     message_id_for_admin = context.user_data['message_id_for_admin']
 
     thread_id = (context.bot_data['dict_topics_name']
@@ -1172,10 +1175,12 @@ async def send_clients_data(
 
     name = context.user_data['name_show']
     date = context.user_data['date_show']
-    show_id = context.user_data['show_id']
-    time = query.data.split(' | ')[0]
+    dict_of_shows = context.user_data['dict_of_shows']
+    time, row_in_googlesheet, number = query.data.split(' | ')
+    event = dict_of_shows[int(row_in_googlesheet)]
+    event_id = event['event_id']
 
-    clients_data, name_column = load_clients_data(show_id, date, time)
+    clients_data, name_column = load_clients_data(event_id)
     text = f'#Показ\n'
     text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
     text += str(len(clients_data))
