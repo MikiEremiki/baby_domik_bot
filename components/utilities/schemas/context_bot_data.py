@@ -9,5 +9,5 @@ context_bot_data: Dict = {
     'afisha': {
         int: str,  # int - номер месяца, str - file_id картинки
     },
-    'dict_topics_name': Dict[str, Optional[int, None]]
+    'dict_topics_name': Dict[str, Optional[int]]
 }

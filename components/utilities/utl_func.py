@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from pprint import pprint
-from typing import List, Union
+from typing import List, Union, Optional
 
 from telegram import (
     Update,
@@ -28,7 +28,6 @@ from db.db_googlesheets import load_date_show_data, load_ticket_data
 from utilities.settings import (
     COMMAND_DICT,
     CHAT_ID_MIKIEREMIKI,
-    ADMIN_GROUP,
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
     LIST_TOPICS_NAME,
@@ -189,13 +188,15 @@ async def send_message_to_admin(
         chat_id: Union[int, str],
         text: str,
         message_id: Union[int, str],
-        context: ContextTypes.DEFAULT_TYPE
+        context: ContextTypes.DEFAULT_TYPE,
+        thread_id: Optional[int]
 ) -> None:
     try:
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            reply_to_message_id=message_id
+            reply_to_message_id=message_id,
+            message_thread_id=thread_id
         )
     except BadRequest:
         utilites_logger.info(": ".join(
@@ -209,6 +210,7 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
+            message_thread_id=thread_id
         )
 
 
@@ -392,7 +394,7 @@ async def create_or_connect_topic(
         except Exception as e:
             utilites_logger.error(e)
     else:
-        text = f'Cозданные топики:\n{context.bot_data['dict_topics_name']}'
+        text = f'Используемые топики:\n{context.bot_data['dict_topics_name']}'
         text_bad_topic = '\n\nНе рабочие топики:'
         for name, topic_id in context.bot_data['dict_topics_name'].items():
             try:

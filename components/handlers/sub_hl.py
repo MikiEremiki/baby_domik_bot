@@ -26,7 +26,8 @@ async def request_phone_number(update, phone):
 async def send_and_del_message_to_remove_kb(update: Update):
     return await update.effective_chat.send_message(
         text='Загружаем данные',
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        message_thread_id=update.message.message_thread_id
     )
 
 
