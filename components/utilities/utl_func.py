@@ -30,6 +30,7 @@ from utilities.settings import (
     CHAT_ID_MIKIEREMIKI,
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
+    ADMIN_ID
 )
 
 utilites_logger = logging.getLogger('bot.utilites')
@@ -341,3 +342,21 @@ def create_btn(text, postfix_for_callback):
         callback_data=callback_data
     )
     return btn
+
+
+def is_admin(update: Update):
+    is_admin_flag = update.effective_user.id in ADMIN_ID
+    text = ": ".join(
+        [
+            'Пользователь',
+            str(update.effective_user.id),
+            str(update.effective_user.full_name),
+        ],
+    )
+    if is_admin_flag:
+        text += ': Является администратором'
+    else:
+        text += ': Не является администратором'
+    utilites_logger.info(text)
+
+    return is_admin_flag
