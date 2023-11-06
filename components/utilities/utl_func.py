@@ -6,15 +6,11 @@ from typing import List, Union, Optional
 
 from telegram import (
     Update,
+    BotCommand, BotCommandScopeDefault,
+    BotCommandScopeChat, BotCommandScopeChatAdministrators,
+    ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton,
     InlineKeyboardButton,
-    BotCommand,
-    BotCommandScopeDefault,
-    BotCommandScopeChat,
-    BotCommandScopeChatAdministrators,
     constants,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-    KeyboardButton,
 )
 from telegram.ext import (
     ContextTypes,
@@ -26,12 +22,9 @@ from telegram.error import BadRequest
 
 from db.db_googlesheets import load_date_show_data, load_ticket_data
 from utilities.settings import (
-    COMMAND_DICT,
-    CHAT_ID_MIKIEREMIKI,
-    ADMIN_GROUP_ID,
-    ADMIN_CHAT_ID,
+    COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
+    ADMIN_ID, ADMIN_GROUP_ID, ADMIN_CHAT_ID,
     LIST_TOPICS_NAME,
-    ADMIN_ID
 )
 
 utilites_logger = logging.getLogger('bot.utilites')
