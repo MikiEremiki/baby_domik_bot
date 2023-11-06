@@ -28,8 +28,10 @@ from db.db_googlesheets import load_date_show_data, load_ticket_data
 from utilities.settings import (
     COMMAND_DICT,
     CHAT_ID_MIKIEREMIKI,
+    ADMIN_GROUP,
     ADMIN_GROUP_ID,
     ADMIN_CHAT_ID,
+    LIST_TOPICS_NAME,
 )
 
 utilites_logger = logging.getLogger('bot.utilites')
@@ -342,3 +344,95 @@ def create_btn(text, postfix_for_callback):
         callback_data=callback_data
     )
     return btn
+
+
+async def _bot_is_admin(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    admins = await update.effective_chat.get_administrators()
+    admins = [admin.user.id for admin in admins]
+    if context.bot.id not in admins:
+        await update.effective_message.reply_text(
+            text='Предоставьте боту права на управление темами',
+            reply_to_message_id=update.message.id,
+            message_thread_id=update.message.message_thread_id
+        )
+        return False
+    return True
+
+
+async def create_or_connect_topic(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    if not await _bot_is_admin(update, context):
+        return
+
+    dict_topics_name = context.bot_data.setdefault('dict_topics_name', {})
+    if context.args:
+        topic_id = context.args[0]
+        name = ' '.join([item for item in context.args[1:]])
+        try:
+            await update.effective_chat.send_message(
+                text='Топик готов к работе',
+                message_thread_id=topic_id
+            )
+            context.bot_data['dict_topics_name'][name] = topic_id
+        except Exception as e:
+            utilites_logger.error(e)
+    elif len(dict_topics_name) == 0:
+        try:
+            for name in LIST_TOPICS_NAME:
+                topic = await update.effective_chat.create_forum_topic(
+                    name=name
+                )
+                context.bot_data[
+                    'dict_topics_name'][name] = topic.message_thread_id
+        except Exception as e:
+            utilites_logger.error(e)
+    else:
+        text = f'Cозданные топики:\n{context.bot_data['dict_topics_name']}'
+        text_bad_topic = '\n\nНе рабочие топики:'
+        for name, topic_id in context.bot_data['dict_topics_name'].items():
+            try:
+                await update.effective_chat.send_message(
+                    text='Топик готов к работе',
+                    message_thread_id=topic_id
+                )
+            except Exception as e:
+                utilites_logger.error(e)
+                text_bad_topic += f'\n{name}: {topic_id}'
+        if text_bad_topic != '\n\nНе рабочие топики:':
+            text = text + text_bad_topic
+        await update.effective_message.reply_text(
+            text=text,
+            reply_to_message_id=update.message.id,
+            message_thread_id=update.message.message_thread_id
+        )
+
+
+async def del_topic(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    if not await _bot_is_admin(update, context):
+        return
+
+    if context.args:
+        name = ' '.join([item for item in context.args])
+        try:
+            context.bot_data['dict_topics_name'].pop(name)
+            await update.effective_chat.send_message(
+                text=f'Удален ключ: {name}',
+                message_thread_id=update.message.message_thread_id
+            )
+        except KeyError as e:
+            await update.effective_chat.send_message(
+                text=f'{e}\nПроверьте ключ',
+                message_thread_id=update.message.message_thread_id
+            )
+    else:
+        await update.effective_chat.send_message(
+            text='Необходимо указать ключ, который требуется удалить'
+        )
