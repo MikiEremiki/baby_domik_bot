@@ -333,7 +333,8 @@ async def back_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = context.user_data['keyboard_month']
     await update.effective_chat.send_message(
         text=text,
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        message_thread_id=query.message.message_thread_id
     )
     return 'MONTH'
 
@@ -360,7 +361,8 @@ async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            message_thread_id=query.message.message_thread_id
         )
     return 'SHOW'
 
@@ -391,14 +393,16 @@ async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 photo=photo,
                 caption=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
             )
             context.user_data['afisha_media'] = [message]
         else:
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
             )
     except BadRequest as e:
         main_handlers_logger.error(e)
