@@ -17,6 +17,7 @@ from utilities.googlesheets import (
     write_data_for_reserve,
     set_approve_order
 )
+from utilities.utl_func import is_admin
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -42,6 +43,10 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     используемое в ConversationHandler и возвращает свободные места для
     доступа к бронированию
     """
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: подтвердить бронь')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -129,6 +134,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Отправляет оповещение об отказе в бронировании, удаляет сообщение
     используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
     """
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: отклонить бронь')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -190,6 +199,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: подтвердить день рождения')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
@@ -251,6 +264,10 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        main_handlers_logger.warning(
+            'Не разрешенное действие: отклонить день рождения')
+        return
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup()
