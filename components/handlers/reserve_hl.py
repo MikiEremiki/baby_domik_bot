@@ -1048,7 +1048,7 @@ __________
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
             f'Повторите, пожалуйста, бронирование еще раз\n'
-            f'/{COMMAND_DICT["RESERVE"][0]}\n'
+            f'/{COMMAND_DICT['RESERVE'][0]}\n'
             'Приносим извинения за предоставленные неудобства.'
         )
         state = ConversationHandler.END
