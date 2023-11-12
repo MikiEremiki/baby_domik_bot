@@ -50,7 +50,7 @@ def update_quality_of_seats(row: str, key):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            f'{RANGE_NAME["База спектаклей_"]}{row}:{row}'
+            f'{RANGE_NAME['База спектаклей_']}{row}:{row}'
         )
 
         if not values:
@@ -77,9 +77,9 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 
         range_sheet = ''
         if len(numbers) == 1:
-            range_sheet = f'{RANGE_NAME["База спектаклей_"]}J{row}'
+            range_sheet = f'{RANGE_NAME['База спектаклей_']}J{row}'
         elif len(numbers) == 2:
-            range_sheet = f'{RANGE_NAME["База спектаклей_"]}I{row}:J{row}'
+            range_sheet = f'{RANGE_NAME['База спектаклей_']}I{row}:J{row}'
 
         request = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID['Домик'],

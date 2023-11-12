@@ -87,7 +87,7 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         text='Попробуйте выполнить новый запрос'
     )
     utilites_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     context.user_data.clear()
     return ConversationHandler.END

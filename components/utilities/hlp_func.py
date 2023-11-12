@@ -93,11 +93,11 @@ def create_replay_markup_for_list_of_shows(
                                     if event['flag_santa']:
                                         flag_santa = True
                             if flag_gift:
-                                text += f'{SUPPORT_DATA["Подарок"][0]}'
+                                text += f'{SUPPORT_DATA['Подарок'][0]}'
                             if flag_christmas_tree:
-                                text += f'{SUPPORT_DATA["Елка"][0]}'
+                                text += f'{SUPPORT_DATA['Елка'][0]}'
                             if flag_santa:
-                                text += f'{SUPPORT_DATA["Дед"][0]}'
+                                text += f'{SUPPORT_DATA['Дед'][0]}'
                             button_tmp = InlineKeyboardButton(
                                 text=text,
                                 callback_data=str(item) + ' | ' + key
@@ -257,9 +257,9 @@ def add_text_of_show_and_numerate(
                 flag_santa = True
 
     if flag_gift:
-        text += f'{SUPPORT_DATA["Подарок"][0]} - {SUPPORT_DATA["Подарок"][1]}\n'
+        text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
     if flag_christmas_tree:
-        text += f'{SUPPORT_DATA["Елка"][0]} - {SUPPORT_DATA["Елка"][1]}\n'
+        text += f'{SUPPORT_DATA['Елка'][0]} - {SUPPORT_DATA['Елка'][1]}\n'
     if flag_santa:
-        text += f'{SUPPORT_DATA["Дед"][0]} - {SUPPORT_DATA["Дед"][1]}\n'
+        text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
     return text

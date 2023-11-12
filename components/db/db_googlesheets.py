@@ -140,8 +140,8 @@ def load_date_show_data() -> List[str]:
 
     data_of_dates = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] +
-        f'R1C{dict_column_name["date_show"] + 1}:'
-        f'R{qty_shows}C{dict_column_name["date_show"] + 1}'
+        f'R1C{dict_column_name['date_show'] + 1}:'
+        f'R{qty_shows}C{dict_column_name['date_show'] + 1}'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла

@@ -29,9 +29,9 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
-             f'/{COMMAND_DICT["RESERVE"][0]} - чтобы выбрать и оплатить билет на'
+             f'/{COMMAND_DICT['RESERVE'][0]} - чтобы выбрать и оплатить билет на'
              f' спектакль для просмотра в нашем театре\n'
-             f'/{COMMAND_DICT["BD_ORDER"][0]} - чтобы оформить заявку на '
+             f'/{COMMAND_DICT['BD_ORDER'][0]} - чтобы оформить заявку на '
              f'проведение дня рождения в театре или по вашему адресу\n',
         reply_markup=ReplyKeyboardRemove()
     )
@@ -227,7 +227,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += escape_markdown(
                 'Мы с радостью проведем день рождения вашего малыша\n\n'
                 'Если вы готовы внести предоплату, то нажмите на команду\n'
-                f' /{COMMAND_DICT["BD_PAID"][0]}\n\n',
+                f' /{COMMAND_DICT['BD_PAID'][0]}\n\n',
                 2
             )
             text += do_italic(
@@ -449,7 +449,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.delete_message()
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT["RESERVE"][0]} - для повторного '
+                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
                      f'резервирования свободных мест на спектакль',
                 message_thread_id=query.message.message_thread_id
             )
@@ -473,9 +473,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.delete_message()
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT["BD_ORDER"][0]} - для повторной '
+                     f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
                      f'отправки заявки на проведение Дня рождения\n'
-                     f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
+                     f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
                      f'запуска процедуры внесения предоплаты, если ваша заявка '
                      f'была одобрена',
                 message_thread_id=query.message.message_thread_id
@@ -486,9 +486,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except KeyError:
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
-                                  f'команду /{COMMAND_DICT["BD_PAID"][0]}')
+                                  f'команду /{COMMAND_DICT['BD_PAID'][0]}')
     main_handlers_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     context.user_data.clear()
     return ConversationHandler.END

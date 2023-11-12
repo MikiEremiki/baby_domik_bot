@@ -311,11 +311,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 flag_santa = True
 
     if flag_gift:
-        text += f'{SUPPORT_DATA["Подарок"][0]} - {SUPPORT_DATA["Подарок"][1]}\n'
+        text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
     if flag_christmas_tree:
-        text += f'{SUPPORT_DATA["Елка"][0]} - {SUPPORT_DATA["Елка"][1]}\n'
+        text += f'{SUPPORT_DATA['Елка'][0]} - {SUPPORT_DATA['Елка'][1]}\n'
     if flag_santa:
-        text += f'{SUPPORT_DATA["Дед"][0]} - {SUPPORT_DATA["Дед"][1]}\n'
+        text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
 
     photo = (
         context.bot_data
@@ -389,11 +389,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = time
             text_emoji = ''
             if item['flag_gift']:
-                text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
+                text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
             if item['flag_christmas_tree']:
-                text_emoji += f'{SUPPORT_DATA["Елка"][0]}'
+                text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
             if item['flag_santa']:
-                text_emoji += f'{SUPPORT_DATA["Дед"][0]}'
+                text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
             text += text_emoji
             text += ' | ' + str(number) + ' шт свободно'
             button_tmp = InlineKeyboardButton(
@@ -478,13 +478,13 @@ async def choice_option_of_reserve(
     text_emoji = ''
     option = ''
     if event['flag_gift']:
-        text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
+        text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
         option = 'Подарок'
     if event['flag_christmas_tree']:
-        text_emoji += f'{SUPPORT_DATA["Елка"][0]}'
+        text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
         option = 'Ёлка'
     if event['flag_santa']:
-        text_emoji += f'{SUPPORT_DATA["Дед"][0]}'
+        text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
     if event['show_id'] == '10' or event['show_id'] == '8':
         option = 'Чтение'
 
@@ -505,7 +505,7 @@ async def choice_option_of_reserve(
             parse_mode=ParseMode.HTML
         )
 
-        context.user_data['text_for_list_waiting'] = text
+        context.user_data['event_info_for_list_waiting'] = text
         reply_keyboard = [
             ['Выбрать другое время'],
             ['Записаться в лист ожидания'],
@@ -703,7 +703,7 @@ async def check_and_send_buy_info(
         reserve_hl_logger.info(
             f'Для пользователя {user}')
         reserve_hl_logger.info(
-            f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+            f'Обработчик завершился на этапе {context.user_data['STATE']}')
         context.user_data.clear()
 
         return ConversationHandler.END
@@ -1104,7 +1104,7 @@ __________
 Татьяна Бурганова @Tanya_domik +79159383529
 __________
 Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
-        "RESERVE"][0]}"""
+        'RESERVE'][0]}"""
     message = await update.effective_chat.send_message(
         text=text
     )
@@ -1112,7 +1112,7 @@ __________
 
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     return ConversationHandler.END
 
@@ -1158,7 +1158,7 @@ async def conversation_timeout(
     ))
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     return ConversationHandler.END
 

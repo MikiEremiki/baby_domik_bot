@@ -204,7 +204,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, item in enumerate(dict_of_shows_for_bd.values()):
             if item['birthday']['flag']:
                 text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
-                text += escape_markdown(f'{item["full_name"]}\n', 2)
+                text += escape_markdown(f'{item['full_name']}\n', 2)
 
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_shows_for_bd,
@@ -558,7 +558,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['message_id'] = message.message_id
+    context.user_data['message_id_buy_info'] = message.message_id
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -573,7 +573,7 @@ async def forward_photo_or_file(
     Пересылает картинку или файл.
     """
     user = context.user_data['user']
-    message_id = context.user_data['message_id']
+    message_id = context.user_data['message_id_buy_info']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопку отмены
@@ -630,7 +630,7 @@ async def forward_photo_or_file(
         birthday_hl_logger.error(
             f'Пользователь {user}: '
             'Не оформил заявку, '
-            f'а сразу использовал команду /{COMMAND_DICT["BD_PAID"][0]}'
+            f'а сразу использовал команду /{COMMAND_DICT['BD_PAID'][0]}'
         )
 
     state = ConversationHandler.END
@@ -668,7 +668,7 @@ async def conversation_timeout(
     ))
     birthday_hl_logger.info(f'Для пользователя {user}')
     birthday_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data.clear()
 
     return ConversationHandler.END
