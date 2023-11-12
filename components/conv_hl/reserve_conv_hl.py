@@ -1,8 +1,8 @@
+from typing import Dict, List
+
 from telegram.ext import (
-    CommandHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    MessageHandler,
+    BaseHandler,
+    ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
     filters,
 )
 
@@ -10,10 +10,10 @@ from handlers import reserve_hl, main_hl
 from utilities.settings import COMMAND_DICT, RESERVE_TIMEOUT
 from utilities.utl_func import reset
 
-states = {
+states:  Dict[object, List[BaseHandler]] = {
     'MONTH': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(reserve_hl.choice_show_and_date),
+        CallbackQueryHandler(reserve_hl.choice_show_or_date),
     ],
     'SHOW': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),

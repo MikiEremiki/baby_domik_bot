@@ -389,14 +389,13 @@ async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             .get(int(number_of_month_str), False)
         )
         if update.effective_chat.type == ChatType.PRIVATE and photo:
-            message = await update.effective_chat.send_photo(
+            await update.effective_chat.send_photo(
                 photo=photo,
                 caption=text,
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
-            context.user_data['afisha_media'] = [message]
         else:
             await update.effective_chat.send_message(
                 text=text,
