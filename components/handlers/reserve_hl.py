@@ -66,6 +66,11 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state MONTH
     """
+    state = 'START'
+    context.user_data['STATE'] = state
+    context.user_data['reserve_user_data'] = {}
+    user = update.message.from_user
+
     if update.effective_message.is_topic_message:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Списки на показы', None))
@@ -73,13 +78,10 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text(
                 'Выполните команду в правильном топике')
             return ConversationHandler.END
-    state = 'START'
 
     reserve_hl_logger.info(f'Пользователь начал выбор месяца:'
-                           f' {update.message.from_user}')
+                           f' {user}')
 
-    context.user_data.setdefault('reserve_data', {})
-    user = update.message.from_user
 
     message = await send_and_del_message_to_remove_kb(update)
 
@@ -163,7 +165,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def choice_show_and_date(
+async def choice_show_or_date(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
@@ -238,12 +240,11 @@ async def choice_show_and_date(
         .get(int(number_of_month_str), False)
     )
     if update.effective_chat.type == ChatType.PRIVATE and photo:
-        message = await update.effective_chat.send_photo(
+        await update.effective_chat.send_photo(
             photo=photo,
             caption=text,
             reply_markup=reply_markup
         )
-        context.user_data['afisha_media'] = [message]
     else:
         await update.effective_chat.send_message(
             text=text,
@@ -323,12 +324,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         .get(int(number_of_month_str), False)
     )
     if update.effective_chat.type == ChatType.PRIVATE and photo:
-        message = await query.edit_message_caption(
+        await query.edit_message_caption(
             caption=text,
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML
         )
-        context.user_data['afisha_media'] = [message]
     else:
         await query.edit_message_text(
             text=text,
@@ -366,7 +366,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             query.data,
         ]
     ))
-    context.user_data["STATE"] = 'DATE'
 
     key_of_name_show, date_show = query.data.split(' | ')
     key_of_name_show = int(key_of_name_show)
@@ -433,9 +432,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['keyboard_time'] = reply_markup
 
     if update.effective_chat.id == ADMIN_GROUP:
-        return 'LIST'
+        state = 'LIST'
     else:
-        return 'TIME'
+        state = 'TIME'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def choice_option_of_reserve(
@@ -464,7 +465,6 @@ async def choice_option_of_reserve(
             query.data,
         ]
     ))
-    context.user_data["STATE"] = 'TIME'
 
     time, row_in_googlesheet, number = query.data.split(' | ')
     date: str = context.user_data['date_show']
@@ -520,7 +520,9 @@ async def choice_option_of_reserve(
                  'или записаться в лист ожидания на эту дату и время?',
             reply_markup=reply_markup
         )
-        return 'CHOOSING'
+        state = 'CHOOSING'
+        context.user_data['STATE'] = state
+        return state
 
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 'qty_child_free_seat')
@@ -612,7 +614,9 @@ __________
         reply_markup=reply_markup
     )
 
-    return 'ORDER'
+    state = 'ORDER'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def check_and_send_buy_info(
@@ -641,8 +645,6 @@ async def check_and_send_buy_info(
         ]
     ))
 
-    context.user_data['STATE'] = 'ORDER'
-
     try:
         key_option_for_reserve = int(query.data)
     except ValueError as e:
@@ -656,7 +658,9 @@ async def check_and_send_buy_info(
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML
         )
-        return 'TIME'
+        state = 'TIME'
+        context.user_data['STATE'] = state
+        return state
 
     date = context.user_data['date_show']
     time = context.user_data['time_show']
@@ -706,7 +710,9 @@ async def check_and_send_buy_info(
             f'Обработчик завершился на этапе {context.user_data['STATE']}')
         context.user_data.clear()
 
-        return ConversationHandler.END
+        state = ConversationHandler.END
+        context.user_data['STATE'] = state
+        return state
     # Для все стандартных вариантов
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
@@ -757,7 +763,7 @@ async def check_and_send_buy_info(
                     f'{date}\n'
                     f'В {time}\n'
                     f'{text_emoji}\n')
-            context.user_data['text_for_list_waiting'] = text
+            context.user_data['event_info_for_list_waiting'] = text
             text = ('К сожалению места уже забронировали и свободных мест для\n'
                     f'{name_show}\n'
                     f'{date} в {time}\n'
@@ -778,7 +784,9 @@ async def check_and_send_buy_info(
                 text=text,
                 reply_markup=reply_markup
             )
-            return 'CHOOSING'
+            state = 'CHOOSING'
+            context.user_data['STATE'] = state
+            return state
         else:
             reserve_hl_logger.info(": ".join(
                 [
@@ -822,7 +830,9 @@ async def check_and_send_buy_info(
                     text=text,
                     reply_markup=reply_markup
                 )
-                return 'ORDER'
+                state = 'ORDER'
+                context.user_data['STATE'] = state
+                return state
 
         keyboard = []
         button_cancel = InlineKeyboardButton(
@@ -858,12 +868,14 @@ __________
 
         context.user_data['chose_ticket'] = chose_ticket
         context.user_data['chose_price'] = price
-        context.user_data['message_id'] = message.message_id
+        context.user_data['message_id_buy_info'] = message.message_id
 
         context.user_data['dict_of_shows'].clear()
         context.user_data['dict_of_name_show_flip'].clear()
 
-    return 'PAID'
+    state = 'PAID'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def forward_photo_or_file(
@@ -875,9 +887,8 @@ async def forward_photo_or_file(
     Запускает цепочку вопросов для клиентской базы, если пользователь нажал
     кнопку подтвердить.
     """
-    context.user_data['STATE'] = 'PAID'
 
-    message_id = context.user_data['message_id']
+    message_id = context.user_data['message_id_buy_info']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопки
@@ -940,14 +951,15 @@ __________
 
     context.user_data['message_id_for_admin'] = message.message_id
 
-    return 'FORMA'
+    state = 'FORMA'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_name_adult(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    context.user_data["STATE"] = 'PHONE'
 
     text = update.effective_message.text
 
@@ -958,17 +970,18 @@ async def get_name_adult(
         text='Напишите контактный номер телефона'
     )
 
-    return 'PHONE'
+    state = 'PHONE'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["STATE"] = 'PHONE'
 
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
-        return 'PHONE'
+        return context.user_data['STATE']
 
     context.user_data['client_data']['phone'] = phone
 
@@ -984,14 +997,15 @@ __________
 Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
     )
 
-    return 'CHILDREN'
+    state = 'CHILDREN'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_name_children(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    context.user_data["STATE"] = 'CHILDREN'
 
     await update.effective_chat.send_action(ChatAction.TYPING)
 
@@ -1015,7 +1029,7 @@ __________
     if len(result) < count + 1:
         reserve_hl_logger.info('Не верный формат текста')
         await update.effective_chat.send_message(text=text_for_message)
-        return 'CHILDREN'
+        return context.user_data['STATE']
 
     reserve_hl_logger.info('Проверка пройдена успешно')
 
@@ -1037,11 +1051,17 @@ __________
             f'/{COMMAND_DICT["RESERVE"][0]}\n'
             'Приносим извинения за предоставленные неудобства.'
         )
-        return ConversationHandler.END
+        state = ConversationHandler.END
+        context.user_data['STATE'] = state
+        return state
+
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
-        return 'CHILDREN'
+        state = 'CHILDREN'
+        context.user_data['STATE'] = state
+        return state
+
     if len(list_message_text) != chose_ticket.quality_of_children:
         await update.effective_chat.send_message(
             f'Кол-во детей, которое определено: {len(list_message_text)}\n'
@@ -1049,7 +1069,9 @@ __________
             f'{chose_ticket.quality_of_children}\n'
             f'Повторите ввод еще раз, проверьте что каждый ребенок на '
             f'отдельной строке.\n\nНапример:\nИван 1\nСергей 01.01.2000')
-        return 'CHILDREN'
+        state = 'CHILDREN'
+        context.user_data['STATE'] = state
+        return state
 
     context.user_data['client_data']['data_children'] = list_message_text
 
@@ -1114,7 +1136,9 @@ __________
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
-    return ConversationHandler.END
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
 
 
 async def conversation_timeout(
@@ -1202,18 +1226,23 @@ async def send_clients_data(
         text=text,
         parse_mode=ParseMode.HTML
     )
-    return ConversationHandler.END
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
 
 
 async def write_list_of_waiting(
         update: Update,
-        _: ContextTypes.DEFAULT_TYPE
+        context: ContextTypes.DEFAULT_TYPE
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',
         reply_markup=ReplyKeyboardRemove()
     )
-    return 'PHONE_FOR_WAITING'
+    state = 'PHONE_FOR_WAITING'
+    context.user_data['STATE'] = state
+    return state
+
 
 
 async def get_phone_for_waiting(
@@ -1224,10 +1253,10 @@ async def get_phone_for_waiting(
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
-        return 'PHONE_FOR_WAITING'
+        return context.user_data['STATE']
 
     context.user_data['phone'] = phone
-    text = context.user_data['text_for_list_waiting'] + '+7' + phone
+    text = context.user_data['event_info_for_list_waiting'] + '+7' + phone
 
     user = context.user_data['user']
     thread_id = (context.bot_data['dict_topics_name']
@@ -1247,4 +1276,6 @@ async def get_phone_for_waiting(
     Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
     )
 
-    return ConversationHandler.END
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
