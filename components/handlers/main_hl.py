@@ -55,12 +55,14 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_reply_markup()
 
     chat_id = query.data.split('|')[1].split()[0]
+    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        chose_ticket = user_data['chose_ticket']
-        row_in_googlesheet = user_data['row_in_googlesheet']
+        payment_data = user_data['reserve_admin_data'][payment_id]
+        row_in_googlesheet = payment_data['row_in_googlesheet']
+        chose_ticket = payment_data['chose_ticket']
 
         nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 'qty_child_nonconfirm_seat')
@@ -146,12 +148,14 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_reply_markup()
 
     chat_id = query.data.split('|')[1].split()[0]
+    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        chose_ticket = user_data['chose_ticket']
-        row_in_googlesheet = user_data['row_in_googlesheet']
+        payment_data = user_data['reserve_admin_data'][payment_id]
+        row_in_googlesheet = payment_data['row_in_googlesheet']
+        chose_ticket = payment_data['chose_ticket']
 
         await write_old_seat_info(update,
                                   user,
@@ -464,8 +468,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=message_id
                 )
 
-                chose_ticket = context.user_data['chose_ticket']
-                row_in_googlesheet = context.user_data['row_in_googlesheet']
+                reserve_admin_data = context.user_data['reserve_admin_data']
+                payment_id = reserve_admin_data['payment_id']
+                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+                row_in_googlesheet = reserve_admin_data[payment_id][
+                    'row_in_googlesheet']
 
                 await write_old_seat_info(update,
                                           user,

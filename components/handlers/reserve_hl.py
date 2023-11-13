@@ -475,8 +475,11 @@ async def choice_option_of_reserve(
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['time_show'] = time
 
-    context.user_data['row_in_googlesheet'] = row_in_googlesheet
-    context.user_data['time_show'] = time
+    reserve_admin_data: dict = context.user_data['reserve_admin_data']
+    payment_id = reserve_admin_data['payment_id']
+    reserve_hl_logger.info(f'Бронирование: {payment_id}')
+    reserve_admin_data[payment_id] = {}
+    reserve_admin_data[payment_id]['row_in_googlesheet'] = row_in_googlesheet
 
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
     date: str = reserve_user_data['date_show']
@@ -946,10 +949,12 @@ __________
     )
 
     # Сообщение для администратора
+    payment_id = context.user_data['reserve_admin_data']['payment_id']
     reply_markup = create_approve_and_reject_replay(
         'reserve',
         update.effective_user.id,
-        message_id
+        message_id,
+        payment_id
     )
 
     chose_price = context.user_data['reserve_user_data']['chose_price']
@@ -1055,7 +1060,9 @@ __________
         list_message_text.append(message_text)
 
     try:
-        chose_ticket = context.user_data['chose_ticket']
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
     except KeyError as e:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
@@ -1101,8 +1108,8 @@ __________
 
     chose_price = reserve_user_data['chose_price']
     record_ids = write_client(
-        context.user_data['client_data'],
-        context.user_data['row_in_googlesheet'],
+        client_data,
+        reserve_admin_data[payment_id]['row_in_googlesheet'],
         chose_ticket,
         chose_price,
     )
@@ -1147,6 +1154,8 @@ __________
     )
     await message.pin()
 
+    reserve_admin_data['payment_id'] += 1
+
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
@@ -1171,11 +1180,11 @@ async def conversation_timeout(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
             'новый запрос'
         )
-
-        chose_ticket = context.user_data['chose_ticket']
-
-        # Номер строки для извлечения актуального числа доступных мест
-        row_in_googlesheet = context.user_data['row_in_googlesheet']
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+        row_in_googlesheet = reserve_admin_data[payment_id][
+            'row_in_googlesheet']
 
         await write_old_seat_info(update,
                                   user,
