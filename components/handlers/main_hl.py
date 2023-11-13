@@ -86,8 +86,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя @{user.username} {user.full_name} подтверждение в '
-                     f'авто-режиме не сработало\n'
+                text=f'Для пользователя @{user.username} {user.full_name} '
+                     f'подтверждение в авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
             main_handlers_logger.error(TimeoutError)
@@ -101,7 +101,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю @{user.username} {user.full_name} подтверждена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} '
+                 f'подтверждена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
