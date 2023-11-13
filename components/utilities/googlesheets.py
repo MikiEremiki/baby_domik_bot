@@ -112,6 +112,8 @@ def write_client(
         ticket: BaseTicket,
         price: int,
 ) -> Optional[List[int]]:
+    # TODO Переписать функцию, чтобы принимала весь контекст целиком и внутри
+    #  вытаскивать нужные значения
     try:
         values_column = get_values(
             SPREADSHEET_ID['Домик'],
