@@ -112,8 +112,6 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
         )
 
-        # TODO Решить нужна ли действительно очистка контекста пользователя
-        context.application.user_data.get(int(chat_id)).clear()
         # Сообщение уже было удалено самим пользователем
         try:
             await context.bot.delete_message(
@@ -174,7 +172,6 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'Татьяна Бурганова @Tanya_domik +79159383529',
             chat_id=chat_id,
         )
-        context.application.user_data.get(int(chat_id)).clear()
 
         # Сообщение уже было удалено самим пользователем
         try:
