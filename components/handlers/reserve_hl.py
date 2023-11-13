@@ -82,7 +82,6 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор месяца:'
                            f' {user}')
 
-
     message = await send_and_del_message_to_remove_kb(update)
 
     try:
@@ -960,7 +959,6 @@ async def get_name_adult(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-
     text = update.effective_message.text
 
     context.user_data['client_data'] = {}
@@ -976,7 +974,6 @@ async def get_name_adult(
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
@@ -1006,7 +1003,6 @@ async def get_name_children(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-
     await update.effective_chat.send_action(ChatAction.TYPING)
 
     text = update.effective_message.text
@@ -1242,7 +1238,6 @@ async def write_list_of_waiting(
     state = 'PHONE_FOR_WAITING'
     context.user_data['STATE'] = state
     return state
-
 
 
 async def get_phone_for_waiting(

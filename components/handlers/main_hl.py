@@ -514,7 +514,7 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     main_handlers_logger.info(update.effective_user)
     main_handlers_logger.info(update.message)
 
-    user = update.effective_user
+    user = context.user_data['user']
 
     text = (
         'К сожалению, у меня пока нет полномочий для помощи по любым вопросам\n'

@@ -58,7 +58,6 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 'START'
     context.user_data['STATE'] = state
-    context.user_data['user'] = update.message.from_user
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
