@@ -290,9 +290,10 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values[0].append(context.user_data['user'].id)
         values[0].append(context.user_data['user'].username)
         values[0].append(context.user_data['user'].full_name)
-        values[0].append(context.user_data['phone'])
+        reserve_user_data = context.user_data['reserve_user_data']
+        values[0].append(reserve_user_data['client_data']['phone'])
         values[0].append(date)
-        values[0].append(context.user_data['event_id'])
+        values[0].append(reserve_user_data['event_id'])
         for i in range(5):
             values[0].append(
                 f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{i+1};FALSE);'

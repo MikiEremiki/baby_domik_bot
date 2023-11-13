@@ -22,11 +22,14 @@ from utilities.utl_func import is_admin
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
-async def start(update: Update, _: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
+    context.user_data['user'] = update.effective_user
+    context.user_data['common_data'] = {}
+
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
              f'/{COMMAND_DICT['RESERVE'][0]} - чтобы выбрать и оплатить билет на'
