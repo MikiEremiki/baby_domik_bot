@@ -50,7 +50,7 @@ def update_quality_of_seats(row: str, key):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            f'{RANGE_NAME["База спектаклей_"]}{row}:{row}'
+            f'{RANGE_NAME['База спектаклей_']}{row}:{row}'
         )
 
         if not values:
@@ -77,9 +77,9 @@ def write_data_for_reserve(row: str, numbers: List[int]) -> None:
 
         range_sheet = ''
         if len(numbers) == 1:
-            range_sheet = f'{RANGE_NAME["База спектаклей_"]}J{row}'
+            range_sheet = f'{RANGE_NAME['База спектаклей_']}J{row}'
         elif len(numbers) == 2:
-            range_sheet = f'{RANGE_NAME["База спектаклей_"]}I{row}:J{row}'
+            range_sheet = f'{RANGE_NAME['База спектаклей_']}I{row}:J{row}'
 
         request = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID['Домик'],
@@ -112,6 +112,8 @@ def write_client(
         ticket: BaseTicket,
         price: int,
 ) -> Optional[List[int]]:
+    # TODO Переписать функцию, чтобы принимала весь контекст целиком и внутри
+    #  вытаскивать нужные значения
     try:
         values_column = get_values(
             SPREADSHEET_ID['Домик'],
@@ -290,9 +292,10 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values[0].append(context.user_data['user'].id)
         values[0].append(context.user_data['user'].username)
         values[0].append(context.user_data['user'].full_name)
-        values[0].append(context.user_data['phone'])
+        reserve_user_data = context.user_data['reserve_user_data']
+        values[0].append(reserve_user_data['client_data']['phone'])
         values[0].append(date)
-        values[0].append(context.user_data['event_id'])
+        values[0].append(reserve_user_data['event_id'])
         for i in range(5):
             values[0].append(
                 f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{i+1};FALSE);'

@@ -55,10 +55,10 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             f' {update.message.from_user}')
 
     message = await send_and_del_message_to_remove_kb(update)
+    await update.effective_chat.send_action(ChatAction.TYPING)
 
     state = 'START'
     context.user_data['STATE'] = state
-    context.user_data['user'] = update.message.from_user
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
@@ -204,7 +204,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for i, item in enumerate(dict_of_shows_for_bd.values()):
             if item['birthday']['flag']:
                 text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
-                text += escape_markdown(f'{item["full_name"]}\n', 2)
+                text += escape_markdown(f'{item['full_name']}\n', 2)
 
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_shows_for_bd,
@@ -220,7 +220,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.MARKDOWN_V2
         )
 
-        context.user_data['dict_of_shows'] = dict_of_shows
+        context.user_data['common_data']['dict_of_shows'] = dict_of_shows
     except TimeoutError as err:
         birthday_hl_logger.error(err)
         await update.effective_chat.send_message(
@@ -460,7 +460,8 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     elif item == 2:
                         item = 'На выезде'
                 case 'show_id':
-                    dict_of_shows = context.user_data['dict_of_shows']
+                    dict_of_shows = context.user_data['common_data'][
+                        'dict_of_shows']
                     item = dict_of_shows[item]['full_name']
                 case 'format_bd':
                     if item == 1:
@@ -483,7 +484,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += '\n' + do_italic(birthday_data[key])
             text += ': ' + escape_markdown(str(item), 2)
 
-        context.user_data['text_for_notification_massage'] = text
+        context.user_data['common_data']['text_for_notification_massage'] = text
 
         text += ('\n\nПринята, '
                  'после ее рассмотрения администратор свяжется с вами')
@@ -505,7 +506,8 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Запрос пользователя @{user.username} {user.full_name}\n',
             2
         )
-        text += context.user_data['text_for_notification_massage']
+        text += context.user_data['common_data'][
+            'text_for_notification_massage']
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Выездные мероприятия', None))
         message = await context.bot.send_message(
@@ -516,7 +518,8 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_thread_id=thread_id
         )
 
-        context.user_data['message_id_for_admin'] = message.message_id
+        context.user_data['common_data'][
+            'message_id_for_admin'] = message.message_id
 
         write_client_bd(context.user_data)
 
@@ -558,7 +561,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['message_id'] = message.message_id
+    context.user_data['common_data']['message_id_buy_info'] = message.message_id
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -573,7 +576,7 @@ async def forward_photo_or_file(
     Пересылает картинку или файл.
     """
     user = context.user_data['user']
-    message_id = context.user_data['message_id']
+    message_id = context.user_data['common_data']['message_id_buy_info']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопку отмены
@@ -583,7 +586,7 @@ async def forward_photo_or_file(
     )
 
     try:
-        text = context.user_data['text_for_notification_massage']
+        text = context.user_data['common_data']['text_for_notification_massage']
         message = await update.effective_chat.send_message(
             text,
             parse_mode=ParseMode.MARKDOWN_V2
@@ -593,7 +596,8 @@ async def forward_photo_or_file(
         set_approve_order(context.user_data['birthday_data'], 1)
 
         text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
-        message_id_for_admin = context.user_data['message_id_for_admin']
+        message_id_for_admin = context.user_data['common_data'][
+            'message_id_for_admin']
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Выездные мероприятия', None))
         await send_message_to_admin(ADMIN_GROUP,
@@ -630,7 +634,7 @@ async def forward_photo_or_file(
         birthday_hl_logger.error(
             f'Пользователь {user}: '
             'Не оформил заявку, '
-            f'а сразу использовал команду /{COMMAND_DICT["BD_PAID"][0]}'
+            f'а сразу использовал команду /{COMMAND_DICT['BD_PAID'][0]}'
         )
 
     state = ConversationHandler.END
@@ -668,8 +672,9 @@ async def conversation_timeout(
     ))
     birthday_hl_logger.info(f'Для пользователя {user}')
     birthday_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-    context.user_data.clear()
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
+    context.user_data['common_data'].clear()
+    context.user_data['birthday_data'].clear()
 
     return ConversationHandler.END
 

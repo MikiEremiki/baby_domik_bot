@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List
 from telegram import (
     User,
@@ -10,12 +11,12 @@ from utilities.schemas.ticket import BaseTicket
 context_user_data: Dict = {
     'STATE': str,
     'user': User,
-    'message_id': Message.message_id[int | str],
-    # На данный момент только для удаления
-    'message_id_for_admin': Message.message_id[int | str],
-    # На данный момент только для удаления
-    'text_for_notification_massage': str,
-    'text_for_list_waiting': str,  # Выбранный показ пользователем
+    'common_data': {
+        'dict_of_shows': dict,
+        'message_id_buy_info': Message.message_id[int | str],
+        'message_id_for_admin': Message.message_id[int | str],
+        'text_for_notification_massage': str,
+    },
     'birthday_data': {
         'place': 1 | 2,
         'address': str,
@@ -33,30 +34,44 @@ context_user_data: Dict = {
         # 'flag_prepayment': bool,
         # 'flag_approve_prepayment': bool,
     },
-    'reserve_data': {
+    'reserve_user_data': {
         'back': {
             str: {
-                'text': str,  # текст для возврата назад в State MONTH
+                'text': str,  # текст для возврата назад в State str
                 'keyboard': InlineKeyboardMarkup
             },
         },
+        'number_of_month_str': str,
         'dict_of_name_show': dict,
         'dict_of_name_show_flip': dict,
         'dict_of_date_show': dict,
-        'number_of_month_str': str,
+        'show_id': int,
         'name_show': str,
         'date_show': str,
         'time_show': str,
+        'event_info_for_list_waiting': str,
+        # Инфо о выбранном показе пользователя
+        'client_data': {
+            'name_adult': str,
+            'phone': str,
+            'data_children': List[List[str]],
+        },
+        'chose_price': int,
+        'event_id': int,
+        'option': str,
         'text_emoji': str,
-        'row_in_googlesheet': str,
-        'chose_ticket': BaseTicket,
+        'flag_indiv_cost': bool,
+        'date_for_price': datetime,
     },
-    'dict_of_shows': dict,
+    'reserve_admin_data': {
+        int: {  # payment_id
+            'row_in_googlesheet': str,
+            'chose_ticket': BaseTicket,
+        },
+        'payment_id': int,  # Указатель на последний идентификатор платежа
+    },
+    'birthday_user_data': {
+
+    },
     'month_afisha': int,
-    'client_data': {
-        'name_adult': str,
-        'phone': str,
-        'data_children': List[List[str]],
-    },
-    'afisha_media': List[Message]
 }
