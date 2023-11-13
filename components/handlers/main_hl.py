@@ -17,21 +17,24 @@ from utilities.googlesheets import (
     write_data_for_reserve,
     set_approve_order
 )
-from utilities.utl_func import is_admin
+from utilities.utl_func import is_admin, get_back_context
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
-async def start(update: Update, _: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
+    context.user_data['user'] = update.effective_user
+    context.user_data['common_data'] = {}
+
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
-             f'/{COMMAND_DICT["RESERVE"][0]} - чтобы выбрать и оплатить билет на'
+             f'/{COMMAND_DICT['RESERVE'][0]} - чтобы выбрать и оплатить билет на'
              f' спектакль для просмотра в нашем театре\n'
-             f'/{COMMAND_DICT["BD_ORDER"][0]} - чтобы оформить заявку на '
+             f'/{COMMAND_DICT['BD_ORDER'][0]} - чтобы оформить заявку на '
              f'проведение дня рождения в театре или по вашему адресу\n',
         reply_markup=ReplyKeyboardRemove()
     )
@@ -52,12 +55,14 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_reply_markup()
 
     chat_id = query.data.split('|')[1].split()[0]
+    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        chose_ticket = user_data['chose_ticket']
-        row_in_googlesheet = user_data['row_in_googlesheet']
+        payment_data = user_data['reserve_admin_data'][payment_id]
+        row_in_googlesheet = payment_data['row_in_googlesheet']
+        chose_ticket = payment_data['chose_ticket']
 
         nonconfirm_number_of_seats_now = update_quality_of_seats(
             row_in_googlesheet, 'qty_child_nonconfirm_seat')
@@ -81,8 +86,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
-                text=f'Для пользователя @{user.username} {user.full_name} подтверждение в '
-                     f'авто-режиме не сработало\n'
+                text=f'Для пользователя @{user.username} {user.full_name} '
+                     f'подтверждение в авто-режиме не сработало\n'
                      f'Номер строки для обновления:\n{row_in_googlesheet}'
             )
             main_handlers_logger.error(TimeoutError)
@@ -96,7 +101,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ))
 
         await query.edit_message_text(
-            text=f'Пользователю @{user.username} {user.full_name} подтверждена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} '
+                 f'подтверждена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -107,8 +113,6 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
         )
 
-        # TODO Решить нужна ли действительно очистка контекста пользователя
-        context.application.user_data.get(int(chat_id)).clear()
         # Сообщение уже было удалено самим пользователем
         try:
             await context.bot.delete_message(
@@ -143,12 +147,14 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_reply_markup()
 
     chat_id = query.data.split('|')[1].split()[0]
+    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        chose_ticket = user_data['chose_ticket']
-        row_in_googlesheet = user_data['row_in_googlesheet']
+        payment_data = user_data['reserve_admin_data'][payment_id]
+        row_in_googlesheet = payment_data['row_in_googlesheet']
+        chose_ticket = payment_data['chose_ticket']
 
         await write_old_seat_info(update,
                                   user,
@@ -167,7 +173,6 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'Татьяна Бурганова @Tanya_domik +79159383529',
             chat_id=chat_id,
         )
-        context.application.user_data.get(int(chat_id)).clear()
 
         # Сообщение уже было удалено самим пользователем
         try:
@@ -227,7 +232,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += escape_markdown(
                 'Мы с радостью проведем день рождения вашего малыша\n\n'
                 'Если вы готовы внести предоплату, то нажмите на команду\n'
-                f' /{COMMAND_DICT["BD_PAID"][0]}\n\n',
+                f' /{COMMAND_DICT['BD_PAID'][0]}\n\n',
                 2
             )
             text += do_italic(
@@ -318,28 +323,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def back_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-    await query.delete_message()
-
-    text = context.user_data['text_month']
-    reply_markup = context.user_data['keyboard_month']
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=query.message.message_thread_id
-    )
-    return 'MONTH'
-
-
-async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
     :param update:
@@ -349,89 +333,71 @@ async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    text = context.user_data['text_show']
-    reply_markup = context.user_data['keyboard_show']
-    try:
-        await query.edit_message_caption(
-            caption=text,
-            reply_markup=reply_markup
-        )
-    except BadRequest as e:
-        main_handlers_logger.error(e)
-        await query.delete_message()
-        await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-            message_thread_id=query.message.message_thread_id
-        )
-    return 'SHOW'
+    state = query.data.split('-')[1].upper()
+    text, reply_markup = get_back_context(context, state)
 
-
-async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text = context.user_data['text_date']
-    reply_markup = context.user_data['keyboard_date']
-
-    try:
-        number_of_month_str = context.user_data['number_of_month_str']
-        await query.delete_message()
-        photo = (
-            context.bot_data
-            .get('afisha', {})
-            .get(int(number_of_month_str), False)
-        )
-        if update.effective_chat.type == ChatType.PRIVATE and photo:
-            message = await update.effective_chat.send_photo(
-                photo=photo,
-                caption=text,
-                reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
-                message_thread_id=query.message.message_thread_id
-            )
-            context.user_data['afisha_media'] = [message]
-        else:
+    # TODO Решить как сделать еще более универсально, чтобы уйти от match и case
+    match state:
+        case 'MONTH':
+            await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
-    except BadRequest as e:
-        main_handlers_logger.error(e)
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
-        )
-    return 'DATE'
-
-
-async def back_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text = context.user_data['text_time']
-    reply_markup = context.user_data['keyboard_time']
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
-    )
-    return 'TIME'
+        case 'SHOW':
+            try:
+                await query.edit_message_caption(
+                    caption=text,
+                    reply_markup=reply_markup
+                )
+            except BadRequest as e:
+                main_handlers_logger.error(e)
+                await query.delete_message()
+                await update.effective_chat.send_message(
+                    text=text,
+                    reply_markup=reply_markup,
+                    message_thread_id=query.message.message_thread_id
+                )
+        case 'DATE':
+            try:
+                number_of_month_str = context.user_data['reserve_user_data'][
+                    'number_of_month_str']
+                await query.delete_message()
+                photo = (
+                    context.bot_data
+                    .get('afisha', {})
+                    .get(int(number_of_month_str), False)
+                )
+                if update.effective_chat.type == ChatType.PRIVATE and photo:
+                    await update.effective_chat.send_photo(
+                        photo=photo,
+                        caption=text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML,
+                        message_thread_id=query.message.message_thread_id
+                    )
+                else:
+                    await update.effective_chat.send_message(
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML,
+                        message_thread_id=query.message.message_thread_id
+                    )
+            except BadRequest as e:
+                main_handlers_logger.error(e)
+                await query.edit_message_text(
+                    text,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.HTML
+                )
+        case 'TIME':
+            await query.edit_message_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML
+            )
+    return state
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -449,7 +415,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.delete_message()
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT["RESERVE"][0]} - для повторного '
+                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
                      f'резервирования свободных мест на спектакль',
                 message_thread_id=query.message.message_thread_id
             )
@@ -462,8 +428,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=message_id
                 )
 
-                chose_ticket = context.user_data['chose_ticket']
-                row_in_googlesheet = context.user_data['row_in_googlesheet']
+                reserve_admin_data = context.user_data['reserve_admin_data']
+                payment_id = reserve_admin_data['payment_id']
+                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+                row_in_googlesheet = reserve_admin_data[payment_id][
+                    'row_in_googlesheet']
 
                 await write_old_seat_info(update,
                                           user,
@@ -473,9 +442,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.delete_message()
             await update.effective_chat.send_message(
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT["BD_ORDER"][0]} - для повторной '
+                     f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
                      f'отправки заявки на проведение Дня рождения\n'
-                     f'/{COMMAND_DICT["BD_PAID"][0]} - для повторного '
+                     f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
                      f'запуска процедуры внесения предоплаты, если ваша заявка '
                      f'была одобрена',
                 message_thread_id=query.message.message_thread_id
@@ -486,11 +455,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except KeyError:
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
-                                  f'команду /{COMMAND_DICT["BD_PAID"][0]}')
+                                  f'команду /{COMMAND_DICT['BD_PAID'][0]}')
     main_handlers_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
-    context.user_data.clear()
+    context.user_data['common_data'].clear()
+    context.user_data['birthday_data'].clear()
+    context.user_data['reserve_user_data'].clear()
     return ConversationHandler.END
 
 
@@ -515,7 +486,7 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     main_handlers_logger.info(update.effective_user)
     main_handlers_logger.info(update.message)
 
-    user = update.effective_user
+    user = context.user_data['user']
 
     text = (
         'К сожалению, у меня пока нет полномочий для помощи по любым вопросам\n'

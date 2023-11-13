@@ -36,6 +36,8 @@ from utilities.utl_func import (
     extract_phone_number_from_text,
     add_btn_back_and_cancel,
     send_message_to_admin,
+    set_back_context,
+    get_back_context,
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -66,6 +68,20 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state MONTH
     """
+    state = 'START'
+    context.user_data['STATE'] = state
+    context.user_data['reserve_user_data'] = {}
+    context.user_data['reserve_user_data']['back'] = {}
+    context.user_data['reserve_user_data']['client_data'] = {}
+    context.user_data.setdefault('common_data', {})
+    context.user_data.setdefault('reserve_admin_data', {'payment_id': 0})
+    if not isinstance(
+            context.user_data['reserve_admin_data']['payment_id'],
+            int):
+        context.user_data['reserve_admin_data'] = {'payment_id': 0}
+
+    user = context.user_data.setdefault('user', update.effective_user)
+
     if update.effective_message.is_topic_message:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Списки на показы', None))
@@ -73,15 +89,12 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_message.reply_text(
                 'Выполните команду в правильном топике')
             return ConversationHandler.END
-    state = 'START'
 
     reserve_hl_logger.info(f'Пользователь начал выбор месяца:'
-                           f' {update.message.from_user}')
-
-    context.user_data.setdefault('reserve_data', {})
-    user = update.message.from_user
+                           f' {user}')
 
     message = await send_and_del_message_to_remove_kb(update)
+    await update.effective_chat.send_action(ChatAction.TYPING)
 
     try:
         (
@@ -147,23 +160,21 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.message.message_thread_id
     )
 
-    context.user_data['user'] = user
-
-    # Контекст для возврата назад
-    context.user_data['text_month'] = text
-    context.user_data['keyboard_month'] = reply_markup
-
-    context.user_data['dict_of_shows'] = dict_of_shows
-    context.user_data['dict_of_name_show'] = dict_of_name_show
-    context.user_data['dict_of_name_show_flip'] = dict_of_name_show_flip
-    context.user_data['dict_of_date_show'] = dict_of_date_show
+    context.user_data['common_data']['dict_of_shows'] = dict_of_shows
+    context.user_data['reserve_user_data'][
+        'dict_of_name_show'] = dict_of_name_show
+    context.user_data['reserve_user_data'][
+        'dict_of_name_show_flip'] = dict_of_name_show_flip
+    context.user_data['reserve_user_data'][
+        'dict_of_date_show'] = dict_of_date_show
 
     state = 'MONTH'
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
 
-async def choice_show_and_date(
+async def choice_show_or_date(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
@@ -182,8 +193,9 @@ async def choice_show_and_date(
     reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
                            f' {user}')
 
-    dict_of_name_show = context.user_data['dict_of_name_show']
-    dict_of_date_show = context.user_data['dict_of_date_show']
+    reserve_user_data = context.user_data['reserve_user_data']
+    dict_of_name_show = reserve_user_data['dict_of_name_show']
+    dict_of_date_show = reserve_user_data['dict_of_date_show']
 
     number_of_month_str = query.data
     filter_show_id = enum_current_show_by_month(dict_of_date_show,
@@ -209,13 +221,12 @@ async def choice_show_and_date(
         keyboard.append(add_btn_back_and_cancel(
             postfix_for_cancel='res',
             add_back_btn=True,
-            postfix_for_back='month'
+            postfix_for_back='MONTH'
         ))
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         state = 'SHOW'
-        context.user_data['text_show'] = text
-        context.user_data['keyboard_show'] = reply_markup
+        set_back_context(context, state, text, reply_markup)
     else:
         text = 'Выберите спектакль и дату\n'
         text = add_text_of_show_and_numerate(text,
@@ -225,12 +236,11 @@ async def choice_show_and_date(
             dict_of_date_show,
             add_cancel_btn=True,
             postfix_for_cancel='res',
-            postfix_for_back='month',
+            postfix_for_back='MONTH',
             number_of_month=number_of_month_str,
         )
         state = 'DATE'
-        context.user_data['text_date'] = text
-        context.user_data['keyboard_date'] = reply_markup
+        set_back_context(context, state, text, reply_markup)
 
     photo = (
         context.bot_data
@@ -238,12 +248,11 @@ async def choice_show_and_date(
         .get(int(number_of_month_str), False)
     )
     if update.effective_chat.type == ChatType.PRIVATE and photo:
-        message = await update.effective_chat.send_photo(
+        await update.effective_chat.send_photo(
             photo=photo,
             caption=text,
             reply_markup=reply_markup
         )
-        context.user_data['afisha_media'] = [message]
     else:
         await update.effective_chat.send_message(
             text=text,
@@ -251,7 +260,7 @@ async def choice_show_and_date(
             message_thread_id=update.callback_query.message.message_thread_id
         )
 
-    context.user_data['number_of_month_str'] = number_of_month_str
+    reserve_user_data['number_of_month_str'] = number_of_month_str
 
     context.user_data['STATE'] = state
     return state
@@ -278,19 +287,20 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ))
 
-    dict_of_shows = context.user_data['dict_of_shows']
-    dict_of_date_show = context.user_data['dict_of_date_show']
-    dict_of_name_show_flip = context.user_data['dict_of_name_show_flip']
-    number_of_month_str = context.user_data['number_of_month_str']
-    name_of_show = dict_of_name_show_flip[int(query.data)]
     number_of_show = int(query.data)
+    reserve_user_data = context.user_data['reserve_user_data']
+    dict_of_date_show = reserve_user_data['dict_of_date_show']
+    dict_of_name_show_flip = reserve_user_data['dict_of_name_show_flip']
+    number_of_month_str = reserve_user_data['number_of_month_str']
+    dict_of_shows = context.user_data['common_data']['dict_of_shows']
+    name_of_show = dict_of_name_show_flip[number_of_show]
 
     reply_markup = create_replay_markup_for_list_of_shows(
         dict_of_date_show,
         ver=3,
         add_cancel_btn=True,
         postfix_for_cancel='res',
-        postfix_for_back='show',
+        postfix_for_back='SHOW',
         number_of_month=number_of_month_str,
         number_of_show=number_of_show,
         dict_of_events_show=dict_of_shows
@@ -311,11 +321,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 flag_santa = True
 
     if flag_gift:
-        text += f'{SUPPORT_DATA["Подарок"][0]} - {SUPPORT_DATA["Подарок"][1]}\n'
+        text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
     if flag_christmas_tree:
-        text += f'{SUPPORT_DATA["Елка"][0]} - {SUPPORT_DATA["Елка"][1]}\n'
+        text += f'{SUPPORT_DATA['Елка'][0]} - {SUPPORT_DATA['Елка'][1]}\n'
     if flag_santa:
-        text += f'{SUPPORT_DATA["Дед"][0]} - {SUPPORT_DATA["Дед"][1]}\n'
+        text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
 
     photo = (
         context.bot_data
@@ -323,12 +333,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         .get(int(number_of_month_str), False)
     )
     if update.effective_chat.type == ChatType.PRIVATE and photo:
-        message = await query.edit_message_caption(
+        await query.edit_message_caption(
             caption=text,
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML
         )
-        context.user_data['afisha_media'] = [message]
     else:
         await query.edit_message_text(
             text=text,
@@ -336,11 +345,8 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.HTML
         )
 
-    # Контекст для возврата назад
-    context.user_data['text_date'] = text
-    context.user_data['keyboard_date'] = reply_markup
-
     state = 'DATE'
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -366,13 +372,13 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             query.data,
         ]
     ))
-    context.user_data["STATE"] = 'DATE'
 
     key_of_name_show, date_show = query.data.split(' | ')
     key_of_name_show = int(key_of_name_show)
 
-    dict_of_shows: dict = context.user_data['dict_of_shows']
-    dict_of_name_show_flip = context.user_data['dict_of_name_show_flip']
+    dict_of_shows: dict = context.user_data['common_data']['dict_of_shows']
+    reserve_user_data = context.user_data['reserve_user_data']
+    dict_of_name_show_flip = reserve_user_data['dict_of_name_show_flip']
     name_show: str = dict_of_name_show_flip[key_of_name_show]
 
     keyboard = []
@@ -389,11 +395,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = time
             text_emoji = ''
             if item['flag_gift']:
-                text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
+                text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
             if item['flag_christmas_tree']:
-                text_emoji += f'{SUPPORT_DATA["Елка"][0]}'
+                text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
             if item['flag_santa']:
-                text_emoji += f'{SUPPORT_DATA["Дед"][0]}'
+                text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
             text += text_emoji
             text += ' | ' + str(number) + ' шт свободно'
             button_tmp = InlineKeyboardButton(
@@ -403,7 +409,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([button_tmp])
 
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='date'))
+                                            postfix_for_back='DATE'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = f'Вы выбрали:\n <b>{name_show}\n{date_show}</b>\n'
@@ -424,18 +430,17 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
-    context.user_data['date_show'] = date_show
-    context.user_data['name_show'] = name_show
-    context.user_data['show_id'] = int(show_id)
-
-    # Контекст для возврата назад
-    context.user_data['text_time'] = text
-    context.user_data['keyboard_time'] = reply_markup
+    reserve_user_data['show_id'] = int(show_id)
+    reserve_user_data['name_show'] = name_show
+    reserve_user_data['date_show'] = date_show
 
     if update.effective_chat.id == ADMIN_GROUP:
-        return 'LIST'
+        state = 'LIST'
     else:
-        return 'TIME'
+        state = 'TIME'
+    set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
 
 
 async def choice_option_of_reserve(
@@ -464,37 +469,41 @@ async def choice_option_of_reserve(
             query.data,
         ]
     ))
-    context.user_data["STATE"] = 'TIME'
 
     time, row_in_googlesheet, number = query.data.split(' | ')
-    date: str = context.user_data['date_show']
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data['time_show'] = time
 
-    context.user_data['row_in_googlesheet'] = row_in_googlesheet
-    context.user_data['time_show'] = time
+    reserve_admin_data: dict = context.user_data['reserve_admin_data']
+    payment_id = reserve_admin_data['payment_id']
+    reserve_hl_logger.info(f'Бронирование: {payment_id}')
+    reserve_admin_data[payment_id] = {}
+    reserve_admin_data[payment_id]['row_in_googlesheet'] = row_in_googlesheet
 
-    dict_of_shows = context.user_data['dict_of_shows']
+    dict_of_shows = context.user_data['common_data']['dict_of_shows']
+    date: str = reserve_user_data['date_show']
     event = dict_of_shows[int(row_in_googlesheet)]
-    context.user_data['event_id'] = event['event_id']
+    reserve_user_data['event_id'] = event['event_id']
     text_emoji = ''
     option = ''
     if event['flag_gift']:
-        text_emoji += f'{SUPPORT_DATA["Подарок"][0]}'
+        text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
         option = 'Подарок'
     if event['flag_christmas_tree']:
-        text_emoji += f'{SUPPORT_DATA["Елка"][0]}'
+        text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
         option = 'Ёлка'
     if event['flag_santa']:
-        text_emoji += f'{SUPPORT_DATA["Дед"][0]}'
+        text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
     if event['show_id'] == '10' or event['show_id'] == '8':
         option = 'Чтение'
 
-    context.user_data['option'] = option
-    context.user_data['text_emoji'] = text_emoji
+    reserve_user_data['option'] = option
+    reserve_user_data['text_emoji'] = text_emoji
 
     if int(number) == 0:
         reserve_hl_logger.info('Мест нет')
 
-        name_show = context.user_data['name_show']
+        name_show = reserve_user_data['name_show']
         text = (f'Вы выбрали:\n'
                 f'<b>{name_show}\n'
                 f'{date}\n'
@@ -505,7 +514,7 @@ async def choice_option_of_reserve(
             parse_mode=ParseMode.HTML
         )
 
-        context.user_data['text_for_list_waiting'] = text
+        reserve_user_data['event_info_for_list_waiting'] = text
         reply_keyboard = [
             ['Выбрать другое время'],
             ['Записаться в лист ожидания'],
@@ -520,18 +529,20 @@ async def choice_option_of_reserve(
                  'или записаться в лист ожидания на эту дату и время?',
             reply_markup=reply_markup
         )
-        return 'CHOOSING'
+        state = 'CHOOSING'
+        context.user_data['STATE'] = state
+        return state
 
     availibale_number_of_seats_now = update_quality_of_seats(
         row_in_googlesheet, 'qty_child_free_seat')
 
     dict_of_shows: dict = load_list_show()
-    show_id = context.user_data['show_id']
+    show_id = reserve_user_data['show_id']
     flag_indiv_cost = False
     for key, item in dict_of_shows.items():
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
-            context.user_data['flag_indiv_cost'] = flag_indiv_cost
+            reserve_user_data['flag_indiv_cost'] = flag_indiv_cost
 
     list_of_tickets = context.bot_data['list_of_tickets']
     keyboard = []
@@ -560,10 +571,10 @@ async def choice_option_of_reserve(
         keyboard.append(list_btn_of_numbers)
 
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='time'))
+                                            postfix_for_back='TIME'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    name_show = context.user_data['name_show']
+    name_show = reserve_user_data['name_show']
     text = (f'Вы выбрали:\n'
             f'<b>{name_show}\n'
             f'{date}\n'
@@ -574,7 +585,7 @@ async def choice_option_of_reserve(
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
     date_for_price: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
-    context.user_data['date_for_price'] = date_for_price
+    reserve_user_data['date_for_price'] = date_for_price
 
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
@@ -612,7 +623,9 @@ __________
         reply_markup=reply_markup
     )
 
-    return 'ORDER'
+    state = 'ORDER'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def check_and_send_buy_info(
@@ -641,29 +654,30 @@ async def check_and_send_buy_info(
         ]
     ))
 
-    context.user_data['STATE'] = 'ORDER'
-
     try:
         key_option_for_reserve = int(query.data)
     except ValueError as e:
         reserve_hl_logger.error(e)
+        state = 'TIME'
+        text_back, reply_markup = get_back_context(context, state)
         text = '<i>Произошла ошибка. Выберите время еще раз</i>\n'
-        text += context.user_data['text_time']
-        reply_markup = context.user_data['keyboard_time']
+        text += text_back
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML
         )
-        return 'TIME'
+        context.user_data['STATE'] = state
+        return state
 
-    date = context.user_data['date_show']
-    time = context.user_data['time_show']
-    name_show = context.user_data['name_show']
-    flag_indiv_cost = context.user_data['flag_indiv_cost']
-    option = context.user_data['option']
-    text_emoji = context.user_data['text_emoji']
+    reserve_user_data = context.user_data['reserve_user_data']
+    name_show = reserve_user_data['name_show']
+    date = reserve_user_data['date_show']
+    time = reserve_user_data['time_show']
+    option = reserve_user_data['option']
+    text_emoji = reserve_user_data['text_emoji']
+    flag_indiv_cost = reserve_user_data['flag_indiv_cost']
     list_of_tickets = context.bot_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     price = chose_ticket.price
@@ -675,7 +689,7 @@ async def check_and_send_buy_info(
             key = chose_ticket.base_ticket_id
             if flag_indiv_cost:
                 if key // 100 == 1:
-                    date_for_price = context.user_data['date_for_price']
+                    date_for_price = reserve_user_data['date_for_price']
                     if date_for_price.weekday() in range(5):
                         price = TICKET_COST[option]['будни'][key]
                     else:
@@ -703,10 +717,13 @@ async def check_and_send_buy_info(
         reserve_hl_logger.info(
             f'Для пользователя {user}')
         reserve_hl_logger.info(
-            f'Обработчик завершился на этапе {context.user_data["STATE"]}')
-        context.user_data.clear()
+            f'Обработчик завершился на этапе {context.user_data['STATE']}')
+        context.user_data['common_data'].clear()
+        context.user_data['reserve_user_data'].clear()
 
-        return ConversationHandler.END
+        state = ConversationHandler.END
+        context.user_data['STATE'] = state
+        return state
     # Для все стандартных вариантов
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
@@ -720,7 +737,7 @@ async def check_and_send_buy_info(
                 f'{chose_ticket.name} '
                 f'{price}руб\n')
 
-        context.user_data['text_for_notification_massage'] = text
+        context.user_data['common_data']['text_for_notification_massage'] = text
 
         await query.message.edit_text(
             text=text
@@ -729,7 +746,10 @@ async def check_and_send_buy_info(
             'Проверяю наличие свободных мест...')
         await update.effective_chat.send_action(ChatAction.TYPING)
         # Номер строки для извлечения актуального числа доступных мест
-        row_in_googlesheet = context.user_data['row_in_googlesheet']
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        row_in_googlesheet = reserve_admin_data[payment_id][
+            'row_in_googlesheet']
 
         # Обновляем кол-во доступных мест
         availibale_number_of_seats_now = update_quality_of_seats(
@@ -757,7 +777,7 @@ async def check_and_send_buy_info(
                     f'{date}\n'
                     f'В {time}\n'
                     f'{text_emoji}\n')
-            context.user_data['text_for_list_waiting'] = text
+            reserve_user_data['event_info_for_list_waiting'] = text
             text = ('К сожалению места уже забронировали и свободных мест для\n'
                     f'{name_show}\n'
                     f'{date} в {time}\n'
@@ -778,7 +798,9 @@ async def check_and_send_buy_info(
                 text=text,
                 reply_markup=reply_markup
             )
-            return 'CHOOSING'
+            state = 'CHOOSING'
+            context.user_data['STATE'] = state
+            return state
         else:
             reserve_hl_logger.info(": ".join(
                 [
@@ -822,7 +844,9 @@ async def check_and_send_buy_info(
                     text=text,
                     reply_markup=reply_markup
                 )
-                return 'ORDER'
+                state = 'ORDER'
+                context.user_data['STATE'] = state
+                return state
 
         keyboard = []
         button_cancel = InlineKeyboardButton(
@@ -855,15 +879,21 @@ __________
 заполнить анкету (она придет автоматически)""",
             reply_markup=reply_markup
         )
+        common_data = context.user_data['common_data']
+        common_data['message_id_buy_info'] = message.message_id
+        common_data['dict_of_shows'].clear()
 
-        context.user_data['chose_ticket'] = chose_ticket
-        context.user_data['chose_price'] = price
-        context.user_data['message_id'] = message.message_id
+        reserve_user_data = context.user_data['reserve_user_data']
+        reserve_user_data['chose_price'] = price
+        reserve_user_data['dict_of_name_show_flip'].clear()
 
-        context.user_data['dict_of_shows'].clear()
-        context.user_data['dict_of_name_show_flip'].clear()
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
 
-    return 'PAID'
+    state = 'PAID'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def forward_photo_or_file(
@@ -875,9 +905,8 @@ async def forward_photo_or_file(
     Запускает цепочку вопросов для клиентской базы, если пользователь нажал
     кнопку подтвердить.
     """
-    context.user_data['STATE'] = 'PAID'
 
-    message_id = context.user_data['message_id']
+    message_id = context.user_data['common_data']['message_id_buy_info']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопки
@@ -887,7 +916,7 @@ async def forward_photo_or_file(
     )
 
     user = context.user_data['user']
-    text = context.user_data['text_for_notification_massage']
+    text = context.user_data['common_data']['text_for_notification_massage']
 
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Бронирование спектаклей', None))
@@ -920,13 +949,15 @@ __________
     )
 
     # Сообщение для администратора
+    payment_id = context.user_data['reserve_admin_data']['payment_id']
     reply_markup = create_approve_and_reject_replay(
         'reserve',
         update.effective_user.id,
-        message_id
+        message_id,
+        payment_id
     )
 
-    chose_price = context.user_data['chose_price']
+    chose_price = context.user_data['reserve_user_data']['chose_price']
 
     message = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
@@ -938,39 +969,39 @@ __________
         message_thread_id=thread_id
     )
 
-    context.user_data['message_id_for_admin'] = message.message_id
+    context.user_data['common_data'][
+        'message_id_for_admin'] = message.message_id
 
-    return 'FORMA'
+    state = 'FORMA'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_name_adult(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    context.user_data["STATE"] = 'PHONE'
-
     text = update.effective_message.text
 
-    context.user_data['client_data'] = {}
-    context.user_data['client_data']['name_adult'] = text
+    context.user_data['reserve_user_data']['client_data']['name_adult'] = text
 
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона'
     )
 
-    return 'PHONE'
+    state = 'PHONE'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["STATE"] = 'PHONE'
-
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
-        return 'PHONE'
+        return context.user_data['STATE']
 
-    context.user_data['client_data']['phone'] = phone
+    context.user_data['reserve_user_data']['client_data']['phone'] = phone
 
     await update.effective_chat.send_message(
         text="""Напишите, имя и возраст ребенка.
@@ -984,15 +1015,15 @@ __________
 Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
     )
 
-    return 'CHILDREN'
+    state = 'CHILDREN'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_name_children(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    context.user_data["STATE"] = 'CHILDREN'
-
     await update.effective_chat.send_action(ChatAction.TYPING)
 
     text = update.effective_message.text
@@ -1015,7 +1046,7 @@ __________
     if len(result) < count + 1:
         reserve_hl_logger.info('Не верный формат текста')
         await update.effective_chat.send_message(text=text_for_message)
-        return 'CHILDREN'
+        return context.user_data['STATE']
 
     reserve_hl_logger.info('Проверка пройдена успешно')
 
@@ -1029,19 +1060,27 @@ __________
         list_message_text.append(message_text)
 
     try:
-        chose_ticket = context.user_data['chose_ticket']
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
     except KeyError as e:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
             f'Повторите, пожалуйста, бронирование еще раз\n'
-            f'/{COMMAND_DICT["RESERVE"][0]}\n'
+            f'/{COMMAND_DICT['RESERVE'][0]}\n'
             'Приносим извинения за предоставленные неудобства.'
         )
-        return ConversationHandler.END
+        state = ConversationHandler.END
+        context.user_data['STATE'] = state
+        return state
+
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(text=text_for_message)
-        return 'CHILDREN'
+        state = 'CHILDREN'
+        context.user_data['STATE'] = state
+        return state
+
     if len(list_message_text) != chose_ticket.quality_of_children:
         await update.effective_chat.send_message(
             f'Кол-во детей, которое определено: {len(list_message_text)}\n'
@@ -1049,9 +1088,13 @@ __________
             f'{chose_ticket.quality_of_children}\n'
             f'Повторите ввод еще раз, проверьте что каждый ребенок на '
             f'отдельной строке.\n\nНапример:\nИван 1\nСергей 01.01.2000')
-        return 'CHILDREN'
+        state = 'CHILDREN'
+        context.user_data['STATE'] = state
+        return state
 
-    context.user_data['client_data']['data_children'] = list_message_text
+    reserve_user_data = context.user_data['reserve_user_data']
+    client_data = reserve_user_data['client_data']
+    client_data['data_children'] = list_message_text
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -1061,25 +1104,26 @@ __________
             'отправил:',
         ],
     ))
-    reserve_hl_logger.info(context.user_data['client_data'])
+    reserve_hl_logger.info(client_data)
 
-    chose_price = context.user_data['chose_price']
+    chose_price = reserve_user_data['chose_price']
     record_ids = write_client(
-        context.user_data['client_data'],
-        context.user_data['row_in_googlesheet'],
+        client_data,
+        reserve_admin_data[payment_id]['row_in_googlesheet'],
         chose_ticket,
         chose_price,
     )
 
     text = '\n'.join([
-        context.user_data['client_data']['name_adult'],
-        '+7' + context.user_data['client_data']['phone'],
+        client_data['name_adult'],
+        '+7' + client_data['phone'],
         text,
     ])
     text += '\n\n'
     for record in record_ids:
         text += f'#id{record} '
-    message_id_for_admin = context.user_data['message_id_for_admin']
+    message_id_for_admin = context.user_data['common_data'][
+        'message_id_for_admin']
 
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Бронирование спектаклей', None))
@@ -1095,7 +1139,7 @@ __________
         'подтверждена"\n'
         'В противном случае с вами свяжутся для уточнения деталей')
 
-    text = context.user_data['text_for_notification_massage']
+    text = context.user_data['common_data']['text_for_notification_massage']
     text += f"""__________
 Место проведения:
 Офис-центр Малая Покровская, д18, 2 этаж
@@ -1104,17 +1148,21 @@ __________
 Татьяна Бурганова @Tanya_domik +79159383529
 __________
 Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
-        "RESERVE"][0]}"""
+        'RESERVE'][0]}"""
     message = await update.effective_chat.send_message(
         text=text
     )
     await message.pin()
 
+    reserve_admin_data['payment_id'] += 1
+
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
-    return ConversationHandler.END
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
 
 
 async def conversation_timeout(
@@ -1132,11 +1180,11 @@ async def conversation_timeout(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
             'новый запрос'
         )
-
-        chose_ticket = context.user_data['chose_ticket']
-
-        # Номер строки для извлечения актуального числа доступных мест
-        row_in_googlesheet = context.user_data['row_in_googlesheet']
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+        row_in_googlesheet = reserve_admin_data[payment_id][
+            'row_in_googlesheet']
 
         await write_old_seat_info(update,
                                   user,
@@ -1158,7 +1206,7 @@ async def conversation_timeout(
     ))
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data["STATE"]}')
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     return ConversationHandler.END
 
@@ -1173,9 +1221,9 @@ async def send_clients_data(
     query = update.callback_query
     await query.answer()
 
-    name = context.user_data['name_show']
-    date = context.user_data['date_show']
-    dict_of_shows = context.user_data['dict_of_shows']
+    name = context.user_data['reserve_user_data']['name_show']
+    date = context.user_data['reserve_user_data']['date_show']
+    dict_of_shows = context.user_data['common_data']['dict_of_shows']
     time, row_in_googlesheet, number = query.data.split(' | ')
     event = dict_of_shows[int(row_in_googlesheet)]
     event_id = event['event_id']
@@ -1202,18 +1250,22 @@ async def send_clients_data(
         text=text,
         parse_mode=ParseMode.HTML
     )
-    return ConversationHandler.END
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
 
 
 async def write_list_of_waiting(
         update: Update,
-        _: ContextTypes.DEFAULT_TYPE
+        context: ContextTypes.DEFAULT_TYPE
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',
         reply_markup=ReplyKeyboardRemove()
     )
-    return 'PHONE_FOR_WAITING'
+    state = 'PHONE_FOR_WAITING'
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_phone_for_waiting(
@@ -1224,10 +1276,11 @@ async def get_phone_for_waiting(
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
-        return 'PHONE_FOR_WAITING'
+        return context.user_data['STATE']
 
-    context.user_data['phone'] = phone
-    text = context.user_data['text_for_list_waiting'] + '+7' + phone
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data['client_data']['phone'] = phone
+    text = reserve_user_data['event_info_for_list_waiting'] + '+7' + phone
 
     user = context.user_data['user']
     thread_id = (context.bot_data['dict_topics_name']
@@ -1247,4 +1300,6 @@ async def get_phone_for_waiting(
     Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
     )
 
-    return ConversationHandler.END
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
