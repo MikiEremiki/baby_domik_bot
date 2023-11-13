@@ -83,6 +83,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
                            f' {user}')
 
     message = await send_and_del_message_to_remove_kb(update)
+    await update.effective_chat.send_action(ChatAction.TYPING)
 
     try:
         (
