@@ -36,6 +36,8 @@ from utilities.utl_func import (
     extract_phone_number_from_text,
     add_btn_back_and_cancel,
     send_message_to_admin,
+    set_back_context,
+    get_back_context,
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -167,6 +169,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'dict_of_date_show'] = dict_of_date_show
 
     state = 'MONTH'
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -218,13 +221,12 @@ async def choice_show_or_date(
         keyboard.append(add_btn_back_and_cancel(
             postfix_for_cancel='res',
             add_back_btn=True,
-            postfix_for_back='month'
+            postfix_for_back='MONTH'
         ))
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         state = 'SHOW'
-        context.user_data['text_show'] = text
-        context.user_data['keyboard_show'] = reply_markup
+        set_back_context(context, state, text, reply_markup)
     else:
         text = 'Выберите спектакль и дату\n'
         text = add_text_of_show_and_numerate(text,
@@ -234,12 +236,11 @@ async def choice_show_or_date(
             dict_of_date_show,
             add_cancel_btn=True,
             postfix_for_cancel='res',
-            postfix_for_back='month',
+            postfix_for_back='MONTH',
             number_of_month=number_of_month_str,
         )
         state = 'DATE'
-        context.user_data['text_date'] = text
-        context.user_data['keyboard_date'] = reply_markup
+        set_back_context(context, state, text, reply_markup)
 
     photo = (
         context.bot_data
@@ -299,7 +300,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ver=3,
         add_cancel_btn=True,
         postfix_for_cancel='res',
-        postfix_for_back='show',
+        postfix_for_back='SHOW',
         number_of_month=number_of_month_str,
         number_of_show=number_of_show,
         dict_of_events_show=dict_of_shows
@@ -344,11 +345,8 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.HTML
         )
 
-    # Контекст для возврата назад
-    context.user_data['text_date'] = text
-    context.user_data['keyboard_date'] = reply_markup
-
     state = 'DATE'
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -411,7 +409,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([button_tmp])
 
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='date'))
+                                            postfix_for_back='DATE'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = f'Вы выбрали:\n <b>{name_show}\n{date_show}</b>\n'
@@ -440,6 +438,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'LIST'
     else:
         state = 'TIME'
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -572,7 +571,7 @@ async def choice_option_of_reserve(
         keyboard.append(list_btn_of_numbers)
 
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='time'))
+                                            postfix_for_back='TIME'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     name_show = reserve_user_data['name_show']
@@ -659,9 +658,10 @@ async def check_and_send_buy_info(
         key_option_for_reserve = int(query.data)
     except ValueError as e:
         reserve_hl_logger.error(e)
+        state = 'TIME'
+        text_back, reply_markup = get_back_context(context, state)
         text = '<i>Произошла ошибка. Выберите время еще раз</i>\n'
-        text += context.user_data['text_time']
-        reply_markup = context.user_data['keyboard_time']
+        text += text_back
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,

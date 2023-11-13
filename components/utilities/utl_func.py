@@ -452,3 +452,23 @@ async def del_topic(
         await update.effective_chat.send_message(
             text='Необходимо указать ключ, который требуется удалить'
         )
+
+
+def set_back_context(
+        context: ContextTypes.DEFAULT_TYPE,
+        state,
+        text,
+        reply_markup,
+):
+    context.user_data['reserve_user_data']['back'][state] = {}
+    dict_back = context.user_data['reserve_user_data']['back'][state]
+    dict_back['text'] = text
+    dict_back['keyboard'] = reply_markup
+
+
+def get_back_context(
+        context: ContextTypes.DEFAULT_TYPE,
+        state,
+):
+    dict_back = context.user_data['reserve_user_data']['back'][state]
+    return dict_back['text'], dict_back['keyboard']

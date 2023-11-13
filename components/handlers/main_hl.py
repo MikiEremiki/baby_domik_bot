@@ -17,7 +17,7 @@ from utilities.googlesheets import (
     write_data_for_reserve,
     set_approve_order
 )
-from utilities.utl_func import is_admin
+from utilities.utl_func import is_admin, get_back_context
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -323,28 +323,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def back_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-    await query.delete_message()
-
-    text = context.user_data['text_month']
-    reply_markup = context.user_data['keyboard_month']
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=query.message.message_thread_id
-    )
-    return 'MONTH'
-
-
-async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
 
     :param update:
@@ -354,88 +333,71 @@ async def back_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    text = context.user_data['text_show']
-    reply_markup = context.user_data['keyboard_show']
-    try:
-        await query.edit_message_caption(
-            caption=text,
-            reply_markup=reply_markup
-        )
-    except BadRequest as e:
-        main_handlers_logger.error(e)
-        await query.delete_message()
-        await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-            message_thread_id=query.message.message_thread_id
-        )
-    return 'SHOW'
+    state = query.data.split('-')[1].upper()
+    text, reply_markup = get_back_context(context, state)
 
-
-async def back_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text = context.user_data['text_date']
-    reply_markup = context.user_data['keyboard_date']
-
-    try:
-        number_of_month_str = context.user_data['number_of_month_str']
-        await query.delete_message()
-        photo = (
-            context.bot_data
-            .get('afisha', {})
-            .get(int(number_of_month_str), False)
-        )
-        if update.effective_chat.type == ChatType.PRIVATE and photo:
-            await update.effective_chat.send_photo(
-                photo=photo,
-                caption=text,
-                reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
-                message_thread_id=query.message.message_thread_id
-            )
-        else:
+    # TODO Решить как сделать еще более универсально, чтобы уйти от match и case
+    match state:
+        case 'MONTH':
+            await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
-    except BadRequest as e:
-        main_handlers_logger.error(e)
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
-        )
-    return 'DATE'
-
-
-async def back_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
-    query = update.callback_query
-    await query.answer()
-
-    text = context.user_data['text_time']
-    reply_markup = context.user_data['keyboard_time']
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
-    )
-    return 'TIME'
+        case 'SHOW':
+            try:
+                await query.edit_message_caption(
+                    caption=text,
+                    reply_markup=reply_markup
+                )
+            except BadRequest as e:
+                main_handlers_logger.error(e)
+                await query.delete_message()
+                await update.effective_chat.send_message(
+                    text=text,
+                    reply_markup=reply_markup,
+                    message_thread_id=query.message.message_thread_id
+                )
+        case 'DATE':
+            try:
+                number_of_month_str = context.user_data['reserve_user_data'][
+                    'number_of_month_str']
+                await query.delete_message()
+                photo = (
+                    context.bot_data
+                    .get('afisha', {})
+                    .get(int(number_of_month_str), False)
+                )
+                if update.effective_chat.type == ChatType.PRIVATE and photo:
+                    await update.effective_chat.send_photo(
+                        photo=photo,
+                        caption=text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML,
+                        message_thread_id=query.message.message_thread_id
+                    )
+                else:
+                    await update.effective_chat.send_message(
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=ParseMode.HTML,
+                        message_thread_id=query.message.message_thread_id
+                    )
+            except BadRequest as e:
+                main_handlers_logger.error(e)
+                await query.edit_message_text(
+                    text,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.HTML
+                )
+        case 'TIME':
+            await query.edit_message_text(
+                text,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML
+            )
+    return state
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):

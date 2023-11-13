@@ -17,23 +17,23 @@ states:  Dict[object, List[BaseHandler]] = {
     ],
     'SHOW': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_month, pattern='^Назад-month'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
         CallbackQueryHandler(reserve_hl.choice_date),
     ],
     'DATE': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_month, pattern='^Назад-month'),
-        CallbackQueryHandler(main_hl.back_show, pattern='^Назад-show'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
         CallbackQueryHandler(reserve_hl.choice_time),
     ],
     'TIME': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_date, pattern='^Назад-date'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
     ],
     'ORDER': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_time, pattern='^Назад-time'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
         CallbackQueryHandler(reserve_hl.check_and_send_buy_info),
     ],
     'PAID': [
@@ -54,7 +54,7 @@ states:  Dict[object, List[BaseHandler]] = {
     ],
     'LIST': [
         CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
-        CallbackQueryHandler(main_hl.back_date, pattern='^Назад'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад'),
         CallbackQueryHandler(reserve_hl.send_clients_data),
     ],
     'CHOOSING': [
