@@ -715,7 +715,8 @@ async def check_and_send_buy_info(
             f'Для пользователя {user}')
         reserve_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data['STATE']}')
-        context.user_data.clear()
+        context.user_data['common_data'].clear()
+        context.user_data['reserve_user_data'].clear()
 
         state = ConversationHandler.END
         context.user_data['STATE'] = state
