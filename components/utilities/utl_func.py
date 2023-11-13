@@ -89,6 +89,12 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
     utilites_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
+    if context.user_data.get('common_data', False):
+        context.user_data['common_data'].clear()
+    if context.user_data.get('birthday_data', False):
+        context.user_data['birthday_data'].clear()
+    if context.user_data.get('reserve_user_data', False):
+        context.user_data['reserve_user_data'].clear()
     return ConversationHandler.END
 
 
