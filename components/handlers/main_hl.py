@@ -32,8 +32,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.effective_chat.send_message(
         text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
-             f'/{COMMAND_DICT['RESERVE'][0]} - чтобы выбрать и оплатить билет на'
-             f' спектакль для просмотра в нашем театре\n'
+             f'/{COMMAND_DICT['RESERVE'][0]} - чтобы выбрать и оплатить билет '
+             f'на спектакль для просмотра в нашем театре\n'
              f'/{COMMAND_DICT['BD_ORDER'][0]} - чтобы оформить заявку на '
              f'проведение дня рождения в театре или по вашему адресу\n',
         reply_markup=ReplyKeyboardRemove()
@@ -162,7 +162,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   chose_ticket)
 
         await query.edit_message_text(
-            text=f'Пользователю @{user.username} {user.full_name} отклонена бронь'
+            text=f'Пользователю @{user.username} {user.full_name} '
+                 f'отклонена бронь'
         )
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -460,8 +461,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     context.user_data['common_data'].clear()
-    context.user_data['birthday_data'].clear()
-    context.user_data['reserve_user_data'].clear()
+    if context.user_data.get('birthday_data', False):
+        context.user_data['birthday_data'].clear()
+    if context.user_data.get('reserve_user_data', False):
+        context.user_data['reserve_user_data'].clear()
     return ConversationHandler.END
 
 
