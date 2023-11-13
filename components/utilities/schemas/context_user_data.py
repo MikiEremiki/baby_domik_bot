@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List
 from telegram import (
     User,
@@ -10,7 +11,7 @@ from utilities.schemas.ticket import BaseTicket
 context_user_data: Dict = {
     'STATE': str,
     'user': User,
-    'support_data': {
+    'common_data': {
         'dict_of_shows': dict,
         'message_id_buy_info': Message.message_id[int | str],
         'message_id_for_admin': Message.message_id[int | str],
@@ -39,16 +40,15 @@ context_user_data: Dict = {
                 'text': str,  # текст для возврата назад в State str
                 'keyboard': InlineKeyboardMarkup
             },
-            'number_of_month_str': str,
-            'afisha_media': List[Message]
         },
+        'number_of_month_str': str,
         'dict_of_name_show': dict,
         'dict_of_name_show_flip': dict,
         'dict_of_date_show': dict,
+        'show_id': int,
         'name_show': str,
         'date_show': str,
         'time_show': str,
-        'text_emoji': str,
         'event_info_for_list_waiting': str,
         # Инфо о выбранном показе пользователя
         'client_data': {
@@ -56,12 +56,19 @@ context_user_data: Dict = {
             'phone': str,
             'data_children': List[List[str]],
         },
+        'chose_price': int,
+        'event_id': int,
+        'option': str,
+        'text_emoji': str,
+        'flag_indiv_cost': bool,
+        'date_for_price': datetime,
     },
     'reserve_admin_data': {
-        int: {
+        int: {  # payment_id
             'row_in_googlesheet': str,
             'chose_ticket': BaseTicket,
         },
+        'payment_id': int,  # Указатель на последний идентификатор платежа
     },
     'birthday_user_data': {
 
