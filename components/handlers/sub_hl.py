@@ -92,3 +92,11 @@ async def update_ticket_data(
     sub_hl_logger.info(text)
     for item in context.bot_data['list_of_tickets']:
         sub_hl_logger.info(f'{str(item)}')
+
+
+async def remove_inline_button(update: Update):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup()
+
+    return query

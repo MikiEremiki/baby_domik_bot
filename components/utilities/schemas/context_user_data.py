@@ -13,8 +13,8 @@ context_user_data: Dict = {
     'user': User,
     'common_data': {
         'dict_of_shows': dict,
-        'message_id_buy_info': Message.message_id[int | str],
-        'message_id_for_admin': Message.message_id[int | str],
+        'message_id_buy_info': Message.message_id,
+        'message_id_for_admin': Message.message_id,
         'text_for_notification_massage': str,
     },
     'birthday_data': {

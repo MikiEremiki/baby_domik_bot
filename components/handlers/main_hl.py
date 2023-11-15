@@ -6,7 +6,7 @@ from telegram.constants import ParseMode, ChatType
 from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
-from handlers.sub_hl import write_old_seat_info
+from handlers.sub_hl import write_old_seat_info, remove_inline_button
 from utilities.settings import (
     COMMAND_DICT,
     ADMIN_GROUP,
@@ -50,9 +50,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить бронь')
         return
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
+    query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
     payment_id = int(query.data.split('|')[1].split()[2])
@@ -142,9 +140,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить бронь')
         return
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
+    query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
     payment_id = int(query.data.split('|')[1].split()[2])
@@ -209,9 +205,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
         return
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
+    query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
@@ -274,9 +268,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
         return
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
+    query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))

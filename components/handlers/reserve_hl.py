@@ -1,4 +1,5 @@
 import logging
+import pprint
 import re
 from datetime import datetime
 
@@ -36,8 +37,7 @@ from utilities.utl_func import (
     extract_phone_number_from_text,
     add_btn_back_and_cancel,
     send_message_to_admin,
-    set_back_context,
-    get_back_context,
+    set_back_context, get_back_context, clean_context,
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -81,6 +81,8 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['reserve_admin_data'] = {'payment_id': 0}
 
     user = context.user_data.setdefault('user', update.effective_user)
+
+    clean_context(context)
 
     if update.effective_message.is_topic_message:
         thread_id = (context.bot_data['dict_topics_name']
@@ -835,11 +837,11 @@ async def check_and_send_buy_info(
                 keyboard = [add_btn_back_and_cancel('res')]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
-                text = 'К сожалению произошла непредвиденная ошибка\n' \
-                       'Нажмите "Назад" и выберите время повторно.\n' \
-                       'Если ошибка повторяется напишите в ЛС в telegram или ' \
-                       'по телефону:\n' \
-                       'Татьяна Бурганова @Tanya_domik +79159383529'
+                text = ('К сожалению произошла непредвиденная ошибка\n'
+                        'Нажмите "Назад" и выберите время повторно.\n'
+                        'Если ошибка повторяется напишите в ЛС в telegram или '
+                        'по телефону:\n'
+                        'Татьяна Бурганова @Tanya_domik +79159383529')
                 await query.message.edit_text(
                     text=text,
                     reply_markup=reply_markup
@@ -885,7 +887,10 @@ __________
 
         reserve_user_data = context.user_data['reserve_user_data']
         reserve_user_data['chose_price'] = price
+        reserve_user_data['dict_of_name_show'].clear()
         reserve_user_data['dict_of_name_show_flip'].clear()
+        reserve_user_data['dict_of_date_show'].clear()
+        reserve_user_data['back'].clear()
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
@@ -1063,7 +1068,7 @@ __________
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-    except KeyError as e:
+    except KeyError:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
             f'Повторите, пожалуйста, бронирование еще раз\n'
@@ -1175,11 +1180,23 @@ async def conversation_timeout(
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
     user = context.user_data['user']
-    if context.user_data['STATE'] == 'ORDER':
-        await update.effective_chat.send_message(
-            'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '
-            'новый запрос'
+    if context.user_data['STATE'] == 'PAID':
+        reserve_hl_logger.info('Отправка чека об оплате не была совершена')
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=context.user_data['common_data']['message_id_buy_info']
         )
+        await update.effective_chat.send_message(
+            'От Вас долго не было ответа, бронь отменена, '
+            'пожалуйста выполните новый запрос\n'
+            'Если вы уже сделали оплату, но не отправили чек об оплате, '
+            'выполните оформление повторно и приложите данный чек\n'
+            f'/{COMMAND_DICT['RESERVE'][0]}\n\n'
+            'Если свободных мест не будет свяжитесь с Татьяной Бургановой:\n'
+            'telegram @Tanya_domik\n'
+            'телефон +79159383529'
+        )
+        reserve_hl_logger.info(pprint.pformat(context.user_data))
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
@@ -1204,7 +1221,6 @@ async def conversation_timeout(
             f'AFK уже {RESERVE_TIMEOUT} мин'
         ]
     ))
-    reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
@@ -1296,8 +1312,10 @@ async def get_phone_for_waiting(
     )
     write_client_list_waiting(context)
     await update.effective_chat.send_message(
-        text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
-    Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
+        text='Вы добавлены в лист ожидания, '
+             'если место освободится, то с вами свяжутся. '
+             'Если у вас есть вопросы, вы можете связаться '
+             'в telegram @Tanya_domik или по телефону +79159383529'
     )
 
     state = ConversationHandler.END
