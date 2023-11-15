@@ -836,11 +836,11 @@ async def check_and_send_buy_info(
                 keyboard = [add_btn_back_and_cancel('res')]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
-                text = 'К сожалению произошла непредвиденная ошибка\n' \
-                       'Нажмите "Назад" и выберите время повторно.\n' \
-                       'Если ошибка повторяется напишите в ЛС в telegram или ' \
-                       'по телефону:\n' \
-                       'Татьяна Бурганова @Tanya_domik +79159383529'
+                text = ('К сожалению произошла непредвиденная ошибка\n'
+                        'Нажмите "Назад" и выберите время повторно.\n'
+                        'Если ошибка повторяется напишите в ЛС в telegram или '
+                        'по телефону:\n'
+                        'Татьяна Бурганова @Tanya_domik +79159383529')
                 await query.message.edit_text(
                     text=text,
                     reply_markup=reply_markup
@@ -1064,7 +1064,7 @@ __________
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-    except KeyError as e:
+    except KeyError:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
             f'Повторите, пожалуйста, бронирование еще раз\n'
@@ -1308,8 +1308,10 @@ async def get_phone_for_waiting(
     )
     write_client_list_waiting(context)
     await update.effective_chat.send_message(
-        text="""Вы добавлены в лист ожидания, если место освободится, то с вами свяжутся.
-    Если у вас есть вопросы, вы можете связаться самостоятельно в telegram @Tanya_domik или по телефону +79159383529"""
+        text='Вы добавлены в лист ожидания, '
+             'если место освободится, то с вами свяжутся. '
+             'Если у вас есть вопросы, вы можете связаться '
+             'в telegram @Tanya_domik или по телефону +79159383529'
     )
 
     state = ConversationHandler.END
