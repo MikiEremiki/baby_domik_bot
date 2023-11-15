@@ -91,7 +91,7 @@ class BaseTicket(BaseModel):
         self.cost_main = new_cost
 
     def __repr__(self):
-        return self.base_ticket_id
+        return str(self.base_ticket_id)
 
 
 list_of_tickets = List[BaseTicket]
