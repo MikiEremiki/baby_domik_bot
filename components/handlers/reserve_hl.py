@@ -887,7 +887,10 @@ __________
 
         reserve_user_data = context.user_data['reserve_user_data']
         reserve_user_data['chose_price'] = price
+        reserve_user_data['dict_of_name_show'].clear()
         reserve_user_data['dict_of_name_show_flip'].clear()
+        reserve_user_data['dict_of_date_show'].clear()
+        reserve_user_data['back'].clear()
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
