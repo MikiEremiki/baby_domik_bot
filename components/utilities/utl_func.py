@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from pprint import pprint
+from pprint import pprint, pformat
 from typing import List, Union, Optional
 
 from telegram import (
@@ -26,6 +26,7 @@ from utilities.settings import (
     ADMIN_ID, ADMIN_GROUP_ID, ADMIN_CHAT_ID,
     LIST_TOPICS_NAME,
 )
+from utilities.schemas.context_user_data import context_user_data
 
 utilites_logger = logging.getLogger('bot.utilites')
 
@@ -226,7 +227,22 @@ def yrange(n):
 
 
 async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
+    if context.args and update.effective_user.id == CHAT_ID_MIKIEREMIKI:
+        chat_id = int(context.args[0])
+        context_format = pformat(context.application.user_data.get(chat_id))
+        max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
+        for i in range(len(context_format) // max_text_len + 1):
+            start = i * max_text_len
+            end = (i+1) * max_text_len
+            if i == len(context_format) // max_text_len:
+                await update.effective_chat.send_message(
+                    text=context_format[start:]
+                )
+                break
+            await update.effective_chat.send_message(
+                text=context_format[start:end]
+            )
+    elif update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         pprint(context.application.user_data)
 
 
