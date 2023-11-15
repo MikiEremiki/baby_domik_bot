@@ -37,8 +37,7 @@ from utilities.utl_func import (
     extract_phone_number_from_text,
     add_btn_back_and_cancel,
     send_message_to_admin,
-    set_back_context,
-    get_back_context,
+    set_back_context, get_back_context, clean_context,
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -82,6 +81,8 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['reserve_admin_data'] = {'payment_id': 0}
 
     user = context.user_data.setdefault('user', update.effective_user)
+
+    clean_context(context)
 
     if update.effective_message.is_topic_message:
         thread_id = (context.bot_data['dict_topics_name']

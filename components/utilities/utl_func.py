@@ -491,3 +491,11 @@ def get_back_context(
 ):
     dict_back = context.user_data['reserve_user_data']['back'][state]
     return dict_back['text'], dict_back['keyboard']
+
+
+def clean_context(context: ContextTypes.DEFAULT_TYPE):
+    list_keys = list(context.user_data.keys())
+    for key in list_keys:
+        if key not in context_user_data:
+            value = context.user_data.pop(key)
+            utilites_logger.info(f'{key}: {value} больше не используется')
