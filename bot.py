@@ -29,6 +29,9 @@ async def post_init(application: Application):
     await set_description(application.bot)
     set_ticket_data(application)
 
+    application.bot_data.setdefault('admin', {})
+    application.bot_data['admin'].setdefault('contacts', {})
+
 
 def bot():
     bot_logger = load_log_config()
