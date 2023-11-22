@@ -17,7 +17,7 @@ from conv_hl.afisha_conv_hl import afisha_conv_hl
 from utilities.settings import API_TOKEN, ADMIN_CHAT_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
-    set_menu, set_description, set_ticket_data,
+    set_menu, set_description, set_ticket_data, update_admin_info,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,
@@ -28,6 +28,9 @@ async def post_init(application: Application):
     await set_menu(application.bot)
     await set_description(application.bot)
     set_ticket_data(application)
+
+    application.bot_data.setdefault('admin', {})
+    application.bot_data['admin'].setdefault('contacts', {})
 
 
 def bot():
@@ -48,11 +51,6 @@ def bot():
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
 
-    application.add_handler(reserve_conv_hl)
-    application.add_handler(birthday_conv_hl)
-    application.add_handler(birthday_paid_conv_hl)
-    application.add_handler(afisha_conv_hl)
-
     application.add_handler(CallbackQueryHandler(main_hl.confirm_reserve,
                                                  pattern='^confirm-reserve'))
     application.add_handler(CallbackQueryHandler(main_hl.reject_reserve,
@@ -61,6 +59,11 @@ def bot():
                                                  pattern='^confirm-birthday'))
     application.add_handler(CallbackQueryHandler(main_hl.reject_birthday,
                                                  pattern='^reject-birthday'))
+
+    application.add_handler(reserve_conv_hl)
+    application.add_handler(birthday_conv_hl)
+    application.add_handler(birthday_paid_conv_hl)
+    application.add_handler(afisha_conv_hl)
 
     application.add_handler(CommandHandler('echo', echo))
     application.add_handler(CommandHandler('reset', reset))
@@ -87,6 +90,10 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['TOPIC_DEL'][0],
         del_topic,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['ADM_INFO'][0],
+        update_admin_info,
         filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
 
     application.add_handler(CommandHandler('rcl',
