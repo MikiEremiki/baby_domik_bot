@@ -17,7 +17,7 @@ from conv_hl.afisha_conv_hl import afisha_conv_hl
 from utilities.settings import API_TOKEN, ADMIN_CHAT_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
-    set_menu, set_description, set_ticket_data,
+    set_menu, set_description, set_ticket_data, update_admin_info,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,
@@ -90,6 +90,10 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['TOPIC_DEL'][0],
         del_topic,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['ADM_INFO'][0],
+        update_admin_info,
         filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
 
     application.add_handler(CommandHandler('rcl',
