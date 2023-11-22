@@ -51,11 +51,6 @@ def bot():
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
 
-    application.add_handler(reserve_conv_hl)
-    application.add_handler(birthday_conv_hl)
-    application.add_handler(birthday_paid_conv_hl)
-    application.add_handler(afisha_conv_hl)
-
     application.add_handler(CallbackQueryHandler(main_hl.confirm_reserve,
                                                  pattern='^confirm-reserve'))
     application.add_handler(CallbackQueryHandler(main_hl.reject_reserve,
@@ -64,6 +59,11 @@ def bot():
                                                  pattern='^confirm-birthday'))
     application.add_handler(CallbackQueryHandler(main_hl.reject_birthday,
                                                  pattern='^reject-birthday'))
+
+    application.add_handler(reserve_conv_hl)
+    application.add_handler(birthday_conv_hl)
+    application.add_handler(birthday_paid_conv_hl)
+    application.add_handler(afisha_conv_hl)
 
     application.add_handler(CommandHandler('echo', echo))
     application.add_handler(CommandHandler('reset', reset))
