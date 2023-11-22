@@ -225,9 +225,9 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         birthday_hl_logger.error(err)
         await update.effective_chat.send_message(
             'Произошел разрыв соединения, попробуйте еще раз\n'
-            'Если проблема повторится вы можете оформить заявку в ЛС '
-            'telegram или по телефону:\n'
-            'Татьяна Бурганова @Tanya_domik +79159383529'
+            'Если проблема повторится вы можете оформить заявку напрямую у '
+            'Администратора:\n'
+            f'{context.bot_data['admin']['contacts']}'
         )
         return ConversationHandler.END
 
@@ -552,8 +552,8 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Пожалуйста внесите оплату в течении 30 минут или нажмите '
             'отмена\n\n'
             '__________\n'
-            'В случае переноса или отмены свяжитесь с администратором:'
-            'Татьяна Бурганова @Tanya_domik +79159383529')
+            'В случае переноса или отмены свяжитесь с Администратором:\n'
+            f'{context.bot_data['admin']['contacts']}')
 
     message = await update.effective_chat.send_photo(
         photo=FILE_ID_QR,

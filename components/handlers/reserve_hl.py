@@ -112,9 +112,9 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
             text='К сожалению я сегодня на техническом обслуживании\n'
-                 'Но вы можете забронировать место по старинке в ЛС telegram или по '
-                 'телефону:\n'
-                 'Татьяна Бурганова @Tanya_domik +79159383529',
+                 'Но вы можете забронировать место связавшись напрямую с '
+                 'Администратором:\n'
+                 f'{context.bot_data['admin']['contacts']}',
             message_thread_id=update.message.message_thread_id
         )
         return ConversationHandler.END
@@ -125,9 +125,9 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
             text='Произошел разрыв соединения, попробуйте еще раз\n'
-                 'Если проблема повторится вы можете забронировать место в ЛС '
-                 'telegram или по телефону:\n'
-                 'Татьяна Бурганова @Tanya_domik +79159383529',
+                 'Если проблема повторится вы можете оформить заявку напрямую у '
+                 'Администратора:\n'
+                 f'{context.bot_data['admin']['contacts']}',
             message_thread_id=update.message.message_thread_id
         )
         return ConversationHandler.END
@@ -710,8 +710,8 @@ async def check_and_send_buy_info(
 
     # Если пользователь выбрал не стандартный вариант
     if chose_ticket.flag_individual:
-        text = 'Для оформления данного варианта обращайтесь в ЛС в telegram ' \
-               'или по телефону:\n Татьяна Бурганова @Tanya_domik +79159383529'
+        text = ('Для оформления данного варианта обратитесь к Администратору:\n'
+                f'{context.bot_data['admin']['contacts']}')
         await query.message.edit_text(
             text=text
         )
@@ -839,9 +839,8 @@ async def check_and_send_buy_info(
 
                 text = ('К сожалению произошла непредвиденная ошибка\n'
                         'Нажмите "Назад" и выберите время повторно.\n'
-                        'Если ошибка повторяется напишите в ЛС в telegram или '
-                        'по телефону:\n'
-                        'Татьяна Бурганова @Tanya_domik +79159383529')
+                        'Если ошибка повторяется свяжитесь с Администратором:\n'
+                        f'{context.bot_data['admin']['contacts']}')
                 await query.message.edit_text(
                     text=text,
                     reply_markup=reply_markup
@@ -1149,8 +1148,8 @@ __________
 Место проведения:
 Офис-центр Малая Покровская, д18, 2 этаж
 __________
-По вопросам обращайтесь в ЛС в telegram или по телефону:
-Татьяна Бурганова @Tanya_domik +79159383529
+По вопросам обращайтесь к Администратору:
+{context.bot_data['admin']['contacts']}
 __________
 Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
         'RESERVE'][0]}"""
@@ -1192,9 +1191,8 @@ async def conversation_timeout(
             'Если вы уже сделали оплату, но не отправили чек об оплате, '
             'выполните оформление повторно и приложите данный чек\n'
             f'/{COMMAND_DICT['RESERVE'][0]}\n\n'
-            'Если свободных мест не будет свяжитесь с Татьяной Бургановой:\n'
-            'telegram @Tanya_domik\n'
-            'телефон +79159383529'
+            'Если свободных мест не будет свяжитесь с Администратором:\n'
+            f'{context.bot_data['admin']['contacts']}'
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
         reserve_admin_data = context.user_data['reserve_admin_data']
@@ -1314,8 +1312,8 @@ async def get_phone_for_waiting(
     await update.effective_chat.send_message(
         text='Вы добавлены в лист ожидания, '
              'если место освободится, то с вами свяжутся. '
-             'Если у вас есть вопросы, вы можете связаться '
-             'в telegram @Tanya_domik или по телефону +79159383529'
+             'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
+             f'{context.bot_data['admin']['contacts']}'
     )
 
     state = ConversationHandler.END
