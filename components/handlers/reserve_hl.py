@@ -509,8 +509,10 @@ async def choice_option_of_reserve(
     reserve_user_data['option'] = option
     reserve_user_data['text_emoji'] = text_emoji
 
-    if int(number) == 0:
+    if int(qty_child) == 0 or int(qty_adult) == 0:
         reserve_hl_logger.info('Мест нет')
+        reserve_hl_logger.info(f'qty_child: {qty_child}')
+        reserve_hl_logger.info(f'qty_adult: {qty_adult}')
 
         name_show = reserve_user_data['name_show']
         text = (f'Вы выбрали:\n'
