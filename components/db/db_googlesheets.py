@@ -87,6 +87,11 @@ def load_show_data() -> tuple[
                 dict_column_name['qty_child_free_seat']],
             'qty_child_nonconfirm_seat': item[
                 dict_column_name['qty_child_nonconfirm_seat']],
+            'qty_adult': item[dict_column_name['qty_adult']],
+            'qty_adult_free_seat': item[
+                dict_column_name['qty_adult_free_seat']],
+            'qty_adult_nonconfirm_seat': item[
+                dict_column_name['qty_adult_nonconfirm_seat']],
             'flag_gift': True if item[dict_column_name[
                 'flag_gift']] == 'TRUE' else False,
             'flag_christmas_tree': True if item[dict_column_name[
