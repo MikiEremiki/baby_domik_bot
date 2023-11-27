@@ -391,9 +391,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if item['name_show'] == name_show and item['date_show'] == date_show:
             show_id = item['show_id']
             time = item['time_show']
-            number = item['qty_child_free_seat']
-            if int(number) < 0:
-                number = 0
+            qty_child = item['qty_child_free_seat']
+            qty_adult = item['qty_adult_free_seat']
+            if int(qty_child) < 0:
+                qty_child = 0
             text = time
             text_emoji = ''
             if item['flag_gift']:
@@ -403,10 +404,14 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if item['flag_santa']:
                 text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
             text += text_emoji
-            text += ' | ' + str(number) + ' шт свободно'
+            # TODO вместо key использовать event_id, и кол-во мест на
+            #  следующих этапах доставать из контекста по event_id вместо
+            #  callback_data
+            text += ' | ' + str(qty_child) + ' дет'
+            text += ' | ' + str(qty_adult) + ' взр'
             button_tmp = InlineKeyboardButton(
                 text=text,
-                callback_data=time + ' | ' + str(key) + ' | ' + str(number)
+                callback_data=time + ' | ' + str(key) + ' | ' + str(qty_child)
             )
             keyboard.append([button_tmp])
 
@@ -423,7 +428,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += ('<i>Выберите удобное время\n'
                  '1 ребенок = 1 место</i>\n\n'
                  'Вы также можете выбрать вариант с 0 кол-вом мест '
-                 'и записаться в лист ожидания на данное время')
+                 'и записаться в лист ожидания на данное время\n\n'
+                 'Кол-во свободных мест:\n'
+                 '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️')
 
     await update.effective_chat.send_message(
         text=text,
@@ -472,7 +479,7 @@ async def choice_option_of_reserve(
         ]
     ))
 
-    time, row_in_googlesheet, number = query.data.split(' | ')
+    time, row_in_googlesheet, qty_child, qty_adult = query.data.split(' | ')
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['time_show'] = time
 
