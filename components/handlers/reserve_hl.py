@@ -132,8 +132,10 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    list_of_months = sorted(set(int(item[3:5]) for item in
-                                dict_of_date_show.keys()))
+    list_of_months = []
+    for item in dict_of_date_show.keys():
+        if int(item[3:5]) not in list_of_months:
+            list_of_months.append(int(item[3:5]))
 
     keyboard = []
 

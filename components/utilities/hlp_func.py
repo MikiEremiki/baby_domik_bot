@@ -51,7 +51,7 @@ def create_replay_markup_for_list_of_shows(
     y = yrange(len(dict_of_show))
     for key, items in dict_of_show.items():
         if (number_of_month is not None and
-                key[3:5] != number_of_month):
+                int(key[3:5]) != int(number_of_month)):
             continue
         num = next(y) + 1
         button_tmp = None
@@ -228,7 +228,7 @@ def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
     filter_show_id = {}
     i = 1
     for key, items in dict_of_date_show.items():
-        if num is not None and key[3:5] != num:
+        if num is not None and int(key[3:5]) != int(num):
             continue
         for item in items:
             if item not in filter_show_id.keys():
