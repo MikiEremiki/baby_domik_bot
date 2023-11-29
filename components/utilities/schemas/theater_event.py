@@ -99,7 +99,8 @@ dict_of_shows = {
     'qty_child_nonconfirm_seat': int,
     'qty_adult': int,
     'qty_adult_free_seat': int,
-    'qty_adult_nonconfirm_seat': int
+    'qty_adult_nonconfirm_seat': int,
+    'ticket_price_type': str,
 }
 
 dict_of_date_show: Dict
