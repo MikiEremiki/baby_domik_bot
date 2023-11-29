@@ -61,7 +61,7 @@ context_user_data: Dict = {
         'option': str,
         'text_emoji': str,
         'flag_indiv_cost': bool,
-        'date_for_price': datetime,
+        'type_ticket_price': str,
     },
     'reserve_admin_data': {
         int: {  # payment_id
