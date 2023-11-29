@@ -93,6 +93,7 @@ def load_show_data() -> tuple[
                 'flag_christmas_tree']] == 'TRUE' else False,
             'flag_santa': True if item[dict_column_name[
                 'flag_santa']] == 'TRUE' else False,
+            'ticket_price_type': item[dict_column_name['ticket_price_type']],
         }
 
         if item[dict_column_name['name_show']] not in dict_of_name_show:

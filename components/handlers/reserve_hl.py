@@ -132,8 +132,10 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    list_of_months = sorted(set(int(item[3:5]) for item in
-                                dict_of_date_show.keys()))
+    list_of_months = []
+    for item in dict_of_date_show.keys():
+        if int(item[3:5]) not in list_of_months:
+            list_of_months.append(int(item[3:5]))
 
     keyboard = []
 
@@ -497,7 +499,7 @@ async def choice_option_of_reserve(
     if event['flag_santa']:
         text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
     if event['show_id'] == '10' or event['show_id'] == '8':
-        option = 'Чтение'
+        option = 'Базовая стоимость'
 
     reserve_user_data['option'] = option
     reserve_user_data['text_emoji'] = text_emoji
@@ -587,7 +589,6 @@ async def choice_option_of_reserve(
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
     date_for_price: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
-    reserve_user_data['date_for_price'] = date_for_price
 
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
@@ -598,10 +599,16 @@ async def choice_option_of_reserve(
 
         if flag_indiv_cost:
             if key // 100 == 1:
-                if date_for_price.weekday() in range(5):
-                    price = TICKET_COST[option]['будни'][key]
+                if event['ticket_price_type'] == '':
+                    if date_for_price.weekday() in range(5):
+                        type_ticket_price = 'будни'
+                    else:
+                        type_ticket_price = 'выходные'
                 else:
-                    price = TICKET_COST[option]['выходные'][key]
+                    type_ticket_price = event['ticket_price_type']
+                reserve_user_data['type_ticket_price'] = type_ticket_price
+
+                price = TICKET_COST[option][type_ticket_price][key]
                 text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
                          f'{price} руб\n')
         else:
@@ -678,6 +685,7 @@ async def check_and_send_buy_info(
     date = reserve_user_data['date_show']
     time = reserve_user_data['time_show']
     option = reserve_user_data['option']
+    type_ticket_price = reserve_user_data['type_ticket_price']
     text_emoji = reserve_user_data['text_emoji']
     flag_indiv_cost = reserve_user_data['flag_indiv_cost']
     list_of_tickets = context.bot_data['list_of_tickets']
@@ -691,11 +699,7 @@ async def check_and_send_buy_info(
             key = chose_ticket.base_ticket_id
             if flag_indiv_cost:
                 if key // 100 == 1:
-                    date_for_price = reserve_user_data['date_for_price']
-                    if date_for_price.weekday() in range(5):
-                        price = TICKET_COST[option]['будни'][key]
-                    else:
-                        price = TICKET_COST[option]['выходные'][key]
+                    price = TICKET_COST[option][type_ticket_price][key]
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
