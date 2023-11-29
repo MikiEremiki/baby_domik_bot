@@ -694,7 +694,6 @@ async def check_and_send_buy_info(
     date = reserve_user_data['date_show']
     time = reserve_user_data['time_show']
     option = reserve_user_data['option']
-    type_ticket_price = reserve_user_data['type_ticket_price']
     text_emoji = reserve_user_data['text_emoji']
     flag_indiv_cost = reserve_user_data['flag_indiv_cost']
     list_of_tickets = context.bot_data['list_of_tickets']
@@ -708,6 +707,7 @@ async def check_and_send_buy_info(
             key = chose_ticket.base_ticket_id
             if flag_indiv_cost:
                 if key // 100 == 1:
+                    type_ticket_price = reserve_user_data['type_ticket_price']
                     price = TICKET_COST[option][type_ticket_price][key]
 
     user = context.user_data['user']
