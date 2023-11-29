@@ -108,7 +108,6 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'Домик', place))
 
     text = 'Напишите желаемую дату проведения праздника'
-    text += load_and_concat_date_of_shows()
     await update.effective_chat.send_message(
         text=text,
     )
