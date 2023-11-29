@@ -499,7 +499,7 @@ async def choice_option_of_reserve(
     if event['flag_santa']:
         text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
     if event['show_id'] == '10' or event['show_id'] == '8':
-        option = 'Чтение'
+        option = 'Базовая стоимость'
 
     reserve_user_data['option'] = option
     reserve_user_data['text_emoji'] = text_emoji
