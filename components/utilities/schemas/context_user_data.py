@@ -45,10 +45,16 @@ context_user_data: Dict = {
         'dict_of_name_show': dict,
         'dict_of_name_show_flip': dict,
         'dict_of_date_show': dict,
-        'show_id': int,
-        'name_show': str,
-        'date_show': str,
-        'time_show': str,
+        'choose_show_info': {
+            'show_id': int,
+            'name_show': str,
+            'date_show': str,
+            'time_show': str,
+            'event_id': int,
+            'option': str,
+            'text_emoji': str,
+            'flag_indiv_cost': bool,
+        },
         'event_info_for_list_waiting': str,
         # Инфо о выбранном показе пользователя
         'client_data': {
@@ -57,15 +63,11 @@ context_user_data: Dict = {
             'data_children': List[List[str]],
         },
         'chose_price': int,
-        'event_id': int,
-        'option': str,
-        'text_emoji': str,
-        'flag_indiv_cost': bool,
         'type_ticket_price': str,
     },
     'reserve_admin_data': {
         int: {  # payment_id
-            'row_in_googlesheet': str,
+            'event_id': str,
             'chose_ticket': BaseTicket,
         },
         'payment_id': int,  # Указатель на последний идентификатор платежа
