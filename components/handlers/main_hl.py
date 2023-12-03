@@ -59,42 +59,53 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
-        row_in_googlesheet = payment_data['row_in_googlesheet']
+        event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
-        nonconfirm_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 'qty_child_nonconfirm_seat')
+        # Обновляем кол-во доступных мест
+        list_of_name_colum = [
+            'qty_child_nonconfirm_seat',
+            'qty_adult_nonconfirm_seat'
+        ]
+        (qty_child_nonconfirm_seat_now,
+         qty_adult_nonconfirm_seat_now
+         ) = get_quality_of_seats(event_id,
+                                  list_of_name_colum)
 
-        new_nonconfirm_number_of_seats = int(
-            nonconfirm_number_of_seats_now) - int(
-            chose_ticket.quality_of_children)
+        qty_child_nonconfirm_seat_new = int(
+            qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
+        qty_adult_nonconfirm_seat_new = int(
+            qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
+                                                 chose_ticket.quality_of_add_adult)
+
+        numbers = [
+            qty_child_nonconfirm_seat_new,
+            qty_adult_nonconfirm_seat_new
+        ]
         try:
-            write_data_for_reserve(
-                row_in_googlesheet,
-                [new_nonconfirm_number_of_seats]
-            )
+            write_data_for_reserve(event_id, numbers, 2)
 
             main_handlers_logger.info(": ".join(
                 [
                     'Для пользователя',
                     f'{user}',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
+                    'event_id для обновления',
+                    event_id,
                 ]
             ))
         except TimeoutError:
             await update.effective_chat.send_message(
                 text=f'Для пользователя @{user.username} {user.full_name} '
                      f'подтверждение в авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{row_in_googlesheet}'
+                     f'Номер строки для обновления:\n{event_id}'
             )
             main_handlers_logger.error(TimeoutError)
             main_handlers_logger.error(": ".join(
                 [
                     f'Для пользователя {user} подтверждение в '
                     f'авто-режиме не сработало',
-                    'Номер строки для обновления',
-                    row_in_googlesheet,
+                    'event_id для обновления',
+                    event_id,
                 ]
             ))
 
@@ -149,12 +160,11 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
-        row_in_googlesheet = payment_data['row_in_googlesheet']
+        event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
-        await write_old_seat_info(update,
-                                  user,
-                                  row_in_googlesheet,
+        await write_old_seat_info(user,
+                                  event_id,
                                   chose_ticket)
 
         await query.edit_message_text(
@@ -187,8 +197,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [
                 'Для пользователя',
                 f'{user}',
-                'Номер строки, которая должна быть обновлена',
-                row_in_googlesheet,
+                'event_id для обновления',
+                event_id,
             ]
         ))
     except BadRequest:
@@ -426,13 +436,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reserve_admin_data = context.user_data['reserve_admin_data']
                 payment_id = reserve_admin_data['payment_id']
                 chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-                row_in_googlesheet = reserve_admin_data[payment_id][
-                    'row_in_googlesheet']
+                event_id = reserve_admin_data[payment_id]['event_id']
 
-                await write_old_seat_info(update,
-                                          user,
-                                          row_in_googlesheet,
-                                          chose_ticket)
+                await write_old_seat_info(user, event_id, chose_ticket)
         case 'bd':
             await query.delete_message()
             await update.effective_chat.send_message(
