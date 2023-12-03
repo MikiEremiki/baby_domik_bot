@@ -31,7 +31,7 @@ from utilities.googlesheets import (
     write_data_for_reserve,
     write_client,
     write_client_list_waiting,
-    update_quality_of_seats,
+    get_quality_of_seats,
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
