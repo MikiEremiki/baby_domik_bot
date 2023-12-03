@@ -521,6 +521,8 @@ async def choice_option_of_reserve(
     name_show = choose_show_info['name_show']
     date = choose_show_info['date_show']
     if int(qty_child) == 0 or int(qty_adult) == 0:
+        await query.edit_message_text(
+            'Готовлю информацию для записи в лист ожидания...')
         reserve_hl_logger.info('Мест нет')
         reserve_hl_logger.info(f'qty_child: {qty_child}')
         reserve_hl_logger.info(f'qty_adult: {qty_adult}')
@@ -546,8 +548,9 @@ async def choice_option_of_reserve(
             one_time_keyboard=True
         )
         await update.effective_chat.send_message(
-            text='Вы хотите выбрать другое время '
-                 'или записаться в лист ожидания на эту дату и время?',
+            text='⬇️Нажмите на одну из двух кнопок ниже, '
+                 'чтобы выбрать другое время '
+                 'или записаться в лист ожидания на эту дату и время⬇️',
             reply_markup=reply_markup
         )
         state = 'CHOOSING'
@@ -832,9 +835,12 @@ async def check_and_send_buy_info(
                     f'{name_show}\n'
                     f'{date} в {time}\n'
                     f'{text_emoji}\n'
-                    f' Осталось: {availibale_number_of_seats_now}шт\n\n'
-                    'Вы хотите выбрать другое время '
-                    'или записаться в лист ожидания на эту дату и время?')
+                    f' Осталось: '
+                    f'<i>{qty_adult_free_seat_now} взр</i> '
+                    f'| <i>{qty_child_free_seat_now} дет</i>\n\n'
+                    '⬇️Нажмите на одну из двух кнопок ниже, '
+                    'чтобы выбрать другое время '
+                    'или записаться в лист ожидания на эту дату и время⬇️')
             reply_keyboard = [
                 ['Выбрать другое время'],
                 ['Записаться в лист ожидания'],
