@@ -398,6 +398,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             qty_adult = item['qty_adult_free_seat']
             if int(qty_child) < 0:
                 qty_child = 0
+            if int(qty_adult) < 0:
+                qty_adult = 0
             text = time
             text_emoji = ''
             if item['flag_gift']:
