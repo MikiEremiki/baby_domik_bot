@@ -447,9 +447,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
-    reserve_user_data['show_id'] = int(show_id)
-    reserve_user_data['name_show'] = name_show
-    reserve_user_data['date_show'] = date_show
+    choose_show_info = reserve_user_data['choose_show_info']
+    choose_show_info['show_id'] = int(show_id)
+    choose_show_info['name_show'] = name_show
+    choose_show_info['date_show'] = date_show
 
     if update.effective_chat.id == ADMIN_GROUP:
         state = 'LIST'
@@ -487,20 +488,20 @@ async def choice_option_of_reserve(
         ]
     ))
 
-    time, row_in_googlesheet, qty_child, qty_adult = query.data.split(' | ')
+    time, event_id, qty_child, qty_adult = query.data.split(' | ')
     reserve_user_data = context.user_data['reserve_user_data']
-    reserve_user_data['time_show'] = time
+    choose_show_info = reserve_user_data['choose_show_info']
+    choose_show_info['time_show'] = time
 
     reserve_admin_data: dict = context.user_data['reserve_admin_data']
     payment_id = reserve_admin_data['payment_id']
     reserve_hl_logger.info(f'Бронирование: {payment_id}')
     reserve_admin_data[payment_id] = {}
-    reserve_admin_data[payment_id]['row_in_googlesheet'] = row_in_googlesheet
+    reserve_admin_data[payment_id]['event_id'] = event_id
 
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
-    date: str = reserve_user_data['date_show']
-    event = dict_of_shows[int(row_in_googlesheet)]
-    reserve_user_data['event_id'] = event['event_id']
+    event = dict_of_shows[int(event_id)]
+    choose_show_info['event_id'] = int(event_id)
     text_emoji = ''
     option = ''
     if event['flag_gift']:
@@ -514,15 +515,16 @@ async def choice_option_of_reserve(
     if event['show_id'] == '10' or event['show_id'] == '8':
         option = 'Базовая стоимость'
 
-    reserve_user_data['option'] = option
-    reserve_user_data['text_emoji'] = text_emoji
+    choose_show_info['option'] = option
+    choose_show_info['text_emoji'] = text_emoji
 
+    name_show = choose_show_info['name_show']
+    date = choose_show_info['date_show']
     if int(qty_child) == 0 or int(qty_adult) == 0:
         reserve_hl_logger.info('Мест нет')
         reserve_hl_logger.info(f'qty_child: {qty_child}')
         reserve_hl_logger.info(f'qty_adult: {qty_adult}')
 
-        name_show = reserve_user_data['name_show']
         text = (f'Вы выбрали:\n'
                 f'<b>{name_show}\n'
                 f'{date}\n'
@@ -552,29 +554,88 @@ async def choice_option_of_reserve(
         context.user_data['STATE'] = state
         return state
 
-    availibale_number_of_seats_now = update_quality_of_seats(
-        row_in_googlesheet, 'qty_child_free_seat')
+    await query.edit_message_text(
+        'Проверяю не изменилось ли кол-во свободных мест...')
+    list_of_name_colum = ['qty_child_free_seat', 'qty_adult_free_seat']
+    (qty_child_free_seat_now,
+     qty_adult_free_seat_now
+     ) = get_quality_of_seats(event_id,
+                              list_of_name_colum)
+    await update.effective_chat.send_action(ChatAction.TYPING)
 
+    reserve_hl_logger.info(f'Загрузили данные о доступных билетах')
+    reserve_hl_logger.info(f'Свободных детских: {qty_child_free_seat_now}')
+    reserve_hl_logger.info(f'Свободных взрослых: {qty_adult_free_seat_now}')
+
+    # TODO Загружать список спектаклей из контекста bot_data и сменить
+    #  название dict_of_show на другое
+    await query.edit_message_text('Формирую список доступных билетов...')
     dict_of_shows: dict = load_list_show()
-    show_id = reserve_user_data['show_id']
+    show_id = choose_show_info['show_id']
     flag_indiv_cost = False
     for key, item in dict_of_shows.items():
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
-            reserve_user_data['flag_indiv_cost'] = flag_indiv_cost
+            choose_show_info['flag_indiv_cost'] = flag_indiv_cost
 
     list_of_tickets = context.bot_data['list_of_tickets']
+    text = (f'Вы выбрали:\n'
+            f'<b>{name_show}\n'
+            f'{date}\n'
+            f'В {time}</b>\n'
+            f'{text_emoji}\n'
+            f'Кол-во свободных мест: <i>{qty_adult_free_seat_now} взр</i> '
+            f'| <i>{qty_child_free_seat_now} дет</i>\n')
+    text += 'Выберите подходящий вариант бронирования:\n'
+
+    date_now = datetime.now().date()
+    date_tmp = date.split()[0] + f'.{date_now.year}'
+    date_for_price: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
+
     keyboard = []
     list_btn_of_numbers = []
+    flag_indiv_cost_sep = False
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
         if flag_indiv_cost and key // 100 != 1:
             continue
         quality_of_children = ticket.quality_of_children
+        quality_of_adult = ticket.quality_of_adult
+        quality_of_add_adult = ticket.quality_of_add_adult
+
+        if (quality_of_children < quality_of_adult + quality_of_add_adult and
+                int(qty_child_free_seat_now) >= int(qty_adult_free_seat_now)):
+            continue
+
+        name = ticket.name
+        ticket.date_show = date  # Для расчета стоимости в периоде или нет
+        price = ticket.price
 
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
-        if int(quality_of_children) <= int(availibale_number_of_seats_now):
+        if int(quality_of_children) <= int(qty_child_free_seat_now):
+            if flag_indiv_cost:
+                if key // 100 == 1:
+                    if event['ticket_price_type'] == '':
+                        if date_for_price.weekday() in range(5):
+                            type_ticket_price = 'будни'
+                        else:
+                            type_ticket_price = 'выходные'
+                    else:
+                        type_ticket_price = event['ticket_price_type']
+                    reserve_user_data['type_ticket_price'] = type_ticket_price
+
+                    price = TICKET_COST[option][type_ticket_price][key]
+                    text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                             f'{price} руб\n')
+            else:
+                text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                         f'{price} руб\n')
+
+            if key // 100 == 3 and not flag_indiv_cost_sep:
+                text += "__________\n    Варианты со скидками:\n"
+                flag_indiv_cost_sep = True
+
             button_tmp = InlineKeyboardButton(
                 text=str(i + 1),
                 callback_data=str(key)
@@ -593,55 +654,13 @@ async def choice_option_of_reserve(
                                             postfix_for_back='TIME'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    name_show = reserve_user_data['name_show']
-    text = (f'Вы выбрали:\n'
-            f'<b>{name_show}\n'
-            f'{date}\n'
-            f'В {time}</b>\n'
-            f'{text_emoji}\n'
-            f'Кол-во свободных мест: <i>{qty_adult_free_seat_now} взр</i> '
-            f'| <i>{qty_child_free_seat_now} дет</i>\n')
-    text += 'Выберите подходящий вариант бронирования:\n'
-
-    date_now = datetime.now().date()
-    date_tmp = date.split()[0] + f'.{date_now.year}'
-    date_for_price: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
-
-    for i, ticket in enumerate(list_of_tickets):
-        key = ticket.base_ticket_id
-        name = ticket.name
-
-        ticket.date_show = date  # Для расчета стоимости в периоде или нет
-        price = ticket.price
-
-        if flag_indiv_cost:
-            if key // 100 == 1:
-                if event['ticket_price_type'] == '':
-                    if date_for_price.weekday() in range(5):
-                        type_ticket_price = 'будни'
-                    else:
-                        type_ticket_price = 'выходные'
-                else:
-                    type_ticket_price = event['ticket_price_type']
-                reserve_user_data['type_ticket_price'] = type_ticket_price
-
-                price = TICKET_COST[option][type_ticket_price][key]
-                text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
-                         f'{price} руб\n')
-        else:
-            text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
-                     f'{price} руб\n')
-
-            if key == 5:
-                text += "__________\n    Варианты со скидками:\n"
-
-    text += """__________
-<i>Если вы хотите оформить несколько билетов, то каждая бронь оформляется 
-отдельно.</i>
-__________
-<i>Если нет желаемых вариантов для выбора, значит нехватает мест для их оформления. 
-В таком случае вернитесь назад и выберете другое время.</i>
-"""
+    text += ('__________\n'
+             '<i>Если вы хотите оформить несколько билетов, '
+             'то каждая бронь оформляется отдельно.</i>\n'
+             '__________\n'
+             '<i>Если нет желаемых вариантов для выбора, '
+             'значит нехватает мест для их оформления.\n'
+             'В таком случае вернитесь назад и выберете другое время.</i>')
 
     await query.message.edit_text(
         text=text,
@@ -698,12 +717,13 @@ async def check_and_send_buy_info(
         return state
 
     reserve_user_data = context.user_data['reserve_user_data']
-    name_show = reserve_user_data['name_show']
-    date = reserve_user_data['date_show']
-    time = reserve_user_data['time_show']
-    option = reserve_user_data['option']
-    text_emoji = reserve_user_data['text_emoji']
-    flag_indiv_cost = reserve_user_data['flag_indiv_cost']
+    choose_show_info = reserve_user_data['choose_show_info']
+    name_show = choose_show_info['name_show']
+    date = choose_show_info['date_show']
+    time = choose_show_info['time_show']
+    option = choose_show_info['option']
+    text_emoji = choose_show_info['text_emoji']
+    flag_indiv_cost = choose_show_info['flag_indiv_cost']
     list_of_tickets = context.bot_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     price = chose_ticket.price
@@ -768,27 +788,34 @@ async def check_and_send_buy_info(
         message = await update.effective_chat.send_message(
             'Проверяю наличие свободных мест...')
         await update.effective_chat.send_action(ChatAction.TYPING)
-        # Номер строки для извлечения актуального числа доступных мест
+
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        row_in_googlesheet = reserve_admin_data[payment_id][
-            'row_in_googlesheet']
-
+        event_id = reserve_admin_data[payment_id][
+            'event_id']
         # Обновляем кол-во доступных мест
-        availibale_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 'qty_child_free_seat')
-        nonconfirm_number_of_seats_now = update_quality_of_seats(
-            row_in_googlesheet, 'qty_child_nonconfirm_seat')
+        list_of_name_colum = [
+            'qty_child_free_seat',
+            'qty_child_nonconfirm_seat',
+            'qty_adult_free_seat',
+            'qty_adult_nonconfirm_seat'
+        ]
+        (qty_child_free_seat_now,
+         qty_child_nonconfirm_seat_now,
+         qty_adult_free_seat_now,
+         qty_adult_nonconfirm_seat_now
+         ) = get_quality_of_seats(event_id,
+                                  list_of_name_colum)
 
         # Проверка доступности нужного кол-ва мест, за время взаимодействия с
         # ботом, могли изменить базу в ручную или забронировать места раньше
-        if (int(availibale_number_of_seats_now) <
+        if (int(qty_child_free_seat_now) <
                 int(chose_ticket.quality_of_children)):
             reserve_hl_logger.info(": ".join(
                 [
                     'Мест не достаточно',
                     'Кол-во доступных мест',
-                    availibale_number_of_seats_now,
+                    qty_child_free_seat_now,
                     'Для',
                     f'{name_show} {date} в {time}',
                 ]
@@ -819,7 +846,8 @@ async def check_and_send_buy_info(
             )
             await update.effective_chat.send_message(
                 text=text,
-                reply_markup=reply_markup
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML
             )
             state = 'CHOOSING'
             context.user_data['STATE'] = state
@@ -833,25 +861,35 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            new_number_of_seats = int(
-                availibale_number_of_seats_now) - int(
+            qty_child_free_seat_new = int(
+                qty_child_free_seat_now) - int(chose_ticket.quality_of_children)
+            qty_child_nonconfirm_seat_new = int(
+                qty_child_nonconfirm_seat_now) + int(
                 chose_ticket.quality_of_children)
-            new_nonconfirm_number_of_seats = int(
-                nonconfirm_number_of_seats_now) + int(
-                chose_ticket.quality_of_children)
+            qty_adult_free_seat_new = int(
+                qty_adult_free_seat_now) - int(chose_ticket.quality_of_adult +
+                                               chose_ticket.quality_of_add_adult)
+            qty_adult_nonconfirm_seat_new = int(
+                qty_adult_nonconfirm_seat_now) + int(
+                chose_ticket.quality_of_adult +
+                chose_ticket.quality_of_add_adult)
+
+            numbers = [
+                qty_child_free_seat_new,
+                qty_child_nonconfirm_seat_new,
+                qty_adult_free_seat_new,
+                qty_adult_nonconfirm_seat_new
+            ]
 
             try:
-                write_data_for_reserve(
-                    row_in_googlesheet,
-                    [new_number_of_seats, new_nonconfirm_number_of_seats]
-                )
+                write_data_for_reserve(event_id, numbers)
             except TimeoutError:
                 reserve_hl_logger.error(": ".join(
                     [
-                        'Для пользователя подтверждение не сработало, гугл не отвечает',
-                        f'{user}',
-                        'Номер строки для обновления',
-                        row_in_googlesheet,
+                        f'Для пользователя {user} бронирование в '
+                        f'авто-режиме не сработало',
+                        'event_id для обновления',
+                        event_id,
                     ]
                 ))
 
@@ -1134,7 +1172,7 @@ __________
     chose_price = reserve_user_data['chose_price']
     record_ids = write_client(
         client_data,
-        reserve_admin_data[payment_id]['row_in_googlesheet'],
+        reserve_admin_data[payment_id]['event_id'],
         chose_ticket,
         chose_price,
     )
@@ -1147,6 +1185,8 @@ __________
     text += '\n\n'
     for record in record_ids:
         text += f'#id{record} '
+        # TODO добавить обработку нулевого значения, это значит что строки
+        #  закончились в гугл-таблице
     message_id_for_admin = context.user_data['common_data'][
         'message_id_for_admin']
 
@@ -1219,12 +1259,11 @@ async def conversation_timeout(
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-        row_in_googlesheet = reserve_admin_data[payment_id][
-            'row_in_googlesheet']
+        event_id = reserve_admin_data[payment_id][
+            'event_id']
 
-        await write_old_seat_info(update,
-                                  user,
-                                  row_in_googlesheet,
+        await write_old_seat_info(user,
+                                  event_id,
                                   chose_ticket)
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
@@ -1256,12 +1295,11 @@ async def send_clients_data(
     query = update.callback_query
     await query.answer()
 
-    name = context.user_data['reserve_user_data']['name_show']
-    date = context.user_data['reserve_user_data']['date_show']
-    dict_of_shows = context.user_data['common_data']['dict_of_shows']
-    time, row_in_googlesheet, number = query.data.split(' | ')
-    event = dict_of_shows[int(row_in_googlesheet)]
-    event_id = event['event_id']
+    reserve_user_data = context.user_data['reserve_user_data']
+    choose_show_info = reserve_user_data['choose_show_info']
+    name = choose_show_info['name_show']
+    date = choose_show_info['date_show']
+    time, event_id, qty_child, qty_adult = query.data.split(' | ')
 
     clients_data, name_column = load_clients_data(event_id)
     text = f'#Показ\n'
