@@ -438,7 +438,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'Вы также можете выбрать вариант с 0 кол-вом мест '
                  'и записаться в лист ожидания на данное время\n\n'
                  'Кол-во свободных мест:\n'
-                 '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️')
+                 '⬇️<i>Время</i> | <i>Взрослых</i> | <i>Детских</i>⬇️')
 
     await update.effective_chat.send_message(
         text=text,
@@ -598,7 +598,9 @@ async def choice_option_of_reserve(
             f'<b>{name_show}\n'
             f'{date}\n'
             f'В {time}</b>\n'
-            f'{text_emoji}\n')
+            f'{text_emoji}\n'
+            f'Кол-во свободных мест: <i>{qty_adult_free_seat_now} взр</i> '
+            f'| <i>{qty_child_free_seat_now} дет</i>\n')
     text += 'Выберите подходящий вариант бронирования:\n'
 
     date_now = datetime.now().date()
