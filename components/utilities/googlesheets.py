@@ -46,22 +46,30 @@ def get_data_from_spreadsheet(sheet):
         raise ConnectionError
 
 
-def update_quality_of_seats(row: str, key):
+def get_quality_of_seats(event_id: str, keys: List[str]):
     try:
+        dict_column_name, len_column = get_column_info('База спектаклей_')
+
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            f'{RANGE_NAME['База спектаклей_']}{row}:{row}'
+            f'{RANGE_NAME['База спектаклей']}'
         )
 
         if not values:
             googlesheets_logger.info('No data found')
             raise ValueError
 
-        dict_column_name, len_column = get_column_info('База спектаклей_')
-
-        return values[0][dict_column_name[key]]
+        return_data = []
+        for row in values:
+            if event_id == row[dict_column_name['event_id']]:
+                for key in keys:
+                    return_data.append(row[dict_column_name[key]])
+                return return_data
+        raise KeyError
     except HttpError as err:
         googlesheets_logger.error(err)
+    except KeyError:
+        googlesheets_logger.error(f'Показа с event_id = {event_id} не найдено')
 
 
 def write_data_for_reserve(row: str, numbers: List[int]) -> None:
