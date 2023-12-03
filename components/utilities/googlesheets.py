@@ -72,41 +72,89 @@ def get_quality_of_seats(event_id: str, keys: List[str]):
         googlesheets_logger.error(f'Показа с event_id = {event_id} не найдено')
 
 
-def write_data_for_reserve(row: str, numbers: List[int]) -> None:
+def write_data_for_reserve(
+        event_id: str,
+        numbers: List[int],
+        option: int = 1
+) -> None:
     try:
+        dict_column_name, len_column = get_column_info('База спектаклей_')
+
+        values = get_values(
+            SPREADSHEET_ID['Домик'],
+            f'{RANGE_NAME['База спектаклей']}'
+        )
+
+        if not values:
+            googlesheets_logger.info('No data found')
+            raise ValueError
+
+        for i, row in enumerate(values):
+            if event_id == row[dict_column_name['event_id']]:
+                row_event = i + 1
+
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'RAW'
-        values = [
-            numbers,
-        ]
+        major_dimension = 'ROWS'
+        data = []
+
+        match option:
+            case 1:
+                col1 = dict_column_name['qty_child_free_seat'] + 1
+                col2 = dict_column_name['qty_child_nonconfirm_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col1}:R{row_event}C{col2}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [numbers[0:2]]
+                })
+                col1 = dict_column_name['qty_adult_free_seat'] + 1
+                col2 = dict_column_name['qty_adult_nonconfirm_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col1}:R{row_event}C{col2}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [numbers[2:4]]
+                })
+            case 2:
+                col = dict_column_name['qty_child_nonconfirm_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[numbers[0]]]
+                })
+                col = dict_column_name['qty_adult_nonconfirm_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[numbers[1]]]
+                })
+
         value_range_body = {
-            'values': values,
+            'valueInputOption': value_input_option,
+            'data': data
         }
-
-        range_sheet = ''
-        if len(numbers) == 1:
-            range_sheet = f'{RANGE_NAME['База спектаклей_']}J{row}'
-        elif len(numbers) == 2:
-            range_sheet = f'{RANGE_NAME['База спектаклей_']}I{row}:J{row}'
-
-        request = sheet.values().update(
+        request = sheet.values().batchUpdate(
             spreadsheetId=SPREADSHEET_ID['Домик'],
-            range=range_sheet,
-            valueInputOption=value_input_option,
             body=value_range_body
         )
         try:
-            response = request.execute()
-
-            googlesheets_logger.info(": ".join(
-                [
-                    'spreadsheetId: ',
-                    response['spreadsheetId'],
-                    '\n'
-                    'updatedRange: ',
-                    response['updatedRange']
-                ]
-            ))
+            responses = request.execute()
+            googlesheets_logger.info(
+                f'spreadsheetId: {responses['spreadsheetId']}')
+            for response in responses['responses']:
+                googlesheets_logger.info(': '.join(
+                    [
+                        'updatedRange: ',
+                        response['updatedRange']
+                    ]
+                ))
         except TimeoutError:
             googlesheets_logger.error(value_range_body)
 
