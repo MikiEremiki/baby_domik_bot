@@ -13,7 +13,7 @@ from utilities.settings import (
     FEEDBACK_THREAD_ID_GROUP_ADMIN)
 from utilities.hlp_func import do_italic, do_bold
 from utilities.googlesheets import (
-    update_quality_of_seats,
+    get_quality_of_seats,
     write_data_for_reserve,
     set_approve_order
 )
