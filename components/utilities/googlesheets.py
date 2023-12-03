@@ -350,7 +350,7 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values[0].append(choose_show_info['event_id'])
         for i in range(5):
             values[0].append(
-                f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{i+1};FALSE);'
+                f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{i + 1};FALSE);'
                 f'\'Расписание\'!$1:$253;'
                 f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
                 f'0)'
