@@ -475,15 +475,15 @@ def execute_request_googlesheet(
 
 def get_column_info(name_sheet):
     data_column_name = get_data_from_spreadsheet(
-            RANGE_NAME[name_sheet] + f'2:2'
-        )
+        RANGE_NAME[name_sheet] + f'2:2'
+    )
     dict_column_name = {}
     for i, item in enumerate(data_column_name[0]):
         dict_column_name[item] = i
 
     if len(dict_column_name) != len(data_column_name[0]):
         googlesheets_logger.warning(
-            'dict_column_name, len(data_column_name[0] не равны')
+            'dict_column_name, len(data_column_name[0]) не равны')
         googlesheets_logger.warning(
             f'{len(dict_column_name)} != {len(data_column_name[0])}')
 
