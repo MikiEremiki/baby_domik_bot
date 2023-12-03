@@ -122,6 +122,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat_id,
         )
 
+        # TODO Добавить галочку подтверждения в клиентскую базу
+
         # Сообщение уже было удалено самим пользователем
         try:
             await context.bot.delete_message(
