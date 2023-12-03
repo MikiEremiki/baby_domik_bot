@@ -164,7 +164,7 @@ def write_data_for_reserve(
 
 def write_client(
         client: dict,
-        row_in_data_show: str,
+        event_id: str,
         ticket: BaseTicket,
         price: int,
 ) -> Optional[List[int]]:
@@ -174,11 +174,6 @@ def write_client(
         values_column = get_values(
             SPREADSHEET_ID['Домик'],
             RANGE_NAME['База клиентов']
-        )
-        values_row = get_values(
-            SPREADSHEET_ID['Домик'],
-            RANGE_NAME[
-                'База спектаклей_'] + f'{row_in_data_show}:{row_in_data_show}'
         )
 
         if not values_column:
@@ -199,6 +194,7 @@ def write_client(
             record_id = int(values_column[-1][0]) + 1 + i
             values.append([record_id])
             record_ids.append(record_id)
+            # TODO Добавить запись user_id
             for key, item in client.items():
                 if key == 'data_children':
                     item = item[i]
@@ -215,10 +211,8 @@ def write_client(
                 values[i].append(
                     f'=(TODAY()-E{first_row_for_write + i + 1})/365')
 
-            dict_column_name, len_column = get_column_info('База спектаклей_')
-
             # Спектакль
-            values[i].append(values_row[0][dict_column_name['event_id']])
+            values[i].append(event_id)
             for j in range(4):
                 values[i].append(
                     f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{j + 1};FALSE);'
@@ -260,6 +254,7 @@ def write_client(
         return record_ids
     except HttpError as err:
         googlesheets_logger.error(err)
+        # TODO добавить возврат списка с нулевым значением
 
 
 def write_client_bd(
