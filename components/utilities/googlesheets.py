@@ -479,6 +479,8 @@ def get_column_info(name_sheet):
     )
     dict_column_name = {}
     for i, item in enumerate(data_column_name[0]):
+        if item == '':
+            item = i
         dict_column_name[item] = i
 
     if len(dict_column_name) != len(data_column_name[0]):
