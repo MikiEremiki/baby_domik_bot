@@ -73,6 +73,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['reserve_user_data'] = {}
     context.user_data['reserve_user_data']['back'] = {}
     context.user_data['reserve_user_data']['client_data'] = {}
+    context.user_data['reserve_user_data']['choose_show_info'] = {}
     context.user_data.setdefault('common_data', {})
     context.user_data.setdefault('reserve_admin_data', {'payment_id': 0})
     if not isinstance(
