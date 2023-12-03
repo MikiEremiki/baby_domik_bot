@@ -53,6 +53,8 @@ def load_show_data() -> tuple[
     #  с базой по спектаклям
     # TODO Выделить загрузку базы спектаклей в отдельную задачу и хранить ее
     #  сразу в bot_data
+    # TODO Переделать загрузку из гугл-таблицы через указанием имени столбца,
+    #  а не буквой столбца
     data_of_dates = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_дата']
     )
@@ -74,10 +76,8 @@ def load_show_data() -> tuple[
     dict_of_name_show_flip = {}
     dict_of_date_show = {}
     j = 0
-    for i, item in enumerate(data):
-        i += first_row - 1
-        dict_of_shows[i + 1] = {
-            'event_id': item[dict_column_name['event_id']],
+    for item in data:
+        dict_of_shows[int(item[dict_column_name['event_id']])] = {
             'show_id': item[dict_column_name['show_id']],
             'name_show': item[dict_column_name['name_show']],
             'date_show': item[dict_column_name['date_show']],
