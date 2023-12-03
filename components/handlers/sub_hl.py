@@ -32,51 +32,51 @@ async def send_and_del_message_to_remove_kb(update: Update):
 
 
 async def write_old_seat_info(
-        update: Update,
         user,
-        row_in_googlesheet,
+        event_id,
         chose_ticket
 ):
     # Обновляем кол-во доступных мест
-    availibale_number_of_seats_now = update_quality_of_seats(
-        row_in_googlesheet, 'qty_child_free_seat')
-    nonconfirm_number_of_seats_now = update_quality_of_seats(
-        row_in_googlesheet, 'qty_child_nonconfirm_seat')
+    list_of_name_colum = [
+        'qty_child_free_seat',
+        'qty_child_nonconfirm_seat',
+        'qty_adult_free_seat',
+        'qty_adult_nonconfirm_seat'
+    ]
+    (qty_child_free_seat_now,
+     qty_child_nonconfirm_seat_now,
+     qty_adult_free_seat_now,
+     qty_adult_nonconfirm_seat_now
+     ) = get_quality_of_seats(event_id,
+                              list_of_name_colum)
 
-    old_number_of_seats = int(
-        availibale_number_of_seats_now) + int(
-        chose_ticket.quality_of_children)
-    old_nonconfirm_number_of_seats = int(
-        nonconfirm_number_of_seats_now) - int(
-        chose_ticket.quality_of_children)
+    qty_child_free_seat_new = int(
+        qty_child_free_seat_now) + int(chose_ticket.quality_of_children)
+    qty_child_nonconfirm_seat_new = int(
+        qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
+    qty_adult_free_seat_new = int(
+        qty_adult_free_seat_now) + int(chose_ticket.quality_of_adult +
+                                       chose_ticket.quality_of_add_adult)
+    qty_adult_nonconfirm_seat_new = int(
+        qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
+                                             chose_ticket.quality_of_add_adult)
+
+    numbers = [
+        qty_child_free_seat_new,
+        qty_child_nonconfirm_seat_new,
+        qty_adult_free_seat_new,
+        qty_adult_nonconfirm_seat_new
+    ]
 
     try:
-        write_data_for_reserve(
-            row_in_googlesheet,
-            [old_number_of_seats, old_nonconfirm_number_of_seats]
-        )
-
-        sub_hl_logger.info(": ".join(
-            [
-                'Для пользователя',
-                f'{user}',
-                'Номер строки для обновления',
-                row_in_googlesheet,
-            ]
-        ))
+        write_data_for_reserve(event_id, numbers)
     except TimeoutError:
-        await update.effective_chat.send_message(
-            text=f'Для пользователя @{user.username} {user.full_name} '
-                 f'отклонение в авто-режиме не сработало\n'
-                 f'Номер строки для обновления:\n{row_in_googlesheet}'
-        )
-        sub_hl_logger.error(TimeoutError)
         sub_hl_logger.error(": ".join(
             [
                 f'Для пользователя {user} отклонение в '
                 f'авто-режиме не сработало',
-                'Номер строки для обновления',
-                row_in_googlesheet,
+                'event_id для обновления',
+                event_id,
             ]
         ))
 
