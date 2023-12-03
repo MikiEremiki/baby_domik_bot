@@ -412,9 +412,14 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             #  callback_data
             text += ' | ' + str(qty_child) + ' дет'
             text += ' | ' + str(qty_adult) + ' взр'
+
+            callback_data = time
+            callback_data += ' | ' + str(key)
+            callback_data += ' | ' + str(qty_child)
+            callback_data += ' | ' + str(qty_adult)
             button_tmp = InlineKeyboardButton(
                 text=text,
-                callback_data=time + ' | ' + str(key) + ' | ' + str(qty_child)
+                callback_data=callback_data
             )
             keyboard.append([button_tmp])
 
