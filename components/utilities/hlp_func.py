@@ -74,6 +74,8 @@ def create_replay_markup_for_list_of_shows(
                     callback_data=key
                 )
             case 3:
+                # Если в день разные спектакли с разным наполнением,
+                # то к тексту добавляются все статусы
                 for item in items:
                     if number_of_month:
                         filter_show_id = enum_current_show_by_month(
