@@ -234,8 +234,8 @@ def write_client(
             values[i].append(event_id)
             for j in range(4):
                 values[i].append(
-                    f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{j + 1};FALSE);'
-                    f'\'Расписание\'!$1:$253;'
+                    f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&MATCH("event_id";$2:$2;0);FALSE);FALSE);'
+                    f'INDIRECT("\'Расписание\'!R1C1:C"&COLUMN();FALSE)'
                     f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
                     f'0)'
                 )
@@ -369,8 +369,8 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values[0].append(choose_show_info['event_id'])
         for i in range(5):
             values[0].append(
-                f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&COLUMN()-{i + 1};FALSE);'
-                f'\'Расписание\'!$1:$253;'
+                f'=VLOOKUP(INDIRECT("R"&ROW()&"C"&MATCH("event_id";$2:$2;0);FALSE);FALSE);'
+                f'INDIRECT("\'Расписание\'!R1C1:C"&COLUMN();FALSE)'
                 f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
                 f'0)'
             )
