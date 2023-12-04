@@ -76,48 +76,50 @@ def load_show_data() -> tuple[
     dict_of_date_show = {}
     j = 0
     for item in data:
-        dict_of_shows[int(item[dict_column_name['event_id']])] = {
-            'show_id': item[dict_column_name['show_id']],
-            'name_show': item[dict_column_name['name_show']],
-            'date_show': item[dict_column_name['date_show']],
-            'time_show': item[dict_column_name['time_show']],
-            'qty_child': item[dict_column_name['qty_child']],
-            'qty_child_free_seat': item[
-                dict_column_name['qty_child_free_seat']],
-            'qty_child_nonconfirm_seat': item[
-                dict_column_name['qty_child_nonconfirm_seat']],
-            'qty_adult': item[dict_column_name['qty_adult']],
-            'qty_adult_free_seat': item[
-                dict_column_name['qty_adult_free_seat']],
-            'qty_adult_nonconfirm_seat': item[
-                dict_column_name['qty_adult_nonconfirm_seat']],
-            'flag_gift': True if item[dict_column_name[
-                'flag_gift']] == 'TRUE' else False,
-            'flag_christmas_tree': True if item[dict_column_name[
-                'flag_christmas_tree']] == 'TRUE' else False,
-            'flag_santa': True if item[dict_column_name[
-                'flag_santa']] == 'TRUE' else False,
-            'ticket_price_type': item[dict_column_name['ticket_price_type']],
-        }
+        if item[dict_column_name['flag_turn_on_off']] == 'TRUE':
+            dict_of_shows[int(item[dict_column_name['event_id']])] = {
+                'event_type': item[dict_column_name['event_type']],
+                'show_id': item[dict_column_name['show_id']],
+                'name_show': item[dict_column_name['name_show']],
+                'date_show': item[dict_column_name['date_show']],
+                'time_show': item[dict_column_name['time_show']],
+                'qty_child': item[dict_column_name['qty_child']],
+                'qty_child_free_seat': item[
+                    dict_column_name['qty_child_free_seat']],
+                'qty_child_nonconfirm_seat': item[
+                    dict_column_name['qty_child_nonconfirm_seat']],
+                'qty_adult': item[dict_column_name['qty_adult']],
+                'qty_adult_free_seat': item[
+                    dict_column_name['qty_adult_free_seat']],
+                'qty_adult_nonconfirm_seat': item[
+                    dict_column_name['qty_adult_nonconfirm_seat']],
+                'flag_gift': True if item[dict_column_name[
+                    'flag_gift']] == 'TRUE' else False,
+                'flag_christmas_tree': True if item[dict_column_name[
+                    'flag_christmas_tree']] == 'TRUE' else False,
+                'flag_santa': True if item[dict_column_name[
+                    'flag_santa']] == 'TRUE' else False,
+                'ticket_price_type': item[dict_column_name['ticket_price_type']],
+            }
 
-        if item[dict_column_name['name_show']] not in dict_of_name_show:
-            j += 1
-            dict_of_name_show.setdefault(
-                item[dict_column_name['name_show']],
-                j)
-            dict_of_name_show_flip.setdefault(
-                j,
-                item[dict_column_name['name_show']])
+            if item[dict_column_name['name_show']] not in dict_of_name_show:
+                j += 1
+                dict_of_name_show.setdefault(
+                    item[dict_column_name['name_show']],
+                    j)
+                dict_of_name_show_flip.setdefault(
+                    j,
+                    item[dict_column_name['name_show']])
 
-        if item[dict_column_name['date_show']] not in dict_of_date_show:
-            dict_of_date_show.setdefault(
-                item[dict_column_name['date_show']],
-                {dict_of_name_show[item[dict_column_name['name_show']]]}
-            )
-        else:
-            dict_of_date_show[item[dict_column_name['date_show']]].add(
-                dict_of_name_show[item[dict_column_name['name_show']]]
-            )
+            if item[dict_column_name['date_show']] not in dict_of_date_show:
+                dict_of_date_show.setdefault(
+                    item[dict_column_name['date_show']],
+                    {dict_of_name_show[item[dict_column_name['name_show']]]}
+                )
+            else:
+                dict_of_date_show[item[dict_column_name['date_show']]].add(
+                    dict_of_name_show[item[dict_column_name['name_show']]]
+                )
 
     return (
         dict_of_shows,
