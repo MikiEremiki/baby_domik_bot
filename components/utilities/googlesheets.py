@@ -264,11 +264,11 @@ def write_client(
                        f'R{first_row_for_write + 1}C1:'
                        f'R{last_row_for_write + 1}C{end_column_index}')
 
-        execute_request_googlesheet(sheet,
-                                    range_sheet,
-                                    value_input_option,
-                                    response_value_render_option,
-                                    value_range_body)
+        execute_update_googlesheet(sheet,
+                                   range_sheet,
+                                   value_input_option,
+                                   response_value_render_option,
+                                   value_range_body)
 
         return record_ids
     except HttpError as err:
@@ -328,11 +328,11 @@ def write_client_bd(
                        f'R{first_row_for_write + 1}C1:' +
                        f'R{last_row_for_write + 1}C{end_column_index}')
 
-        execute_request_googlesheet(sheet,
-                                    range_sheet,
-                                    value_input_option,
-                                    response_value_render_option,
-                                    value_range_body)
+        execute_update_googlesheet(sheet,
+                                   range_sheet,
+                                   value_input_option,
+                                   response_value_render_option,
+                                   value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
@@ -390,11 +390,11 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
                        f'R{first_row_for_write + 1}C1:'
                        f'R{last_row_for_write + 1}C{end_column_index}')
 
-        execute_request_googlesheet(sheet,
-                                    range_sheet,
-                                    value_input_option,
-                                    response_value_render_option,
-                                    value_range_body)
+        execute_update_googlesheet(sheet,
+                                   range_sheet,
+                                   value_input_option,
+                                   response_value_render_option,
+                                   value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
@@ -451,17 +451,17 @@ def set_approve_order(bd_data, step=0) -> None:
                                f'R{i + 1}C{colum + step}:' +
                                f'R{i + 2}C{colum + step}')
 
-                execute_request_googlesheet(sheet,
-                                            range_sheet,
-                                            value_input_option,
-                                            response_value_render_option,
-                                            value_range_body)
+                execute_update_googlesheet(sheet,
+                                           range_sheet,
+                                           value_input_option,
+                                           response_value_render_option,
+                                           value_range_body)
 
     except HttpError as err:
         googlesheets_logger.error(err)
 
 
-def execute_request_googlesheet(
+def execute_update_googlesheet(
         sheet,
         range_sheet,
         value_input_option,
