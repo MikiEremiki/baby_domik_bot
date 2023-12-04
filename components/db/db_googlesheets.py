@@ -53,16 +53,15 @@ def load_show_data() -> tuple[
     #  с базой по спектаклям
     # TODO Выделить загрузку базы спектаклей в отдельную задачу и хранить ее
     #  сразу в bot_data
-    # TODO Переделать загрузку из гугл-таблицы через указанием имени столбца,
-    #  а не буквой столбца
+    dict_column_name, len_column = get_column_info('База спектаклей_')
     data_of_dates = get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_дата']
+        RANGE_NAME['База спектаклей_'] +
+        f'C[{dict_column_name['date_show']}]'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
     first_row = filter_by_date(data_of_dates)
 
-    dict_column_name, len_column = get_column_info('База спектаклей_')
     data = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] + f'R{first_row}C1:'
                                          f'R{len(data_of_dates)}'
