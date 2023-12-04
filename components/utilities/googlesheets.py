@@ -72,6 +72,25 @@ def get_quality_of_seats(event_id: str, keys: List[str]):
         googlesheets_logger.error(f'Показа с event_id = {event_id} не найдено')
 
 
+def get_column_info(name_sheet):
+    data_column_name = get_data_from_spreadsheet(
+        RANGE_NAME[name_sheet] + f'2:2'
+    )
+    dict_column_name = {}
+    for i, item in enumerate(data_column_name[0]):
+        if item == '':
+            item = i
+        dict_column_name[item] = i
+
+    if len(dict_column_name) != len(data_column_name[0]):
+        googlesheets_logger.warning(
+            'dict_column_name, len(data_column_name[0]) не равны')
+        googlesheets_logger.warning(
+            f'{len(dict_column_name)} != {len(data_column_name[0])}')
+
+    return dict_column_name, len(data_column_name[0])
+
+
 def write_data_for_reserve(
         event_id: str,
         numbers: List[int],
@@ -471,22 +490,3 @@ def execute_request_googlesheet(
     except TimeoutError as err:
         googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)
-
-
-def get_column_info(name_sheet):
-    data_column_name = get_data_from_spreadsheet(
-        RANGE_NAME[name_sheet] + f'2:2'
-    )
-    dict_column_name = {}
-    for i, item in enumerate(data_column_name[0]):
-        if item == '':
-            item = i
-        dict_column_name[item] = i
-
-    if len(dict_column_name) != len(data_column_name[0]):
-        googlesheets_logger.warning(
-            'dict_column_name, len(data_column_name[0]) не равны')
-        googlesheets_logger.warning(
-            f'{len(dict_column_name)} != {len(data_column_name[0])}')
-
-    return dict_column_name, len(data_column_name[0])
