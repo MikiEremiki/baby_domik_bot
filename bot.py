@@ -9,7 +9,7 @@ from telegram.ext import (
 
 from log.logging_conf import load_log_config
 from handlers import main_hl
-from handlers.sub_hl import update_ticket_data
+from handlers.sub_hl import update_ticket_data, update_show_data
 from handlers.timeweb_hl import get_balance
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
@@ -17,7 +17,8 @@ from conv_hl.afisha_conv_hl import afisha_conv_hl
 from utilities.settings import API_TOKEN, ADMIN_CHAT_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
-    set_menu, set_description, set_ticket_data, update_admin_info,
+    set_menu, set_description, set_ticket_data, set_show_data,
+    update_admin_info,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,
@@ -28,6 +29,7 @@ async def post_init(application: Application):
     await set_menu(application.bot)
     await set_description(application.bot)
     set_ticket_data(application)
+    set_show_data(application)
 
     application.bot_data.setdefault('admin', {})
     application.bot_data['admin'].setdefault('contacts', {})
@@ -74,6 +76,10 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['UP_T_DATA'][0],
         update_ticket_data,
+        filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['UP_S_DATA'][0],
+        update_show_data,
         filters=filters.Chat(chat_id=ADMIN_CHAT_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['LOG'][0],
