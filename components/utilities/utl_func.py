@@ -20,7 +20,9 @@ from telegram.ext import (
 )
 from telegram.error import BadRequest
 
-from db.db_googlesheets import load_date_show_data, load_ticket_data
+from db.db_googlesheets import (
+    load_date_show_data, load_ticket_data, load_list_show
+)
 from utilities.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_ID, ADMIN_GROUP_ID, ADMIN_CHAT_ID,
@@ -166,6 +168,10 @@ async def set_description(bot: ExtBot) -> None:
 
 def set_ticket_data(application: Application):
     application.bot_data['list_of_tickets'] = load_ticket_data()
+
+
+def set_show_data(application: Application):
+    application.bot_data['dict_show_data'] = load_list_show()
 
 
 async def update_admin_info(update: Update,
