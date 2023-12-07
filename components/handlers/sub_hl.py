@@ -6,7 +6,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from db.db_googlesheets import load_ticket_data
+from db.db_googlesheets import load_ticket_data, load_list_show
 from utilities.googlesheets import (
     get_quality_of_seats,
     write_data_for_reserve
@@ -91,6 +91,19 @@ async def update_ticket_data(
 
     sub_hl_logger.info(text)
     for item in context.bot_data['list_of_tickets']:
+        sub_hl_logger.info(f'{str(item)}')
+
+
+async def update_show_data(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    context.bot_data['dict_show_data'] = load_list_show()
+    text = 'Репертуар обновлен'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+    for item in context.bot_data['dict_show_data']:
         sub_hl_logger.info(f'{str(item)}')
 
 
