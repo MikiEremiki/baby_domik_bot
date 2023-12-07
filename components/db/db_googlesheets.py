@@ -193,6 +193,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         flag_premiere: bool = True if item[dict_column_name[
             'flag_active_premiere']] == 'TRUE' else False
         min_age_child: int = int(item[dict_column_name['min_age_child']])
+        max_age_child: int = int(item[dict_column_name['max_age_child']])
         flag_birthday: bool = True if item[dict_column_name[
             'flag_active_bd']] == 'TRUE' else False
         max_num_child: int = int(item[dict_column_name['max_num_child_bd']])
@@ -212,6 +213,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
             'name': name,
             'flag_premiere': flag_premiere,
             'min_age_child': min_age_child,
+            'max_age_child': max_age_child,
             'birthday': {
                 'flag': flag_birthday,
                 'max_num_child': max_num_child,
