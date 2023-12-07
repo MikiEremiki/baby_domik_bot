@@ -203,11 +203,15 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         flag_indiv_cost: bool = True if item[dict_column_name[
             'flag_indiv_cost']] == 'TRUE' else False
 
+        full_name: str = name
         if flag_premiere:
-            text = 'ПРЕМЬЕРА. ' + item[dict_column_name['min_age_child']] + '+'
+            full_name += '. ПРЕМЬЕРА. '
+        if min_age_child > 0:
+            full_name += item[dict_column_name['min_age_child']]
+        if max_age_child > 0:
+            full_name += "-" + item[dict_column_name['max_age_child']] + "лет"
         else:
-            text = item[dict_column_name['min_age_child']] + '+'
-        full_name: str = '. '.join([name, text])
+            full_name += '+'
 
         dict_of_shows[show_id] = {
             'name': name,
