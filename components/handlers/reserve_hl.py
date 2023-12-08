@@ -207,7 +207,8 @@ async def choice_show_or_date(
                                                 number_of_month_str)
 
     if number_of_month_str == '12':
-        text = 'Выберите спектакль\n'
+        text = ('Выберите спектакль\n'
+                'Пожалуйста обратите внимание на рекомендованный возраст\n')
         text = add_text_of_show_and_numerate(text,
                                              dict_of_name_show,
                                              filter_show_id)
@@ -233,7 +234,8 @@ async def choice_show_or_date(
         state = 'SHOW'
         set_back_context(context, state, text, reply_markup)
     else:
-        text = 'Выберите спектакль и дату\n'
+        text = ('Выберите спектакль и дату\n'
+                'Пожалуйста обратите внимание на рекомендованный возраст\n')
         text = add_text_of_show_and_numerate(text,
                                              dict_of_name_show,
                                              filter_show_id)
