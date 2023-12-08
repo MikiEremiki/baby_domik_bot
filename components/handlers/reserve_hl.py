@@ -317,7 +317,6 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dict_of_events_show=dict_of_shows
     )
 
-    text = f'Вы выбрали\n <b>{name_of_show}</b>\n<i>Выберите дату</i>\n\n'
     flag_gift = False
     flag_christmas_tree = False
     flag_santa = False
@@ -331,6 +330,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if event['flag_santa']:
                 flag_santa = True
 
+    text = f'Вы выбрали\n <b>{name_of_show}</b>\n<i>Выберите дату</i>\n\n'
     if flag_gift:
         text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
     if flag_christmas_tree:
