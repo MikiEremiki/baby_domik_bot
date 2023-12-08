@@ -6,7 +6,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from db.db_googlesheets import load_ticket_data
+from db.db_googlesheets import load_ticket_data, load_list_show
 from utilities.googlesheets import (
     get_quality_of_seats,
     write_data_for_reserve
@@ -81,6 +81,35 @@ async def write_old_seat_info(
         ))
 
 
+async def update_admin_info(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.bot_data.setdefault('admin', {})
+    admin_info = context.bot_data['admin']
+    if context.args[0] == 'clean':
+        context.bot_data['admin'] = {}
+        await update.effective_chat.send_message(
+            f'Зафиксировано: {context.bot_data['admin']}')
+        return
+    if context.args:
+        if len(context.args) == 4:
+            admin_info['name'] = ' '.join(context.args[0:2])
+            admin_info['username'] = context.args[2]
+            admin_info['phone'] = context.args[3]
+            admin_info['contacts'] = '\n'.join(
+                [admin_info['name'],
+                 'telegram ' + admin_info['username'],
+                 'телефон ' + admin_info['phone']]
+            )
+            await update.effective_chat.send_message(
+                f'Зафиксировано: {context.bot_data['admin']}')
+        else:
+            await update.effective_chat.send_message(
+                f'Должно быть 4 параметра, а передано {len(context.args)}')
+    else:
+        await update.effective_chat.send_message(
+            'Не заданы параметры к команде')
+
+
 async def update_ticket_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
@@ -91,6 +120,19 @@ async def update_ticket_data(
 
     sub_hl_logger.info(text)
     for item in context.bot_data['list_of_tickets']:
+        sub_hl_logger.info(f'{str(item)}')
+
+
+async def update_show_data(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    context.bot_data['dict_show_data'] = load_list_show()
+    text = 'Репертуар обновлен'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+    for item in context.bot_data['dict_show_data']:
         sub_hl_logger.info(f'{str(item)}')
 
 

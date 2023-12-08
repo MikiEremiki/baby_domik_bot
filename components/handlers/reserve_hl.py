@@ -73,7 +73,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['reserve_user_data'] = {}
     context.user_data['reserve_user_data']['back'] = {}
     context.user_data['reserve_user_data']['client_data'] = {}
-    context.user_data['reserve_user_data']['choose_show_info'] = {}
+    context.user_data['reserve_user_data']['choose_event_info'] = {}
     context.user_data.setdefault('common_data', {})
     context.user_data.setdefault('reserve_admin_data', {'payment_id': 0})
     if not isinstance(
@@ -206,11 +206,15 @@ async def choice_show_or_date(
     filter_show_id = enum_current_show_by_month(dict_of_date_show,
                                                 number_of_month_str)
 
+    dict_show_data = context.bot_data['dict_show_data']
+
     if number_of_month_str == '12':
-        text = 'Выберите спектакль\n'
+        text = ('Выберите спектакль\n'
+                'Пожалуйста обратите внимание на рекомендованный возраст\n')
         text = add_text_of_show_and_numerate(text,
                                              dict_of_name_show,
-                                             filter_show_id)
+                                             filter_show_id,
+                                             dict_show_data)
         keyboard = []
         for key, item in dict_of_name_show.items():
             if item in filter_show_id.keys():
@@ -233,10 +237,12 @@ async def choice_show_or_date(
         state = 'SHOW'
         set_back_context(context, state, text, reply_markup)
     else:
-        text = 'Выберите спектакль и дату\n'
+        text = ('Выберите спектакль и дату\n'
+                'Пожалуйста обратите внимание на рекомендованный возраст\n')
         text = add_text_of_show_and_numerate(text,
-                                             dict_of_name_show,
-                                             filter_show_id)
+                                      dict_of_name_show,
+                                      filter_show_id,
+                                      dict_show_data)
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_date_show,
             add_cancel_btn=True,
@@ -311,7 +317,6 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dict_of_events_show=dict_of_shows
     )
 
-    text = f'Вы выбрали\n <b>{name_of_show}</b>\n<i>Выберите дату</i>\n\n'
     flag_gift = False
     flag_christmas_tree = False
     flag_santa = False
@@ -325,6 +330,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if event['flag_santa']:
                 flag_santa = True
 
+    text = f'Вы выбрали\n <b>{name_of_show}</b>\n<i>Выберите дату</i>\n\n'
     if flag_gift:
         text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
     if flag_christmas_tree:
@@ -449,10 +455,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
-    choose_show_info = reserve_user_data['choose_show_info']
-    choose_show_info['show_id'] = int(show_id)
-    choose_show_info['name_show'] = name_show
-    choose_show_info['date_show'] = date_show
+    choose_event_info = reserve_user_data['choose_event_info']
+    choose_event_info['show_id'] = int(show_id)
+    choose_event_info['name_show'] = name_show
+    choose_event_info['date_show'] = date_show
 
     if update.effective_chat.id == ADMIN_GROUP:
         state = 'LIST'
@@ -492,8 +498,8 @@ async def choice_option_of_reserve(
 
     time, event_id, qty_child, qty_adult = query.data.split(' | ')
     reserve_user_data = context.user_data['reserve_user_data']
-    choose_show_info = reserve_user_data['choose_show_info']
-    choose_show_info['time_show'] = time
+    choose_event_info = reserve_user_data['choose_event_info']
+    choose_event_info['time_show'] = time
 
     reserve_admin_data: dict = context.user_data['reserve_admin_data']
     payment_id = reserve_admin_data['payment_id']
@@ -503,7 +509,7 @@ async def choice_option_of_reserve(
 
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
     event = dict_of_shows[int(event_id)]
-    choose_show_info['event_id'] = int(event_id)
+    choose_event_info['event_id'] = int(event_id)
     text_emoji = ''
     option = ''
     if event['flag_gift']:
@@ -517,11 +523,11 @@ async def choice_option_of_reserve(
     if event['show_id'] == '10' or event['show_id'] == '8':
         option = 'Базовая стоимость'
 
-    choose_show_info['option'] = option
-    choose_show_info['text_emoji'] = text_emoji
+    choose_event_info['option'] = option
+    choose_event_info['text_emoji'] = text_emoji
 
-    name_show = choose_show_info['name_show']
-    date = choose_show_info['date_show']
+    name_show = choose_event_info['name_show']
+    date = choose_event_info['date_show']
     if int(qty_child) == 0 or int(qty_adult) == 0:
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
@@ -576,12 +582,12 @@ async def choice_option_of_reserve(
     #  название dict_of_show на другое
     await query.edit_message_text('Формирую список доступных билетов...')
     dict_of_shows: dict = load_list_show()
-    show_id = choose_show_info['show_id']
+    show_id = choose_event_info['show_id']
     flag_indiv_cost = False
     for key, item in dict_of_shows.items():
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
-            choose_show_info['flag_indiv_cost'] = flag_indiv_cost
+            choose_event_info['flag_indiv_cost'] = flag_indiv_cost
 
     list_of_tickets = context.bot_data['list_of_tickets']
     text = (f'Вы выбрали:\n'
@@ -722,13 +728,15 @@ async def check_and_send_buy_info(
         return state
 
     reserve_user_data = context.user_data['reserve_user_data']
-    choose_show_info = reserve_user_data['choose_show_info']
-    name_show = choose_show_info['name_show']
-    date = choose_show_info['date_show']
-    time = choose_show_info['time_show']
-    option = choose_show_info['option']
-    text_emoji = choose_show_info['text_emoji']
-    flag_indiv_cost = choose_show_info['flag_indiv_cost']
+    choose_event_info = reserve_user_data['choose_event_info']
+    dict_show_data = context.bot_data['dict_show_data']
+    show_data = dict_show_data[choose_event_info['show_id']]
+    name_show = show_data['full_name']
+    date = choose_event_info['date_show']
+    time = choose_event_info['time_show']
+    option = choose_event_info['option']
+    text_emoji = choose_event_info['text_emoji']
+    flag_indiv_cost = choose_event_info['flag_indiv_cost']
     list_of_tickets = context.bot_data['list_of_tickets']
     chose_ticket: BaseTicket = list_of_tickets[0]
     price = chose_ticket.price
@@ -1304,9 +1312,9 @@ async def send_clients_data(
     await query.answer()
 
     reserve_user_data = context.user_data['reserve_user_data']
-    choose_show_info = reserve_user_data['choose_show_info']
-    name = choose_show_info['name_show']
-    date = choose_show_info['date_show']
+    choose_event_info = reserve_user_data['choose_event_info']
+    name = choose_event_info['name_show']
+    date = choose_event_info['date_show']
     time, event_id, qty_child, qty_adult = query.data.split(' | ')
 
     clients_data, name_column = load_clients_data(event_id)

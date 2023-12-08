@@ -193,6 +193,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         flag_premiere: bool = True if item[dict_column_name[
             'flag_active_premiere']] == 'TRUE' else False
         min_age_child: int = int(item[dict_column_name['min_age_child']])
+        max_age_child: int = int(item[dict_column_name['max_age_child']])
+        show_emoji: str = item[dict_column_name['show_emoji']]
         flag_birthday: bool = True if item[dict_column_name[
             'flag_active_bd']] == 'TRUE' else False
         max_num_child: int = int(item[dict_column_name['max_num_child_bd']])
@@ -202,16 +204,23 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         flag_indiv_cost: bool = True if item[dict_column_name[
             'flag_indiv_cost']] == 'TRUE' else False
 
+        full_name: str = name
+        sep = '. '
         if flag_premiere:
-            text = 'ПРЕМЬЕРА. ' + item[dict_column_name['min_age_child']] + '+'
+            full_name += sep + 'ПРЕМЬЕРА'
+        if min_age_child > 0:
+            full_name += sep + item[dict_column_name['min_age_child']]
+        if max_age_child > 0:
+            full_name += "-" + item[dict_column_name['max_age_child']] + "лет"
         else:
-            text = item[dict_column_name['min_age_child']] + '+'
-        full_name: str = '. '.join([name, text])
+            full_name += '+'
 
         dict_of_shows[show_id] = {
             'name': name,
             'flag_premiere': flag_premiere,
             'min_age_child': min_age_child,
+            'max_age_child': max_age_child,
+            'show_emoji': show_emoji,
             'birthday': {
                 'flag': flag_birthday,
                 'max_num_child': max_num_child,
@@ -220,7 +229,6 @@ def load_list_show() -> dict[int, dict[str, Any]]:
             'flag_repertoire': flag_repertoire,
             'flag_indiv_cost': flag_indiv_cost,
             'full_name': full_name,
-
         }
 
     return (
