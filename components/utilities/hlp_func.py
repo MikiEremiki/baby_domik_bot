@@ -243,27 +243,16 @@ def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
 
 def add_text_of_show_and_numerate(
         text,
-        dict_of_show: dict,
-        filter_show_id,
+        dict_of_name_show: dict,
+        filter_show_id: dict,
+        dict_show_data: dict = None,
 ):
-    flag_gift = False
-    flag_christmas_tree = False
-    flag_santa = False
-
-    for key, item in dict_of_show.items():
-        if item in filter_show_id.keys():
-            text += f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]} {key}\n'
-            if SUPPORT_DATA['Подарок'][0] in key:
-                flag_gift = True
-            if SUPPORT_DATA['Елка'][0] in key:
-                flag_christmas_tree = True
-            if SUPPORT_DATA['Дед'][0] in key:
-                flag_santa = True
-
-    if flag_gift:
-        text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
-    if flag_christmas_tree:
-        text += f'{SUPPORT_DATA['Елка'][0]} - {SUPPORT_DATA['Елка'][1]}\n'
-    if flag_santa:
-        text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
+    for key in filter_show_id.keys():
+        for name, item in dict_of_name_show.items():
+            if key == item:
+                for show in dict_show_data.values():
+                    if show['name'] == name:
+                        text += (
+                            f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]}'
+                            f' {show['full_name']}\n')
     return text
