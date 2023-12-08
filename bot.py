@@ -9,7 +9,9 @@ from telegram.ext import (
 
 from log.logging_conf import load_log_config
 from handlers import main_hl
-from handlers.sub_hl import update_ticket_data, update_show_data
+from handlers.sub_hl import (
+    update_ticket_data, update_show_data, update_admin_info
+)
 from handlers.timeweb_hl import get_balance
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
@@ -18,7 +20,6 @@ from utilities.settings import API_TOKEN, ADMIN_CHAT_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
     set_menu, set_description, set_ticket_data, set_show_data,
-    update_admin_info,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,

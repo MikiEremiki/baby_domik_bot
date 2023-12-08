@@ -81,6 +81,35 @@ async def write_old_seat_info(
         ))
 
 
+async def update_admin_info(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.bot_data.setdefault('admin', {})
+    admin_info = context.bot_data['admin']
+    if context.args[0] == 'clean':
+        context.bot_data['admin'] = {}
+        await update.effective_chat.send_message(
+            f'Зафиксировано: {context.bot_data['admin']}')
+        return
+    if context.args:
+        if len(context.args) == 4:
+            admin_info['name'] = ' '.join(context.args[0:2])
+            admin_info['username'] = context.args[2]
+            admin_info['phone'] = context.args[3]
+            admin_info['contacts'] = '\n'.join(
+                [admin_info['name'],
+                 'telegram ' + admin_info['username'],
+                 'телефон ' + admin_info['phone']]
+            )
+            await update.effective_chat.send_message(
+                f'Зафиксировано: {context.bot_data['admin']}')
+        else:
+            await update.effective_chat.send_message(
+                f'Должно быть 4 параметра, а передано {len(context.args)}')
+    else:
+        await update.effective_chat.send_message(
+            'Не заданы параметры к команде')
+
+
 async def update_ticket_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
