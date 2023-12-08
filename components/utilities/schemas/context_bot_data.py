@@ -12,7 +12,7 @@ context_bot_data: Dict = {
                 'flag_premiere': bool,
                 'min_age_child': int,
                 'max_age_child': int,
-                'emoji': str,
+                'show_emoji': str,
                 'birthday': {
                     'flag': bool,
                     'max_num_child': int,
