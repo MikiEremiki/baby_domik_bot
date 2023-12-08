@@ -729,7 +729,9 @@ async def check_and_send_buy_info(
 
     reserve_user_data = context.user_data['reserve_user_data']
     choose_event_info = reserve_user_data['choose_event_info']
-    name_show = choose_event_info['name_show']
+    dict_show_data = context.bot_data['dict_show_data']
+    show_data = dict_show_data[choose_event_info['show_id']]
+    name_show = show_data['full_name']
     date = choose_event_info['date_show']
     time = choose_event_info['time_show']
     option = choose_event_info['option']
