@@ -229,7 +229,6 @@ def load_list_show() -> dict[int, dict[str, Any]]:
             'flag_repertoire': flag_repertoire,
             'flag_indiv_cost': flag_indiv_cost,
             'full_name': full_name,
-
         }
 
     return (
