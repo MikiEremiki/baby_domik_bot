@@ -147,7 +147,8 @@ def create_replay_markup_with_number_btn(
 
     i = 0
     for num in range(qty_btn):
-        button_tmp = InlineKeyboardButton(str(num+1), callback_data=str(num+1))
+        button_tmp = InlineKeyboardButton(str(num + 1),
+                                          callback_data=str(num + 1))
         list_btn_of_numbers.append(button_tmp)
 
         i += 1
