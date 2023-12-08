@@ -206,12 +206,15 @@ async def choice_show_or_date(
     filter_show_id = enum_current_show_by_month(dict_of_date_show,
                                                 number_of_month_str)
 
+    dict_show_data = context.bot_data['dict_show_data']
+
     if number_of_month_str == '12':
         text = ('Выберите спектакль\n'
                 'Пожалуйста обратите внимание на рекомендованный возраст\n')
         text = add_text_of_show_and_numerate(text,
                                              dict_of_name_show,
-                                             filter_show_id)
+                                             filter_show_id,
+                                             dict_show_data)
         keyboard = []
         for key, item in dict_of_name_show.items():
             if item in filter_show_id.keys():
@@ -237,8 +240,9 @@ async def choice_show_or_date(
         text = ('Выберите спектакль и дату\n'
                 'Пожалуйста обратите внимание на рекомендованный возраст\n')
         text = add_text_of_show_and_numerate(text,
-                                             dict_of_name_show,
-                                             filter_show_id)
+                                      dict_of_name_show,
+                                      filter_show_id,
+                                      dict_show_data)
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_date_show,
             add_cancel_btn=True,
