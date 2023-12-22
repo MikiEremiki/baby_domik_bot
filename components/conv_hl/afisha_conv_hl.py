@@ -7,14 +7,14 @@ from telegram.ext import (
 )
 
 from handlers import afisha_hl, main_hl
-from utilities.settings import COMMAND_DICT, ADMIN_CHAT_ID
+from utilities.settings import COMMAND_DICT, ADMIN_ID
 
 afisha_conv_hl = ConversationHandler(
         entry_points=[
             CommandHandler(
                 COMMAND_DICT['AFISHA'][0],
                 afisha_hl.load_afisha,
-                filters=filters.Chat(ADMIN_CHAT_ID)
+                filters=filters.Chat(ADMIN_ID)
                 ),
         ],
         states={

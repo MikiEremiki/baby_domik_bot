@@ -25,7 +25,7 @@ from db.db_googlesheets import (
 )
 from utilities.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
-    ADMIN_ID, ADMIN_GROUP_ID, ADMIN_CHAT_ID,
+    ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
     LIST_TOPICS_NAME,
 )
 from utilities.schemas.context_user_data import context_user_data
@@ -121,14 +121,20 @@ async def set_menu(bot: ExtBot) -> None:
         BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
         BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
     ]
-    admin_commands = default_commands + admin_group_commands
-    admin_commands += [
+    sub_admin_commands = default_commands + admin_group_commands
+    admin_commands = sub_admin_commands + [
         BotCommand(COMMAND_DICT['AFISHA'][0], COMMAND_DICT['AFISHA'][1]),
         BotCommand(COMMAND_DICT['ADM_INFO'][0], COMMAND_DICT['ADM_INFO'][1]),
         BotCommand(COMMAND_DICT['UP_T_DATA'][0], COMMAND_DICT['UP_T_DATA'][1]),
         BotCommand(COMMAND_DICT['UP_S_DATA'][0], COMMAND_DICT['UP_S_DATA'][1]),
         BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
     ]
+    backend_commands = [
+        BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
+        BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
+    ]
+
+    superadmin_commands = admin_commands + backend_commands
 
     for chat_id in ADMIN_GROUP_ID:
         try:
@@ -139,12 +145,24 @@ async def set_menu(bot: ExtBot) -> None:
             utilites_logger.info('Команды для админ группы настроены')
         except BadRequest:
             utilites_logger.error(f'Бот не состоит в группе {chat_id}')
+    for chat_id in ADMIN_GROUP_ID:
+        await bot.set_my_commands(
+            commands=sub_admin_commands,
+            scope=BotCommandScopeChat(chat_id=chat_id)
+        )
+    utilites_logger.info('Команды для суб_администраторов настроены')
     for chat_id in ADMIN_CHAT_ID:
         await bot.set_my_commands(
             commands=admin_commands,
             scope=BotCommandScopeChat(chat_id=chat_id)
         )
     utilites_logger.info('Команды для администраторов настроены')
+    for chat_id in SUPERADMIN_CHAT_ID:
+        await bot.set_my_commands(
+            commands=superadmin_commands,
+            scope=BotCommandScopeChat(chat_id=chat_id)
+        )
+    utilites_logger.info('Команды для суперадмина настроены')
     await bot.set_my_commands(
         commands=default_commands,
         scope=BotCommandScopeDefault()
