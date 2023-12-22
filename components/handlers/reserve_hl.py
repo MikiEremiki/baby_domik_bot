@@ -88,13 +88,13 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clean_context(context)
 
     if update.effective_message.is_topic_message:
-        match context.user_data['command']:
-            case 'list':
-                thread_id = (context.bot_data['dict_topics_name']
-                             .get('Списки на показы', None))
-            case 'list_wait':
-                thread_id = (context.bot_data['dict_topics_name']
-                             .get('Лист ожидания', None))
+        thread_id = None
+        if context.user_data['command'] == 'list':
+            thread_id = (context.bot_data['dict_topics_name']
+                         .get('Списки на показы', None))
+        if context.user_data['command'] == 'list_wait':
+            thread_id = (context.bot_data['dict_topics_name']
+                         .get('Лист ожидания', None))
         if update.effective_message.message_thread_id != thread_id:
             await update.effective_message.reply_text(
                 'Выполните команду в правильном топике')
