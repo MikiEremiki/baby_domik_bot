@@ -282,15 +282,11 @@ def load_clients_data(
     first_colum = get_data_from_spreadsheet(
         RANGE_NAME['База клиентов']
     )
-    first_row = get_data_from_spreadsheet(
-        RANGE_NAME['База клиентов__']
-    )
+    dict_column_name, len_column = get_column_info('База клиентов_')
     sheet = (
             RANGE_NAME['База клиентов_'] +
-            f'R1C1:R{len(first_colum)}C{len(first_row[0])}'
+            f'R1C1:R{len(first_colum)}C{len_column}'
     )
-
-    dict_column_name, len_column = get_column_info('База клиентов_')
 
     data = get_data_from_spreadsheet(sheet)
 
