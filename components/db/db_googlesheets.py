@@ -275,7 +275,9 @@ def load_ticket_data() -> List[BaseTicket]:
     return list_of_tickets
 
 
-def load_clients_data(event_id: int) -> Tuple[List[List[str]], Dict[str, str]]:
+def load_clients_data(
+        event_id: int
+) -> Tuple[List[List[str]], Dict[int | str, int]]:
     data_clients_data = []
     first_colum = get_data_from_spreadsheet(
         RANGE_NAME['База клиентов']
@@ -293,9 +295,7 @@ def load_clients_data(event_id: int) -> Tuple[List[List[str]], Dict[str, str]]:
     data = get_data_from_spreadsheet(sheet)
 
     for item in data[1:]:
-        if (
-                item[dict_column_name['event_id']] == str(event_id)
-        ):
+        if item[dict_column_name['event_id']] == str(event_id):
             data_clients_data.append(item)
 
     return data_clients_data, dict_column_name

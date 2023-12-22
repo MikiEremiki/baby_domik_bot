@@ -84,7 +84,7 @@ reserve_conv_hl = ConversationHandler(
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],
     conversation_timeout=RESERVE_TIMEOUT * 60,
-    name="reserve",
+    name='reserve',
     persistent=True,
     allow_reentry=True
 )
