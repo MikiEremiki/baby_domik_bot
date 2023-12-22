@@ -299,3 +299,27 @@ def load_clients_data(
             data_clients_data.append(item)
 
     return data_clients_data, dict_column_name
+
+
+def load_clients_wait_data(
+        date_show: str
+) -> Tuple[List[List[str]], Dict[int | str, int]]:
+    data_clients_data = []
+    first_colum = get_data_from_spreadsheet(
+        RANGE_NAME['Лист ожидания']
+    )
+
+    dict_column_name, len_column = get_column_info('Лист ожидания_')
+
+    sheet = (
+            RANGE_NAME['Лист ожидания_'] +
+            f'R1C1:R{len(first_colum)}C{len_column}'
+    )
+
+    data = get_data_from_spreadsheet(sheet)
+
+    for item in data[1:]:
+        if item[dict_column_name['date_show']] == date_show:
+            data_clients_data.append(item)
+
+    return data_clients_data, dict_column_name
