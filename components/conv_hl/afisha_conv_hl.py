@@ -14,7 +14,7 @@ afisha_conv_hl = ConversationHandler(
             CommandHandler(
                 COMMAND_DICT['AFISHA'][0],
                 afisha_hl.load_afisha,
-                filters=filters.Chat(ADMIN_ID)
+                filters=filters.User(ADMIN_ID)
                 ),
         ],
         states={

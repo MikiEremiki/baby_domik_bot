@@ -79,31 +79,31 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['UP_T_DATA'][0],
         update_ticket_data,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['UP_S_DATA'][0],
         update_show_data,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['LOG'][0],
         send_log,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['CB_TW'][0],
         get_balance,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['TOPIC_START'][0],
         create_or_connect_topic,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['TOPIC_DEL'][0],
         del_topic,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['ADM_INFO'][0],
         update_admin_info,
-        filters=filters.Chat(chat_id=ADMIN_ID)))
+        filters=filters.User(ADMIN_ID)))
 
     application.add_handler(CommandHandler('rcl',
                                            request_contact_location))
