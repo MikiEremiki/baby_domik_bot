@@ -70,6 +70,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     state = 'START'
     context.user_data['STATE'] = state
+    context.user_data['command'] = update.effective_message.text.replace('/', '')
     context.user_data['reserve_user_data'] = {}
     context.user_data['reserve_user_data']['back'] = {}
     context.user_data['reserve_user_data']['client_data'] = {}
@@ -86,8 +87,13 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clean_context(context)
 
     if update.effective_message.is_topic_message:
-        thread_id = (context.bot_data['dict_topics_name']
-                     .get('Списки на показы', None))
+        match context.user_data['command']:
+            case 'list':
+                thread_id = (context.bot_data['dict_topics_name']
+                             .get('Списки на показы', None))
+            case 'list_wait':
+                thread_id = (context.bot_data['dict_topics_name']
+                             .get('Лист ожидания', None))
         if update.effective_message.message_thread_id != thread_id:
             await update.effective_message.reply_text(
                 'Выполните команду в правильном топике')
@@ -250,7 +256,10 @@ async def choice_show_or_date(
             postfix_for_back='MONTH',
             number_of_month=number_of_month_str,
         )
-        state = 'DATE'
+        if context.user_data['command'] == 'list_wait':
+            state = 'LIST_WAIT'
+        else:
+            state = 'DATE'
         set_back_context(context, state, text, reply_markup)
 
     photo = (
@@ -356,7 +365,10 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.HTML
         )
 
-    state = 'DATE'
+    if context.user_data['command'] == 'list_wait':
+        state = 'LIST_WAIT'
+    else:
+        state = 'DATE'
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
@@ -460,7 +472,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choose_event_info['name_show'] = name_show
     choose_event_info['date_show'] = date_show
 
-    if update.effective_chat.id == ADMIN_GROUP:
+    if context.user_data['command'] == 'list':
         state = 'LIST'
     else:
         state = 'TIME'

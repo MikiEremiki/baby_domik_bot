@@ -10,6 +10,7 @@ from utilities.schemas.ticket import BaseTicket
 
 context_user_data: Dict = {
     'STATE': str,
+    'command': str,
     'user': User,
     'common_data': {
         'dict_of_shows': dict,
