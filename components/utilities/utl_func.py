@@ -526,3 +526,9 @@ def clean_context(context: ContextTypes.DEFAULT_TYPE):
         if key not in context_user_data:
             value = context.user_data.pop(key)
             utilites_logger.info(f'{key}: {value} больше не используется')
+
+
+def extract_command(text):
+    if '@' in text:
+        text = text.split('@')[0]
+    return text.replace('/', '')
