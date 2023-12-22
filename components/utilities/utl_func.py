@@ -118,8 +118,7 @@ async def set_menu(bot: ExtBot) -> None:
     ]
     admin_group_commands = [
         BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
-        BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
-        BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
+        BotCommand(COMMAND_DICT['LIST_WAIT'][0], COMMAND_DICT['LIST_WAIT'][1]),
     ]
     sub_admin_commands = default_commands + admin_group_commands
     admin_commands = sub_admin_commands + [
