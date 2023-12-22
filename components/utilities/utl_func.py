@@ -129,6 +129,8 @@ async def set_menu(bot: ExtBot) -> None:
         BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
     ]
     backend_commands = [
+        BotCommand(COMMAND_DICT['TOPIC_START'][0], COMMAND_DICT['TOPIC_START'][1]),
+        BotCommand(COMMAND_DICT['TOPIC_DEL'][0], COMMAND_DICT['TOPIC_DEL'][1]),
         BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
         BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
     ]
