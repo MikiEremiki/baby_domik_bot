@@ -129,6 +129,8 @@ async def set_menu(bot: ExtBot) -> None:
         BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
     ]
     backend_commands = [
+        BotCommand(COMMAND_DICT['TOPIC_START'][0], COMMAND_DICT['TOPIC_START'][1]),
+        BotCommand(COMMAND_DICT['TOPIC_DEL'][0], COMMAND_DICT['TOPIC_DEL'][1]),
         BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
         BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
     ]
@@ -431,7 +433,7 @@ async def create_or_connect_topic(
 
     dict_topics_name = context.bot_data.setdefault('dict_topics_name', {})
     if context.args:
-        topic_id = context.args[0]
+        topic_id = int(context.args[0])
         name = ' '.join([item for item in context.args[1:]])
         try:
             await update.effective_chat.send_message(
@@ -524,3 +526,9 @@ def clean_context(context: ContextTypes.DEFAULT_TYPE):
         if key not in context_user_data:
             value = context.user_data.pop(key)
             utilites_logger.info(f'{key}: {value} больше не используется')
+
+
+def extract_command(text):
+    if '@' in text:
+        text = text.split('@')[0]
+    return text.replace('/', '')

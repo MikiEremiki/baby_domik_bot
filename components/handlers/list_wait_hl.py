@@ -40,10 +40,20 @@ async def send_clients_wait_data(
         # text += item[name_column['timestamp']] + ' '
         text += '\nЖелаемое время спектакля: '
         text += item[name_column['time_show']] + ' '
-    await query.edit_message_text(
-        text=text,
-        parse_mode=ParseMode.HTML
-    )
+
+    photo = update.effective_message.photo
+    if photo:
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            parse_mode=ParseMode.HTML,
+            message_thread_id=update.effective_message.message_thread_id
+        )
+    else:
+        await query.edit_message_text(
+            text=text,
+            parse_mode=ParseMode.HTML
+        )
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state

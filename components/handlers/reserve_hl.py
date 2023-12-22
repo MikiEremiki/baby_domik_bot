@@ -34,7 +34,7 @@ from utilities.googlesheets import (
     get_quality_of_seats,
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text,
+    extract_phone_number_from_text, extract_command,
     add_btn_back_and_cancel,
     send_message_to_admin,
     set_back_context, get_back_context, clean_context,
@@ -70,7 +70,8 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     state = 'START'
     context.user_data['STATE'] = state
-    context.user_data['command'] = update.effective_message.text.replace('/', '')
+    context.user_data['command'] = extract_command(
+        update.effective_message.text)
     context.user_data['reserve_user_data'] = {}
     context.user_data['reserve_user_data']['back'] = {}
     context.user_data['reserve_user_data']['client_data'] = {}
@@ -87,13 +88,13 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     clean_context(context)
 
     if update.effective_message.is_topic_message:
-        match context.user_data['command']:
-            case 'list':
-                thread_id = (context.bot_data['dict_topics_name']
-                             .get('Списки на показы', None))
-            case 'list_wait':
-                thread_id = (context.bot_data['dict_topics_name']
-                             .get('Лист ожидания', None))
+        thread_id = None
+        if context.user_data['command'] == 'list':
+            thread_id = (context.bot_data['dict_topics_name']
+                         .get('Списки на показы', None))
+        if context.user_data['command'] == 'list_wait':
+            thread_id = (context.bot_data['dict_topics_name']
+                         .get('Лист ожидания', None))
         if update.effective_message.message_thread_id != thread_id:
             await update.effective_message.reply_text(
                 'Выполните команду в правильном топике')
