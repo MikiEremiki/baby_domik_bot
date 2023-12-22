@@ -433,7 +433,7 @@ async def create_or_connect_topic(
 
     dict_topics_name = context.bot_data.setdefault('dict_topics_name', {})
     if context.args:
-        topic_id = context.args[0]
+        topic_id = int(context.args[0])
         name = ' '.join([item for item in context.args[1:]])
         try:
             await update.effective_chat.send_message(
