@@ -14,6 +14,7 @@ from handlers.sub_hl import (
 )
 from handlers.timeweb_hl import get_balance
 from conv_hl.reserve_conv_hl import reserve_conv_hl
+from conv_hl.list_wait_conv_hl import list_wait_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from conv_hl.afisha_conv_hl import afisha_conv_hl
 from utilities.settings import API_TOKEN, ADMIN_ID, COMMAND_DICT
@@ -64,6 +65,7 @@ def bot():
                                                  pattern='^reject-birthday'))
 
     application.add_handler(reserve_conv_hl)
+    application.add_handler(list_wait_conv_hl)
     application.add_handler(birthday_conv_hl)
     application.add_handler(birthday_paid_conv_hl)
     application.add_handler(afisha_conv_hl)
