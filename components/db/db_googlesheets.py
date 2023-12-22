@@ -275,27 +275,47 @@ def load_ticket_data() -> List[BaseTicket]:
     return list_of_tickets
 
 
-def load_clients_data(event_id: int) -> Tuple[List[List[str]], Dict[str, str]]:
+def load_clients_data(
+        event_id: int
+) -> Tuple[List[List[str]], Dict[int | str, int]]:
     data_clients_data = []
     first_colum = get_data_from_spreadsheet(
         RANGE_NAME['База клиентов']
     )
-    first_row = get_data_from_spreadsheet(
-        RANGE_NAME['База клиентов__']
-    )
+    dict_column_name, len_column = get_column_info('База клиентов_')
     sheet = (
             RANGE_NAME['База клиентов_'] +
-            f'R1C1:R{len(first_colum)}C{len(first_row[0])}'
+            f'R1C1:R{len(first_colum)}C{len_column}'
     )
-
-    dict_column_name, len_column = get_column_info('База клиентов_')
 
     data = get_data_from_spreadsheet(sheet)
 
     for item in data[1:]:
-        if (
-                item[dict_column_name['event_id']] == str(event_id)
-        ):
+        if item[dict_column_name['event_id']] == str(event_id):
+            data_clients_data.append(item)
+
+    return data_clients_data, dict_column_name
+
+
+def load_clients_wait_data(
+        date_show: str
+) -> Tuple[List[List[str]], Dict[int | str, int]]:
+    data_clients_data = []
+    first_colum = get_data_from_spreadsheet(
+        RANGE_NAME['Лист ожидания']
+    )
+
+    dict_column_name, len_column = get_column_info('Лист ожидания_')
+
+    sheet = (
+            RANGE_NAME['Лист ожидания_'] +
+            f'R1C1:R{len(first_colum)}C{len_column}'
+    )
+
+    data = get_data_from_spreadsheet(sheet)
+
+    for item in data[1:]:
+        if item[dict_column_name['date_show']] == date_show:
             data_clients_data.append(item)
 
     return data_clients_data, dict_column_name

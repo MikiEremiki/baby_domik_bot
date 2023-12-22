@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -76,7 +76,7 @@ def get_column_info(name_sheet):
     data_column_name = get_data_from_spreadsheet(
         RANGE_NAME[name_sheet] + f'2:2'
     )
-    dict_column_name = {}
+    dict_column_name: Dict[int | str, int] = {}
     for i, item in enumerate(data_column_name[0]):
         if item == '':
             item = i
