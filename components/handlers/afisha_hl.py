@@ -14,6 +14,8 @@ async def load_afisha(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 'START'
     context.user_data['STATE'] = state
+    if not context.bot_data.get('afisha', False):
+        context.bot_data['afisha'] = {}
 
     reply_markup = create_replay_markup_with_number_btn(12, 6)
 
