@@ -536,19 +536,21 @@ def extract_command(text):
     return text.replace('/', '')
 
 
-async def split_message(update, context, message: str):
+async def split_message(context, message: str):
     max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
     if len(message) >= max_text_len:
         for i in range(len(message) // max_text_len + 1):
             start = i * max_text_len
             end = (i + 1) * max_text_len
             if i == len(message) // max_text_len:
-                await update.effective_chat.send_message(
+                await context.bot.send_message(
+                    chat_id=CHAT_ID_MIKIEREMIKI,
                     text='<pre>' + message[start:] + '</pre>',
                     parse_mode=ParseMode.HTML
                 )
                 break
-            await update.effective_chat.send_message(
+            await context.bot.send_message(
+                chat_id=CHAT_ID_MIKIEREMIKI,
                 text='<pre>' + message[start:end] + '</pre>',
                 parse_mode=ParseMode.HTML
             )
