@@ -45,12 +45,12 @@ async def error_handler(update: Update,
     )
 
     message = f"<pre>{html.escape(tb_string)}</pre>\n\n"
-    await split_message(update, context, message)
+    await split_message(context, message)
 
     message = pformat(context.bot_data)
     error_hl_logger.info(message)
-    await split_message(update, context, message)
+    await split_message(context, message)
 
     message = pformat(context.user_data)
     error_hl_logger.info(message)
-    await split_message(update, context, message)
+    await split_message(context, message)
