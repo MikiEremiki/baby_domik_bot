@@ -18,7 +18,7 @@ context_user_data: Dict = {
         'message_id_for_admin': Message.message_id,
         'text_for_notification_massage': str,
     },
-    'birthday_data': {
+    'birthday_user_data': {
         'place': 1 | 2,
         'address': str,
         'date': str,
@@ -72,9 +72,6 @@ context_user_data: Dict = {
             'chose_ticket': BaseTicket,
         },
         'payment_id': int,  # Указатель на последний идентификатор платежа
-    },
-    'birthday_user_data': {
-
     },
     'month_afisha': int,
 }

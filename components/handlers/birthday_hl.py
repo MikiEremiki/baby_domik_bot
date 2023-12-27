@@ -30,7 +30,7 @@ from utilities.settings import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
-    load_and_concat_date_of_shows
+    load_and_concat_date_of_shows, clean_context
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -57,8 +57,12 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
 
+    clean_context(context)
+
     state = 'START'
     context.user_data['STATE'] = state
+    context.user_data['birthday_user_data'] = {}
+    context.user_data.setdefault('common_data', {})
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
@@ -85,8 +89,6 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN_V2
     )
 
-    context.user_data['birthday_data'] = {}
-
     state = 'PLACE'
     context.user_data['STATE'] = state
     return state
@@ -112,8 +114,8 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text,
     )
 
-    context.user_data['birthday_data']['place'] = int(place)
-    context.user_data['birthday_data']['address'] = ADDRESS_OFFICE
+    context.user_data['birthday_user_data']['place'] = int(place)
+    context.user_data['birthday_user_data']['address'] = ADDRESS_OFFICE
 
     state = 'DATE'
     context.user_data['STATE'] = state
@@ -140,7 +142,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text,
     )
 
-    context.user_data['birthday_data']['place'] = int(place)
+    context.user_data['birthday_user_data']['place'] = int(place)
 
     state = 'ADDRESS'
     context.user_data['STATE'] = state
@@ -159,7 +161,7 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text,
     )
 
-    context.user_data['birthday_data']['address'] = address
+    context.user_data['birthday_user_data']['address'] = address
 
     state = 'DATE'
     context.user_data['STATE'] = state
@@ -177,7 +179,7 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите желаемое время начала'
     )
 
-    context.user_data['birthday_data']['date'] = date
+    context.user_data['birthday_user_data']['date'] = date
 
     state = 'TIME'
     context.user_data['STATE'] = state
@@ -230,7 +232,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    context.user_data['birthday_data']['time'] = time
+    context.user_data['birthday_user_data']['time'] = time
 
     state = 'CHOOSE'
     context.user_data['STATE'] = state
@@ -258,7 +260,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['show_id'] = int(show_id)
+    context.user_data['birthday_user_data']['show_id'] = int(show_id)
 
     state = 'AGE'
     context.user_data['STATE'] = state
@@ -282,7 +284,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['age'] = int(age)
+    context.user_data['birthday_user_data']['age'] = int(age)
 
     state = 'QTY_CHILD'
     context.user_data['STATE'] = state
@@ -305,7 +307,7 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_data']['qty_child'] = int(qty_child)
+    context.user_data['birthday_user_data']['qty_child'] = int(qty_child)
 
     state = 'QTY_ADULT'
     context.user_data['STATE'] = state
@@ -324,7 +326,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = 'Следующий вопрос'
     reply_markup = None
 
-    birthday_place = context.user_data['birthday_data']['place']
+    birthday_place = context.user_data['birthday_user_data']['place']
     if birthday_place == 1:
         one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
         two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
@@ -364,7 +366,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN_V2
     )
 
-    context.user_data['birthday_data']['qty_adult'] = int(qty_adult)
+    context.user_data['birthday_user_data']['qty_adult'] = int(qty_adult)
 
     state = 'FORMAT_BD'
     context.user_data['STATE'] = state
@@ -394,7 +396,7 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите как зовут именинника',
     )
 
-    context.user_data['birthday_data']['format_bd'] = int(format_bd)
+    context.user_data['birthday_user_data']['format_bd'] = int(format_bd)
 
     state = 'NAME_CHILD'
     context.user_data['STATE'] = state
@@ -411,7 +413,7 @@ async def get_name_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите как вас зовут',
     )
 
-    context.user_data['birthday_data']['name_child'] = name_child
+    context.user_data['birthday_user_data']['name_child'] = name_child
 
     state = 'NAME'
     context.user_data['STATE'] = state
@@ -428,7 +430,7 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text='Напишите контактный телефон для связи с вами',
     )
 
-    context.user_data['birthday_data']['name'] = name
+    context.user_data['birthday_user_data']['name'] = name
 
     state = 'PHONE'
     context.user_data['STATE'] = state
@@ -447,11 +449,11 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return 'PHONE'
 
     user_id = update.effective_user.id
-    context.user_data['birthday_data']['phone'] = phone
+    context.user_data['birthday_user_data']['phone'] = phone
 
     try:
         text = do_bold('Ваша заявка: ')
-        for key, item in context.user_data['birthday_data'].items():
+        for key, item in context.user_data['birthday_user_data'].items():
             match key:
                 case 'place':
                     if item == 1:
@@ -592,7 +594,7 @@ async def forward_photo_or_file(
         )
         await message.pin()
 
-        set_approve_order(context.user_data['birthday_data'], 1)
+        set_approve_order(context.user_data['birthday_user_data'], 1)
 
         text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
         message_id_for_admin = context.user_data['common_data'][
@@ -673,7 +675,7 @@ async def conversation_timeout(
     birthday_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
-    context.user_data['birthday_data'].clear()
+    context.user_data['birthday_user_data'].clear()
 
     return ConversationHandler.END
 

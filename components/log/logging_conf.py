@@ -7,6 +7,16 @@ if not pathlib.Path('log/').exists():
     os.mkdir('log')
 
 
+class NoParsingFilter(logging.Filter):
+    def filter(self, record):
+        if (record.getMessage().find('Entering: get_updates') >= 0 or
+                record.getMessage().find('Exiting: get_updates') >= 0 or
+                record.getMessage().find('No new updates found.') >= 0 or
+                record.getMessage().find('()') >= 0):
+            return False
+        return True
+
+
 def load_log_config():
     root = logging.getLogger()
     bf = logging.Formatter('{asctime:16s}|{name:20s}|{levelname:8s}|{message}',
@@ -24,5 +34,9 @@ def load_log_config():
 
     logger = logging.getLogger('bot')
     logger.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger("telegram.ext.ExtBot")
+    logger.setLevel(logging.DEBUG)
+    logger.addFilter(NoParsingFilter())
 
     return logger

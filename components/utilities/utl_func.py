@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from pprint import pprint, pformat
+from pprint import pformat
 from typing import List, Union, Optional
 
 from telegram import (
@@ -12,6 +12,7 @@ from telegram import (
     InlineKeyboardButton,
     constants,
 )
+from telegram.constants import ParseMode
 from telegram.ext import (
     ContextTypes,
     ConversationHandler,
@@ -94,8 +95,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
 
     if context.user_data.get('common_data', False):
         context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_data', False):
-        context.user_data['birthday_data'].clear()
+    if context.user_data.get('birthday_user_data', False):
+        context.user_data['birthday_user_data'].clear()
     if context.user_data.get('reserve_user_data', False):
         context.user_data['reserve_user_data'].clear()
     return ConversationHandler.END
@@ -254,13 +255,13 @@ def yrange(n):
 
 
 async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
     if context.args and update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         chat_id = int(context.args[0])
         context_format = pformat(context.application.user_data.get(chat_id))
-        max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
         for i in range(len(context_format) // max_text_len + 1):
             start = i * max_text_len
-            end = (i+1) * max_text_len
+            end = (i + 1) * max_text_len
             if i == len(context_format) // max_text_len:
                 await update.effective_chat.send_message(
                     text=context_format[start:]
@@ -270,7 +271,8 @@ async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=context_format[start:end]
             )
     elif update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        pprint(context.application.user_data)
+        message = pformat(context.user_data)
+        await split_message(update, context, message)
 
 
 async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -298,8 +300,8 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     'text_for_notification_massage']
             if context.application.user_data[key].get('text_time'):
                 del context.application.user_data[key]['text_time']
-            if context.application.user_data[key].get('birthday_data'):
-                del context.application.user_data[key]['birthday_data']
+            if context.application.user_data[key].get('birthday_user_data'):
+                del context.application.user_data[key]['birthday_user_data']
             utilites_logger.info(key)
             utilites_logger.info(item.get('user', 'Нет такого'))
             context.application.mark_data_for_update_persistence(key)
@@ -532,3 +534,27 @@ def extract_command(text):
     if '@' in text:
         text = text.split('@')[0]
     return text.replace('/', '')
+
+
+async def split_message(update, context, message: str):
+    max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
+    if len(message) >= max_text_len:
+        for i in range(len(message) // max_text_len + 1):
+            start = i * max_text_len
+            end = (i + 1) * max_text_len
+            if i == len(message) // max_text_len:
+                await update.effective_chat.send_message(
+                    text='<pre>' + message[start:] + '</pre>',
+                    parse_mode=ParseMode.HTML
+                )
+                break
+            await update.effective_chat.send_message(
+                text='<pre>' + message[start:end] + '</pre>',
+                parse_mode=ParseMode.HTML
+            )
+    else:
+        await context.bot.send_message(
+            chat_id=CHAT_ID_MIKIEREMIKI,
+            text='<pre>' + message + '</pre>',
+            parse_mode=ParseMode.HTML
+        )

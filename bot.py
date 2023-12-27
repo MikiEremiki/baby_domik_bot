@@ -9,6 +9,7 @@ from telegram.ext import (
 
 from log.logging_conf import load_log_config
 from handlers import main_hl
+from handlers.error_hl import error_handler
 from handlers.sub_hl import (
     update_ticket_data, update_show_data, update_admin_info
 )
@@ -120,6 +121,8 @@ def bot():
                                     filters.Document.PDF),
         main_hl.feedback_send_msg),
     )
+
+    application.add_error_handler(error_handler)
 
     bot_logger.info('Всё готово к поллингу')
 

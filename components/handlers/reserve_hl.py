@@ -68,6 +68,8 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state MONTH
     """
+    clean_context(context)
+
     state = 'START'
     context.user_data['STATE'] = state
     context.user_data['command'] = extract_command(
@@ -84,8 +86,6 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['reserve_admin_data'] = {'payment_id': 0}
 
     user = context.user_data.setdefault('user', update.effective_user)
-
-    clean_context(context)
 
     if update.effective_message.is_topic_message:
         thread_id = None
