@@ -301,7 +301,7 @@ def write_client_bd(
 
         date = datetime.now().strftime('%y%m%d %H:%M:%S')
 
-        bd_data = context_data['birthday_data']
+        bd_data = context_data['birthday_user_data']
         values[0].append(bd_data['phone'])  # 0
         values[0].append(bd_data['place'])
         values[0].append(bd_data['address'])

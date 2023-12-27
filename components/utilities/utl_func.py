@@ -94,8 +94,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
 
     if context.user_data.get('common_data', False):
         context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_data', False):
-        context.user_data['birthday_data'].clear()
+    if context.user_data.get('birthday_user_data', False):
+        context.user_data['birthday_user_data'].clear()
     if context.user_data.get('reserve_user_data', False):
         context.user_data['reserve_user_data'].clear()
     return ConversationHandler.END
@@ -298,8 +298,8 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     'text_for_notification_massage']
             if context.application.user_data[key].get('text_time'):
                 del context.application.user_data[key]['text_time']
-            if context.application.user_data[key].get('birthday_data'):
-                del context.application.user_data[key]['birthday_data']
+            if context.application.user_data[key].get('birthday_user_data'):
+                del context.application.user_data[key]['birthday_user_data']
             utilites_logger.info(key)
             utilites_logger.info(item.get('user', 'Нет такого'))
             context.application.mark_data_for_update_persistence(key)

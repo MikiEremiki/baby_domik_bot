@@ -231,7 +231,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
             f'{context.bot_data['admin']['contacts']}')
-    context_bd = user_data['birthday_data']
+    context_bd = user_data['birthday_user_data']
     match data:
         case '1':
             await query.edit_message_text(
@@ -466,8 +466,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if context.user_data.get('common_data', False):
         context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_data', False):
-        context.user_data['birthday_data'].clear()
+    if context.user_data.get('birthday_user_data', False):
+        context.user_data['birthday_user_data'].clear()
     if context.user_data.get('reserve_user_data', False):
         context.user_data['reserve_user_data'].clear()
     return ConversationHandler.END
