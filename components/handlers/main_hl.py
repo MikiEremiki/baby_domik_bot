@@ -17,7 +17,7 @@ from utilities.googlesheets import (
     write_data_for_reserve,
     set_approve_order
 )
-from utilities.utl_func import is_admin, get_back_context
+from utilities.utl_func import is_admin, get_back_context, clean_context
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -27,6 +27,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
+    clean_context(context)
+
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
 

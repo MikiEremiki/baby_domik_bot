@@ -30,7 +30,7 @@ from utilities.settings import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
-    load_and_concat_date_of_shows
+    load_and_concat_date_of_shows, clean_context
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -56,6 +56,8 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
+
+    clean_context(context)
 
     state = 'START'
     context.user_data['STATE'] = state
