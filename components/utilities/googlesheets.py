@@ -22,18 +22,27 @@ def get_service_sacc(scopes):
     return build('sheets', 'v4', credentials=credentials)
 
 
-def get_values(spreadsheet_id, range_name):
+def get_values(
+        spreadsheet_id,
+        range_name,
+        value_render_option='FORMATTED_VALUE'
+):
     sheet = get_service_sacc(SCOPES).spreadsheets()
-    result = sheet.values().get(spreadsheetId=spreadsheet_id,
-                                range=range_name).execute()
+    result = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range=range_name,
+        valueRenderOption=value_render_option,
+
+    ).execute()
     return result.get('values', [])
 
 
-def get_data_from_spreadsheet(sheet):
+def get_data_from_spreadsheet(sheet, value_render_option='FORMATTED_VALUE'):
     try:
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            sheet
+            sheet,
+            value_render_option
         )
 
         if not values:

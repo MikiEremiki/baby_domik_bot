@@ -12,12 +12,16 @@ from utilities.schemas.ticket import BaseTicket
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
 
+def convert_sheets_datetime(sheets_date):
+    return (datetime.datetime(1899, 12, 30)
+            + datetime.timedelta(days=sheets_date))
+
+
 def filter_by_date(data_of_dates):
     first_row = 3
-    date_now = datetime.datetime.now().date()
+    date_now = datetime.datetime.now()
     for i, item in enumerate(data_of_dates[2:]):
-        date_tmp = item[0].split()[0] + f'.{date_now.year}'
-        date_tmp = datetime.datetime.strptime(date_tmp, f'%d.%m.%Y').date()
+        date_tmp = convert_sheets_datetime(item[0])
         if date_tmp >= date_now:
             first_row += i
             break
@@ -56,7 +60,8 @@ def load_show_data() -> tuple[
     dict_column_name, len_column = get_column_info('База спектаклей_')
     data_of_dates = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] +
-        f'C[{dict_column_name['date_show']}]'
+        f'C[{dict_column_name['date_show']}]',
+        value_render_option='UNFORMATTED_VALUE'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
