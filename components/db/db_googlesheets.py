@@ -12,16 +12,20 @@ from utilities.schemas.ticket import BaseTicket
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
 
-def convert_sheets_datetime(sheets_date):
+def convert_sheets_datetime(sheets_date: int, sheets_time: float = 0):
+    hours = int(sheets_time * 24)
+    minutes = int(sheets_time * 24 % 1 * 60)
     return (datetime.datetime(1899, 12, 30)
-            + datetime.timedelta(days=sheets_date))
+            + datetime.timedelta(days=sheets_date,
+                                 hours=hours,
+                                 minutes=minutes))
 
 
-def filter_by_date(data_of_dates):
+def filter_by_datetime(data):
     first_row = 3
     date_now = datetime.datetime.now()
-    for i, item in enumerate(data_of_dates[2:]):
-        date_tmp = convert_sheets_datetime(item[0])
+    for i, item in enumerate(data[2:]):
+        date_tmp = convert_sheets_datetime(item[0], item[1])
         if date_tmp >= date_now:
             first_row += i
             break
@@ -58,18 +62,19 @@ def load_show_data() -> tuple[
     # TODO Выделить загрузку базы спектаклей в отдельную задачу и хранить ее
     #  сразу в bot_data
     dict_column_name, len_column = get_column_info('База спектаклей_')
-    data_of_dates = get_data_from_spreadsheet(
+    data_of_dates_and_times = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] +
-        f'C[{dict_column_name['date_show']}]',
+        f'C[{dict_column_name['date_show']}]:'
+        f'C[{dict_column_name['time_show']}]',
         value_render_option='UNFORMATTED_VALUE'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
-    first_row = filter_by_date(data_of_dates)
+    first_row = filter_by_datetime(data_of_dates_and_times)
 
     data = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] + f'R{first_row}C1:'
-                                         f'R{len(data_of_dates)}'
+                                         f'R{len(data_of_dates_and_times)}'
                                          f'C{len_column}'
     )
 
@@ -157,7 +162,7 @@ def load_date_show_data() -> List[str]:
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
-    first_row = filter_by_date(data_of_dates)
+    first_row = filter_by_datetime(data_of_dates)
 
     list_of_date_show = []
     for item in data_of_dates[first_row:]:
