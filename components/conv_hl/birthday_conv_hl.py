@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 from handlers import birthday_hl, main_hl
-from utilities.settings import COMMAND_DICT
+from config.settings import COMMAND_DICT
 from utilities.utl_func import reset
 
 

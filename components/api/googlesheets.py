@@ -7,7 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from telegram.ext import ContextTypes
 
-from utilities.settings import RANGE_NAME, SPREADSHEET_ID
+from config.settings import RANGE_NAME, SPREADSHEET_ID
 from utilities.schemas.ticket import BaseTicket
 
 googlesheets_logger = logging.getLogger('bot.googlesheets')
@@ -17,7 +17,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_service_sacc(scopes):
     credentials = service_account.Credentials.from_service_account_file(
-        'credentials.json', scopes=scopes)
+        '../config/credentials.json', scopes=scopes)
 
     return build('sheets', 'v4', credentials=credentials)
 

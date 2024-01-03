@@ -24,7 +24,7 @@ from telegram.error import BadRequest
 from db.db_googlesheets import (
     load_date_show_data, load_ticket_data, load_list_show
 )
-from utilities.settings import (
+from config.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
     LIST_TOPICS_NAME,

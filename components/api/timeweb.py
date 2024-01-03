@@ -1,7 +1,7 @@
 import logging
 from requests import Response, get
 
-from utilities.settings import TIMEWEB_CLOUD_TOKEN
+from config.settings import TIMEWEB_CLOUD_TOKEN
 
 timeweb_hl_logger = logging.getLogger('bot.timeweb_api')
 

@@ -18,7 +18,7 @@ from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.list_wait_conv_hl import list_wait_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from conv_hl.afisha_conv_hl import afisha_conv_hl
-from utilities.settings import API_TOKEN, ADMIN_ID, COMMAND_DICT
+from config.settings import API_TOKEN, ADMIN_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
     set_menu, set_description, set_ticket_data, set_show_data,

@@ -6,7 +6,7 @@ from telegram.ext import (
 )
 
 from handlers import reserve_hl, main_hl, list_wait_hl
-from utilities.settings import COMMAND_DICT, RESERVE_TIMEOUT
+from config.settings import COMMAND_DICT, RESERVE_TIMEOUT
 from utilities.utl_func import reset
 
 states:  Dict[object, List[BaseHandler]] = {

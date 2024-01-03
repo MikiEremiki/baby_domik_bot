@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 from handlers import afisha_hl, main_hl
-from utilities.settings import COMMAND_DICT, ADMIN_ID
+from config.settings import COMMAND_DICT, ADMIN_ID
 
 afisha_conv_hl = ConversationHandler(
         entry_points=[

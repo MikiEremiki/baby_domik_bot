@@ -8,7 +8,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from utilities.settings import CHAT_ID_MIKIEREMIKI
+from config.settings import CHAT_ID_MIKIEREMIKI
 from utilities.utl_func import clean_context, split_message
 
 error_hl_logger = logging.getLogger('bot.error_hl')

@@ -7,7 +7,7 @@ from telegram import (
 from telegram.ext import ContextTypes
 
 from db.db_googlesheets import load_ticket_data, load_list_show
-from utilities.googlesheets import (
+from api.googlesheets import (
     get_quality_of_seats,
     write_data_for_reserve
 )

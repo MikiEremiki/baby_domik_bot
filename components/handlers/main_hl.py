@@ -7,12 +7,12 @@ from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
-from utilities.settings import (
+from config.settings import (
     COMMAND_DICT,
     ADMIN_GROUP,
     FEEDBACK_THREAD_ID_GROUP_ADMIN)
 from utilities.hlp_func import do_italic, do_bold
-from utilities.googlesheets import (
+from api.googlesheets import (
     get_quality_of_seats,
     write_data_for_reserve,
     set_approve_order

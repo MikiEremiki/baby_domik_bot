@@ -27,7 +27,7 @@ from db.db_googlesheets import (
     load_show_data,
     load_list_show,
 )
-from utilities.googlesheets import (
+from api.googlesheets import (
     write_data_for_reserve,
     write_client,
     write_client_list_waiting,
@@ -46,7 +46,7 @@ from utilities.hlp_func import (
     enum_current_show_by_month,
     add_text_of_show_and_numerate
 )
-from utilities.settings import (
+from config.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
