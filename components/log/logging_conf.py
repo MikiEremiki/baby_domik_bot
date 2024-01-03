@@ -35,8 +35,8 @@ def load_log_config():
     logger = logging.getLogger('bot')
     logger.setLevel(logging.DEBUG)
 
-    logger = logging.getLogger("telegram.ext.ExtBot")
-    logger.setLevel(logging.DEBUG)
-    logger.addFilter(NoParsingFilter())
+    logger_ext_bot = logging.getLogger("telegram.ext.ExtBot")
+    logger_ext_bot.setLevel(logging.DEBUG)
+    logger_ext_bot.addFilter(NoParsingFilter())
 
     return logger
