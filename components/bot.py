@@ -2,11 +2,11 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
-    PicklePersistence,
     filters,
     MessageHandler
 )
 
+from db.pickle_persistence import pickle_persistence
 from log.logging_conf import load_log_config
 from handlers import main_hl
 from handlers.error_hl import error_handler
@@ -42,12 +42,10 @@ def bot():
     bot_logger = load_log_config()
     bot_logger.info('Инициализация бота')
 
-    # TODO Предусмотреть создание папки, на случай если ее нет
-    persistence = PicklePersistence(filepath="components/db/conversationbot")
     application = (
         Application.builder()
         .token(API_TOKEN)
-        .persistence(persistence)
+        .persistence(pickle_persistence)
         .post_init(post_init)
 
         .build()
