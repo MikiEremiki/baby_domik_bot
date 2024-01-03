@@ -1248,6 +1248,7 @@ __________
     )
     await message.pin()
 
+    # TODO Переставить сразу после оплаты (чтобы можно было подтвердить)
     reserve_admin_data['payment_id'] += 1
 
     reserve_hl_logger.info(f'Для пользователя {user}')
@@ -1288,8 +1289,7 @@ async def conversation_timeout(
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-        event_id = reserve_admin_data[payment_id][
-            'event_id']
+        event_id = reserve_admin_data[payment_id]['event_id']
 
         await write_old_seat_info(user,
                                   event_id,
