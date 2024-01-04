@@ -196,20 +196,17 @@ def set_show_data(application: Application):
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
+    await context.bot.send_document(
+        chat_id=update.effective_chat.id,
+        document='log/archive/log.txt'
+    )
+    i = 1
+    while os.path.exists(f'log/archive/log.txt.{i}'):
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
-            document='log/log.txt'
+            document=f'log/archive/log.txt.{i}'
         )
-        i = 1
-        while os.path.exists(f'log/log.txt.{i}'):
-            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
-                document=f'log/log.txt.{i}'
-            )
-            i += 1
-    except FileExistsError:
-        utilites_logger.info('Файл логов не найден')
+        i += 1
 
 
 async def send_message_to_admin(
