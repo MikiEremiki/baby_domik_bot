@@ -9,15 +9,18 @@ from googleapiclient.errors import HttpError
 from telegram.ext import ContextTypes
 
 from settings.config_loader import parse_settings
-from settings.settings import RANGE_NAME, SPREADSHEET_ID
+from settings.settings import RANGE_NAME
 from utilities.schemas.ticket import BaseTicket
+
+config = parse_settings()
+SPREADSHEET_ID = {}
+SPREADSHEET_ID.setdefault('Домик', config.sheets.sheet_id)
 
 filename = 'credentials.json'
 path = os.getenv('CONFIG_PATH')
 if path is not None:
     filename = path + '/' + filename
 else:
-    config = parse_settings()
     filename = config.sheets.credentials_path
 googlesheets_logger = logging.getLogger('bot.googlesheets')
 
