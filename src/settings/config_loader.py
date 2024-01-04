@@ -28,13 +28,10 @@ class PostgresSettings(BaseModel):
 
 class GoogleSheetsSettings(BaseModel):
     credentials_path: str
+    sheet_id: str
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(validate_default=False,
-                                      env_file='.env',
-                                      env_file_encoding='utf-8')
-
     bot: BotSettings
     timeweb: TimeWebSettings
     postgres: PostgresSettings
@@ -57,8 +54,3 @@ def parse_settings(local_file_name: str = "config/settings.yml") -> Settings:
     with open(file_path, "rt") as file:
         config_data = yaml_load(file, Loader)
     return Settings.model_validate(config_data)
-
-
-if __name__ == '__main__':
-    config = parse_settings()
-    print(config)
