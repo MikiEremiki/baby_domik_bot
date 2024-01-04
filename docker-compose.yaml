@@ -8,10 +8,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    develop:
-      watch:
-        - action: rebuild
-          path: .
     networks:
       - baby_domik.postgres.network
 
