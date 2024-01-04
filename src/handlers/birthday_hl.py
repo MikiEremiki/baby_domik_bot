@@ -21,7 +21,7 @@ from db.db_googlesheets import load_list_show
 from utilities.schemas.context import birthday_data
 from utilities.log_func import join_for_log_info
 from api.googlesheets import write_client_bd, set_approve_order
-from config.settings import (
+from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     ADMIN_GROUP,
     ADDRESS_OFFICE,

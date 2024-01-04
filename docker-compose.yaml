@@ -42,10 +42,14 @@ services:
   test:
     profiles: ["test"]
     container_name: baby_domik.test
-    image: "mikieremiki/babydomikbot:latest"
-    restart: unless-stopped
+    image: "mikieremiki/baby_domik_bot:latest"
+    restart: no
+    environment:
+      CONFIG_PATH: '/app/config/'
     volumes:
-      - /config:/app/config:ro
+      - ./config:/app/config:ro
+      - baby_domik.bot.data:/app/components/db/data
+      - baby_domik.bot.logs:/app/components/log/archive
     develop:
       watch:
         - action: rebuild
@@ -53,6 +57,8 @@ services:
 
 volumes:
   baby_domik.postgres.data: {}
+  baby_domik.bot.data: {}
+  baby_domik.bot.logs: {}
 
 networks:
   baby_domik.postgres.network: {}

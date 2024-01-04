@@ -46,7 +46,7 @@ from utilities.hlp_func import (
     enum_current_show_by_month,
     add_text_of_show_and_numerate
 )
-from config.settings import (
+from settings.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,

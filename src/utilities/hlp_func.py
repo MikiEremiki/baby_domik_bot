@@ -6,7 +6,7 @@ from telegram import (
 )
 from telegram.helpers import escape_markdown
 
-from config.settings import DICT_OF_EMOJI_FOR_BUTTON, SUPPORT_DATA
+from settings.settings import DICT_OF_EMOJI_FOR_BUTTON, SUPPORT_DATA
 from utilities.utl_func import yrange, add_btn_back_and_cancel
 
 helper_func_logger = logging.getLogger('bot.helper_func')

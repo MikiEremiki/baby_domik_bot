@@ -6,7 +6,7 @@ from typing import Any, List, Tuple, Dict
 from pydantic import ValidationError
 
 from api.googlesheets import get_data_from_spreadsheet, get_column_info
-from config.settings import RANGE_NAME
+from settings.settings import RANGE_NAME
 from utilities.schemas.ticket import BaseTicket
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')

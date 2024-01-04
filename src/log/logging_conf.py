@@ -2,9 +2,9 @@ import pathlib
 import os
 import logging.handlers
 
-LOG_FILENAME = 'log/log.txt'
-if not pathlib.Path('log/').exists():
-    os.mkdir('log')
+LOG_FILENAME = 'log/archive/log.txt'
+if not pathlib.Path('log/archive').exists():
+    os.mkdir('log/archive')
 
 
 class NoParsingFilter(logging.Filter):

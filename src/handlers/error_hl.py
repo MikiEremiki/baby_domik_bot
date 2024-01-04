@@ -8,7 +8,8 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from config.settings import CHAT_ID_MIKIEREMIKI
+from handlers.sub_hl import write_old_seat_info
+from settings.settings import CHAT_ID_MIKIEREMIKI
 from utilities.utl_func import clean_context, split_message
 
 error_hl_logger = logging.getLogger('bot.error_hl')
@@ -54,3 +55,20 @@ async def error_handler(update: Update,
     message = pformat(context.user_data)
     error_hl_logger.info(message)
     await split_message(context, message)
+
+    user = context.user_data['user']
+    if context.user_data['STATE'] == 'PAID':
+        error_hl_logger.info('Отправка чека об оплате не была совершена')
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=context.user_data['common_data']['message_id_buy_info']
+        )
+
+        reserve_admin_data = context.user_data['reserve_admin_data']
+        payment_id = reserve_admin_data['payment_id']
+        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+        event_id = reserve_admin_data[payment_id]['event_id']
+
+        await write_old_seat_info(user,
+                                  event_id,
+                                  chose_ticket)

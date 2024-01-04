@@ -18,7 +18,7 @@ from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.list_wait_conv_hl import list_wait_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from conv_hl.afisha_conv_hl import afisha_conv_hl
-from config.settings import API_TOKEN, ADMIN_ID, COMMAND_DICT
+from settings.settings import ADMIN_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
     set_menu, set_description, set_ticket_data, set_show_data,
@@ -26,6 +26,9 @@ from utilities.utl_func import (
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,
 )
+from settings.config_loader import parse_settings
+
+config = parse_settings()
 
 
 async def post_init(application: Application):
@@ -36,6 +39,7 @@ async def post_init(application: Application):
 
     application.bot_data.setdefault('admin', {})
     application.bot_data['admin'].setdefault('contacts', {})
+    application.bot_data.setdefault('config', config)
 
 
 def bot():
@@ -44,7 +48,7 @@ def bot():
 
     application = (
         Application.builder()
-        .token(API_TOKEN)
+        .token(config.bot.token.get_secret_value())
         .persistence(pickle_persistence)
         .post_init(post_init)
 
