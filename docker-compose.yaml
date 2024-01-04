@@ -48,8 +48,9 @@ services:
       CONFIG_PATH: '/app/config/'
     volumes:
       - ./config:/app/config:ro
-      - baby_domik.bot.data:/app/components/db/data
-      - baby_domik.bot.logs:/app/components/log/archive
+      - ./src/settings/settings.py:/app/settings/settings.py
+      - baby_domik.bot.data:/app/src/db/data
+      - baby_domik.bot.logs:/app/src/log/archive
     develop:
       watch:
         - action: rebuild
