@@ -12,7 +12,10 @@ from utilities.schemas.ticket import BaseTicket
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
 
-def convert_sheets_datetime(sheets_date: int, sheets_time: float = 0):
+def convert_sheets_datetime(
+        sheets_date: int,
+        sheets_time: float = 0
+) -> datetime.datetime:
     hours = int(sheets_time * 24)
     minutes = int(sheets_time * 24 % 1 * 60)
     return (datetime.datetime(1899, 12, 30)
