@@ -632,7 +632,7 @@ async def choice_option_of_reserve(
             continue
 
         name = ticket.name
-        ticket.date_show = date  # Для расчета стоимости в периоде или нет
+        ticket.date_show = date_for_price  # Для расчета стоимости в периоде или нет
         price = ticket.price
 
         # Если свободных мест меньше, чем требуется для варианта
