@@ -3,4 +3,4 @@ venv/*
 __pycache__/*
 config/*
 **/archive/log.txt*
-**/conversationbot
+**/data/conversationbot
