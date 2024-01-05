@@ -156,7 +156,6 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'адрес', address))
 
     text = 'Напишите желаемую дату проведения праздника'
-    text += load_and_concat_date_of_shows()
     await update.effective_chat.send_message(
         text=text,
     )
