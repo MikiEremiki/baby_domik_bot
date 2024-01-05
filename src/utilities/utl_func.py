@@ -9,7 +9,7 @@ from telegram import (
     BotCommand, BotCommandScopeDefault,
     BotCommandScopeChat, BotCommandScopeChatAdministrators,
     ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton,
-    InlineKeyboardButton,
+    InlineKeyboardButton, InlineKeyboardMarkup,
     constants,
 )
 from telegram.constants import ParseMode
@@ -503,20 +503,23 @@ def set_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
         text,
-        reply_markup,
+        reply_markup: InlineKeyboardMarkup,
 ):
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
-    dict_back['keyboard'] = reply_markup
+    dict_back['keyboard'] = reply_markup.to_dict()
 
 
 def get_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
 ):
+
     dict_back = context.user_data['reserve_user_data']['back'][state]
-    return dict_back['text'], dict_back['keyboard']
+    reply_markup = InlineKeyboardMarkup.de_json(data=dict_back['keyboard'],
+                                                bot=context.bot)
+    return dict_back['text'], reply_markup
 
 
 def clean_context(context: ContextTypes.DEFAULT_TYPE):

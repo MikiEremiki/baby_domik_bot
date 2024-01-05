@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 from handlers.sub_hl import write_old_seat_info
 from settings.settings import CHAT_ID_MIKIEREMIKI
+from utilities.schemas.ticket import BaseTicket
 from utilities.utl_func import clean_context, split_message
 
 error_hl_logger = logging.getLogger('bot.error_hl')
@@ -66,8 +67,9 @@ async def error_handler(update: Update,
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-        event_id = reserve_admin_data[payment_id]['event_id']
+        payment_data = reserve_admin_data[payment_id]
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        event_id = payment_data['event_id']
 
         await write_old_seat_info(user,
                                   event_id,

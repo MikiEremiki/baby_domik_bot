@@ -129,15 +129,16 @@ class Ticket(BaseModel):
     buy_date: datetime
 
 
-
-
 if __name__ == '__main__':
     ticket = BaseTicket(
         base_ticket_id=1,
         name='1р+1в',
         cost_main=1000,
         quality_of_adult=1,
-        quality_of_children=1
+        quality_of_children=1,
+        ticket_category=101
     )
+    dict_ticket = ticket.model_dump(exclude_defaults=True)
+    ticket2 = BaseTicket.model_validate(dict_ticket)
 
     print(ticket)

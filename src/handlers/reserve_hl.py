@@ -981,7 +981,8 @@ __________
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
+        chose_ticket_dict = chose_ticket.model_dump(exclude_defaults=True)
+        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket_dict
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -1154,7 +1155,8 @@ __________
     try:
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+        payment_data = reserve_admin_data[payment_id]
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
     except KeyError:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
@@ -1288,8 +1290,9 @@ async def conversation_timeout(
         reserve_hl_logger.info(pprint.pformat(context.user_data))
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-        event_id = reserve_admin_data[payment_id]['event_id']
+        payment_data = reserve_admin_data[payment_id]
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        event_id = payment_data['event_id']
 
         await write_old_seat_info(user,
                                   event_id,
