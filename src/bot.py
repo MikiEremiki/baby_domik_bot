@@ -40,6 +40,7 @@ async def post_init(application: Application):
     application.bot_data.setdefault('admin', {})
     application.bot_data['admin'].setdefault('contacts', {})
     application.bot_data.setdefault('config', config)
+    application.bot_data.setdefault('dict_topics_name', {})
 
 
 def bot():
