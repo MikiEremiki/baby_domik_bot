@@ -85,12 +85,12 @@ async def update_admin_info(update: Update,
                             context: ContextTypes.DEFAULT_TYPE) -> None:
     context.bot_data.setdefault('admin', {})
     admin_info = context.bot_data['admin']
-    if context.args[0] == 'clean':
-        context.bot_data['admin'] = {}
-        await update.effective_chat.send_message(
-            f'Зафиксировано: {context.bot_data['admin']}')
-        return
     if context.args:
+        if context.args[0] == 'clean':
+            context.bot_data['admin'] = {}
+            await update.effective_chat.send_message(
+                f'Зафиксировано: {context.bot_data['admin']}')
+            return
         if len(context.args) == 4:
             admin_info['name'] = ' '.join(context.args[0:2])
             admin_info['username'] = context.args[2]
@@ -104,10 +104,13 @@ async def update_admin_info(update: Update,
                 f'Зафиксировано: {context.bot_data['admin']}')
         else:
             await update.effective_chat.send_message(
-                f'Должно быть 4 параметра, а передано {len(context.args)}')
+                f'Должно быть 4 параметра, а передано {len(context.args)}\n'
+                'Формат: Имя Фамилия @username +79991234455')
     else:
         await update.effective_chat.send_message(
-            'Не заданы параметры к команде')
+            'Не заданы параметры к команде\n'
+            'Текущие контакты администратора:\n'
+            f'{admin_info}')
 
 
 async def update_ticket_data(
