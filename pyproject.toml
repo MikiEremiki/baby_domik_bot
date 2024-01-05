@@ -16,7 +16,7 @@ authors = [
 ]
 license = { file = "LICENSE" }
 description = "Telegram bot on top of python-telegram-bot"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Intended Audience :: Developers",

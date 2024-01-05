@@ -2,9 +2,9 @@ import pathlib
 import os
 import logging.handlers
 
-LOG_FILENAME = 'log/log.txt'
-if not pathlib.Path('log/').exists():
-    os.mkdir('log')
+LOG_FILENAME = 'log/archive/log.txt'
+if not pathlib.Path('log/archive').exists():
+    os.mkdir('log/archive')
 
 
 class NoParsingFilter(logging.Filter):
@@ -35,8 +35,8 @@ def load_log_config():
     logger = logging.getLogger('bot')
     logger.setLevel(logging.DEBUG)
 
-    logger = logging.getLogger("telegram.ext.ExtBot")
-    logger.setLevel(logging.DEBUG)
-    logger.addFilter(NoParsingFilter())
+    logger_ext_bot = logging.getLogger("telegram.ext.ExtBot")
+    logger_ext_bot.setLevel(logging.DEBUG)
+    logger_ext_bot.addFilter(NoParsingFilter())
 
     return logger

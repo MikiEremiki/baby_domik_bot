@@ -27,7 +27,7 @@ from db.db_googlesheets import (
     load_show_data,
     load_list_show,
 )
-from utilities.googlesheets import (
+from api.googlesheets import (
     write_data_for_reserve,
     write_client,
     write_client_list_waiting,
@@ -46,7 +46,7 @@ from utilities.hlp_func import (
     enum_current_show_by_month,
     add_text_of_show_and_numerate
 )
-from utilities.settings import (
+from settings.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
@@ -632,7 +632,7 @@ async def choice_option_of_reserve(
             continue
 
         name = ticket.name
-        ticket.date_show = date  # Для расчета стоимости в периоде или нет
+        ticket.date_show = date_for_price  # Для расчета стоимости в периоде или нет
         price = ticket.price
 
         # Если свободных мест меньше, чем требуется для варианта
@@ -981,7 +981,8 @@ __________
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
+        chose_ticket_dict = chose_ticket.model_dump(exclude_defaults=True)
+        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket_dict
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -1154,7 +1155,8 @@ __________
     try:
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+        payment_data = reserve_admin_data[payment_id]
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
     except KeyError:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
@@ -1248,6 +1250,7 @@ __________
     )
     await message.pin()
 
+    # TODO Переставить сразу после оплаты (чтобы можно было подтвердить)
     reserve_admin_data['payment_id'] += 1
 
     reserve_hl_logger.info(f'Для пользователя {user}')
@@ -1287,9 +1290,9 @@ async def conversation_timeout(
         reserve_hl_logger.info(pprint.pformat(context.user_data))
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-        event_id = reserve_admin_data[payment_id][
-            'event_id']
+        payment_data = reserve_admin_data[payment_id]
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        event_id = payment_data['event_id']
 
         await write_old_seat_info(user,
                                   event_id,

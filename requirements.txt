@@ -1,6 +1,12 @@
-python-telegram-bot[ext]
-pydantic
+python-telegram-bot[ext]~=20.5
+pydantic~=2.4.2
+pydantic-settings~=2.1.0
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
-requests
+requests~=2.31.0
+
+SQLAlchemy~=2.0.24
+typing_extensions~=4.8.0
+psycopg~=3.1.16
+PyYAML~=6.0.1

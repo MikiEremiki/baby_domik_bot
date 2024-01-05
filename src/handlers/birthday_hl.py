@@ -20,8 +20,8 @@ from handlers.sub_hl import (
 from db.db_googlesheets import load_list_show
 from utilities.schemas.context import birthday_data
 from utilities.log_func import join_for_log_info
-from utilities.googlesheets import write_client_bd, set_approve_order
-from utilities.settings import (
+from api.googlesheets import write_client_bd, set_approve_order
+from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     ADMIN_GROUP,
     ADDRESS_OFFICE,
@@ -156,7 +156,6 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'адрес', address))
 
     text = 'Напишите желаемую дату проведения праздника'
-    text += load_and_concat_date_of_shows()
     await update.effective_chat.send_message(
         text=text,
     )

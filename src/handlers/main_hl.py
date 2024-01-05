@@ -7,16 +7,17 @@ from telegram.error import BadRequest
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
-from utilities.settings import (
+from settings.settings import (
     COMMAND_DICT,
     ADMIN_GROUP,
     FEEDBACK_THREAD_ID_GROUP_ADMIN)
 from utilities.hlp_func import do_italic, do_bold
-from utilities.googlesheets import (
+from api.googlesheets import (
     get_quality_of_seats,
     write_data_for_reserve,
     set_approve_order
 )
+from utilities.schemas.ticket import BaseTicket
 from utilities.utl_func import is_admin, get_back_context, clean_context
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
@@ -62,7 +63,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
         event_id = payment_data['event_id']
-        chose_ticket = payment_data['chose_ticket']
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
 
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
@@ -165,7 +166,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
         event_id = payment_data['event_id']
-        chose_ticket = payment_data['chose_ticket']
+        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
 
         await write_old_seat_info(user,
                                   event_id,
@@ -439,7 +440,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 reserve_admin_data = context.user_data['reserve_admin_data']
                 payment_id = reserve_admin_data['payment_id']
-                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
+                chose_ticket_data = reserve_admin_data[payment_id]['chose_ticket']
+                chose_ticket = BaseTicket.model_validate(chose_ticket_data)
                 event_id = reserve_admin_data[payment_id]['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)

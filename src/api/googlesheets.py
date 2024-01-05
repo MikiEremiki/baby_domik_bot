@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime
 from typing import List, Any, Optional, Dict
 
@@ -7,9 +8,20 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from telegram.ext import ContextTypes
 
-from utilities.settings import RANGE_NAME, SPREADSHEET_ID
+from settings.config_loader import parse_settings
+from settings.settings import RANGE_NAME
 from utilities.schemas.ticket import BaseTicket
 
+config = parse_settings()
+SPREADSHEET_ID = {}
+SPREADSHEET_ID.setdefault('Домик', config.sheets.sheet_id)
+
+filename = 'credentials.json'
+path = os.getenv('CONFIG_PATH')
+if path is not None:
+    filename = path + '/' + filename
+else:
+    filename = config.sheets.credentials_path
 googlesheets_logger = logging.getLogger('bot.googlesheets')
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -17,7 +29,9 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_service_sacc(scopes):
     credentials = service_account.Credentials.from_service_account_file(
-        'credentials.json', scopes=scopes)
+        filename=filename,
+        scopes=scopes
+    )
 
     return build('sheets', 'v4', credentials=credentials)
 

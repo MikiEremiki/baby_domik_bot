@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from telegram.ext import ContextTypes
 from telegram import Update
 
-from components.api.timeweb import request_finances_info
+from api.timeweb import request_finances_info
 
 timeweb_hl_logger = logging.getLogger('bot.timeweb_hl')
 locale.setlocale(locale.LC_TIME, '')

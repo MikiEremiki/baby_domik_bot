@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 from handlers import birthday_hl, main_hl
-from utilities.settings import COMMAND_DICT
+from settings.settings import COMMAND_DICT
 from utilities.utl_func import reset
 
 
@@ -24,15 +24,18 @@ birthday_conv_hl = ConversationHandler(
             ],
             'ADDRESS': [
                 CommandHandler('reset', reset),
-                MessageHandler(filters.TEXT, birthday_hl.get_address),
+                MessageHandler(filters.TEXT & ~filters.COMMAND,
+                               birthday_hl.get_address),
             ],
             'DATE': [
                 CommandHandler('reset', reset),
-                MessageHandler(filters.TEXT, birthday_hl.get_date),
+                MessageHandler(filters.TEXT & ~filters.COMMAND,
+                               birthday_hl.get_date),
             ],
             'TIME': [
                 CommandHandler('reset', reset),
-                MessageHandler(filters.TEXT, birthday_hl.get_time),
+                MessageHandler(filters.TEXT & ~filters.COMMAND,
+                               birthday_hl.get_time),
             ],
             'CHOOSE': [
                 CommandHandler('reset', reset),
@@ -56,15 +59,18 @@ birthday_conv_hl = ConversationHandler(
             ],
             'NAME_CHILD': [
                 CommandHandler('reset', reset),
-                MessageHandler(filters.TEXT, birthday_hl.get_name_child),
+                MessageHandler(filters.TEXT & ~filters.COMMAND,
+                               birthday_hl.get_name_child),
             ],
             'NAME': [
                 CommandHandler('reset', reset),
-                MessageHandler(filters.TEXT, birthday_hl.get_name),
+                MessageHandler(filters.TEXT & ~filters.COMMAND,
+                               birthday_hl.get_name),
             ],
             'PHONE': [
                 CommandHandler('reset', reset),
-                MessageHandler(filters.TEXT, birthday_hl.get_phone),
+                MessageHandler(filters.TEXT & ~filters.COMMAND,
+                               birthday_hl.get_phone),
             ],
             ConversationHandler.TIMEOUT: [birthday_hl.TIMEOUT_HANDLER]
         },

@@ -2,11 +2,11 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
-    PicklePersistence,
     filters,
     MessageHandler
 )
 
+from db.pickle_persistence import pickle_persistence
 from log.logging_conf import load_log_config
 from handlers import main_hl
 from handlers.error_hl import error_handler
@@ -18,7 +18,7 @@ from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.list_wait_conv_hl import list_wait_conv_hl
 from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from conv_hl.afisha_conv_hl import afisha_conv_hl
-from utilities.settings import API_TOKEN, ADMIN_ID, COMMAND_DICT
+from settings.settings import ADMIN_ID, COMMAND_DICT
 from utilities.utl_func import (
     echo, reset, send_log,
     set_menu, set_description, set_ticket_data, set_show_data,
@@ -26,6 +26,7 @@ from utilities.utl_func import (
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,
 )
+from settings.config_loader import parse_settings
 
 
 async def post_init(application: Application):
@@ -36,22 +37,25 @@ async def post_init(application: Application):
 
     application.bot_data.setdefault('admin', {})
     application.bot_data['admin'].setdefault('contacts', {})
+    application.bot_data.setdefault('dict_topics_name', {})
 
 
 def bot():
     bot_logger = load_log_config()
     bot_logger.info('Инициализация бота')
 
-    # TODO Предусмотреть создание папки, на случай если ее нет
-    persistence = PicklePersistence(filepath="components/db/conversationbot")
+    config = parse_settings()
+
     application = (
         Application.builder()
-        .token(API_TOKEN)
-        .persistence(persistence)
+        .token(config.bot.token.get_secret_value())
+        .persistence(pickle_persistence)
         .post_init(post_init)
 
         .build()
     )
+
+    application.bot_data.setdefault('config', config)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))

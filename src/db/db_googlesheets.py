@@ -5,14 +5,17 @@ from typing import Any, List, Tuple, Dict
 
 from pydantic import ValidationError
 
-from utilities.googlesheets import get_data_from_spreadsheet, get_column_info
-from utilities.settings import RANGE_NAME
+from api.googlesheets import get_data_from_spreadsheet, get_column_info
+from settings.settings import RANGE_NAME
 from utilities.schemas.ticket import BaseTicket
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
 
-def convert_sheets_datetime(sheets_date: int, sheets_time: float = 0):
+def convert_sheets_datetime(
+        sheets_date: int,
+        sheets_time: float = 0
+) -> datetime.datetime:
     hours = int(sheets_time * 24)
     minutes = int(sheets_time * 24 % 1 * 60)
     return (datetime.datetime(1899, 12, 30)
@@ -151,23 +154,27 @@ def load_date_show_data() -> List[str]:
     # TODO Выделить загрузку дат в отдельную задачу и хранить ее сразу в
     #  bot_data
     dict_column_name, len_column = get_column_info('База спектаклей_')
-    qty_shows = len(get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_'] + f'A:A'
-    ))
 
-    data_of_dates = get_data_from_spreadsheet(
+    data_of_dates_and_times = get_data_from_spreadsheet(
         RANGE_NAME['База спектаклей_'] +
-        f'R1C{dict_column_name['date_show'] + 1}:'
-        f'R{qty_shows}C{dict_column_name['date_show'] + 1}'
+        f'C[{dict_column_name['date_show']}]:'
+        f'C[{dict_column_name['time_show']}]',
+        value_render_option='UNFORMATTED_VALUE'
     )
 
     # Исключаем из загрузки в data спектакли, у которых дата уже прошла
-    first_row = filter_by_datetime(data_of_dates)
+    first_row = filter_by_datetime(data_of_dates_and_times)
 
     list_of_date_show = []
-    for item in data_of_dates[first_row:]:
+    for item in data_of_dates_and_times[first_row:]:
         if item[0] not in list_of_date_show:
-            list_of_date_show.append(item[0])
+            date = (
+                convert_sheets_datetime(item[0])
+                .strftime('%d.%m (%a)')
+                .lower()
+            )
+
+            list_of_date_show.append(date)
 
     db_googlesheets_logger.info('Данные загружены')
 

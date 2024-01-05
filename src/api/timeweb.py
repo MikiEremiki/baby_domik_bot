@@ -1,14 +1,15 @@
 import logging
 from requests import Response, get
 
-from utilities.settings import TIMEWEB_CLOUD_TOKEN
+from settings.config_loader import parse_settings
 
 timeweb_hl_logger = logging.getLogger('bot.timeweb_api')
 
+config = parse_settings()
 headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + TIMEWEB_CLOUD_TOKEN,
-}
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + config.timeweb.token.get_secret_value(),
+    }
 
 
 def request_finances_info() -> Response:

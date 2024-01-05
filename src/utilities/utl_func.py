@@ -9,7 +9,7 @@ from telegram import (
     BotCommand, BotCommandScopeDefault,
     BotCommandScopeChat, BotCommandScopeChatAdministrators,
     ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton,
-    InlineKeyboardButton,
+    InlineKeyboardButton, InlineKeyboardMarkup,
     constants,
 )
 from telegram.constants import ParseMode
@@ -24,7 +24,7 @@ from telegram.error import BadRequest
 from db.db_googlesheets import (
     load_date_show_data, load_ticket_data, load_list_show
 )
-from utilities.settings import (
+from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
     LIST_TOPICS_NAME,
@@ -196,20 +196,17 @@ def set_show_data(application: Application):
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
+    await context.bot.send_document(
+        chat_id=update.effective_chat.id,
+        document='log/archive/log.txt'
+    )
+    i = 1
+    while os.path.exists(f'log/archive/log.txt.{i}'):
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
-            document='log/log.txt'
+            document=f'log/archive/log.txt.{i}'
         )
-        i = 1
-        while os.path.exists(f'log/log.txt.{i}'):
-            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
-                document=f'log/log.txt.{i}'
-            )
-            i += 1
-    except FileExistsError:
-        utilites_logger.info('Файл логов не найден')
+        i += 1
 
 
 async def send_message_to_admin(
@@ -506,20 +503,23 @@ def set_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
         text,
-        reply_markup,
+        reply_markup: InlineKeyboardMarkup,
 ):
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
-    dict_back['keyboard'] = reply_markup
+    dict_back['keyboard'] = reply_markup.to_dict()
 
 
 def get_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
 ):
+
     dict_back = context.user_data['reserve_user_data']['back'][state]
-    return dict_back['text'], dict_back['keyboard']
+    reply_markup = InlineKeyboardMarkup.de_json(data=dict_back['keyboard'],
+                                                bot=context.bot)
+    return dict_back['text'], reply_markup
 
 
 def clean_context(context: ContextTypes.DEFAULT_TYPE):
