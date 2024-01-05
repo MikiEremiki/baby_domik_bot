@@ -28,8 +28,6 @@ from utilities.utl_func import (
 )
 from settings.config_loader import parse_settings
 
-config = parse_settings()
-
 
 async def post_init(application: Application):
     await set_menu(application.bot)
@@ -39,13 +37,14 @@ async def post_init(application: Application):
 
     application.bot_data.setdefault('admin', {})
     application.bot_data['admin'].setdefault('contacts', {})
-    application.bot_data.setdefault('config', config)
     application.bot_data.setdefault('dict_topics_name', {})
 
 
 def bot():
     bot_logger = load_log_config()
     bot_logger.info('Инициализация бота')
+
+    config = parse_settings()
 
     application = (
         Application.builder()
@@ -55,6 +54,8 @@ def bot():
 
         .build()
     )
+
+    application.bot_data.setdefault('config', config)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
