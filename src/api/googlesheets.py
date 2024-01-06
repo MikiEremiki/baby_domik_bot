@@ -19,7 +19,7 @@ SPREADSHEET_ID.setdefault('Домик', config.sheets.sheet_id)
 filename = 'credentials.json'
 path = os.getenv('CONFIG_PATH')
 if path is not None:
-    filename = path + '/' + filename
+    filename = path + filename
 else:
     filename = config.sheets.credentials_path
 googlesheets_logger = logging.getLogger('bot.googlesheets')
