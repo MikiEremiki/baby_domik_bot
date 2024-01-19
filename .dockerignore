@@ -37,6 +37,8 @@
 **/README.md
 **/pyproject.toml
 
-**/credentials.json
+config/*
 **/archive/log.txt*
 **/data/conversationbot
+**/json_files/*
+settings.py
