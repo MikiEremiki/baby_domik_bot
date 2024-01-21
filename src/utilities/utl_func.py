@@ -502,10 +502,15 @@ def get_back_context(
 
 
 def clean_context(context: ContextTypes.DEFAULT_TYPE):
-    list_keys = list(context.user_data.keys())
+    if isinstance(context, dict):
+        list_keys = list(context.keys())
+        tmp_context = context
+    else:
+        list_keys = list(context.user_data.keys())
+        tmp_context = context.user_data
     for key in list_keys:
         if key not in context_user_data:
-            value = context.user_data.pop(key)
+            value = tmp_context.pop(key)
             utilites_logger.info(f'{key}: {value} больше не используется')
 
 
