@@ -30,7 +30,7 @@ from settings.settings import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
-    load_and_concat_date_of_shows, clean_context
+    clean_context
 )
 from utilities.hlp_func import (
     check_phone_number,
