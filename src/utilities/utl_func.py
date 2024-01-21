@@ -269,7 +269,7 @@ async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         message = pformat(context.user_data)
-        await split_message(update, context, message)
+        await split_message(context, message)
 
 
 async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
