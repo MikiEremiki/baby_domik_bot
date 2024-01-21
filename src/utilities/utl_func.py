@@ -274,35 +274,14 @@ async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        for key, item in context.application.user_data.items():
-            if context.application.user_data[key].get('dict_of_name_show_v2'):
-                del context.application.user_data[key]['dict_of_name_show_v2']
-            if context.application.user_data[key].get('dict_of_shows'):
-                del context.application.user_data[key]['dict_of_shows']
-            if context.application.user_data[key].get('date_show'):
-                del context.application.user_data[key]['date_show']
-            if context.application.user_data[key].get('name_show'):
-                del context.application.user_data[key]['name_show']
-            if context.application.user_data[key].get('dict_of_name_show_flip'):
-                del context.application.user_data[key]['dict_of_name_show_flip']
-            if context.application.user_data[key].get('text_date'):
-                del context.application.user_data[key]['text_date']
-            if context.application.user_data[key].get('keyboard_date'):
-                del context.application.user_data[key]['keyboard_date']
-            if context.application.user_data[key].get('keyboard_time'):
-                del context.application.user_data[key]['keyboard_time']
-            if context.application.user_data[key].get(
-                    'text_for_notification_massage'):
-                del context.application.user_data[key][
-                    'text_for_notification_massage']
-            if context.application.user_data[key].get('text_time'):
-                del context.application.user_data[key]['text_time']
-            if context.application.user_data[key].get('birthday_user_data'):
-                del context.application.user_data[key]['birthday_user_data']
-            utilites_logger.info(key)
-            utilites_logger.info(item.get('user', 'Нет такого'))
-            context.application.mark_data_for_update_persistence(key)
-            await context.application.update_persistence()
+        user_ids = []
+        qty_users = len(context.application.user_data)
+        for i, key, item in enumerate(context.application.user_data.items()):
+            await update.effective_chat.send_message(f'{i} из {qty_users}')
+            clean_context(item)
+            user_ids.append(key)
+        context.application.mark_data_for_update_persistence(user_ids=user_ids)
+        await context.application.update_persistence()
 
 
 async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
