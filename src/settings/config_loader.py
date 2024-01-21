@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic import SecretStr, BaseModel, PostgresDsn
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 from yaml import load as yaml_load
 
 try:
@@ -49,7 +49,8 @@ def parse_settings(local_file_name: str = "config/settings.yml") -> Settings:
         parent_dir = Path(__file__).parent.parent.parent
         settings_file = Path(Path.joinpath(parent_dir, local_file_name))
         if not Path(settings_file).is_file():
-            raise ValueError("Path %s is not a file or doesn't exist", settings_file)
+            raise ValueError("Path %s is not a file or doesn't exist",
+                             settings_file)
         file_path = settings_file.absolute()
     with open(file_path, "rt") as file:
         config_data = yaml_load(file, Loader)
