@@ -1,4 +1,5 @@
 alembic
+black
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
@@ -10,5 +11,5 @@ pytest
 python-telegram-bot[ext]~=20.7
 PyYAML
 requests
-SQLAlchemy
+sqlalchemy
 typing_extensions
