@@ -1,8 +1,8 @@
-version: "3.8"
+version: "3.9"
 name: "baby_domik"
 services:
   bot:
-    profiles: [ "bot", "all" ]
+    profiles: [ "all", "bot" ]
     container_name: bot
     build:
       context: .
@@ -17,14 +17,14 @@ services:
       CONFIG_PATH: '/app/config/'
     volumes:
       - ./config:/app/config:ro
-      - ./src/settings/settings.py:/app/src/settings/settings.py
+      - ./config/settings.py:/app/src/settings/settings.py
       - data:/app/src/db/data
       - logs:/app/src/log/archive
   postgres:
-    profiles: [ "all", "migration", "db" ]
+    profiles: [ "all", "db" ]
     container_name: postgres
     image: "postgres:16"
-    restart: always
+    restart: unless-stopped
     volumes:
       - db:/var/lib/postgresql/data
     env_file:
@@ -45,7 +45,7 @@ services:
     build:
       context: .
     image: baby_domik_migration
-    restart: on-failure
+    restart: no
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,13 +55,15 @@ services:
       - ./config:/app/config:ro
       - ./src/db:/app/src/db:ro
     environment:
-      - CONFIG_PATH=${CONFIG_PATH:-./config/prod_config.toml}
-    command: [ "alembic", "-c", "/app/alembic.ini", "upgrade", "head" ]
+      - CONFIG_PATH=${CONFIG_PATH:-config/}
+    working_dir: /app
+    command: [ "alembic", "-c", "config/alembic.ini", "upgrade", "head" ]
+#    command: [ "alembic", "-c", "config/alembic.ini", "downgrade", "base" ]
   pgadmin:
-    profiles: [ "all", "migration", "db", "pgadmin" ]
+    profiles: [ "pgadmin" ]
     container_name: pgadmin
     image: dpage/pgadmin4
-    restart: unless-stopped
+    restart: no
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
