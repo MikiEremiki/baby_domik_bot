@@ -487,7 +487,7 @@ def set_back_context(
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
-    dict_back['keyboard'] = reply_markup.to_dict()
+    dict_back['keyboard'] = reply_markup
 
 
 def get_back_context(
@@ -496,8 +496,7 @@ def get_back_context(
 ):
 
     dict_back = context.user_data['reserve_user_data']['back'][state]
-    reply_markup = InlineKeyboardMarkup.de_json(data=dict_back['keyboard'],
-                                                bot=context.bot)
+    reply_markup = InlineKeyboardMarkup
     return dict_back['text'], reply_markup
 
 
