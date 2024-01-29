@@ -5,6 +5,7 @@ from telegram.ext import (
     filters,
     MessageHandler
 )
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from db.pickle_persistence import pickle_persistence
 from log.logging_conf import load_log_config
@@ -45,6 +46,15 @@ def bot():
     bot_logger.info('Инициализация бота')
 
     config = parse_settings()
+    # async_engine = create_async_engine(
+    #     url=str(config.postgres.db_url),
+    #     echo=True,
+    #     connect_args={"options": "-c timezone=utc"},
+    # )
+    # sessionmaker = async_sessionmaker(
+    #     async_engine,
+    #     expire_on_commit=False
+    # )
 
     application = (
         Application.builder()
