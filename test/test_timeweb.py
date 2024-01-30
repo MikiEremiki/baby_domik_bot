@@ -1,6 +1,6 @@
 from unittest import TestCase
 from requests import Response
-from components.api.timeweb import request_finances_info
+from src.api.timeweb import request_finances_info
 
 response = request_finances_info()
 

@@ -4,3 +4,5 @@ __pycache__/*
 config/*
 **/archive/log.txt*
 **/data/conversationbot
+**/json_files/*
+settings.py

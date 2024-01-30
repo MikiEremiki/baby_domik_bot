@@ -1,10 +1,12 @@
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     filters,
-    MessageHandler
+    MessageHandler, ContextTypes, TypeHandler
 )
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from db.pickle_persistence import pickle_persistence
 from log.logging_conf import load_log_config
@@ -27,6 +29,36 @@ from utilities.utl_func import (
     create_or_connect_topic, del_topic,
 )
 from settings.config_loader import parse_settings
+
+
+def create_db_conn_add_handlers(application, config):
+    async_engine = create_async_engine(
+        url=str(config.postgres.db_url),
+        echo=True,
+        connect_args={"options": "-c timezone=utc"},
+    )
+    sessionmaker = async_sessionmaker(
+        async_engine,
+        expire_on_commit=False
+    )
+
+    async def open_session_handler(
+            _: Update,
+            context: ContextTypes.DEFAULT_TYPE
+    ):
+        session = sessionmaker()
+        context.session = session
+
+    async def close_session_handler(
+            _: Update,
+            context: ContextTypes.DEFAULT_TYPE
+    ):
+        await context.session.close()
+
+    application.add_handler(TypeHandler(Update, open_session_handler),
+                            group=-100)
+    application.add_handler(TypeHandler(Update, close_session_handler),
+                            group=100)
 
 
 async def post_init(application: Application):
@@ -56,6 +88,8 @@ def bot():
     )
 
     application.bot_data.setdefault('config', config)
+
+    create_db_conn_add_handlers(application, config)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))

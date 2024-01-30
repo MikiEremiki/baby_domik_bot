@@ -173,17 +173,20 @@ async def set_menu(bot: ExtBot) -> None:
 
 
 async def set_description(bot: ExtBot) -> None:
-    await bot.set_my_description("""Вас приветствует Бэби-театре Домик!
-
-    Этот бот поможет вам:
-
-    - забронировать билет на спектакль
-    - приобрести абонемент
-    - посмотреть наличие свободных мест
-    - записаться в лист ожидания 
-    - забронировать День рождения с театром «Домик»""")
+    await bot.set_my_description(
+        'Вас приветствует Бот Бэби-театра «Домик»!\n\n'
+        'Этот бот поможет вам:\n\n'
+        '- забронировать билет на спектакль\n'
+        '- приобрести абонемент\n'
+        '- посмотреть наличие свободных мест\n'
+        '- записаться в лист ожидания\n'
+        '- забронировать День рождения с театром «Домик»')
     await bot.set_my_short_description(
-        'Бот-помощник в Бэби-театр «Домик»')
+        'Бот-помощник в Бэби-театр «Домик»\n\n'
+        'Группа в контакте\n'
+        'vk.com/baby_theater_domik\n\n'
+        'Канал в телеграм\n'
+        't.me/babytheater')
     utilites_logger.info('Описания для бота установлены')
 
 
@@ -269,40 +272,19 @@ async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         message = pformat(context.user_data)
-        await split_message(update, context, message)
+        await split_message(context, message)
 
 
 async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        for key, item in context.application.user_data.items():
-            if context.application.user_data[key].get('dict_of_name_show_v2'):
-                del context.application.user_data[key]['dict_of_name_show_v2']
-            if context.application.user_data[key].get('dict_of_shows'):
-                del context.application.user_data[key]['dict_of_shows']
-            if context.application.user_data[key].get('date_show'):
-                del context.application.user_data[key]['date_show']
-            if context.application.user_data[key].get('name_show'):
-                del context.application.user_data[key]['name_show']
-            if context.application.user_data[key].get('dict_of_name_show_flip'):
-                del context.application.user_data[key]['dict_of_name_show_flip']
-            if context.application.user_data[key].get('text_date'):
-                del context.application.user_data[key]['text_date']
-            if context.application.user_data[key].get('keyboard_date'):
-                del context.application.user_data[key]['keyboard_date']
-            if context.application.user_data[key].get('keyboard_time'):
-                del context.application.user_data[key]['keyboard_time']
-            if context.application.user_data[key].get(
-                    'text_for_notification_massage'):
-                del context.application.user_data[key][
-                    'text_for_notification_massage']
-            if context.application.user_data[key].get('text_time'):
-                del context.application.user_data[key]['text_time']
-            if context.application.user_data[key].get('birthday_user_data'):
-                del context.application.user_data[key]['birthday_user_data']
-            utilites_logger.info(key)
-            utilites_logger.info(item.get('user', 'Нет такого'))
-            context.application.mark_data_for_update_persistence(key)
-            await context.application.update_persistence()
+        user_ids = []
+        qty_users = len(context.application.user_data)
+        for i, key, item in enumerate(context.application.user_data.items()):
+            await update.effective_chat.send_message(f'{i} из {qty_users}')
+            clean_context(item)
+            user_ids.append(key)
+        context.application.mark_data_for_update_persistence(user_ids=user_ids)
+        await context.application.update_persistence()
 
 
 async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -508,25 +490,27 @@ def set_back_context(
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
-    dict_back['keyboard'] = reply_markup.to_dict()
+    dict_back['keyboard'] = reply_markup
 
 
 def get_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
 ):
-
     dict_back = context.user_data['reserve_user_data']['back'][state]
-    reply_markup = InlineKeyboardMarkup.de_json(data=dict_back['keyboard'],
-                                                bot=context.bot)
-    return dict_back['text'], reply_markup
+    return dict_back['text'], dict_back['keyboard']
 
 
 def clean_context(context: ContextTypes.DEFAULT_TYPE):
-    list_keys = list(context.user_data.keys())
+    if isinstance(context, dict):
+        list_keys = list(context.keys())
+        tmp_context = context
+    else:
+        list_keys = list(context.user_data.keys())
+        tmp_context = context.user_data
     for key in list_keys:
         if key not in context_user_data:
-            value = context.user_data.pop(key)
+            value = tmp_context.pop(key)
             utilites_logger.info(f'{key}: {value} больше не используется')
 
 

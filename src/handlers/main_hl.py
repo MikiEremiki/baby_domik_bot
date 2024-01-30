@@ -34,11 +34,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['common_data'] = {}
 
     await update.effective_chat.send_message(
-        text='Отлично! Мы рады, что вы с нами. Используйте команды:\n '
-             f'/{COMMAND_DICT['RESERVE'][0]} - чтобы выбрать и оплатить билет '
-             f'на спектакль для просмотра в нашем театре\n'
-             f'/{COMMAND_DICT['BD_ORDER'][0]} - чтобы оформить заявку на '
-             f'проведение дня рождения в театре или по вашему адресу\n',
+        text='<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
+             '--><a href="https://vk.com/baby_theater_domik">Наша группа ВКонтакте</a>\n\n'
+             'В ней более подробно описаны:\n'
+             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
+             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
+             '- Фотографии\n'
+             '- Команда и жизнь театра\n'
+             '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
+             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
+             '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+             'Для продолжения работы используйте команды:\n'
+             f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+             f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
+             f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
+             f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
+        parse_mode=ParseMode.HTML,
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -63,7 +74,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
         event_id = payment_data['event_id']
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
 
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
@@ -119,10 +130,27 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
-        text = 'Ваша бронь подтверждена\nЖдем вас на спектакле.'
+
+        text = (
+            'Ваша бронь подтверждена, ждем вас на спектакле.\n'
+            'Адрес: Малая Покровская, д18, 2 этаж\n\n'
+            '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
+            '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
+            'В ней более подробно описаны:\n'
+            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
+            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
+            '- Фотографии\n'
+            '- Команда и жизнь театра\n'
+            '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
+            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
+            '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+            'Для продолжения работы используйте команды:\n'
+            f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+        )
         await context.bot.send_message(
             text=text,
             chat_id=chat_id,
+            parse_mode=ParseMode.HTML
         )
 
         # TODO Добавить галочку подтверждения в клиентскую базу
@@ -166,7 +194,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
         event_id = payment_data['event_id']
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
 
         await write_old_seat_info(user,
                                   event_id,
@@ -510,8 +538,8 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'этот чат предыдущее сообщение\n\n'
         'Вместо смены настроек можете написать свой номер телефона или '
         'связаться самостоятельно\n\n'
-        '<u>Контакты для связи:</u>\n'
-        f'{context.bot_data['admin']['contacts']}'
+        '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу'
+        'Задать любые интересующие вас вопросы вы можете через сообщения группы'
     )
     await update.effective_chat.send_message(text, parse_mode=ParseMode.HTML)
 

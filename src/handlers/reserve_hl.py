@@ -214,10 +214,9 @@ async def choice_show_or_date(
                                                 number_of_month_str)
 
     dict_show_data = context.bot_data['dict_show_data']
-
+    text_age_note = 'Пожалуйста, обратите внимание на рекомендованный возраст\n'
     if number_of_month_str == '12':
-        text = ('Выберите спектакль\n'
-                'Пожалуйста обратите внимание на рекомендованный возраст\n')
+        text = '<b>Выберите спектакль\n</b>' + text_age_note
         text = add_text_of_show_and_numerate(text,
                                              dict_of_name_show,
                                              filter_show_id,
@@ -244,12 +243,11 @@ async def choice_show_or_date(
         state = 'SHOW'
         set_back_context(context, state, text, reply_markup)
     else:
-        text = ('Выберите спектакль и дату\n'
-                'Пожалуйста обратите внимание на рекомендованный возраст\n')
+        text = '<b>Выберите спектакль и дату\n</b>' + text_age_note
         text = add_text_of_show_and_numerate(text,
-                                      dict_of_name_show,
-                                      filter_show_id,
-                                      dict_show_data)
+                                             dict_of_name_show,
+                                             filter_show_id,
+                                             dict_show_data)
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_date_show,
             add_cancel_btn=True,
@@ -272,13 +270,15 @@ async def choice_show_or_date(
         await update.effective_chat.send_photo(
             photo=photo,
             caption=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
         )
     else:
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=update.callback_query.message.message_thread_id
+            message_thread_id=update.callback_query.message.message_thread_id,
+            parse_mode=ParseMode.HTML
         )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
@@ -340,7 +340,9 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if event['flag_santa']:
                 flag_santa = True
 
-    text = f'Вы выбрали\n <b>{name_of_show}</b>\n<i>Выберите дату</i>\n\n'
+    text = (f'Вы выбрали спектакль:\n'
+            f'<b>{name_of_show}</b>\n'
+            f'<i>Выберите удобную дату</i>\n\n')
     if flag_gift:
         text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
     if flag_christmas_tree:
@@ -431,13 +433,13 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # TODO вместо key использовать event_id, и кол-во мест на
             #  следующих этапах доставать из контекста по event_id вместо
             #  callback_data
-            text += ' | ' + str(qty_child) + ' дет'
             text += ' | ' + str(qty_adult) + ' взр'
+            text += ' | ' + str(qty_child) + ' дет'
 
             callback_data = time
             callback_data += ' | ' + str(key)
-            callback_data += ' | ' + str(qty_child)
             callback_data += ' | ' + str(qty_adult)
+            callback_data += ' | ' + str(qty_child)
             button_tmp = InlineKeyboardButton(
                 text=text,
                 callback_data=callback_data
@@ -448,7 +450,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             postfix_for_back='DATE'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = f'Вы выбрали:\n <b>{name_show}\n{date_show}</b>\n'
+    text = (f'Вы выбрали:\n'
+            f'<b>{name_show}\n'
+            f'{date_show}</b>\n\n')
     if update.effective_chat.id == ADMIN_GROUP:
         # Отправка сообщения в админский чат
         text += 'Выберите время'
@@ -457,7 +461,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += ('<i>Выберите удобное время\n'
                  '1 ребенок = 1 место</i>\n\n'
                  'Вы также можете выбрать вариант с 0 кол-вом мест '
-                 'и записаться в лист ожидания на данное время\n\n'
+                 'для записи в лист ожидания на данное время\n\n'
                  'Кол-во свободных мест:\n'
                  '⬇️<i>Время</i> | <i>Взрослых</i> | <i>Детских</i>⬇️')
 
@@ -541,6 +545,11 @@ async def choice_option_of_reserve(
 
     name_show = choose_event_info['name_show']
     date = choose_event_info['date_show']
+    text_select_show = (f'Вы выбрали спектакль:\n'
+                        f'<b>{name_show}\n'
+                        f'{date}\n'
+                        f'{time}</b>\n'
+                        f'{text_emoji}\n')
     if int(qty_child) == 0 or int(qty_adult) == 0:
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
@@ -548,11 +557,7 @@ async def choice_option_of_reserve(
         reserve_hl_logger.info(f'qty_child: {qty_child}')
         reserve_hl_logger.info(f'qty_adult: {qty_adult}')
 
-        text = (f'Вы выбрали:\n'
-                f'<b>{name_show}\n'
-                f'{date}\n'
-                f'В {time}</b>\n'
-                f'{text_emoji}\n')
+        text = text_select_show
         await query.edit_message_text(
             text=text,
             parse_mode=ParseMode.HTML
@@ -603,14 +608,11 @@ async def choice_option_of_reserve(
             choose_event_info['flag_indiv_cost'] = flag_indiv_cost
 
     list_of_tickets = context.bot_data['list_of_tickets']
-    text = (f'Вы выбрали:\n'
-            f'<b>{name_show}\n'
-            f'{date}\n'
-            f'В {time}</b>\n'
-            f'{text_emoji}\n'
-            f'Кол-во свободных мест: <i>{qty_adult_free_seat_now} взр</i> '
-            f'| <i>{qty_child_free_seat_now} дет</i>\n')
-    text += 'Выберите подходящий вариант бронирования:\n'
+    text = (f'Кол-во свободных мест: '
+            f'<i>{qty_adult_free_seat_now} взр | '
+            f'{qty_child_free_seat_now} дет</i>\n')
+    text = text_select_show + text
+    text += '<b>Выберите подходящий вариант бронирования:</b>\n'
 
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
@@ -638,6 +640,10 @@ async def choice_option_of_reserve(
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
         if int(quality_of_children) <= int(qty_child_free_seat_now):
+            if key // 100 >= 3 and not flag_indiv_cost_sep:
+                text += "__________\n    Варианты со скидками:\n"
+                flag_indiv_cost_sep = True
+
             if flag_indiv_cost:
                 if key // 100 == 1:
                     if event['ticket_price_type'] == '':
@@ -655,10 +661,6 @@ async def choice_option_of_reserve(
             else:
                 text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
                          f'{price} руб\n')
-
-            if key // 100 == 3 and not flag_indiv_cost_sep:
-                text += "__________\n    Варианты со скидками:\n"
-                flag_indiv_cost_sep = True
 
             button_tmp = InlineKeyboardButton(
                 text=str(i + 1),
@@ -682,9 +684,10 @@ async def choice_option_of_reserve(
              '<i>Если вы хотите оформить несколько билетов, '
              'то каждая бронь оформляется отдельно.</i>\n'
              '__________\n'
-             '<i>Если нет желаемых вариантов для выбора, '
-             'значит нехватает мест для их оформления.\n'
-             'В таком случае вернитесь назад и выберете другое время.</i>')
+             '<i>МНОГОДЕТНЫМ:'
+             '1. Пришлите удостоверение многодетной семьи администратору'
+             '2. Дождитесь ответа'
+             '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
     await query.message.edit_text(
         text=text,
@@ -775,6 +778,11 @@ async def check_and_send_buy_info(
         ]
     ))
 
+    text_select_show = (f'Вы выбрали спектакль:\n'
+                        f'<b>{name_show}\n'
+                        f'{date}\n'
+                        f'{time}</b>\n'
+                        f'{text_emoji}\n')
     # Если пользователь выбрал не стандартный вариант
     if chose_ticket.flag_individual:
         text = ('Для оформления данного варианта обратитесь к Администратору:\n'
@@ -797,14 +805,9 @@ async def check_and_send_buy_info(
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
         # памятку
-        text = (f'Вы выбрали:\n'
-                f'{name_show}\n'
-                f'{date}\n'
-                f'В {time}\n'
-                f'{text_emoji}\n'
-                f'Вариант бронирования:\n'
-                f'{chose_ticket.name} '
-                f'{price}руб\n')
+        text = text_select_show + (f'Вариант бронирования:\n'
+                                   f'{chose_ticket.name} '
+                                   f'{price}руб\n')
 
         context.user_data['common_data']['text_for_notification_massage'] = text
 
@@ -840,20 +843,17 @@ async def check_and_send_buy_info(
             reserve_hl_logger.info(": ".join(
                 [
                     'Мест не достаточно',
-                    'Кол-во доступных мест',
+                    'Кол-во доступных мест д',
                     qty_child_free_seat_now,
+                    'в',
+                    qty_adult_free_seat_now,
                     'Для',
                     f'{name_show} {date} в {time}',
                 ]
             ))
 
             await query.message.delete()
-            text = (f'Вы выбрали:\n'
-                    f'{name_show}\n'
-                    f'{date}\n'
-                    f'В {time}\n'
-                    f'{text_emoji}\n')
-            reserve_user_data['event_info_for_list_waiting'] = text
+            reserve_user_data['event_info_for_list_waiting'] = text_select_show
             text = ('К сожалению места уже забронировали и свободных мест для\n'
                     f'{name_show}\n'
                     f'{date} в {time}\n'
@@ -950,23 +950,29 @@ async def check_and_send_buy_info(
         message = await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=FILE_ID_QR,
-            caption=f"""Забронировать билет можно только по 100% предоплате.
-Но вы не переживайте, если вдруг вы не сможете прийти, просто сообщите нам об этом за 24 часа, мы перенесём вашу дату визита. 
+            caption=f"""Бронь билета осуществляется по 100% оплате.
+❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
+Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
-    К оплате {price} руб
+Если вы согласны с правилами, то переходите к оплате.
+Если вам нужно подумать нажмите кнопку отменить под сообщением.
+
+    <b>К оплате {price} руб</b>
 
 Оплатить можно:
  - По qr-коду
- - Переводом в банк Точка по номеру телефона +79159383529 
-- Татьяна Александровна Б.
+ - Переводом в банк Точка по номеру телефона +79159383529 Татьяна Александровна Б.
 
 ВАЖНО! Прислать сюда электронный чек/квитанцию об оплате (файл или скриншот)
 Необходимо отправить чек в течении {RESERVE_TIMEOUT} мин или бронь будет 
 ОТМЕНЕНА!
 __________
-Для подтверждения брони администратором, после отправки чека, необходимо 
-заполнить анкету (она придет автоматически)""",
-            reply_markup=reply_markup
+После отправки чека необходимо:
+1. Заполнить анкету (она придет автоматически)
+2. Дождаться подтверждения""",
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True
         )
         common_data = context.user_data['common_data']
         common_data['message_id_buy_info'] = message.message_id
@@ -981,8 +987,7 @@ __________
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        chose_ticket_dict = chose_ticket.model_dump(exclude_defaults=True)
-        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket_dict
+        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -1038,7 +1043,8 @@ __________
 Пожалуйста не пишите лишней информации/дополнительных слов в сообщении. 
 Вопросы будут приходить последовательно (их будет всего 3)""")
     await update.effective_chat.send_message(
-        'Напишите фамилию и имя (взрослого) на кого оформляете бронь'
+        '<b>Напишите фамилию и имя (взрослого)</b>',
+        parse_mode=ParseMode.HTML
     )
 
     # Сообщение для администратора
@@ -1079,7 +1085,8 @@ async def get_name_adult(
     context.user_data['reserve_user_data']['client_data']['name_adult'] = text
 
     await update.effective_chat.send_message(
-        text='Напишите контактный номер телефона'
+        text='<b>Напишите номер телефона</b>',
+        parse_mode=ParseMode.HTML
     )
 
     state = 'PHONE'
@@ -1097,15 +1104,18 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['reserve_user_data']['client_data']['phone'] = phone
 
     await update.effective_chat.send_message(
-        text="""Напишите, имя и возраст ребенка.
+        text="""<b>Напишите, имя и возраст ребенка</b>
+__________
 Возможные форматы записи:
 Сергей 26.08.2019
 Иван 1.5
 Юля 1г10м
 Оля 1год 8мес
 __________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)
-Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
+<i> - Если детей несколько, напишите всех в одном сообщении
+ - Один ребенок = одна строка
+ - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>""",
+        parse_mode=ParseMode.HTML
     )
 
     state = 'CHILDREN'
@@ -1126,8 +1136,9 @@ async def get_name_children(
 Иван 1.5
 Юля 1г10м
 __________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)
-Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
+<i> - Если детей несколько, напишите всех в одном сообщении
+ - Один ребенок = одна строка
+ - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>"""
 
     # Проверка корректности ввода
     count = text.count('\n')
@@ -1138,7 +1149,10 @@ __________
 
     if len(result) < count + 1:
         reserve_hl_logger.info('Не верный формат текста')
-        await update.effective_chat.send_message(text=text_for_message)
+        await update.effective_chat.send_message(
+            text=text_for_message,
+            parse_mode=ParseMode.HTML
+        )
         return context.user_data['STATE']
 
     reserve_hl_logger.info('Проверка пройдена успешно')
@@ -1156,7 +1170,7 @@ __________
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         payment_data = reserve_admin_data[payment_id]
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
     except KeyError:
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
@@ -1170,7 +1184,10 @@ __________
 
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
-        await update.effective_chat.send_message(text=text_for_message)
+        await update.effective_chat.send_message(
+            text=text_for_message,
+            parse_mode=ParseMode.HTML
+        )
         state = 'CHILDREN'
         context.user_data['STATE'] = state
         return state
@@ -1230,23 +1247,21 @@ __________
                                 thread_id)
 
     await update.effective_chat.send_message(
-        'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '
-        'бронь.\nЕсли всё хорошо, то вам придет сообщение: "Ваша бронь '
-        'подтверждена"\n'
-        'В противном случае с вами свяжутся для уточнения деталей')
+        'Благодарим за ответы.\n\n'
+        'Ожидайте подтверждения брони.\n'
+        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
+        '<i>Если сообщение не придет в течение суток, напишите в группу в '
+        'контакте</i>',
+        parse_mode=ParseMode.HTML
+    )
 
     text = context.user_data['common_data']['text_for_notification_massage']
-    text += f"""__________
-Место проведения:
-Офис-центр Малая Покровская, д18, 2 этаж
-__________
-По вопросам обращайтесь к Администратору:
-{context.bot_data['admin']['contacts']}
-__________
-Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
-        'RESERVE'][0]}"""
+    text += (f'__________\n'
+             'Задать вопросы можно в сообщениях группы\n'
+             'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
-        text=text
+        text=text,
+        parse_mode=ParseMode.HTML
     )
     await message.pin()
 
@@ -1291,7 +1306,7 @@ async def conversation_timeout(
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         payment_data = reserve_admin_data[payment_id]
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
         event_id = payment_data['event_id']
 
         await write_old_seat_info(user,

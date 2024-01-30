@@ -39,7 +39,7 @@ context_user_data: Dict = {
         'back': {
             str: {
                 'text': str,  # текст для возврата назад в State str
-                'keyboard': dict  # InlineKeyboardMarkup.to_dict()
+                'keyboard': InlineKeyboardMarkup
             },
         },
         'number_of_month_str': str,
@@ -69,7 +69,7 @@ context_user_data: Dict = {
     'reserve_admin_data': {
         int: {  # payment_id
             'event_id': str,
-            'chose_ticket': dict  # BaseTicket.model_dump(exclude_defaults=True)
+            'chose_ticket': BaseTicket
         },
         'payment_id': int,  # Указатель на последний идентификатор платежа
     },
