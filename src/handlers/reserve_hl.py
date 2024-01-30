@@ -450,7 +450,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             postfix_for_back='DATE'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = f'Вы выбрали:\n <b>{name_show}\n{date_show}</b>\n'
+    text = (f'Вы выбрали:\n'
+            f'<b>{name_show}\n'
+            f'{date_show}</b>\n\n')
     if update.effective_chat.id == ADMIN_GROUP:
         # Отправка сообщения в админский чат
         text += 'Выберите время'
@@ -459,7 +461,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += ('<i>Выберите удобное время\n'
                  '1 ребенок = 1 место</i>\n\n'
                  'Вы также можете выбрать вариант с 0 кол-вом мест '
-                 'и записаться в лист ожидания на данное время\n\n'
+                 'для записи в лист ожидания на данное время\n\n'
                  'Кол-во свободных мест:\n'
                  '⬇️<i>Время</i> | <i>Взрослых</i> | <i>Детских</i>⬇️')
 
