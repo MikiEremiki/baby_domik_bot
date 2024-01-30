@@ -1043,7 +1043,8 @@ __________
 Пожалуйста не пишите лишней информации/дополнительных слов в сообщении. 
 Вопросы будут приходить последовательно (их будет всего 3)""")
     await update.effective_chat.send_message(
-        'Напишите фамилию и имя (взрослого) на кого оформляете бронь'
+        '<b>Напишите фамилию и имя (взрослого)</b>',
+        parse_mode=ParseMode.HTML
     )
 
     # Сообщение для администратора
@@ -1084,7 +1085,8 @@ async def get_name_adult(
     context.user_data['reserve_user_data']['client_data']['name_adult'] = text
 
     await update.effective_chat.send_message(
-        text='Напишите контактный номер телефона'
+        text='<b>Напишите номер телефона</b>',
+        parse_mode=ParseMode.HTML
     )
 
     state = 'PHONE'
@@ -1102,15 +1104,18 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['reserve_user_data']['client_data']['phone'] = phone
 
     await update.effective_chat.send_message(
-        text="""Напишите, имя и возраст ребенка.
+        text="""<b>Напишите, имя и возраст ребенка</b>
+__________
 Возможные форматы записи:
 Сергей 26.08.2019
 Иван 1.5
 Юля 1г10м
 Оля 1год 8мес
 __________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)
-Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
+<i> - Если детей несколько, напишите всех в одном сообщении
+ - Один ребенок = одна строка
+ - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>""",
+        parse_mode=ParseMode.HTML
     )
 
     state = 'CHILDREN'
@@ -1131,8 +1136,9 @@ async def get_name_children(
 Иван 1.5
 Юля 1г10м
 __________
-Если детей несколько, то напишите пожалуйста всех в одном сообщении (один ребенок = одна строка)
-Пожалуйста не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах"""
+<i> - Если детей несколько, напишите всех в одном сообщении
+ - Один ребенок = одна строка
+ - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>"""
 
     # Проверка корректности ввода
     count = text.count('\n')
@@ -1143,7 +1149,10 @@ __________
 
     if len(result) < count + 1:
         reserve_hl_logger.info('Не верный формат текста')
-        await update.effective_chat.send_message(text=text_for_message)
+        await update.effective_chat.send_message(
+            text=text_for_message,
+            parse_mode=ParseMode.HTML
+        )
         return context.user_data['STATE']
 
     reserve_hl_logger.info('Проверка пройдена успешно')
@@ -1175,7 +1184,10 @@ __________
 
     if not isinstance(list_message_text[0], list):
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
-        await update.effective_chat.send_message(text=text_for_message)
+        await update.effective_chat.send_message(
+            text=text_for_message,
+            parse_mode=ParseMode.HTML
+        )
         state = 'CHILDREN'
         context.user_data['STATE'] = state
         return state
