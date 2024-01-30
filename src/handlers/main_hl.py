@@ -72,7 +72,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
         event_id = payment_data['event_id']
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
 
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
@@ -175,7 +175,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         payment_data = user_data['reserve_admin_data'][payment_id]
         event_id = payment_data['event_id']
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
 
         await write_old_seat_info(user,
                                   event_id,

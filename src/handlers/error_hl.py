@@ -68,7 +68,7 @@ async def error_handler(update: Update,
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
         payment_data = reserve_admin_data[payment_id]
-        chose_ticket = BaseTicket.model_validate(payment_data['chose_ticket'])
+        chose_ticket = payment_data['chose_ticket']
         event_id = payment_data['event_id']
 
         await write_old_seat_info(user,
