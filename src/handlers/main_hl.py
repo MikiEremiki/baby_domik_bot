@@ -45,8 +45,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
              '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
              '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
              'Для продолжения работы используйте команды:\n'
-             f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль (<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
-             f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения (<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
+             f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+             f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
+             f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
+             f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
         parse_mode=ParseMode.HTML,
         reply_markup=ReplyKeyboardRemove()
     )
