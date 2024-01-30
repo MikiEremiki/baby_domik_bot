@@ -778,6 +778,11 @@ async def check_and_send_buy_info(
         ]
     ))
 
+    text_select_show = (f'Вы выбрали спектакль:\n'
+                        f'<b>{name_show}\n'
+                        f'{date}\n'
+                        f'{time}</b>\n'
+                        f'{text_emoji}\n')
     # Если пользователь выбрал не стандартный вариант
     if chose_ticket.flag_individual:
         text = ('Для оформления данного варианта обратитесь к Администратору:\n'
@@ -800,14 +805,9 @@ async def check_and_send_buy_info(
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
         # памятку
-        text = (f'Вы выбрали:\n'
-                f'{name_show}\n'
-                f'{date}\n'
-                f'В {time}\n'
-                f'{text_emoji}\n'
-                f'Вариант бронирования:\n'
-                f'{chose_ticket.name} '
-                f'{price}руб\n')
+        text = text_select_show + (f'Вариант бронирования:\n'
+                                   f'{chose_ticket.name} '
+                                   f'{price}руб\n')
 
         context.user_data['common_data']['text_for_notification_massage'] = text
 
@@ -851,12 +851,7 @@ async def check_and_send_buy_info(
             ))
 
             await query.message.delete()
-            text = (f'Вы выбрали:\n'
-                    f'{name_show}\n'
-                    f'{date}\n'
-                    f'В {time}\n'
-                    f'{text_emoji}\n')
-            reserve_user_data['event_info_for_list_waiting'] = text
+            reserve_user_data['event_info_for_list_waiting'] = text_select_show
             text = ('К сожалению места уже забронировали и свободных мест для\n'
                     f'{name_show}\n'
                     f'{date} в {time}\n'
