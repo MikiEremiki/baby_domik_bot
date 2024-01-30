@@ -228,7 +228,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
         if min_age_child > 0:
             full_name += sep + item[dict_column_name['min_age_child']]
         if max_age_child > 0:
-            full_name += "-" + item[dict_column_name['max_age_child']] + "лет"
+            full_name += "-" + item[dict_column_name['max_age_child']]
         else:
             full_name += '+'
 
