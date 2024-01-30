@@ -843,8 +843,10 @@ async def check_and_send_buy_info(
             reserve_hl_logger.info(": ".join(
                 [
                     'Мест не достаточно',
-                    'Кол-во доступных мест',
+                    'Кол-во доступных мест д',
                     qty_child_free_seat_now,
+                    'в',
+                    qty_adult_free_seat_now,
                     'Для',
                     f'{name_show} {date} в {time}',
                 ]
