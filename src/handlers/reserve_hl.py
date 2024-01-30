@@ -812,7 +812,8 @@ async def check_and_send_buy_info(
         context.user_data['common_data']['text_for_notification_massage'] = text
 
         await query.message.edit_text(
-            text=text
+            text=text,
+            parse_mode=ParseMode.HTML
         )
         message = await update.effective_chat.send_message(
             'Проверяю наличие свободных мест...')
@@ -971,8 +972,7 @@ __________
 1. Заполнить анкету (она придет автоматически)
 2. Дождаться подтверждения""",
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
+            parse_mode=ParseMode.HTML
         )
         common_data = context.user_data['common_data']
         common_data['message_id_buy_info'] = message.message_id
