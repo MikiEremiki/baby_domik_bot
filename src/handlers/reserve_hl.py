@@ -545,6 +545,11 @@ async def choice_option_of_reserve(
 
     name_show = choose_event_info['name_show']
     date = choose_event_info['date_show']
+    text_select_show = (f'Вы выбрали спектакль:\n'
+                        f'<b>{name_show}\n'
+                        f'{date}\n'
+                        f'{time}</b>\n'
+                        f'{text_emoji}\n')
     if int(qty_child) == 0 or int(qty_adult) == 0:
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
@@ -552,11 +557,7 @@ async def choice_option_of_reserve(
         reserve_hl_logger.info(f'qty_child: {qty_child}')
         reserve_hl_logger.info(f'qty_adult: {qty_adult}')
 
-        text = (f'Вы выбрали:\n'
-                f'<b>{name_show}\n'
-                f'{date}\n'
-                f'В {time}</b>\n'
-                f'{text_emoji}\n')
+        text = text_select_show
         await query.edit_message_text(
             text=text,
             parse_mode=ParseMode.HTML
@@ -607,14 +608,11 @@ async def choice_option_of_reserve(
             choose_event_info['flag_indiv_cost'] = flag_indiv_cost
 
     list_of_tickets = context.bot_data['list_of_tickets']
-    text = (f'Вы выбрали:\n'
-            f'<b>{name_show}\n'
-            f'{date}\n'
-            f'В {time}</b>\n'
-            f'{text_emoji}\n'
-            f'Кол-во свободных мест: <i>{qty_adult_free_seat_now} взр</i> '
-            f'| <i>{qty_child_free_seat_now} дет</i>\n')
-    text += 'Выберите подходящий вариант бронирования:\n'
+    text = (f'Кол-во свободных мест: '
+            f'<i>{qty_adult_free_seat_now} взр | '
+            f'{qty_child_free_seat_now} дет</i>\n')
+    text = text_select_show + text
+    text += '<b>Выберите подходящий вариант бронирования:</b>\n'
 
     date_now = datetime.now().date()
     date_tmp = date.split()[0] + f'.{date_now.year}'
