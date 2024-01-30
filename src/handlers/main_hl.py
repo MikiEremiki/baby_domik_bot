@@ -538,8 +538,8 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'этот чат предыдущее сообщение\n\n'
         'Вместо смены настроек можете написать свой номер телефона или '
         'связаться самостоятельно\n\n'
-        '<u>Контакты для связи:</u>\n'
-        f'{context.bot_data['admin']['contacts']}'
+        '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу'
+        'Задать любые интересующие вас вопросы вы можете через сообщения группы'
     )
     await update.effective_chat.send_message(text, parse_mode=ParseMode.HTML)
 
