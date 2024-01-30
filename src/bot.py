@@ -31,22 +31,7 @@ from utilities.utl_func import (
 from settings.config_loader import parse_settings
 
 
-async def post_init(application: Application):
-    await set_menu(application.bot)
-    await set_description(application.bot)
-    set_ticket_data(application)
-    set_show_data(application)
-
-    application.bot_data.setdefault('admin', {})
-    application.bot_data['admin'].setdefault('contacts', {})
-    application.bot_data.setdefault('dict_topics_name', {})
-
-
-def bot():
-    bot_logger = load_log_config()
-    bot_logger.info('Инициализация бота')
-
-    config = parse_settings()
+def create_db_conn_add_handlers(application, config):
     async_engine = create_async_engine(
         url=str(config.postgres.db_url),
         echo=True,
@@ -56,17 +41,6 @@ def bot():
         async_engine,
         expire_on_commit=False
     )
-
-    application = (
-        Application.builder()
-        .token(config.bot.token.get_secret_value())
-        .persistence(pickle_persistence)
-        .post_init(post_init)
-
-        .build()
-    )
-
-    application.bot_data.setdefault('config', config)
 
     async def open_session_handler(
             _: Update,
@@ -83,6 +57,39 @@ def bot():
 
     application.add_handler(TypeHandler(Update, open_session_handler),
                             group=-100)
+    application.add_handler(TypeHandler(Update, close_session_handler),
+                            group=100)
+
+
+async def post_init(application: Application):
+    await set_menu(application.bot)
+    await set_description(application.bot)
+    set_ticket_data(application)
+    set_show_data(application)
+
+    application.bot_data.setdefault('admin', {})
+    application.bot_data['admin'].setdefault('contacts', {})
+    application.bot_data.setdefault('dict_topics_name', {})
+
+
+def bot():
+    bot_logger = load_log_config()
+    bot_logger.info('Инициализация бота')
+
+    config = parse_settings()
+
+    application = (
+        Application.builder()
+        .token(config.bot.token.get_secret_value())
+        .persistence(pickle_persistence)
+        .post_init(post_init)
+
+        .build()
+    )
+
+    application.bot_data.setdefault('config', config)
+
+    create_db_conn_add_handlers(application, config)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
@@ -152,9 +159,6 @@ def bot():
                                     filters.Document.PDF),
         main_hl.feedback_send_msg),
     )
-
-    application.add_handler(TypeHandler(Update, close_session_handler),
-                            group=100)
 
     application.add_error_handler(error_handler)
 
