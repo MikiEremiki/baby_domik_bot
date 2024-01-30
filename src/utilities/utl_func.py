@@ -498,8 +498,7 @@ def get_back_context(
         state,
 ):
     dict_back = context.user_data['reserve_user_data']['back'][state]
-    reply_markup = InlineKeyboardMarkup
-    return dict_back['text'], reply_markup
+    return dict_back['text'], dict_back['keyboard']
 
 
 def clean_context(context: ContextTypes.DEFAULT_TYPE):
