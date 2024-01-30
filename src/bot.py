@@ -1,9 +1,10 @@
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     filters,
-    MessageHandler
+    MessageHandler, ContextTypes, TypeHandler
 )
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
@@ -46,15 +47,15 @@ def bot():
     bot_logger.info('Инициализация бота')
 
     config = parse_settings()
-    # async_engine = create_async_engine(
-    #     url=str(config.postgres.db_url),
-    #     echo=True,
-    #     connect_args={"options": "-c timezone=utc"},
-    # )
-    # sessionmaker = async_sessionmaker(
-    #     async_engine,
-    #     expire_on_commit=False
-    # )
+    async_engine = create_async_engine(
+        url=str(config.postgres.db_url),
+        echo=True,
+        connect_args={"options": "-c timezone=utc"},
+    )
+    sessionmaker = async_sessionmaker(
+        async_engine,
+        expire_on_commit=False
+    )
 
     application = (
         Application.builder()
@@ -66,6 +67,22 @@ def bot():
     )
 
     application.bot_data.setdefault('config', config)
+
+    async def open_session_handler(
+            _: Update,
+            context: ContextTypes.DEFAULT_TYPE
+    ):
+        session = sessionmaker()
+        context.session = session
+
+    async def close_session_handler(
+            _: Update,
+            context: ContextTypes.DEFAULT_TYPE
+    ):
+        await context.session.close()
+
+    application.add_handler(TypeHandler(Update, open_session_handler),
+                            group=-100)
 
     application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
                                            main_hl.start))
@@ -135,6 +152,9 @@ def bot():
                                     filters.Document.PDF),
         main_hl.feedback_send_msg),
     )
+
+    application.add_handler(TypeHandler(Update, close_session_handler),
+                            group=100)
 
     application.add_error_handler(error_handler)
 
