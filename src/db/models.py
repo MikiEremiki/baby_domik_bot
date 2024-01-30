@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, date
 import enum
 from typing import Optional, List
 
@@ -29,7 +29,7 @@ class Child(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[Optional[str]]
     age: Mapped[float]
-    birthdate: Mapped[datetime.date]
+    birthdate: Mapped[date]
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey('users.id', ondelete='CASCADE')
