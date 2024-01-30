@@ -640,6 +640,10 @@ async def choice_option_of_reserve(
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
         if int(quality_of_children) <= int(qty_child_free_seat_now):
+            if key // 100 >= 3 and not flag_indiv_cost_sep:
+                text += "__________\n    Варианты со скидками:\n"
+                flag_indiv_cost_sep = True
+
             if flag_indiv_cost:
                 if key // 100 == 1:
                     if event['ticket_price_type'] == '':
@@ -657,10 +661,6 @@ async def choice_option_of_reserve(
             else:
                 text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
                          f'{price} руб\n')
-
-            if key // 100 == 3 and not flag_indiv_cost_sep:
-                text += "__________\n    Варианты со скидками:\n"
-                flag_indiv_cost_sep = True
 
             button_tmp = InlineKeyboardButton(
                 text=str(i + 1),
