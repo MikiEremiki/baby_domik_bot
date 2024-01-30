@@ -18,8 +18,8 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./config/settings.py:/app/src/settings/settings.py
-      - data:/app/src/db/data
-      - logs:/app/src/log/archive
+      - ./src/db/data:/app/src/db/data
+      - ./src/log/archive:/app/src/log/archive
   postgres:
     profiles: [ "all", "db" ]
     container_name: postgres
@@ -76,8 +76,8 @@ services:
 
 volumes:
   db:
-  data:
-  logs:
+#  data:
+#  logs:
   pgadmin:
 
 networks:
