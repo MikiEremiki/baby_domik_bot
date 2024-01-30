@@ -245,9 +245,9 @@ async def choice_show_or_date(
     else:
         text = '<b>Выберите спектакль и дату\n</b>' + text_age_note
         text = add_text_of_show_and_numerate(text,
-                                      dict_of_name_show,
-                                      filter_show_id,
-                                      dict_show_data)
+                                             dict_of_name_show,
+                                             filter_show_id,
+                                             dict_show_data)
         reply_markup = create_replay_markup_for_list_of_shows(
             dict_of_date_show,
             add_cancel_btn=True,
@@ -1247,23 +1247,21 @@ __________
                                 thread_id)
 
     await update.effective_chat.send_message(
-        'Благодарим за ответы.\nОжидайте, когда администратор подтвердить '
-        'бронь.\nЕсли всё хорошо, то вам придет сообщение: "Ваша бронь '
-        'подтверждена"\n'
-        'В противном случае с вами свяжутся для уточнения деталей')
+        'Благодарим за ответы.\n\n'
+        'Ожидайте подтверждения брони.\n'
+        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
+        '<i>Если сообщение не придет в течение суток, напишите в группу в '
+        'контакте</i>',
+        parse_mode=ParseMode.HTML
+    )
 
     text = context.user_data['common_data']['text_for_notification_massage']
-    text += f"""__________
-Место проведения:
-Офис-центр Малая Покровская, д18, 2 этаж
-__________
-По вопросам обращайтесь к Администратору:
-{context.bot_data['admin']['contacts']}
-__________
-Если вы хотите оформить еще одну бронь, используйте команду /{COMMAND_DICT[
-        'RESERVE'][0]}"""
+    text += (f'__________\n'
+             'Задать вопросы можно в сообщениях группы\n'
+             'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
-        text=text
+        text=text,
+        parse_mode=ParseMode.HTML
     )
     await message.pin()
 
