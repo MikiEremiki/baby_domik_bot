@@ -173,17 +173,20 @@ async def set_menu(bot: ExtBot) -> None:
 
 
 async def set_description(bot: ExtBot) -> None:
-    await bot.set_my_description("""Вас приветствует Бэби-театре Домик!
-
-    Этот бот поможет вам:
-
-    - забронировать билет на спектакль
-    - приобрести абонемент
-    - посмотреть наличие свободных мест
-    - записаться в лист ожидания 
-    - забронировать День рождения с театром «Домик»""")
+    await bot.set_my_description(
+        'Вас приветствует Бот Бэби-театра «Домик»!\n\n'
+        'Этот бот поможет вам:\n\n'
+        '- забронировать билет на спектакль\n'
+        '- приобрести абонемент\n'
+        '- посмотреть наличие свободных мест\n'
+        '- записаться в лист ожидания\n'
+        '- забронировать День рождения с театром «Домик»')
     await bot.set_my_short_description(
-        'Бот-помощник в Бэби-театр «Домик»')
+        'Бот-помощник в Бэби-театр «Домик»\n\n'
+        'Группа в контакте\n'
+        'vk.com/baby_theater_domik\n\n'
+        'Канал в телеграм\n'
+        't.me/babytheater')
     utilites_logger.info('Описания для бота установлены')
 
 
@@ -494,7 +497,6 @@ def get_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
 ):
-
     dict_back = context.user_data['reserve_user_data']['back'][state]
     reply_markup = InlineKeyboardMarkup
     return dict_back['text'], reply_markup
