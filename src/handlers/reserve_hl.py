@@ -216,7 +216,7 @@ async def choice_show_or_date(
     dict_show_data = context.bot_data['dict_show_data']
     text_age_note = 'Пожалуйста, обратите внимание на рекомендованный возраст\n'
     if number_of_month_str == '12':
-        text = 'Выберите спектакль\n' + text_age_note
+        text = '<b>Выберите спектакль\n</b>' + text_age_note
         text = add_text_of_show_and_numerate(text,
                                              dict_of_name_show,
                                              filter_show_id,
@@ -243,7 +243,7 @@ async def choice_show_or_date(
         state = 'SHOW'
         set_back_context(context, state, text, reply_markup)
     else:
-        text = 'Выберите спектакль и дату\n' + text_age_note
+        text = '<b>Выберите спектакль и дату\n</b>' + text_age_note
         text = add_text_of_show_and_numerate(text,
                                       dict_of_name_show,
                                       filter_show_id,
@@ -270,13 +270,15 @@ async def choice_show_or_date(
         await update.effective_chat.send_photo(
             photo=photo,
             caption=text,
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
         )
     else:
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=update.callback_query.message.message_thread_id
+            message_thread_id=update.callback_query.message.message_thread_id,
+            parse_mode=ParseMode.HTML
         )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
