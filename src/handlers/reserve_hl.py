@@ -821,8 +821,7 @@ async def check_and_send_buy_info(
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        event_id = reserve_admin_data[payment_id][
-            'event_id']
+        event_id = reserve_admin_data[payment_id]['event_id']
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
             'qty_child_free_seat',

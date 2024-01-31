@@ -465,8 +465,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 reserve_admin_data = context.user_data['reserve_admin_data']
                 payment_id = reserve_admin_data['payment_id']
-                chose_ticket_data = reserve_admin_data[payment_id]['chose_ticket']
-                chose_ticket = BaseTicket.model_validate(chose_ticket_data)
+                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
                 event_id = reserve_admin_data[payment_id]['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)
