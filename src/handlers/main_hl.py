@@ -4,20 +4,17 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
 from telegram.constants import ParseMode, ChatType
 from telegram.error import BadRequest
-from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
 from settings.settings import (
     COMMAND_DICT,
     ADMIN_GROUP,
     FEEDBACK_THREAD_ID_GROUP_ADMIN)
-from utilities.hlp_func import do_italic, do_bold
 from api.googlesheets import (
     get_quality_of_seats,
     write_data_for_reserve,
     set_approve_order
 )
-from utilities.schemas.ticket import BaseTicket
 from utilities.utl_func import is_admin, get_back_context, clean_context
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
@@ -267,16 +264,11 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 query.message.text + '\n\n Заявка подтверждена, ждём предоплату'
             )
 
-            text = do_bold('У нас отличные новости!\n')
-            text += escape_markdown(
-                'Мы с радостью проведем день рождения вашего малыша\n\n'
-                'Если вы готовы внести предоплату, то нажмите на команду\n'
-                f' /{COMMAND_DICT['BD_PAID'][0]}\n\n',
-                2
-            )
-            text += do_italic(
-                'Вам будет отправлено сообщение с информацией об оплате'
-            )
+            text = '<b>У нас отличные новости!</b>\n'
+            text += ('Мы с радостью проведем день рождения вашего малыша\n\n'
+                     'Если вы готовы внести предоплату, то нажмите на команду\n'
+                     f'/{COMMAND_DICT['BD_PAID'][0]}\n\n')
+            text += '<i>Вам будет отправлено сообщение с информацией об оплате</i>'
 
             set_approve_order(context_bd, 0)
 
@@ -303,7 +295,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
-        parse_mode=ParseMode.MARKDOWN_V2
+        parse_mode=ParseMode.HTML
     )
 
 
@@ -358,6 +350,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
+        parse_mode=ParseMode.HTML
     )
 
 
@@ -380,6 +373,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
+                parse_mode=ParseMode.HTML,
                 reply_markup=reply_markup,
                 message_thread_id=query.message.message_thread_id
             )
@@ -387,13 +381,15 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await query.edit_message_caption(
                     caption=text,
-                    reply_markup=reply_markup
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.HTML,
                 )
             except BadRequest as e:
                 main_handlers_logger.error(e)
                 await query.delete_message()
                 await update.effective_chat.send_message(
                     text=text,
+                    parse_mode=ParseMode.HTML,
                     reply_markup=reply_markup,
                     message_thread_id=query.message.message_thread_id
                 )
@@ -455,6 +451,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
                      f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
                      f'резервирования свободных мест на спектакль',
+                parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
 
@@ -468,8 +465,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 reserve_admin_data = context.user_data['reserve_admin_data']
                 payment_id = reserve_admin_data['payment_id']
-                chose_ticket_data = reserve_admin_data[payment_id]['chose_ticket']
-                chose_ticket = BaseTicket.model_validate(chose_ticket_data)
+                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
                 event_id = reserve_admin_data[payment_id]['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)

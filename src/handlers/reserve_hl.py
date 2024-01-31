@@ -821,8 +821,7 @@ async def check_and_send_buy_info(
 
         reserve_admin_data = context.user_data['reserve_admin_data']
         payment_id = reserve_admin_data['payment_id']
-        event_id = reserve_admin_data[payment_id][
-            'event_id']
+        event_id = reserve_admin_data[payment_id]['event_id']
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
             'qty_child_free_seat',
@@ -1036,12 +1035,18 @@ async def forward_photo_or_file(
                                 thread_id)
 
     # Сообщение для опроса
-    await update.effective_chat.send_message("""Для подтверждения брони 
-заполните пожалуйста анкету.
-Чтобы мы знали на кого оформлена бронь и как с вами связаться.
-__________
-Пожалуйста не пишите лишней информации/дополнительных слов в сообщении. 
-Вопросы будут приходить последовательно (их будет всего 3)""")
+    text_brief = (
+        'Для подтверждения брони заполните, пожалуйста, анкету.\n'
+        'Вход на мероприятие ведется по спискам.'
+        '__________'
+        '<i>Пожалуйста, не пишите лишней информации/дополнительных слов в '
+        'сообщении.\n'
+        'Вопросы будут приходить последовательно (их будет всего 3)</i>'
+    )
+    await update.effective_chat.send_message(
+        text=text_brief,
+        parse_mode=ParseMode.HTML,
+    )
     await update.effective_chat.send_message(
         '<b>Напишите фамилию и имя (взрослого)</b>',
         parse_mode=ParseMode.HTML
@@ -1064,6 +1069,7 @@ __________
              f'Запросил подтверждение брони на сумму {chose_price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
+        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup,
         message_thread_id=thread_id
     )

@@ -223,6 +223,7 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
+            parse_mode=ParseMode.HTML,
             reply_to_message_id=message_id,
             message_thread_id=thread_id
         )
