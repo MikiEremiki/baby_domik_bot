@@ -11,8 +11,13 @@ timeweb в качестве хостинга
 
 ___
 Для запуска со сборкой контейнера миграции
+
 `docker compose --profile migration up -d --build`
 `docker compose --env-file config/.env --profile all up -d --build`
+
+`docker compose --env-file config/.env --profile bot up -d`
+`docker compose --env-file config/.env --profile bot stop`
+`docker image pull mikieremiki/baby_domik_bot`
 
 Для запуска миграции
 `docker compose --profile migration up -d`
