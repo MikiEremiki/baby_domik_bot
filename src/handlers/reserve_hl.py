@@ -946,6 +946,7 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        await message.delete()
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Бронь билета осуществляется по 100% оплате.
@@ -958,8 +959,8 @@ async def check_and_send_buy_info(
     <b>К оплате {price} руб</b>
 
 Оплатить можно:
- - Переводом на карту Сбербанка по номеру телефона +79159383529 Татьяна 
- Александровна Б.
+ - Переводом на карту Сбербанка по номеру телефона
+ +79159383529 Татьяна Александровна Б.
 
 ВАЖНО! Прислать сюда электронный чек/квитанцию об оплате (файл или скриншот)
 Необходимо отправить чек в течении {RESERVE_TIMEOUT} мин или бронь будет 
