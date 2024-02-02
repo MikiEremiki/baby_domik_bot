@@ -946,6 +946,7 @@ async def check_and_send_buy_info(
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        await message.delete()
         message = await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"""Бронь билета осуществляется по 100% оплате.
