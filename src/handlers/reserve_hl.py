@@ -969,7 +969,8 @@ __________
 1. Заполнить анкету (она придет автоматически)
 2. Дождаться подтверждения""",
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True
         )
         common_data = context.user_data['common_data']
         common_data['message_id_buy_info'] = message.message_id

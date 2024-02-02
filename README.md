@@ -13,10 +13,13 @@ ___
 Для запуска со сборкой контейнера миграции
 
 `docker compose --profile migration up -d --build`
+
 `docker compose --env-file config/.env --profile all up -d --build`
 
 `docker compose --env-file config/.env --profile bot up -d`
+
 `docker compose --env-file config/.env --profile bot stop`
+
 `docker image pull mikieremiki/baby_domik_bot`
 
 Для запуска миграции
@@ -24,6 +27,7 @@ ___
 
 ---
 Для удаленной миграции (подключаюсь из Pycharm с домашней машины на Windows)
+
 `alembic -c 'config/alembic.ini' upgrade head`
 
 `alembic -c 'config/alembic.ini' downgrade base`
