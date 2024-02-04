@@ -277,7 +277,7 @@ def write_client(
                        f'R1C1:'
                        f'R1C{end_column_index}')
 
-        execute_update_googlesheet(sheet,
+        execute_append_googlesheet(sheet,
                                    range_sheet,
                                    value_input_option,
                                    response_value_render_option,
@@ -505,6 +505,39 @@ def execute_update_googlesheet(
                 '\n'
                 'updatedRange: ',
                 response['updatedRange']
+            ]
+        ))
+    except TimeoutError as err:
+        googlesheets_logger.error(err)
+        googlesheets_logger.error(value_range_body)
+
+
+def execute_append_googlesheet(
+        sheet,
+        range_sheet,
+        value_input_option,
+        response_value_render_option,
+        value_range_body
+):
+    request = sheet.values().append(
+        spreadsheetId=SPREADSHEET_ID['Домик'],
+        range=range_sheet,
+        valueInputOption=value_input_option,
+        insertDataOption='INSERT_ROWS',
+        includeValuesInResponse=True,
+        responseValueRenderOption=response_value_render_option,
+        body=value_range_body,
+    )
+    try:
+        response = request.execute()
+
+        googlesheets_logger.info(": ".join(
+            [
+                'spreadsheetId: ',
+                response['spreadsheetId'],
+                '\n'
+                'tableRange: ',
+                response['tableRange']
             ]
         ))
     except TimeoutError as err:
