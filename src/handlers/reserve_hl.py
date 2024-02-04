@@ -433,13 +433,13 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # TODO вместо key использовать event_id, и кол-во мест на
             #  следующих этапах доставать из контекста по event_id вместо
             #  callback_data
-            text += ' | ' + str(qty_adult) + ' взр'
             text += ' | ' + str(qty_child) + ' дет'
+            text += ' | ' + str(qty_adult) + ' взр'
 
             callback_data = time
             callback_data += ' | ' + str(key)
-            callback_data += ' | ' + str(qty_adult)
             callback_data += ' | ' + str(qty_child)
+            callback_data += ' | ' + str(qty_adult)
             button_tmp = InlineKeyboardButton(
                 text=text,
                 callback_data=callback_data
@@ -463,7 +463,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'Вы также можете выбрать вариант с 0 кол-вом мест '
                  'для записи в лист ожидания на данное время\n\n'
                  'Кол-во свободных мест:\n'
-                 '⬇️<i>Время</i> | <i>Взрослых</i> | <i>Детских</i>⬇️')
+                 '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️')
 
     await update.effective_chat.send_message(
         text=text,
