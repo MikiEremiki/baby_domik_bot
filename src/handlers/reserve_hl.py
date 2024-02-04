@@ -433,13 +433,13 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # TODO вместо key использовать event_id, и кол-во мест на
             #  следующих этапах доставать из контекста по event_id вместо
             #  callback_data
-            text += ' | ' + str(qty_adult) + ' взр'
             text += ' | ' + str(qty_child) + ' дет'
+            text += ' | ' + str(qty_adult) + ' взр'
 
             callback_data = time
             callback_data += ' | ' + str(key)
-            callback_data += ' | ' + str(qty_adult)
             callback_data += ' | ' + str(qty_child)
+            callback_data += ' | ' + str(qty_adult)
             button_tmp = InlineKeyboardButton(
                 text=text,
                 callback_data=callback_data
@@ -463,7 +463,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'Вы также можете выбрать вариант с 0 кол-вом мест '
                  'для записи в лист ожидания на данное время\n\n'
                  'Кол-во свободных мест:\n'
-                 '⬇️<i>Время</i> | <i>Взрослых</i> | <i>Детских</i>⬇️')
+                 '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️')
 
     await update.effective_chat.send_message(
         text=text,
@@ -951,6 +951,7 @@ async def check_and_send_buy_info(
             chat_id=update.effective_chat.id,
             text=f"""Бронь билета осуществляется по 100% оплате.
 ❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
+❗️ПЕРНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
 Если вы согласны с правилами, то переходите к оплате.
@@ -1110,13 +1111,11 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['reserve_user_data']['client_data']['phone'] = phone
 
     await update.effective_chat.send_message(
-        text="""<b>Напишите, имя и возраст ребенка</b>
+        text="""<b>Напишите, имя и сколько полных лет ребенку</b>
 __________
-Возможные форматы записи:
-Сергей 26.08.2019
-Иван 1.5
-Юля 1г10м
-Оля 1год 8мес
+Например:
+Сергей 2
+Юля 3
 __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
@@ -1137,10 +1136,9 @@ async def get_name_children(
 
     text = update.effective_message.text
     text_for_message = """Проверьте, что указали дату или возраст правильно
-Возможные форматы записи:
-Сергей 26.08.2019
-Иван 1.5
-Юля 1г10м
+Например:
+Сергей 2
+Юля 3
 __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
@@ -1149,8 +1147,9 @@ __________
     # Проверка корректности ввода
     count = text.count('\n')
     result = re.findall(
-        r'(^\w+ \d ?\w+ ?и? ?\d ?\w+)+|(\w+ (\d+(?:[.,]\d+){0,2}))+',
-        text
+        r'\w+ \d',
+        text,
+        flags=re.U | re.M
     )
 
     if len(result) < count + 1:
@@ -1204,7 +1203,7 @@ __________
             f'Кол-во детей, согласно выбранному билету: '
             f'{chose_ticket.quality_of_children}\n'
             f'Повторите ввод еще раз, проверьте что каждый ребенок на '
-            f'отдельной строке.\n\nНапример:\nИван 1\nСергей 01.01.2000')
+            f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3')
         state = 'CHILDREN'
         context.user_data['STATE'] = state
         return state

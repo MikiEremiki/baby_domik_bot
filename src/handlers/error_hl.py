@@ -51,11 +51,9 @@ async def error_handler(update: Update,
 
     message = pformat(context.bot_data)
     error_hl_logger.info(message)
-    await split_message(context, message)
 
     message = pformat(context.user_data)
     error_hl_logger.info(message)
-    await split_message(context, message)
 
     user = context.user_data['user']
     if context.user_data['STATE'] == 'PAID':

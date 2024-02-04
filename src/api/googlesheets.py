@@ -222,61 +222,49 @@ def write_client(
             googlesheets_logger.info('No data found')
             return
 
-        first_row_for_write = len(values_column)
-        last_row_for_write = first_row_for_write + len(client['data_children'])
-
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
-        values: List[Any] = []
+        values: List[Any] = [[]]
         record_ids = []
 
-        age = None
-        for i in range(len(client['data_children'])):
-            record_id = int(values_column[-1][0]) + 1 + i
-            values.append([record_id])
-            record_ids.append(record_id)
-            # TODO Добавить запись user_id
-            for key, item in client.items():
-                if key == 'data_children':
-                    item = item[i]
-                    values[i].append(item[0])
-                    if len(item[1]) < 5:
-                        age = item[1]
-                        item[1] = ''
-                    values[i].append(item[1])
-                else:
-                    values[i].append(item)
-            if age is not None:
-                values[i].append(age)
+        record_id = int(values_column[-1][0]) + 1
+        values[0].append(record_id)
+        record_ids.append(record_id)
+        # TODO Добавить запись user_id
+        for key, item in client.items():
+            if key == 'data_children':
+                values[0].append(' | '.join([i[0] for i in item]))
+                values[0].append('')
+                values[0].append(' | '.join([i[1] for i in item]))
             else:
-                values[i].append(
-                    f'=(TODAY()-E{first_row_for_write + i + 1})/365')
+                values[0].append(item)
 
-            # Спектакль
-            values[i].append(event_id)
-            for j in range(4):
-                values[i].append(
-                    f'=VLOOKUP('
-                    f'INDIRECT("R"&ROW()&"C"&MATCH("event_id";$2:$2;0);FALSE);'
-                    f'INDIRECT("\'Расписание\'!R1C1:C"&MATCH('
-                    f'INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);FALSE);'
-                    f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
-                    f'0)'
-                )
-            values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
+        # Спектакль
+        values[0].append(event_id)
+        for j in range(4):
+            values[0].append(
+                f'=VLOOKUP('
+                f'INDIRECT("R"&ROW()&"C"&MATCH("event_id";$2:$2;0);FALSE);'
+                f'INDIRECT("\'Расписание\'!R1C1:C"&MATCH('
+                f'INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);FALSE);'
+                f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
+                f'0)'
+            )
+        values[0].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
-            # add ticket info
-            values[i].append(ticket.base_ticket_id)
-            values[i].append(ticket.name)
-            values[i].append(price)
-            values[i].append(ticket.quality_of_children)
-            values[i].append(ticket.quality_of_adult +
-                             ticket.quality_of_add_adult)
+        # add ticket info
+        values[0].append(ticket.base_ticket_id)
+        values[0].append(ticket.name)
+        values[0].append(price)
+        values[0].append(ticket.quality_of_children)
+        values[0].append(ticket.quality_of_adult +
+                         ticket.quality_of_add_adult)
 
-            values[i].append(bool(i))
-            values[i].append(False)
-            values[i].append(bool(i))
+        values[0].append(False)
+        values[0].append(False)
+        values[0].append(False)
+
         googlesheets_logger.info(values)
 
         end_column_index = len(values[0])
@@ -286,10 +274,10 @@ def write_client(
         }
 
         range_sheet = (RANGE_NAME['База клиентов_'] +
-                       f'R{first_row_for_write + 1}C1:'
-                       f'R{last_row_for_write + 1}C{end_column_index}')
+                       f'R1C1:'
+                       f'R1C{end_column_index}')
 
-        execute_update_googlesheet(sheet,
+        execute_append_googlesheet(sheet,
                                    range_sheet,
                                    value_input_option,
                                    response_value_render_option,
@@ -517,6 +505,39 @@ def execute_update_googlesheet(
                 '\n'
                 'updatedRange: ',
                 response['updatedRange']
+            ]
+        ))
+    except TimeoutError as err:
+        googlesheets_logger.error(err)
+        googlesheets_logger.error(value_range_body)
+
+
+def execute_append_googlesheet(
+        sheet,
+        range_sheet,
+        value_input_option,
+        response_value_render_option,
+        value_range_body
+):
+    request = sheet.values().append(
+        spreadsheetId=SPREADSHEET_ID['Домик'],
+        range=range_sheet,
+        valueInputOption=value_input_option,
+        insertDataOption='INSERT_ROWS',
+        includeValuesInResponse=True,
+        responseValueRenderOption=response_value_render_option,
+        body=value_range_body,
+    )
+    try:
+        response = request.execute()
+
+        googlesheets_logger.info(": ".join(
+            [
+                'spreadsheetId: ',
+                response['spreadsheetId'],
+                '\n'
+                'tableRange: ',
+                response['tableRange']
             ]
         ))
     except TimeoutError as err:
