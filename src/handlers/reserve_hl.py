@@ -951,11 +951,11 @@ async def check_and_send_buy_info(
             chat_id=update.effective_chat.id,
             text=f"""Бронь билета осуществляется по 100% оплате.
 ❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
-❗️ПЕРНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
+❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
 Если вы согласны с правилами, то переходите к оплате.
-Если вам нужно подумать нажмите кнопку отменить под сообщением.
+Если вам нужно подумать, нажмите кнопку отменить под сообщением.
 
     <b>К оплате {price} руб</b>
 
@@ -1369,8 +1369,11 @@ async def send_clients_data(
             text += '\nВозраст: '
             text += item1[name_column['child_age']] + ' '
         if item1[name_column['name']] != '':
-            text += '\nСпособ брони:\n'
+            text += '\nСпособ брони: '
             text += item1[name_column['name']] + ' '
+        if item1[name_column['notes']] != '':
+            text += '\nПримечание: '
+            text += item1[name_column['notes']] + ' '
     await query.edit_message_text(
         text=text,
         parse_mode=ParseMode.HTML
