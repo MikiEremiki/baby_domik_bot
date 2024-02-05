@@ -1369,8 +1369,11 @@ async def send_clients_data(
             text += '\nВозраст: '
             text += item1[name_column['child_age']] + ' '
         if item1[name_column['name']] != '':
-            text += '\nСпособ брони:\n'
+            text += '\nСпособ брони: '
             text += item1[name_column['name']] + ' '
+        if item1[name_column['notes']] != '':
+            text += '\nПримечание: '
+            text += item1[name_column['notes']] + ' '
     await query.edit_message_text(
         text=text,
         parse_mode=ParseMode.HTML
