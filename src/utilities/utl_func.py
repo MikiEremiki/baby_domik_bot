@@ -113,27 +113,45 @@ async def delete_message_for_job_in_callback(
 async def set_menu(bot: ExtBot) -> None:
     utilites_logger.info('Начало настройки команд')
     default_commands = [
-        BotCommand(COMMAND_DICT['START'][0], COMMAND_DICT['START'][1]),
-        BotCommand(COMMAND_DICT['RESERVE'][0], COMMAND_DICT['RESERVE'][1]),
-        BotCommand(COMMAND_DICT['BD_ORDER'][0], COMMAND_DICT['BD_ORDER'][1]),
+        BotCommand(COMMAND_DICT['START'][0],
+                   COMMAND_DICT['START'][1]),
+        BotCommand(COMMAND_DICT['RESERVE'][0],
+                   COMMAND_DICT['RESERVE'][1]),
+        BotCommand(COMMAND_DICT['BD_ORDER'][0],
+                   COMMAND_DICT['BD_ORDER'][1]),
     ]
     admin_group_commands = [
-        BotCommand(COMMAND_DICT['LIST'][0], COMMAND_DICT['LIST'][1]),
-        BotCommand(COMMAND_DICT['LIST_WAIT'][0], COMMAND_DICT['LIST_WAIT'][1]),
+        BotCommand(COMMAND_DICT['LIST'][0],
+                   COMMAND_DICT['LIST'][1]),
+        BotCommand(COMMAND_DICT['LIST_WAIT'][0],
+                   COMMAND_DICT['LIST_WAIT'][1]),
     ]
     sub_admin_commands = default_commands + admin_group_commands
     admin_commands = sub_admin_commands + [
-        BotCommand(COMMAND_DICT['AFISHA'][0], COMMAND_DICT['AFISHA'][1]),
-        BotCommand(COMMAND_DICT['ADM_INFO'][0], COMMAND_DICT['ADM_INFO'][1]),
-        BotCommand(COMMAND_DICT['UP_T_DATA'][0], COMMAND_DICT['UP_T_DATA'][1]),
-        BotCommand(COMMAND_DICT['UP_S_DATA'][0], COMMAND_DICT['UP_S_DATA'][1]),
-        BotCommand(COMMAND_DICT['CB_TW'][0], COMMAND_DICT['CB_TW'][1]),
+        BotCommand(COMMAND_DICT['RESERVE_ADMIN'][0],
+                   COMMAND_DICT['RESERVE_ADMIN'][1]),
+        BotCommand(COMMAND_DICT['AFISHA'][0],
+                   COMMAND_DICT['AFISHA'][1]),
+        BotCommand(COMMAND_DICT['ADM_INFO'][0],
+                   COMMAND_DICT['ADM_INFO'][1]),
+        BotCommand(COMMAND_DICT['UP_T_DATA'][0],
+                   COMMAND_DICT['UP_T_DATA'][1]),
+        BotCommand(COMMAND_DICT['UP_S_DATA'][0],
+                   COMMAND_DICT['UP_S_DATA'][1]),
+        BotCommand(COMMAND_DICT['UP_BD_PRICE'][0],
+                   COMMAND_DICT['UP_BD_PRICE'][1]),
+        BotCommand(COMMAND_DICT['CB_TW'][0],
+                   COMMAND_DICT['CB_TW'][1]),
     ]
     backend_commands = [
-        BotCommand(COMMAND_DICT['TOPIC_START'][0], COMMAND_DICT['TOPIC_START'][1]),
-        BotCommand(COMMAND_DICT['TOPIC_DEL'][0], COMMAND_DICT['TOPIC_DEL'][1]),
-        BotCommand(COMMAND_DICT['LOG'][0], COMMAND_DICT['LOG'][1]),
-        BotCommand(COMMAND_DICT['ECHO'][0], COMMAND_DICT['ECHO'][1]),
+        BotCommand(COMMAND_DICT['TOPIC_START'][0],
+                   COMMAND_DICT['TOPIC_START'][1]),
+        BotCommand(COMMAND_DICT['TOPIC_DEL'][0],
+                   COMMAND_DICT['TOPIC_DEL'][1]),
+        BotCommand(COMMAND_DICT['LOG'][0],
+                   COMMAND_DICT['LOG'][1]),
+        BotCommand(COMMAND_DICT['ECHO'][0],
+                   COMMAND_DICT['ECHO'][1]),
     ]
 
     superadmin_commands = admin_commands + backend_commands
