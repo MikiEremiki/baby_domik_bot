@@ -496,6 +496,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['birthday_user_data'].clear()
     if context.user_data.get('reserve_user_data', False):
         context.user_data['reserve_user_data'].clear()
+    context.user_data.pop('STATE')
+    context.user_data.pop('command')
     return ConversationHandler.END
 
 

@@ -100,8 +100,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'Выполните команду в правильном топике')
             return ConversationHandler.END
 
-    reserve_hl_logger.info(f'Пользователь начал выбор месяца:'
-                           f' {user}')
+    reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
@@ -123,7 +122,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  'Но вы можете забронировать место связавшись напрямую с '
                  'Администратором:\n'
                  f'{context.bot_data['admin']['contacts']}',
-            message_thread_id=update.message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id
         )
         return ConversationHandler.END
     except TimeoutError:
@@ -133,10 +132,10 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'Обработчик завершился на этапе {state}')
         await update.effective_chat.send_message(
             text='Произошел разрыв соединения, попробуйте еще раз\n'
-                 'Если проблема повторится вы можете оформить заявку напрямую у '
-                 'Администратора:\n'
+                 'Если проблема повторится вы можете оформить заявку '
+                 'напрямую у Администратора:\n'
                  f'{context.bot_data['admin']['contacts']}',
-            message_thread_id=update.message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id
         )
         return ConversationHandler.END
 
@@ -169,10 +168,11 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id
     )
 
-    context.user_data['common_data']['dict_of_shows'] = dict_of_shows
+    context.user_data['common_data'][
+        'dict_of_shows'] = dict_of_shows
     context.user_data['reserve_user_data'][
         'dict_of_name_show'] = dict_of_name_show
     context.user_data['reserve_user_data'][

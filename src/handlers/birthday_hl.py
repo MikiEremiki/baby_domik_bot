@@ -326,6 +326,10 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = None
 
     birthday_place = context.user_data['birthday_user_data']['place']
+    birthday_price = context.bot_data.get(
+        'birthday_price',
+        {1: 0, 2: 0, 3: 0}
+    )
     if birthday_place == 1:
         one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
         two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
@@ -334,10 +338,10 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += escape_markdown(
             f'{one_option} Спектакль (40 минут) + '
             'аренда комнаты под чаепитие (1 час)\n'
-            ' 15000 руб\n\n'
+            f' {birthday_price[1]} руб\n\n'
             f'{two_option} Спектакль (40 минут) + '
             'аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
-            ' 20000 руб',
+            f' {birthday_price[2]} руб',
             2
         )
 
@@ -350,10 +354,10 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Формат «На выезде»:\n\n'
             'Спектакль (40 минут) + Свободная игра с персонажами и '
             'фотосессия (20 минут)\n'
-            '25000р\n\n',
+            f' {birthday_price[3]} руб\n\n',
             2
         )
-        text += do_italic('Нажмите далее')
+        text += do_italic('Нажмите Далее')
 
         reply_markup = InlineKeyboardMarkup([
             [InlineKeyboardButton('Далее', callback_data=3)]
@@ -380,15 +384,19 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     birthday_hl_logger.info(join_for_log_info(
         context.user_data['user'].id, 'формат праздника', format_bd))
+    birthday_price = context.bot_data.get(
+        'birthday_price',
+        {1: 0, 2: 0, 3: 0}
+    )
 
     text = 'Формат проведения Дня рождения\n\n'
     match format_bd:
         case '1':
-            text += f'Спектакль + чаепитие\n 15000 руб'
+            text += f'Спектакль + чаепитие\n {birthday_price[1]} руб'
         case '2':
-            text += f'Спектакль + чаепитие + дискотека\n 20000 руб'
+            text += (f'Спектакль + чаепитие + дискотека\n {birthday_price[2]} руб')
         case '3':
-            text += f'Спектакль + игра + фотосессия\n 25000 руб'
+            text += f'Спектакль + игра + фотосессия\n {birthday_price[3]} руб'
     await query.edit_message_text(text)
 
     await update.effective_chat.send_message(
@@ -464,20 +472,24 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'dict_of_shows']
                     item = dict_of_shows[item]['full_name']
                 case 'format_bd':
+                    birthday_price = context.bot_data.get(
+                        'birthday_price',
+                        {1: 0, 2: 0, 3: 0}
+                    )
                     if item == 1:
                         item = ('Спектакль (40 минут) + '
                                 'аренда комнаты под чаепитие (1 час) '
-                                '-> 15000 руб')
+                                f'-> {birthday_price[1]} руб')
                     elif item == 2:
                         item = ('Спектакль (40 минут) + '
                                 'аренда комнаты под чаепитие + '
                                 'серебряная дискотека (1 час) '
-                                '-> 20000 руб')
+                                f'-> {birthday_price[2]} руб')
                     elif item == 3:
                         item = ('Спектакль (40 минут) + '
                                 'Свободная игра с персонажами и '
                                 'фотосессия (20 минут)'
-                                '-> 25000 руб')
+                                f'-> {birthday_price[3]} руб')
                 case 'phone':
                     item = '+7' + item
 
@@ -545,9 +557,8 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = ('    Внесите предоплату 5000 руб\n\n'
             'Оплатить можно:\n'
-            ' - По qr-коду\n'
-            ' - Переводом в банк Точка по номеру телефона +79159383529' 
-            '- Татьяна Александровна Б.\n\n'
+            ' - Переводом на карту Сбербанка по номеру телефона'
+            '+79159383529 Татьяна Александровна Б.\n\n'
             'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)\n'
             'Пожалуйста внесите оплату в течении 30 минут или нажмите '
             'отмена\n\n'
@@ -555,9 +566,8 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'В случае переноса или отмены свяжитесь с Администратором:\n'
             f'{context.bot_data['admin']['contacts']}')
 
-    message = await update.effective_chat.send_photo(
-        photo=FILE_ID_QR,
-        caption=text,
+    message = await update.effective_chat.send_message(
+        text=text,
         reply_markup=reply_markup
     )
 

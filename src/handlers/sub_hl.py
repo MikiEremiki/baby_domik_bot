@@ -27,7 +27,7 @@ async def send_and_del_message_to_remove_kb(update: Update):
     return await update.effective_chat.send_message(
         text='Загружаем данные',
         reply_markup=ReplyKeyboardRemove(),
-        message_thread_id=update.message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id
     )
 
 
@@ -145,3 +145,33 @@ async def remove_inline_button(update: Update):
     await query.edit_message_reply_markup()
 
     return query
+
+
+async def update_bd_price(update: Update,
+                          context: ContextTypes.DEFAULT_TYPE) -> None:
+    birthday_price = context.bot_data.setdefault('birthday_price', {})
+    if context.args:
+        if context.args[0] == 'clean':
+            context.bot_data['birthday_price'] = {}
+            await update.effective_chat.send_message(
+                f'Зафиксировано: {context.bot_data['birthday_price']}')
+            return
+        if len(context.args) % 2 == 0:
+            for i in range(0, len(context.args), 2):
+                birthday_price[int(context.args[i])] = int(context.args[i+1])
+            await update.effective_chat.send_message(
+                f'Зафиксировано: {context.bot_data['birthday_price']}')
+        else:
+            await update.effective_chat.send_message(
+                f'Должно быть четное кол-во параметров\n'
+                f'Передано {len(context.args)}\n'
+                'Формат: 1 15000 2 20000\n'
+                'В качестве разделителей только пробелы')
+    else:
+        await update.effective_chat.send_message(
+            'Не заданы параметры к команде\n'
+            '1 - Спектакль (40 минут) + аренда комнаты под чаепитие (1 час)\n'
+            '2 - Спектакль (40 минут) + аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
+            '3 - Спектакль (40 минут) + Свободная игра с персонажами и фотосессия (20 минут)\n'
+            'Текущие цены заказных мероприятий:\n'
+            f'{birthday_price}')

@@ -32,5 +32,8 @@ context_bot_data: Dict = {
         'username': str,
         'phone': str,
         'contacts': str,
-    }
+    },
+    'birthday_price': {
+        int: (int, str),
+    },
 }

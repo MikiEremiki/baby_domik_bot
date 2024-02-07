@@ -11,7 +11,7 @@ from log.logging_conf import load_log_config
 from handlers import main_hl
 from handlers.error_hl import error_handler
 from handlers.sub_hl import (
-    update_ticket_data, update_show_data, update_admin_info
+    update_ticket_data, update_show_data, update_admin_info, update_bd_price
 )
 from handlers.timeweb_hl import get_balance
 from conv_hl.reserve_conv_hl import reserve_conv_hl
@@ -88,6 +88,10 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['UP_S_DATA'][0],
         update_show_data,
+        filters=filters.User(ADMIN_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['UP_BD_PRICE'][0],
+        update_bd_price,
         filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['LOG'][0],

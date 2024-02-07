@@ -8,9 +8,9 @@ services:
       context: .
     image: baby_domik:v1
     restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
     networks:
       - network
     environment:
