@@ -1238,8 +1238,6 @@ __________
     text += '\n\n'
     for record in record_ids:
         text += f'#id{record} '
-        # TODO добавить обработку нулевого значения, это значит что строки
-        #  закончились в гугл-таблице
     message_id_for_admin = context.user_data['common_data'][
         'message_id_for_admin']
 
