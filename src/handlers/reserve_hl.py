@@ -563,7 +563,8 @@ async def choice_option_of_reserve(
 
     await query.edit_message_text(
         'Проверяю не изменилось ли кол-во свободных мест...')
-    list_of_name_colum = ['qty_child_free_seat', 'qty_adult_free_seat']
+    list_of_name_colum = ['qty_child_free_seat',
+                          'qty_adult_free_seat']
     (qty_child_free_seat_now,
      qty_adult_free_seat_now
      ) = get_quality_of_seats(event_id,
@@ -779,7 +780,7 @@ async def check_and_send_buy_info(
         state = ConversationHandler.END
         context.user_data['STATE'] = state
         return state
-    # Для все стандартных вариантов
+    # Для всех стандартных вариантов
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
         # памятку
@@ -869,13 +870,15 @@ async def check_and_send_buy_info(
             ))
 
             qty_child_free_seat_new = int(
-                qty_child_free_seat_now) - int(chose_ticket.quality_of_children)
+                qty_child_free_seat_now) - int(
+                chose_ticket.quality_of_children)
             qty_child_nonconfirm_seat_new = int(
                 qty_child_nonconfirm_seat_now) + int(
                 chose_ticket.quality_of_children)
             qty_adult_free_seat_new = int(
-                qty_adult_free_seat_now) - int(chose_ticket.quality_of_adult +
-                                               chose_ticket.quality_of_add_adult)
+                qty_adult_free_seat_now) - int(
+                chose_ticket.quality_of_adult +
+                chose_ticket.quality_of_add_adult)
             qty_adult_nonconfirm_seat_new = int(
                 qty_adult_nonconfirm_seat_now) + int(
                 chose_ticket.quality_of_adult +
@@ -1221,30 +1224,13 @@ __________
 
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Бронирование спектаклей', None))
-    await send_message_to_admin(ADMIN_GROUP,
-                                text,
-                                message_id_for_admin,
-                                context,
-                                thread_id)
-
-    await update.effective_chat.send_message(
-        'Благодарим за ответы.\n\n'
-        'Ожидайте подтверждения брони.\n'
-        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
-        '<i>Если сообщение не придет в течение суток, напишите в группу в '
-        'контакте</i>',
-        parse_mode=ParseMode.HTML
-    )
-
-    text = context.user_data['common_data']['text_for_notification_massage']
-    text += (f'__________\n'
-             'Задать вопросы можно в сообщениях группы\n'
-             'https://vk.com/baby_theater_domik')
-    message = await update.effective_chat.send_message(
+    await send_message_to_admin(
+        chat_id=ADMIN_GROUP,
         text=text,
-        parse_mode=ParseMode.HTML
+        message_id=message_id_for_admin,
+        context=context,
+        thread_id=thread_id
     )
-    await message.pin()
 
     # TODO Переставить сразу после оплаты (чтобы можно было подтвердить)
     reserve_admin_data['payment_id'] += 1
