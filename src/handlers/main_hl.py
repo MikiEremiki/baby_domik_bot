@@ -514,6 +514,20 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
+    utilites_logger.info(
+        f'{update.effective_user.id}: '
+        f'{update.effective_user.full_name}\n'
+        f'Вызвал команду reset'
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Попробуйте выполнить новый запрос'
+    )
+    await clean_context_on_end_handler(utilites_logger, context)
+    return ConversationHandler.END
+
+
 async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
     main_handlers_logger.info(": ".join(
         [
