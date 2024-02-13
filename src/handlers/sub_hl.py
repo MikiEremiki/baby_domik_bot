@@ -3,7 +3,7 @@ import logging
 from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 
-from config.settings import SUPPORT_DATA
+from settings.settings import SUPPORT_DATA
 from db.db_googlesheets import load_ticket_data, load_list_show
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from settings.settings import TICKET_COST
