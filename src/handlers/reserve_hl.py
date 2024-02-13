@@ -685,6 +685,8 @@ async def choice_option_of_reserve(
     )
 
     state = 'ORDER'
+    if context.user_data.get('command', False):
+        state = 'TICKET'
     context.user_data['STATE'] = state
     return state
 
