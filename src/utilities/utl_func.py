@@ -228,7 +228,7 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def send_message_to_admin(
         chat_id: Union[int, str],
         text: str,
-        message_id: Union[int, str],
+        message_id: Optional[Union[int, str]],
         context: ContextTypes.DEFAULT_TYPE,
         thread_id: Optional[int]
 ) -> None:
@@ -240,7 +240,8 @@ async def send_message_to_admin(
             reply_to_message_id=message_id,
             message_thread_id=thread_id
         )
-    except BadRequest:
+    except BadRequest as e:
+        utilites_logger.error(e)
         utilites_logger.info(": ".join(
             [
                 'Для пользователя',
@@ -252,6 +253,7 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
+            parse_mode=ParseMode.HTML,
             message_thread_id=thread_id
         )
 
