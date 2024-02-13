@@ -1265,6 +1265,26 @@ __________
     return state
 
 
+async def send_by_ticket_info(update, context):
+    await update.effective_chat.send_message(
+        'Благодарим за ответы.\n\n'
+        'Ожидайте подтверждения брони.\n'
+        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
+        '<i>Если сообщение не придет в течение суток, напишите в группу в '
+        'контакте</i>',
+        parse_mode=ParseMode.HTML
+    )
+    text = context.user_data['common_data']['text_for_notification_massage']
+    text += (f'__________\n'
+             'Задать вопросы можно в сообщениях группы\n'
+             'https://vk.com/baby_theater_domik')
+    message = await update.effective_chat.send_message(
+        text=text,
+        parse_mode=ParseMode.HTML
+    )
+    await message.pin()
+
+
 async def conversation_timeout(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
