@@ -1361,26 +1361,39 @@ async def send_clients_data(
     time, event_id, qty_child, qty_adult = query.data.split(' | ')
 
     clients_data, name_column = load_clients_data(event_id)
-    text = f'#Показ\n'
-    text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
-    text += str(len(clients_data))
-    for i, item1 in enumerate(clients_data):
+    text = f'#Показ #event_id_{event_id}\n'
+    text += f'Список людей для\n{name}\n{date}\n{time}\nКол-во посетителей: '
+    qty_child = 0
+    qty_adult = 0
+    for item in clients_data:
+        if item[name_column['flag_exclude_place_sum']] == 'FALSE':
+            qty_child += int(item[name_column['qty_child']])
+            qty_adult += int(item[name_column['qty_adult']])
+    text += f"д={qty_child}|в={qty_adult}"
+    for i, item in enumerate(clients_data):
         text += '\n__________\n'
         text += str(i + 1) + '| '
-        text += '<b>' + item1[name_column['callback_name']] + '</b>'
-        text += '\n+7' + item1[name_column['callback_phone']]
-        if item1[name_column['child_name']] != '':
+        text += '<b>' + item[name_column['callback_name']] + '</b>'
+        text += '\n+7' + item[name_column['callback_phone']]
+        child_name = item[name_column['child_name']]
+        if child_name != '':
             text += '\nИмя ребенка: '
-            text += item1[name_column['child_name']] + ' '
-        if item1[name_column['child_age']] != '':
+            text += child_name
+        age = item[name_column['child_age']]
+        if age != '':
             text += '\nВозраст: '
-            text += item1[name_column['child_age']] + ' '
-        if item1[name_column['name']] != '':
+            text += age
+        name = item[name_column['name']]
+        if name != '':
             text += '\nСпособ брони: '
-            text += item1[name_column['name']] + ' '
-        if item1[name_column['notes']] != '':
-            text += '\nПримечание: '
-            text += item1[name_column['notes']] + ' '
+            text += name
+        try:
+            notes = item[name_column['notes']]
+            if notes != '':
+                text += '\nПримечание: '
+                text += notes
+        except IndexError:
+            reserve_hl_logger.info('Примечание не задано')
     await query.edit_message_text(
         text=text,
         parse_mode=ParseMode.HTML
