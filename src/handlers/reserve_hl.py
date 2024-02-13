@@ -61,22 +61,13 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state MONTH
     """
-    clean_context(context)
-
-    state = 'START'
-    context.user_data['STATE'] = state
-    context.user_data['command'] = extract_command(
-        update.effective_message.text)
-    context.user_data['reserve_user_data'] = {}
-    context.user_data['reserve_user_data']['back'] = {}
-    context.user_data['reserve_user_data']['client_data'] = {}
-    context.user_data['reserve_user_data']['choose_event_info'] = {}
-    context.user_data.setdefault('common_data', {})
-    context.user_data.setdefault('reserve_admin_data', {'payment_id': 0})
-    if not isinstance(
-            context.user_data['reserve_admin_data']['payment_id'],
-            int):
-        context.user_data['reserve_admin_data'] = {'payment_id': 0}
+    query = update.callback_query
+    if context.user_data.get('command', False) and query:
+        state = context.user_data['STATE']
+        await query.answer()
+        await query.delete_message()
+    else:
+        state = init_conv_hl_dialog(update, context)
 
     user = context.user_data.setdefault('user', update.effective_user)
 
