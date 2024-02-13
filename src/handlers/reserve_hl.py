@@ -527,7 +527,8 @@ async def choice_option_of_reserve(
                         f'{date}\n'
                         f'{time}</b>\n'
                         f'{text_emoji}\n')
-    if int(qty_child) == 0 or int(qty_adult) == 0:
+    if ((int(qty_child) == 0 or int(qty_adult) == 0) and
+            context.user_data.get('command', False) == 'reserve'):
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
         reserve_hl_logger.info('Мест нет')
