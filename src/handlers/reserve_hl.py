@@ -1208,9 +1208,10 @@ __________
     reserve_hl_logger.info(client_data)
 
     chose_price = reserve_user_data['chose_price']
-    record_ids = write_client(
+    event_id = reserve_admin_data[payment_id]['event_id']
+    record_id = write_client(
         client_data,
-        reserve_admin_data[payment_id]['event_id'],
+        event_id,
         chose_ticket,
         chose_price,
     )
@@ -1220,11 +1221,27 @@ __________
         '+7' + client_data['phone'],
         text,
     ])
-    text += '\n\n'
-    for record in record_ids:
-        text += f'#id{record} '
-    message_id_for_admin = context.user_data['common_data'][
-        'message_id_for_admin']
+
+    message_id_for_admin = None
+    if context.user_data.get('command', False) == 'reserve':
+        message_id_for_admin = context.user_data['common_data'][
+            'message_id_for_admin']
+
+        text += '\n\n'
+        text += f'#id{record_id}\n'
+
+        await send_by_ticket_info(update, context)
+    if context.user_data.get('command', False) == 'reserve_admin':
+        text += '\n\n'
+        text += f'event_id: {event_id}\n'
+        event_info, name_column = load_show_info(int(event_id))
+        text += event_info[name_column['name_show']]
+        text += '\n' + event_info[name_column['date_show']]
+        text += '\n' + event_info[name_column['time_show']]
+        text += '\n' + chose_ticket.name + ' ' + str(chose_price) + 'руб'
+        text += '\n\n'
+        text += f'Добавлено: {update.effective_chat.full_name}\n'
+        text += f'#id{record_id}'
 
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Бронирование спектаклей', None))
