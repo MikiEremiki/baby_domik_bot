@@ -492,6 +492,17 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'была одобрена',
                 message_thread_id=query.message.message_thread_id
             )
+        case 'res_adm':
+            await query.delete_message()
+            await update.effective_chat.send_message(
+                text='Вы выбрали отмену\nИспользуйте команды:\n'
+                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
+                     f'резервирования свободных мест на спектакль\n'
+                     f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
+                     f'записи без подтверждения',
+                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
+            )
 
     try:
         main_handlers_logger.info(f'Для пользователя {user}')
@@ -499,17 +510,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
-    main_handlers_logger.info(
-        f'Обработчик завершился на этапе {context.user_data['STATE']}')
-
-    if context.user_data.get('common_data', False):
-        context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_user_data', False):
-        context.user_data['birthday_user_data'].clear()
-    if context.user_data.get('reserve_user_data', False):
-        context.user_data['reserve_user_data'].clear()
-    context.user_data.pop('STATE')
-    context.user_data.pop('command')
+    await clean_context_on_end_handler(main_handlers_logger, context)
     return ConversationHandler.END
 
 
