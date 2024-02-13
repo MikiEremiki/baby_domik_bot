@@ -1160,7 +1160,8 @@ __________
         payment_id = reserve_admin_data['payment_id']
         payment_data = reserve_admin_data[payment_id]
         chose_ticket = payment_data['chose_ticket']
-    except KeyError:
+    except KeyError as e:
+        reserve_hl_logger.error(e)
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
             f'Повторите, пожалуйста, бронирование еще раз\n'
