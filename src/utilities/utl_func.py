@@ -215,14 +215,15 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id=update.effective_chat.id,
         document='log/archive/log.txt'
     )
-    if context.args[0] == all:
-        i = 1
-        while os.path.exists(f'log/archive/log.txt.{i}'):
-            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
-                document=f'log/archive/log.txt.{i}'
-            )
-            i += 1
+    if context.args:
+        if context.args[0] == 'all':
+            i = 1
+            while os.path.exists(f'log/archive/log.txt.{i}'):
+                await context.bot.send_document(
+                    chat_id=update.effective_chat.id,
+                    document=f'log/archive/log.txt.{i}'
+                )
+                i += 1
 
 
 async def send_message_to_admin(
