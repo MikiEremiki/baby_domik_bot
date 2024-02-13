@@ -1323,6 +1323,10 @@ async def send_clients_data(
     query = update.callback_query
     await query.answer()
 
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
+
     reserve_user_data = context.user_data['reserve_user_data']
     choose_event_info = reserve_user_data['choose_event_info']
     name = choose_event_info['name_show']
