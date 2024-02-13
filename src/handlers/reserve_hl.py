@@ -608,9 +608,13 @@ async def choice_option_of_reserve(
         quality_of_adult = ticket.quality_of_adult
         quality_of_add_adult = ticket.quality_of_add_adult
 
-        if (quality_of_children < quality_of_adult + quality_of_add_adult and
-                int(qty_child_free_seat_now) >= int(qty_adult_free_seat_now)):
-            continue
+        if context.user_data.get('command') == 'reserve':
+            if (
+                    quality_of_children <
+                    quality_of_adult + quality_of_add_adult and
+                    int(qty_child_free_seat_now) >= int(qty_adult_free_seat_now)
+            ):
+                continue
 
         name = ticket.name
         ticket.date_show = date_for_price  # Для расчета стоимости в периоде или нет
