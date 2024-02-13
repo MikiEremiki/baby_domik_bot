@@ -15,7 +15,6 @@ from telegram import (
 from telegram.constants import ParseMode
 from telegram.ext import (
     ContextTypes,
-    ConversationHandler,
     ExtBot,
     Application,
 )
@@ -80,26 +79,21 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
-    utilites_logger.info(
-        f'{update.effective_user.id}: '
-        f'{update.effective_user.full_name}\n'
-        f'Вызвал команду reset'
-    )
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text='Попробуйте выполнить новый запрос'
-    )
-    utilites_logger.info(
+async def clean_context_on_end_handler(logger, context):
+    logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
-
     if context.user_data.get('common_data', False):
         context.user_data['common_data'].clear()
     if context.user_data.get('birthday_user_data', False):
         context.user_data['birthday_user_data'].clear()
     if context.user_data.get('reserve_user_data', False):
         context.user_data['reserve_user_data'].clear()
-    return ConversationHandler.END
+    context.user_data.pop('STATE')
+    context.user_data.pop('command')
+    if context.user_data.get('STATE', False):
+        context.user_data['STATE'].clear()
+    if context.user_data.get('command', False):
+        context.user_data['command'].clear()
 
 
 async def delete_message_for_job_in_callback(
