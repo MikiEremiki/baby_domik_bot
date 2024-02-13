@@ -1,16 +1,13 @@
 import logging
 
-from telegram import (
-    Update,
-    ReplyKeyboardRemove,
-)
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 
+from config.settings import SUPPORT_DATA
 from db.db_googlesheets import load_ticket_data, load_list_show
-from api.googlesheets import (
-    get_quality_of_seats,
-    write_data_for_reserve
-)
+from api.googlesheets import get_quality_of_seats, write_data_for_reserve
+from settings.settings import TICKET_COST
+from utilities.schemas.ticket import BaseTicket
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -175,3 +172,56 @@ async def update_bd_price(update: Update,
             '3 - Спектакль (40 минут) + Свободная игра с персонажами и фотосессия (20 минут)\n'
             'Текущие цены заказных мероприятий:\n'
             f'{birthday_price}')
+
+
+async def get_chose_ticket_and_price(
+        choose_event_info,
+        context,
+        key_option_for_reserve,
+        reserve_user_data
+):
+    option = choose_event_info['option']
+    flag_indiv_cost = choose_event_info['flag_indiv_cost']
+    list_of_tickets = context.bot_data['list_of_tickets']
+    chose_ticket: BaseTicket = list_of_tickets[0]
+    price = chose_ticket.price
+    for ticket in list_of_tickets:
+        if ticket.base_ticket_id == key_option_for_reserve:
+            chose_ticket = ticket
+            price = chose_ticket.price
+
+            key = chose_ticket.base_ticket_id
+            if flag_indiv_cost:
+                if key // 100 == 1:
+                    type_ticket_price = reserve_user_data['type_ticket_price']
+                    price = TICKET_COST[option][type_ticket_price][key]
+    return chose_ticket, price
+
+
+async def get_emoji_and_options_for_event(event, name_column=None):
+    text_emoji = ''
+    option = ''
+    if isinstance(event, dict):
+        if event['flag_gift']:
+            text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
+            option = 'Подарок'
+        if event['flag_christmas_tree']:
+            text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
+            option = 'Ёлка'
+        if event['flag_santa']:
+            text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
+        if event['show_id'] == '10' or event['show_id'] == '8':
+            option = 'Базовая стоимость'
+    if isinstance(event, list):
+        if event[name_column['flag_gift']] == 'TRUE':
+            text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
+            option = 'Подарок'
+        if event[name_column['flag_christmas_tree']] == 'TRUE':
+            text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
+            option = 'Ёлка'
+        if event[name_column['flag_santa']] == 'TRUE':
+            text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
+        if (event[name_column['show_id']] == '10' or
+                event[name_column['show_id']] == '8'):
+            option = 'Базовая стоимость'
+    return option, text_emoji
