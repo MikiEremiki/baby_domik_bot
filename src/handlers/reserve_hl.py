@@ -515,18 +515,7 @@ async def choice_option_of_reserve(
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
     event = dict_of_shows[int(event_id)]
     choose_event_info['event_id'] = int(event_id)
-    text_emoji = ''
-    option = ''
-    if event['flag_gift']:
-        text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
-        option = 'Подарок'
-    if event['flag_christmas_tree']:
-        text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
-        option = 'Ёлка'
-    if event['flag_santa']:
-        text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
-    if event['show_id'] == '10' or event['show_id'] == '8':
-        option = 'Базовая стоимость'
+    option, text_emoji = await get_emoji_and_options_for_event(event)
 
     choose_event_info['option'] = option
     choose_event_info['text_emoji'] = text_emoji
