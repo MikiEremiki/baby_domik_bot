@@ -87,7 +87,9 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
     message = await send_and_del_message_to_remove_kb(update)
-    await update.effective_chat.send_action(ChatAction.TYPING)
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
 
     try:
         (
@@ -485,7 +487,9 @@ async def choice_option_of_reserve(
     await query.answer()
     await query.edit_message_text('Загружаю данные по билетам...')
 
-    await update.effective_chat.send_action(ChatAction.TYPING)
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
