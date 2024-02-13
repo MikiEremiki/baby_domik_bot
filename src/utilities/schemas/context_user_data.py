@@ -37,7 +37,7 @@ context_user_data: Dict = {
     },
     'reserve_user_data': {
         'back': {
-            str: {
+            str | int: {
                 'text': str,  # текст для возврата назад в State str
                 'keyboard': InlineKeyboardMarkup
             },

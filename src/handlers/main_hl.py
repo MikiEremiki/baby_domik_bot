@@ -15,7 +15,10 @@ from api.googlesheets import (
     write_data_for_reserve,
     set_approve_order
 )
-from utilities.utl_func import is_admin, get_back_context, clean_context
+from utilities.utl_func import (
+    is_admin, get_back_context, clean_context,
+    clean_context_on_end_handler, utilites_logger
+)
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -364,12 +367,30 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    state = query.data.split('-')[1].upper()
+    state = query.data.split('-')[1]
+    if state.isdigit():
+        state = int(state)
+    else:
+        state = state.upper()
     text, reply_markup = get_back_context(context, state)
 
-    # TODO Решить как сделать еще более универсально, чтобы уйти от match и case
-    match state:
-        case 'MONTH':
+    if state == 'MONTH':
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup,
+            message_thread_id=query.message.message_thread_id
+        )
+    elif state == 'SHOW':
+        try:
+            await query.edit_message_caption(
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML,
+            )
+        except BadRequest as e:
+            main_handlers_logger.error(e)
             await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
@@ -377,60 +398,51 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=reply_markup,
                 message_thread_id=query.message.message_thread_id
             )
-        case 'SHOW':
-            try:
-                await query.edit_message_caption(
+    elif state == 'DATE':
+        try:
+            number_of_month_str = context.user_data['reserve_user_data'][
+                'number_of_month_str']
+            await query.delete_message()
+            photo = (
+                context.bot_data
+                .get('afisha', {})
+                .get(int(number_of_month_str), False)
+            )
+            if update.effective_chat.type == ChatType.PRIVATE and photo:
+                await update.effective_chat.send_photo(
+                    photo=photo,
                     caption=text,
                     reply_markup=reply_markup,
                     parse_mode=ParseMode.HTML,
-                )
-            except BadRequest as e:
-                main_handlers_logger.error(e)
-                await query.delete_message()
-                await update.effective_chat.send_message(
-                    text=text,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=reply_markup,
                     message_thread_id=query.message.message_thread_id
                 )
-        case 'DATE':
-            try:
-                number_of_month_str = context.user_data['reserve_user_data'][
-                    'number_of_month_str']
-                await query.delete_message()
-                photo = (
-                    context.bot_data
-                    .get('afisha', {})
-                    .get(int(number_of_month_str), False)
-                )
-                if update.effective_chat.type == ChatType.PRIVATE and photo:
-                    await update.effective_chat.send_photo(
-                        photo=photo,
-                        caption=text,
-                        reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML,
-                        message_thread_id=query.message.message_thread_id
-                    )
-                else:
-                    await update.effective_chat.send_message(
-                        text=text,
-                        reply_markup=reply_markup,
-                        parse_mode=ParseMode.HTML,
-                        message_thread_id=query.message.message_thread_id
-                    )
-            except BadRequest as e:
-                main_handlers_logger.error(e)
-                await query.edit_message_text(
-                    text,
+            else:
+                await update.effective_chat.send_message(
+                    text=text,
                     reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML
+                    parse_mode=ParseMode.HTML,
+                    message_thread_id=query.message.message_thread_id
                 )
-        case 'TIME':
+        except BadRequest as e:
+            main_handlers_logger.error(e)
             await query.edit_message_text(
-                text,
+                text=text,
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.HTML
             )
+    elif state == 'TIME':
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
+        )
+    else:
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+        )
+    context.user_data['STATE'] = state
     return state
 
 
@@ -480,6 +492,17 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'была одобрена',
                 message_thread_id=query.message.message_thread_id
             )
+        case 'res_adm':
+            await query.delete_message()
+            await update.effective_chat.send_message(
+                text='Вы выбрали отмену\nИспользуйте команды:\n'
+                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
+                     f'резервирования свободных мест на спектакль\n'
+                     f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
+                     f'записи без подтверждения',
+                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
+            )
 
     try:
         main_handlers_logger.info(f'Для пользователя {user}')
@@ -487,17 +510,21 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
-    main_handlers_logger.info(
-        f'Обработчик завершился на этапе {context.user_data['STATE']}')
+    await clean_context_on_end_handler(main_handlers_logger, context)
+    return ConversationHandler.END
 
-    if context.user_data.get('common_data', False):
-        context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_user_data', False):
-        context.user_data['birthday_user_data'].clear()
-    if context.user_data.get('reserve_user_data', False):
-        context.user_data['reserve_user_data'].clear()
-    context.user_data.pop('STATE')
-    context.user_data.pop('command')
+
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
+    utilites_logger.info(
+        f'{update.effective_user.id}: '
+        f'{update.effective_user.full_name}\n'
+        f'Вызвал команду reset'
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Попробуйте выполнить новый запрос'
+    )
+    await clean_context_on_end_handler(utilites_logger, context)
     return ConversationHandler.END
 
 

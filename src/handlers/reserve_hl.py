@@ -3,29 +3,24 @@ import pprint
 import re
 from datetime import datetime
 
-from telegram.ext import (
-    ContextTypes,
-    ConversationHandler,
-    TypeHandler
-)
+from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
+    InlineKeyboardButton, InlineKeyboardMarkup,
+    ReplyKeyboardMarkup, ReplyKeyboardRemove,
 )
 from telegram.constants import ParseMode, ChatType, ChatAction
 
+from handlers import init_conv_hl_dialog
 from handlers.sub_hl import (
     request_phone_number,
-    send_and_del_message_to_remove_kb,
-    write_old_seat_info,
+    send_and_del_message_to_remove_kb, write_old_seat_info,
+    get_chose_ticket_and_price, get_emoji_and_options_for_event,
 )
 from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
-    load_list_show,
+    load_list_show, load_show_info,
 )
 from api.googlesheets import (
     write_data_for_reserve,
@@ -34,10 +29,10 @@ from api.googlesheets import (
     get_quality_of_seats,
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text, extract_command,
+    extract_phone_number_from_text,
     add_btn_back_and_cancel,
     send_message_to_admin,
-    set_back_context, get_back_context, clean_context,
+    set_back_context, get_back_context,
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -50,13 +45,11 @@ from settings.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
-    FILE_ID_QR,
     TICKET_COST,
     DICT_CONVERT_MONTH_NUMBER_TO_STR,
     SUPPORT_DATA,
     RESERVE_TIMEOUT,
 )
-from utilities.schemas.ticket import BaseTicket
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
@@ -68,22 +61,13 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state MONTH
     """
-    clean_context(context)
-
-    state = 'START'
-    context.user_data['STATE'] = state
-    context.user_data['command'] = extract_command(
-        update.effective_message.text)
-    context.user_data['reserve_user_data'] = {}
-    context.user_data['reserve_user_data']['back'] = {}
-    context.user_data['reserve_user_data']['client_data'] = {}
-    context.user_data['reserve_user_data']['choose_event_info'] = {}
-    context.user_data.setdefault('common_data', {})
-    context.user_data.setdefault('reserve_admin_data', {'payment_id': 0})
-    if not isinstance(
-            context.user_data['reserve_admin_data']['payment_id'],
-            int):
-        context.user_data['reserve_admin_data'] = {'payment_id': 0}
+    query = update.callback_query
+    if context.user_data.get('command', False) and query:
+        state = context.user_data['STATE']
+        await query.answer()
+        await query.delete_message()
+    else:
+        state = init_conv_hl_dialog(update, context)
 
     user = context.user_data.setdefault('user', update.effective_user)
 
@@ -103,7 +87,9 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
     message = await send_and_del_message_to_remove_kb(update)
-    await update.effective_chat.send_action(ChatAction.TYPING)
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
 
     try:
         (
@@ -501,7 +487,9 @@ async def choice_option_of_reserve(
     await query.answer()
     await query.edit_message_text('Загружаю данные по билетам...')
 
-    await update.effective_chat.send_action(ChatAction.TYPING)
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -527,18 +515,7 @@ async def choice_option_of_reserve(
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
     event = dict_of_shows[int(event_id)]
     choose_event_info['event_id'] = int(event_id)
-    text_emoji = ''
-    option = ''
-    if event['flag_gift']:
-        text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
-        option = 'Подарок'
-    if event['flag_christmas_tree']:
-        text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
-        option = 'Ёлка'
-    if event['flag_santa']:
-        text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
-    if event['show_id'] == '10' or event['show_id'] == '8':
-        option = 'Базовая стоимость'
+    option, text_emoji = await get_emoji_and_options_for_event(event)
 
     choose_event_info['option'] = option
     choose_event_info['text_emoji'] = text_emoji
@@ -550,7 +527,8 @@ async def choice_option_of_reserve(
                         f'{date}\n'
                         f'{time}</b>\n'
                         f'{text_emoji}\n')
-    if int(qty_child) == 0 or int(qty_adult) == 0:
+    if ((int(qty_child) == 0 or int(qty_adult) == 0) and
+            context.user_data.get('command', False) == 'reserve'):
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
         reserve_hl_logger.info('Мест нет')
@@ -585,7 +563,8 @@ async def choice_option_of_reserve(
 
     await query.edit_message_text(
         'Проверяю не изменилось ли кол-во свободных мест...')
-    list_of_name_colum = ['qty_child_free_seat', 'qty_adult_free_seat']
+    list_of_name_colum = ['qty_child_free_seat',
+                          'qty_adult_free_seat']
     (qty_child_free_seat_now,
      qty_adult_free_seat_now
      ) = get_quality_of_seats(event_id,
@@ -629,9 +608,13 @@ async def choice_option_of_reserve(
         quality_of_adult = ticket.quality_of_adult
         quality_of_add_adult = ticket.quality_of_add_adult
 
-        if (quality_of_children < quality_of_adult + quality_of_add_adult and
-                int(qty_child_free_seat_now) >= int(qty_adult_free_seat_now)):
-            continue
+        if context.user_data.get('command') == 'reserve':
+            if (
+                    quality_of_children <
+                    quality_of_adult + quality_of_add_adult and
+                    int(qty_child_free_seat_now) >= int(qty_adult_free_seat_now)
+            ):
+                continue
 
         name = ticket.name
         ticket.date_show = date_for_price  # Для расчета стоимости в периоде или нет
@@ -639,7 +622,13 @@ async def choice_option_of_reserve(
 
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
-        if int(quality_of_children) <= int(qty_child_free_seat_now):
+        flag = True
+        if context.user_data.get('command', False) == 'reserve':
+            if int(quality_of_children) <= int(qty_child_free_seat_now):
+                flag = True
+            else:
+                flag = False
+        if flag:
             if key // 100 >= 3 and not flag_indiv_cost_sep:
                 text += "__________\n    Варианты со скидками:\n"
                 flag_indiv_cost_sep = True
@@ -696,6 +685,8 @@ async def choice_option_of_reserve(
     )
 
     state = 'ORDER'
+    if context.user_data.get('command', False):
+        state = 'TICKET'
     context.user_data['STATE'] = state
     return state
 
@@ -750,22 +741,13 @@ async def check_and_send_buy_info(
     name_show = show_data['full_name']
     date = choose_event_info['date_show']
     time = choose_event_info['time_show']
-    option = choose_event_info['option']
     text_emoji = choose_event_info['text_emoji']
-    flag_indiv_cost = choose_event_info['flag_indiv_cost']
-    list_of_tickets = context.bot_data['list_of_tickets']
-    chose_ticket: BaseTicket = list_of_tickets[0]
-    price = chose_ticket.price
-    for ticket in list_of_tickets:
-        if ticket.base_ticket_id == key_option_for_reserve:
-            chose_ticket = ticket
-            price = chose_ticket.price
-
-            key = chose_ticket.base_ticket_id
-            if flag_indiv_cost:
-                if key // 100 == 1:
-                    type_ticket_price = reserve_user_data['type_ticket_price']
-                    price = TICKET_COST[option][type_ticket_price][key]
+    chose_ticket, price = await get_chose_ticket_and_price(
+        choose_event_info,
+        context,
+        key_option_for_reserve,
+        reserve_user_data
+    )
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -801,7 +783,7 @@ async def check_and_send_buy_info(
         state = ConversationHandler.END
         context.user_data['STATE'] = state
         return state
-    # Для все стандартных вариантов
+    # Для всех стандартных вариантов
     else:
         # Отправляем сообщение пользователю, которое он будет использовать как
         # памятку
@@ -891,13 +873,15 @@ async def check_and_send_buy_info(
             ))
 
             qty_child_free_seat_new = int(
-                qty_child_free_seat_now) - int(chose_ticket.quality_of_children)
+                qty_child_free_seat_now) - int(
+                chose_ticket.quality_of_children)
             qty_child_nonconfirm_seat_new = int(
                 qty_child_nonconfirm_seat_now) + int(
                 chose_ticket.quality_of_children)
             qty_adult_free_seat_new = int(
-                qty_adult_free_seat_now) - int(chose_ticket.quality_of_adult +
-                                               chose_ticket.quality_of_add_adult)
+                qty_adult_free_seat_now) - int(
+                chose_ticket.quality_of_adult +
+                chose_ticket.quality_of_add_adult)
             qty_adult_nonconfirm_seat_new = int(
                 qty_adult_nonconfirm_seat_now) + int(
                 chose_ticket.quality_of_adult +
@@ -1038,8 +1022,8 @@ async def forward_photo_or_file(
     # Сообщение для опроса
     text_brief = (
         'Для подтверждения брони заполните, пожалуйста, анкету.\n'
-        'Вход на мероприятие ведется по спискам.'
-        '__________'
+        'Вход на мероприятие ведется по спискам.\n'
+        '__________\n'
         '<i>Пожалуйста, не пишите лишней информации/дополнительных слов в '
         'сообщении.\n'
         'Вопросы будут приходить последовательно (их будет всего 3)</i>'
@@ -1176,7 +1160,8 @@ __________
         payment_id = reserve_admin_data['payment_id']
         payment_data = reserve_admin_data[payment_id]
         chose_ticket = payment_data['chose_ticket']
-    except KeyError:
+    except KeyError as e:
+        reserve_hl_logger.error(e)
         await update.effective_chat.send_message(
             'Произошел технический сбой.\n'
             f'Повторите, пожалуйста, бронирование еще раз\n'
@@ -1223,9 +1208,10 @@ __________
     reserve_hl_logger.info(client_data)
 
     chose_price = reserve_user_data['chose_price']
-    record_ids = write_client(
+    event_id = reserve_admin_data[payment_id]['event_id']
+    record_id = write_client(
         client_data,
-        reserve_admin_data[payment_id]['event_id'],
+        event_id,
         chose_ticket,
         chose_price,
     )
@@ -1235,40 +1221,37 @@ __________
         '+7' + client_data['phone'],
         text,
     ])
-    text += '\n\n'
-    for record in record_ids:
-        text += f'#id{record} '
-        # TODO добавить обработку нулевого значения, это значит что строки
-        #  закончились в гугл-таблице
-    message_id_for_admin = context.user_data['common_data'][
-        'message_id_for_admin']
+
+    message_id_for_admin = None
+    if context.user_data.get('command', False) == 'reserve':
+        message_id_for_admin = context.user_data['common_data'][
+            'message_id_for_admin']
+
+        text += '\n\n'
+        text += f'#id{record_id}\n'
+
+        await send_by_ticket_info(update, context)
+    if context.user_data.get('command', False) == 'reserve_admin':
+        text += '\n\n'
+        text += f'event_id: {event_id}\n'
+        event_info, name_column = load_show_info(int(event_id))
+        text += event_info[name_column['name_show']]
+        text += '\n' + event_info[name_column['date_show']]
+        text += '\n' + event_info[name_column['time_show']]
+        text += '\n' + chose_ticket.name + ' ' + str(chose_price) + 'руб'
+        text += '\n\n'
+        text += f'Добавлено: {update.effective_chat.full_name}\n'
+        text += f'#id{record_id}'
 
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Бронирование спектаклей', None))
-    await send_message_to_admin(ADMIN_GROUP,
-                                text,
-                                message_id_for_admin,
-                                context,
-                                thread_id)
-
-    await update.effective_chat.send_message(
-        'Благодарим за ответы.\n\n'
-        'Ожидайте подтверждения брони.\n'
-        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
-        '<i>Если сообщение не придет в течение суток, напишите в группу в '
-        'контакте</i>',
-        parse_mode=ParseMode.HTML
-    )
-
-    text = context.user_data['common_data']['text_for_notification_massage']
-    text += (f'__________\n'
-             'Задать вопросы можно в сообщениях группы\n'
-             'https://vk.com/baby_theater_domik')
-    message = await update.effective_chat.send_message(
+    await send_message_to_admin(
+        chat_id=ADMIN_GROUP,
         text=text,
-        parse_mode=ParseMode.HTML
+        message_id=message_id_for_admin,
+        context=context,
+        thread_id=thread_id
     )
-    await message.pin()
 
     # TODO Переставить сразу после оплаты (чтобы можно было подтвердить)
     reserve_admin_data['payment_id'] += 1
@@ -1280,6 +1263,26 @@ __________
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state
+
+
+async def send_by_ticket_info(update, context):
+    await update.effective_chat.send_message(
+        'Благодарим за ответы.\n\n'
+        'Ожидайте подтверждения брони.\n'
+        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
+        '<i>Если сообщение не придет в течение суток, напишите в группу в '
+        'контакте</i>',
+        parse_mode=ParseMode.HTML
+    )
+    text = context.user_data['common_data']['text_for_notification_massage']
+    text += (f'__________\n'
+             'Задать вопросы можно в сообщениях группы\n'
+             'https://vk.com/baby_theater_domik')
+    message = await update.effective_chat.send_message(
+        text=text,
+        parse_mode=ParseMode.HTML
+    )
+    await message.pin()
 
 
 async def conversation_timeout(
@@ -1347,6 +1350,10 @@ async def send_clients_data(
     query = update.callback_query
     await query.answer()
 
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
+
     reserve_user_data = context.user_data['reserve_user_data']
     choose_event_info = reserve_user_data['choose_event_info']
     name = choose_event_info['name_show']
@@ -1354,26 +1361,39 @@ async def send_clients_data(
     time, event_id, qty_child, qty_adult = query.data.split(' | ')
 
     clients_data, name_column = load_clients_data(event_id)
-    text = f'#Показ\n'
-    text += f'Список людей для\n{name}\n{date}\n{time}\nОбщее кол-во детей: '
-    text += str(len(clients_data))
-    for i, item1 in enumerate(clients_data):
+    text = f'#Показ #event_id_{event_id}\n'
+    text += f'Список людей для\n{name}\n{date}\n{time}\nКол-во посетителей: '
+    qty_child = 0
+    qty_adult = 0
+    for item in clients_data:
+        if item[name_column['flag_exclude_place_sum']] == 'FALSE':
+            qty_child += int(item[name_column['qty_child']])
+            qty_adult += int(item[name_column['qty_adult']])
+    text += f"д={qty_child}|в={qty_adult}"
+    for i, item in enumerate(clients_data):
         text += '\n__________\n'
         text += str(i + 1) + '| '
-        text += '<b>' + item1[name_column['callback_name']] + '</b>'
-        text += '\n+7' + item1[name_column['callback_phone']]
-        if item1[name_column['child_name']] != '':
+        text += '<b>' + item[name_column['callback_name']] + '</b>'
+        text += '\n+7' + item[name_column['callback_phone']]
+        child_name = item[name_column['child_name']]
+        if child_name != '':
             text += '\nИмя ребенка: '
-            text += item1[name_column['child_name']] + ' '
-        if item1[name_column['child_age']] != '':
+            text += child_name
+        age = item[name_column['child_age']]
+        if age != '':
             text += '\nВозраст: '
-            text += item1[name_column['child_age']] + ' '
-        if item1[name_column['name']] != '':
+            text += age
+        name = item[name_column['name']]
+        if name != '':
             text += '\nСпособ брони: '
-            text += item1[name_column['name']] + ' '
-        if item1[name_column['notes']] != '':
-            text += '\nПримечание: '
-            text += item1[name_column['notes']] + ' '
+            text += name
+        try:
+            notes = item[name_column['notes']]
+            if notes != '':
+                text += '\nПримечание: '
+                text += notes
+        except IndexError:
+            reserve_hl_logger.info('Примечание не задано')
     await query.edit_message_text(
         text=text,
         parse_mode=ParseMode.HTML

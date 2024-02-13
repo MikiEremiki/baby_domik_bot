@@ -302,7 +302,7 @@ def load_clients_data(
     dict_column_name, len_column = get_column_info('База клиентов_')
     sheet = (
             RANGE_NAME['База клиентов_'] +
-            f'R1C1:R{len(first_colum)}C{len_column+1}'
+            f'R1C1:R{len(first_colum)}C{len_column}'
     )
 
     data = get_data_from_spreadsheet(sheet)
@@ -336,3 +336,22 @@ def load_clients_wait_data(
             data_clients_data.append(item)
 
     return data_clients_data, dict_column_name
+
+
+def load_show_info(
+        event_id: int
+):
+    first_colum = get_data_from_spreadsheet(
+        RANGE_NAME['База спектаклей']
+    )
+    dict_column_name, len_column = get_column_info('База спектаклей_')
+    sheet = (
+            RANGE_NAME['База спектаклей_'] +
+            f'R1C1:R{len(first_colum)}C{len_column}'
+    )
+
+    data = get_data_from_spreadsheet(sheet)
+
+    for item in data[1:]:
+        if item[dict_column_name['event_id']] == str(event_id):
+            return item, dict_column_name

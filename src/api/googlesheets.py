@@ -177,6 +177,23 @@ def write_data_for_reserve(
                     'majorDimension': major_dimension,
                     'values': [[numbers[1]]]
                 })
+            case 3:
+                col = dict_column_name['qty_child_free_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[numbers[0]]]
+                })
+                col = dict_column_name['qty_adult_free_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[numbers[1]]]
+                })
 
         value_range_body = {
             'valueInputOption': value_input_option,
@@ -209,7 +226,7 @@ def write_client(
         event_id: str,
         ticket: BaseTicket,
         price: int,
-) -> Optional[List[int]]:
+) -> Optional[int]:
     # TODO Переписать функцию, чтобы принимала весь контекст целиком и внутри
     #  вытаскивать нужные значения
     try:
@@ -226,11 +243,9 @@ def write_client(
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
         values: List[Any] = [[]]
-        record_ids = []
 
         record_id = int(values_column[-1][0]) + 1
         values[0].append(record_id)
-        record_ids.append(record_id)
         # TODO Добавить запись user_id
         for key, item in client.items():
             if key == 'data_children':
@@ -264,6 +279,8 @@ def write_client(
         values[0].append(False)
         values[0].append(False)
         values[0].append(False)
+        values[0].append('')
+        values[0].append('=iferror(SPLIT(L1916;" "))')
 
         googlesheets_logger.info(values)
 
@@ -283,7 +300,7 @@ def write_client(
                                    response_value_render_option,
                                    value_range_body)
 
-        return record_ids
+        return record_id
     except HttpError as err:
         googlesheets_logger.error(err)
         # TODO добавить возврат списка с нулевым значением

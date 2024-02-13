@@ -1,8 +1,5 @@
 from telegram.ext import (
-    CommandHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    MessageHandler,
+    CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler,
     filters,
 )
 
