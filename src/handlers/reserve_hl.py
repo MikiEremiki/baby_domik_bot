@@ -3,29 +3,24 @@ import pprint
 import re
 from datetime import datetime
 
-from telegram.ext import (
-    ContextTypes,
-    ConversationHandler,
-    TypeHandler
-)
+from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
+    InlineKeyboardButton, InlineKeyboardMarkup,
+    ReplyKeyboardMarkup, ReplyKeyboardRemove,
 )
 from telegram.constants import ParseMode, ChatType, ChatAction
 
+from handlers import init_conv_hl_dialog
 from handlers.sub_hl import (
     request_phone_number,
-    send_and_del_message_to_remove_kb,
-    write_old_seat_info,
+    send_and_del_message_to_remove_kb, write_old_seat_info,
+    get_chose_ticket_and_price, get_emoji_and_options_for_event,
 )
 from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
-    load_list_show,
+    load_list_show, load_show_info,
 )
 from api.googlesheets import (
     write_data_for_reserve,
@@ -34,10 +29,10 @@ from api.googlesheets import (
     get_quality_of_seats,
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text, extract_command,
+    extract_phone_number_from_text,
     add_btn_back_and_cancel,
     send_message_to_admin,
-    set_back_context, get_back_context, clean_context,
+    set_back_context, get_back_context,
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -50,13 +45,11 @@ from settings.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
-    FILE_ID_QR,
     TICKET_COST,
     DICT_CONVERT_MONTH_NUMBER_TO_STR,
     SUPPORT_DATA,
     RESERVE_TIMEOUT,
 )
-from utilities.schemas.ticket import BaseTicket
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
