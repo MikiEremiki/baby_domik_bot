@@ -8,52 +8,57 @@ from telegram.ext import (
 
 from handlers import reserve_hl, main_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
-from utilities.utl_func import reset
 
+F_text_and_no_command = filters.TEXT & ~filters.COMMAND
+cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
+                                               pattern='^Отменить')
 states:  Dict[object, List[BaseHandler]] = {
     'MONTH': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(reserve_hl.choice_show_or_date),
     ],
     'SHOW': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
         CallbackQueryHandler(reserve_hl.choice_date),
     ],
     'DATE': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
         CallbackQueryHandler(reserve_hl.choice_time),
     ],
     'TIME': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
     ],
     'ORDER': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
         CallbackQueryHandler(reserve_hl.check_and_send_buy_info),
     ],
     'PAID': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         MessageHandler(
             filters.PHOTO | filters.ATTACHMENT,
             reserve_hl.forward_photo_or_file
         ),
     ],
     'FORMA': [
-        MessageHandler(filters.TEXT, reserve_hl.get_name_adult),
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_name_adult),
     ],
     'PHONE': [
-        MessageHandler(filters.TEXT, reserve_hl.get_phone),
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_phone),
     ],
     'CHILDREN': [
-        MessageHandler(filters.TEXT, reserve_hl.get_name_children),
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_name_children),
     ],
     'LIST': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад'),
         CallbackQueryHandler(reserve_hl.send_clients_data),
     ],
@@ -68,12 +73,13 @@ states:  Dict[object, List[BaseHandler]] = {
         ),
     ],
     'PHONE_FOR_WAITING': [
-        MessageHandler(filters.TEXT, reserve_hl.get_phone_for_waiting),
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_phone_for_waiting),
     ],
 }
 
 for key in states.keys():
-    states[key].append(CommandHandler('reset', reset))
+    states[key].append(CommandHandler('reset', main_hl.reset))
 states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 reserve_conv_hl = ConversationHandler(
