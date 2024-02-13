@@ -741,22 +741,13 @@ async def check_and_send_buy_info(
     name_show = show_data['full_name']
     date = choose_event_info['date_show']
     time = choose_event_info['time_show']
-    option = choose_event_info['option']
     text_emoji = choose_event_info['text_emoji']
-    flag_indiv_cost = choose_event_info['flag_indiv_cost']
-    list_of_tickets = context.bot_data['list_of_tickets']
-    chose_ticket: BaseTicket = list_of_tickets[0]
-    price = chose_ticket.price
-    for ticket in list_of_tickets:
-        if ticket.base_ticket_id == key_option_for_reserve:
-            chose_ticket = ticket
-            price = chose_ticket.price
-
-            key = chose_ticket.base_ticket_id
-            if flag_indiv_cost:
-                if key // 100 == 1:
-                    type_ticket_price = reserve_user_data['type_ticket_price']
-                    price = TICKET_COST[option][type_ticket_price][key]
+    chose_ticket, price = await get_chose_ticket_and_price(
+        choose_event_info,
+        context,
+        key_option_for_reserve,
+        reserve_user_data
+    )
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
