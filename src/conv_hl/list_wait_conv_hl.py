@@ -7,27 +7,28 @@ from telegram.ext import (
 
 from handlers import reserve_hl, main_hl, list_wait_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
-from utilities.utl_func import reset
 
+cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
+                                               pattern='^Отменить')
 states:  Dict[object, List[BaseHandler]] = {
     'MONTH': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(reserve_hl.choice_show_or_date),
     ],
     'SHOW': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
         CallbackQueryHandler(reserve_hl.choice_date),
     ],
     'LIST_WAIT': [
-        CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+        cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад'),
         CallbackQueryHandler(list_wait_hl.send_clients_wait_data),
     ]
 }
 
 for key in states.keys():
-    states[key].append(CommandHandler('reset', reset))
+    states[key].append(CommandHandler('reset', main_hl.reset))
 states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 list_wait_conv_hl = ConversationHandler(
