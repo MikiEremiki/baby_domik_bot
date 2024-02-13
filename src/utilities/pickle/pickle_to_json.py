@@ -52,27 +52,49 @@ class CustomEncoder(json.JSONEncoder):
 
 
 objects = []
-path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
-# path = r'D:\conversationbot'
-# path = r'D:\Temp\conversationbot'
-with (open(path, "rb")) as file:
+# path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
+path = r'D:\Temp\conversationbot'
+# path = r'D:\Temp\conversationbot2'
+with open(path, "rb") as file:
     while True:
         try:
             objects.append(_BotUnpickler(file).load())
         except EOFError:
             break
 
+exclude = []
+flag = True
+if not flag:
+    with open('user_ids', 'r', encoding='utf8') as f:
+        for item in f.readlines():
+            exclude.append(int(item.replace('\n', '')))
 for key, item in objects[0].items():
     sort_keys = True
     if key == 'user_data':
         sort_keys = False
-
-    if key == 'conversations':
-        obj_to_serialize = {key: {}}
+        obj_to_serialize = {}
         for key_2, item_2 in item.items():
-            obj_to_serialize[key][key_2] = {}
+            if key_2 in exclude:
+                continue
+            obj_to_serialize[key_2] = item_2
+            if flag:
+                try:
+                    json.dump(item_2,
+                              open(f"ud_ids/{key_2}.json", 'w',
+                                   encoding='utf-8'),
+                              indent=4,
+                              ensure_ascii=False,
+                              cls=CustomEncoder,
+                              sort_keys=sort_keys)
+                except TypeError as e:
+                    with open('user_ids', 'a', encoding='utf8') as f:
+                        f.write(str(key_2) + '\n')
+    elif key == 'conversations':
+        obj_to_serialize = {}
+        for key_2, item_2 in item.items():
+            obj_to_serialize[key_2] = {}
             for key_3, item_3 in objects[0][key][key_2].items():
-                obj_to_serialize[key][key_2][key_3[0]] = item_3
+                obj_to_serialize[key_2][key_3[0]] = item_3
     else:
         obj_to_serialize = item
 
