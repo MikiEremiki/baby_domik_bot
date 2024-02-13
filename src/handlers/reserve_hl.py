@@ -622,7 +622,13 @@ async def choice_option_of_reserve(
 
         # Если свободных мест меньше, чем требуется для варианта
         # бронирования, то кнопку с этим вариантом не предлагать
-        if int(quality_of_children) <= int(qty_child_free_seat_now):
+        flag = True
+        if context.user_data.get('command', False) == 'reserve':
+            if int(quality_of_children) <= int(qty_child_free_seat_now):
+                flag = True
+            else:
+                flag = False
+        if flag:
             if key // 100 >= 3 and not flag_indiv_cost_sep:
                 text += "__________\n    Варианты со скидками:\n"
                 flag_indiv_cost_sep = True
