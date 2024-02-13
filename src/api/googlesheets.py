@@ -177,6 +177,23 @@ def write_data_for_reserve(
                     'majorDimension': major_dimension,
                     'values': [[numbers[1]]]
                 })
+            case 3:
+                col = dict_column_name['qty_child_free_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[numbers[0]]]
+                })
+                col = dict_column_name['qty_adult_free_seat'] + 1
+                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
+                               f'R{row_event}C{col}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[numbers[1]]]
+                })
 
         value_range_body = {
             'valueInputOption': value_input_option,
