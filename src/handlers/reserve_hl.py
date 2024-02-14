@@ -463,7 +463,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choose_event_info['name_show'] = name_show
     choose_event_info['date_show'] = date_show
 
-    if context.user_data['command'] == 'list':
+    if context.user_data.get('command', False) == 'list':
         state = 'LIST'
     else:
         state = 'TIME'
@@ -685,7 +685,7 @@ async def choice_option_of_reserve(
     )
 
     state = 'ORDER'
-    if context.user_data.get('command', False):
+    if context.user_data.get('command', False) == 'reserve_admin':
         state = 'TICKET'
     context.user_data['STATE'] = state
     return state
