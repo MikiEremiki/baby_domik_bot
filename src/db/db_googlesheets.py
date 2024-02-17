@@ -292,6 +292,33 @@ def load_ticket_data() -> List[BaseTicket]:
     return list_of_tickets
 
 
+def load_special_ticket_price() -> Dict:
+    special_ticket_price = {}
+    first_colum = get_data_from_spreadsheet(
+        RANGE_NAME['Индив стоимости']
+    )
+    dict_column_name, len_column = get_column_info('Индив стоимости_')
+
+    data = get_data_from_spreadsheet(
+        RANGE_NAME['Индив стоимости_'] +
+        f'RC1:R{len(first_colum)}C{len_column}',
+        value_render_option='UNFORMATTED_VALUE'
+    )
+
+    for item in data[2:]:
+        if item[1]:
+            type_price = special_ticket_price.setdefault(item[1], {})
+        else:
+            type_price = special_ticket_price.setdefault(item[0], {})
+        type_price.setdefault('будни', {})
+        type_price.setdefault('выходные', {})
+        type_price['будни'].setdefault(item[2], item[3])
+        type_price['выходные'].setdefault(item[2], item[4])
+
+    db_googlesheets_logger.info('Данные индивидуальных стоимостей загружены')
+    return special_ticket_price
+
+
 def load_clients_data(
         event_id: int
 ) -> Tuple[List[List[str]], Dict[int | str, int]]:
