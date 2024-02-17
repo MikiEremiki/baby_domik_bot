@@ -7,7 +7,6 @@ from settings.settings import SUPPORT_DATA
 from db.db_googlesheets import (
     load_ticket_data, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
-from settings.settings import TICKET_COST
 from utilities.schemas.ticket import BaseTicket
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
@@ -206,9 +205,13 @@ async def get_chose_ticket_and_price(
 
             key = chose_ticket.base_ticket_id
             if flag_indiv_cost:
-                if key // 100 == 1:
+                special_ticket_price: dict = load_special_ticket_price()
+                try:
                     type_ticket_price = reserve_user_data['type_ticket_price']
-                    price = TICKET_COST[option][type_ticket_price][key]
+                    price = special_ticket_price[option][type_ticket_price][key]
+                except KeyError:
+                    sub_hl_logger.error(
+                        f'{key=} - данному билету не назначена индив. цена')
     return chose_ticket, price
 
 
