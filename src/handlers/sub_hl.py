@@ -4,7 +4,8 @@ from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 
 from settings.settings import SUPPORT_DATA
-from db.db_googlesheets import load_ticket_data, load_list_show
+from db.db_googlesheets import (
+    load_ticket_data, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from settings.settings import TICKET_COST
 from utilities.schemas.ticket import BaseTicket
@@ -120,6 +121,19 @@ async def update_ticket_data(
 
     sub_hl_logger.info(text)
     for item in context.bot_data['list_of_tickets']:
+        sub_hl_logger.info(f'{str(item)}')
+
+
+async def update_special_ticket_price(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    context.bot_data['special_ticket_price'] = load_special_ticket_price()
+    text = 'Индивидуальные стоимости обновлены'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+    for item in context.bot_data['special_ticket_price']:
         sub_hl_logger.info(f'{str(item)}')
 
 
