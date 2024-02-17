@@ -21,6 +21,7 @@ context_bot_data: Dict = {
                 'flag_repertoire': bool,
                 'flag_indiv_cost': bool,
                 'full_name': str,
+                'price_type': str,
         },
     },
     'afisha': {
