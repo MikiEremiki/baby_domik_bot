@@ -10,7 +10,8 @@ from handlers import main_hl
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
 from handlers.sub_hl import (
-    update_ticket_data, update_show_data, update_admin_info, update_bd_price
+    update_ticket_data, update_show_data, update_admin_info, update_bd_price,
+    update_special_ticket_price
 )
 from conv_hl.reserve_conv_hl import reserve_conv_hl
 from conv_hl.reserve_admin_conv_hl import reserve_admin_conv_hl
@@ -20,6 +21,7 @@ from conv_hl.afisha_conv_hl import afisha_conv_hl
 from utilities.utl_func import (
     echo, send_log,
     set_menu, set_description, set_ticket_data, set_show_data,
+    set_special_ticket_price,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic,
@@ -33,6 +35,7 @@ async def post_init(application: Application):
     await set_description(application.bot)
     set_ticket_data(application)
     set_show_data(application)
+    set_special_ticket_price(application)
 
     application.bot_data.setdefault('admin', {})
     application.bot_data['admin'].setdefault('contacts', {})
@@ -92,6 +95,10 @@ def bot():
     application.add_handler(CommandHandler(
         COMMAND_DICT['UP_BD_PRICE'][0],
         update_bd_price,
+        filters=filters.User(ADMIN_ID)))
+    application.add_handler(CommandHandler(
+        COMMAND_DICT['UP_SPEC_PRICE'][0],
+        update_special_ticket_price,
         filters=filters.User(ADMIN_ID)))
     application.add_handler(CommandHandler(
         COMMAND_DICT['LOG'][0],
