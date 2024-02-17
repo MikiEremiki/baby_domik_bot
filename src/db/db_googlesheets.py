@@ -266,7 +266,7 @@ def load_ticket_data() -> List[BaseTicket]:
 
     data = get_data_from_spreadsheet(
         RANGE_NAME['Варианты стоимости_'] +
-        f'R2C1:R{qty_tickets}C{len(dict_column_name)}'
+        f'R2C1:R{qty_tickets}C{len_column}'
     )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
