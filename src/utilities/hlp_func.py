@@ -68,11 +68,33 @@ def create_replay_markup_for_list_of_shows(
                                     filter_show_id[item]],
                                 callback_data=str(item) + ' | ' + key
                             )
+                    if button_tmp is None:
+                        continue
+                    list_btn_of_numbers.append(button_tmp)
+
+                    i += 1
+                    # Две кнопки в строке так как для узких экранов телефонов
+                    # дни недели обрезаются
+                    if i % num_colum == 0:
+                        i = 0
+                        keyboard.append(list_btn_of_numbers)
+                        list_btn_of_numbers = []
             case 2:
                 button_tmp = InlineKeyboardButton(
                     text=DICT_OF_EMOJI_FOR_BUTTON[num],
                     callback_data=key
                 )
+                if button_tmp is None:
+                    continue
+                list_btn_of_numbers.append(button_tmp)
+
+                i += 1
+                # Две кнопки в строке так как для узких экранов телефонов
+                # дни недели обрезаются
+                if i % num_colum == 0:
+                    i = 0
+                    keyboard.append(list_btn_of_numbers)
+                    list_btn_of_numbers = []
             case 3:
                 # Если в день разные спектакли с разным наполнением,
                 # то к тексту добавляются все статусы
@@ -106,17 +128,17 @@ def create_replay_markup_for_list_of_shows(
                             )
                         else:
                             continue
-        if button_tmp is None:
-            continue
-        list_btn_of_numbers.append(button_tmp)
+                    if button_tmp is None:
+                        continue
+                    list_btn_of_numbers.append(button_tmp)
 
-        i += 1
-        # Две кнопки в строке так как для узких экранов телефонов дни недели
-        # обрезаются
-        if i % num_colum == 0:
-            i = 0
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
+                    i += 1
+                    # Две кнопки в строке так как для узких экранов телефонов
+                    # дни недели обрезаются
+                    if i % num_colum == 0:
+                        i = 0
+                        keyboard.append(list_btn_of_numbers)
+                        list_btn_of_numbers = []
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 

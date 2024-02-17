@@ -21,7 +21,18 @@ context_bot_data: Dict = {
                 'flag_repertoire': bool,
                 'flag_indiv_cost': bool,
                 'full_name': str,
+                'price_type': str,
         },
+    },
+    'special_ticket_price': {
+        str: {
+            'будни': {
+                int: int,
+            },
+            'выходные': {
+                int: int,
+            },
+        }
     },
     'afisha': {
         int: str,  # int - номер месяца, str - file_id картинки

@@ -20,7 +20,7 @@ from handlers.sub_hl import (
 from db.db_googlesheets import (
     load_clients_data,
     load_show_data,
-    load_list_show, load_show_info,
+    load_list_show, load_show_info, load_special_ticket_price,
 )
 from api.googlesheets import (
     write_data_for_reserve,
@@ -45,7 +45,6 @@ from settings.settings import (
     ADMIN_GROUP,
     COMMAND_DICT,
     DICT_OF_EMOJI_FOR_BUTTON,
-    TICKET_COST,
     DICT_CONVERT_MONTH_NUMBER_TO_STR,
     SUPPORT_DATA,
     RESERVE_TIMEOUT,
@@ -517,7 +516,6 @@ async def choice_option_of_reserve(
     choose_event_info['event_id'] = int(event_id)
     option, text_emoji = await get_emoji_and_options_for_event(event)
 
-    choose_event_info['option'] = option
     choose_event_info['text_emoji'] = text_emoji
 
     name_show = choose_event_info['name_show']
@@ -579,12 +577,21 @@ async def choice_option_of_reserve(
     #  название dict_of_show на другое
     await query.edit_message_text('Формирую список доступных билетов...')
     dict_of_shows: dict = load_list_show()
+    special_ticket_price: dict = load_special_ticket_price()
     show_id = choose_event_info['show_id']
     flag_indiv_cost = False
     for key, item in dict_of_shows.items():
         if key == show_id:
             flag_indiv_cost = item['flag_indiv_cost']
+            price_type = item['price_type']
             choose_event_info['flag_indiv_cost'] = flag_indiv_cost
+            choose_event_info['price_type'] = price_type
+            if not option:
+                if price_type == 'Индивид':
+                    option = key
+                else:
+                    option = price_type
+    choose_event_info['option'] = option
 
     list_of_tickets = context.bot_data['list_of_tickets']
     text = (f'Кол-во свободных мест: '
@@ -602,8 +609,6 @@ async def choice_option_of_reserve(
     flag_indiv_cost_sep = False
     for i, ticket in enumerate(list_of_tickets):
         key = ticket.base_ticket_id
-        if flag_indiv_cost and key // 100 != 1:
-            continue
         quality_of_children = ticket.quality_of_children
         quality_of_adult = ticket.quality_of_adult
         quality_of_add_adult = ticket.quality_of_add_adult
@@ -634,7 +639,7 @@ async def choice_option_of_reserve(
                 flag_indiv_cost_sep = True
 
             if flag_indiv_cost:
-                if key // 100 == 1:
+                try:
                     if event['ticket_price_type'] == '':
                         if date_for_price.weekday() in range(5):
                             type_ticket_price = 'будни'
@@ -644,12 +649,12 @@ async def choice_option_of_reserve(
                         type_ticket_price = event['ticket_price_type']
                     reserve_user_data['type_ticket_price'] = type_ticket_price
 
-                    price = TICKET_COST[option][type_ticket_price][key]
-                    text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
-                             f'{price} руб\n')
-            else:
-                text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
-                         f'{price} руб\n')
+                    price = special_ticket_price[option][type_ticket_price][key]
+                except KeyError:
+                    reserve_hl_logger.error(
+                        f'{key=} - данному билету не назначена индив. цена')
+            text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
+                     f'{price} руб\n')
 
             button_tmp = InlineKeyboardButton(
                 text=str(i + 1),

@@ -220,6 +220,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
             'flag_active_repertoire']] == 'TRUE' else False
         flag_indiv_cost: bool = True if item[dict_column_name[
             'flag_indiv_cost']] == 'TRUE' else False
+        price_type: str = item[dict_column_name['price_type']]
 
         full_name: str = name
         sep = '. '
@@ -246,6 +247,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
             'flag_repertoire': flag_repertoire,
             'flag_indiv_cost': flag_indiv_cost,
             'full_name': full_name,
+            'price_type': price_type,
         }
 
     return (
@@ -254,8 +256,6 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
 
 def load_ticket_data() -> List[BaseTicket]:
-    # TODO Выделить загрузку билетов в отдельную задачу и хранить ее сразу в
-    #  bot_data
     list_of_tickets = []
 
     dict_column_name, len_column = get_column_info('Варианты стоимости_')
@@ -266,7 +266,7 @@ def load_ticket_data() -> List[BaseTicket]:
 
     data = get_data_from_spreadsheet(
         RANGE_NAME['Варианты стоимости_'] +
-        f'R2C1:R{qty_tickets}C{len(dict_column_name)}'
+        f'R2C1:R{qty_tickets}C{len_column}'
     )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
@@ -290,6 +290,33 @@ def load_ticket_data() -> List[BaseTicket]:
 
     db_googlesheets_logger.info('Список билетов загружен')
     return list_of_tickets
+
+
+def load_special_ticket_price() -> Dict:
+    special_ticket_price = {}
+    first_colum = get_data_from_spreadsheet(
+        RANGE_NAME['Индив стоимости']
+    )
+    dict_column_name, len_column = get_column_info('Индив стоимости_')
+
+    data = get_data_from_spreadsheet(
+        RANGE_NAME['Индив стоимости_'] +
+        f'RC1:R{len(first_colum)}C{len_column}',
+        value_render_option='UNFORMATTED_VALUE'
+    )
+
+    for item in data[2:]:
+        if item[1]:
+            type_price = special_ticket_price.setdefault(item[1], {})
+        else:
+            type_price = special_ticket_price.setdefault(item[0], {})
+        type_price.setdefault('будни', {})
+        type_price.setdefault('выходные', {})
+        type_price['будни'].setdefault(item[2], item[3])
+        type_price['выходные'].setdefault(item[2], item[4])
+
+    db_googlesheets_logger.info('Данные индивидуальных стоимостей загружены')
+    return special_ticket_price
 
 
 def load_clients_data(

@@ -21,7 +21,8 @@ from telegram.ext import (
 from telegram.error import BadRequest
 
 from db.db_googlesheets import (
-    load_date_show_data, load_ticket_data, load_list_show
+    load_date_show_data, load_ticket_data, load_list_show,
+    load_special_ticket_price
 )
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
@@ -134,6 +135,8 @@ async def set_menu(bot: ExtBot) -> None:
                    COMMAND_DICT['UP_S_DATA'][1]),
         BotCommand(COMMAND_DICT['UP_BD_PRICE'][0],
                    COMMAND_DICT['UP_BD_PRICE'][1]),
+        BotCommand(COMMAND_DICT['UP_SPEC_PRICE'][0],
+                   COMMAND_DICT['UP_SPEC_PRICE'][1]),
         BotCommand(COMMAND_DICT['CB_TW'][0],
                    COMMAND_DICT['CB_TW'][1]),
     ]
@@ -208,6 +211,10 @@ def set_ticket_data(application: Application):
 
 def set_show_data(application: Application):
     application.bot_data['dict_show_data'] = load_list_show()
+
+
+def set_special_ticket_price(application: Application):
+    application.bot_data['special_ticket_price'] = load_special_ticket_price()
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
