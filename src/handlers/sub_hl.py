@@ -227,8 +227,6 @@ async def get_emoji_and_options_for_event(event, name_column=None):
             option = 'Ёлка'
         if event['flag_santa']:
             text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
-        if event['show_id'] == '10' or event['show_id'] == '8':
-            option = 'Базовая стоимость'
     if isinstance(event, list):
         if event[name_column['flag_gift']] == 'TRUE':
             text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
@@ -238,7 +236,4 @@ async def get_emoji_and_options_for_event(event, name_column=None):
             option = 'Ёлка'
         if event[name_column['flag_santa']] == 'TRUE':
             text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
-        if (event[name_column['show_id']] == '10' or
-                event[name_column['show_id']] == '8'):
-            option = 'Базовая стоимость'
     return option, text_emoji
