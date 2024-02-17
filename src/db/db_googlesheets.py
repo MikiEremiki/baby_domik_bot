@@ -256,8 +256,6 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
 
 def load_ticket_data() -> List[BaseTicket]:
-    # TODO Выделить загрузку билетов в отдельную задачу и хранить ее сразу в
-    #  bot_data
     list_of_tickets = []
 
     dict_column_name, len_column = get_column_info('Варианты стоимости_')
