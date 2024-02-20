@@ -172,7 +172,11 @@ async def start_forma_info(
     await query.answer()
 
     key_option_for_reserve = int(query.data)
+
+    common_data = context.user_data['common_data']
     reserve_user_data = context.user_data['reserve_user_data']
+    reserve_admin_data = context.user_data['reserve_admin_data']
+
     choose_event_info = reserve_user_data['choose_event_info']
     chose_ticket, price = await get_chose_ticket_and_price(
         choose_event_info,
