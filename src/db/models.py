@@ -37,6 +37,40 @@ class Child(BaseModel):
     users: Mapped['User'] = relationship(back_populates='children')
 
 
+class TicketStatusEnum(enum.Enum):
+    PAID = 'paid'  # Оплачен
+    APPROVED = 'approved'  # Подтвержден
+    REJECTED = 'rejected'  # Отклонен
+    REFUNDED = 'refunded'  # Возвращен
+    TRANSFERRED = 'transferred'  # Передан
+    POSTPONED = 'postponed'  # Перенесен
+
+
+class Ticket(BaseModelTimed):
+    __tablename__ = 'tickets'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    base_ticket_id: Mapped[int]
+    price: Mapped[int]
+    exclude: Mapped[bool]
+    status: Mapped[TicketStatusEnum]
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id', ondelete='CASCADE')
+    )
+    users: Mapped['User'] = relationship(
+        back_populates='tickets')
+
+    theater_event_id: Mapped[int] = mapped_column(
+        ForeignKey('theater_events.id', ondelete='CASCADE')
+    )
+    theater_events: Mapped['TheaterEvent'] = relationship(
+        back_populates='tickets')
+
+    notes: Mapped[Optional[str]]
+
+
 class TypeEvent(BaseModel):
     __tablename__ = 'type_events'
 
@@ -63,41 +97,6 @@ class TheaterEvent(BaseModel):
     max_num_child_bd: Mapped[int]
     max_num_adult_bd: Mapped[int]
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
-    event_type: Mapped[int]
-
-
-class TicketStatusEnum(enum.Enum):
-    PAID = 'paid'
-    APPROVED = 'approved'
-    REJECTED = 'rejected'
-    REFUNDED = 'refunded'
-    TRANSFERRED = 'transferred'
-    POSTPONED = 'postponed'
-
-
-class Ticket(BaseModelTimed):
-    __tablename__ = 'tickets'
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    base_ticket_id: Mapped[int]
-    price: Mapped[int]
-    exclude: Mapped[bool]
-    status: Mapped[TicketStatusEnum]
-
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.id', ondelete='CASCADE')
-    )
-    users: Mapped['User'] = relationship(
-        back_populates='tickets')
-
-    theater_event_id: Mapped[int] = mapped_column(
-        ForeignKey('theater_events.id', ondelete='CASCADE')
-    )
-    theater_events: Mapped['TheaterEvent'] = relationship(
-        back_populates='tickets')
-
-    notes: Mapped[Optional[str]]
 
 
 class ScheduleEvent(BaseModelTimed):
