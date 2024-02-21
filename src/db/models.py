@@ -11,12 +11,12 @@ from .base import BaseModel, BaseModelTimed
 class User(BaseModelTimed):
     __tablename__ = 'users'
 
-    id: Mapped[int] = mapped_column(BigInteger,
-                                    primary_key=True,
-                                    autoincrement=False)
+    chat_id: Mapped[int] = mapped_column(BigInteger,
+                                         primary_key=True,
+                                         autoincrement=False)
 
-    name: Mapped[str]
-    phone: Mapped[Optional[str]]
+    callback_name: Mapped[str]
+    callback_phone: Mapped[Optional[str]]
     username: Mapped[str]
 
     children: Mapped[List['Child']] = relationship(back_populates='users')
@@ -103,6 +103,7 @@ class ScheduleEvent(BaseModelTimed):
     __tablename__ = 'schedule_events'
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    event_type: Mapped[int]
 
     type_id: Mapped[int] = mapped_column(
         ForeignKey('type_events.id', ondelete='CASCADE')
