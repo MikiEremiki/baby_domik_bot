@@ -96,6 +96,8 @@ for key, item in objects[0].items():
             for key_3, item_3 in objects[0][key][key_2].items():
                 obj_to_serialize[key_2][key_3[0]] = item_3
     else:
+        if key == 'bot_data':
+            sort_keys = False
         obj_to_serialize = item
 
     try:
