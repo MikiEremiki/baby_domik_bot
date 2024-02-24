@@ -78,7 +78,7 @@ class TypeEvent(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     name_alias: Mapped[str]
-    price_for_gift: Mapped[int]
+    base_price_gift: Mapped[int]
 
     notes: Mapped[Optional[str]]
 
