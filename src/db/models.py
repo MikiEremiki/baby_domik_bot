@@ -83,6 +83,13 @@ class TypeEvent(BaseModel):
     notes: Mapped[Optional[str]]
 
 
+class PriceTypeEnum(enum.Enum):
+    NONE = None
+    BASE_PRICE = 'Базовая стоимость'
+    OPTIONS = 'Опции'
+    INDIVIDUAL = 'Индивидуальная'
+
+
 class TheaterEvent(BaseModel):
     __tablename__ = 'theater_events'
 
