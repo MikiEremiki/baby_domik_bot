@@ -15,7 +15,7 @@ from utilities.utl_func import add_btn_back_and_cancel, set_back_context
 reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
 
 
-async def choice_option_enter(
+async def event_selection_option(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
