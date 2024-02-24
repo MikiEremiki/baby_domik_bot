@@ -76,8 +76,6 @@ services:
 
 volumes:
   db:
-#  data:
-#  logs:
   pgadmin:
 
 networks:
