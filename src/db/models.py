@@ -99,12 +99,12 @@ class TheaterEvent(BaseModel):
     min_age_child: Mapped[int]
     max_age_child: Mapped[int]
     show_emoji: Mapped[str]
-    # full_name: Mapped[bool]
     flag_active_repertoire: Mapped[bool]
     flag_active_bd: Mapped[bool]
     max_num_child_bd: Mapped[int]
     max_num_adult_bd: Mapped[int]
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
+    price_type: Mapped[PriceTypeEnum]
 
 
 class ScheduleEvent(BaseModelTimed):
