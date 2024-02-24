@@ -57,7 +57,7 @@ states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 reserve_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE_ADMIN'][0],
-                       reserve_admin_hl.choice_option_enter),
+                       reserve_admin_hl.event_selection_option),
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],

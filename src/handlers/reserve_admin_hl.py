@@ -15,7 +15,7 @@ from utilities.utl_func import add_btn_back_and_cancel, set_back_context
 reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
 
 
-async def choice_option_enter(
+async def event_selection_option(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
@@ -98,6 +98,7 @@ async def choice_option_of_reserve(
         update.effective_chat.id,
         context.user_data['message'])
     event_id = update.effective_message.text
+    message = await update.effective_chat.send_message('Загружаю данные')
 
     user = context.user_data['user']
     reserve_admin_hl_logger.info(": ".join(
@@ -111,6 +112,7 @@ async def choice_option_of_reserve(
 
     event_info, name_column = load_show_info(int(event_id))
     list_of_tickets = context.bot_data['list_of_tickets']
+    await message.edit_text('Данные загружены')
 
     text = ''
     keyboard = []
@@ -137,8 +139,8 @@ async def choice_option_of_reserve(
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
                                             postfix_for_back=1))
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(text=text,
-                                             reply_markup=reply_markup)
+    await message.edit_text(text=text,
+                            reply_markup=reply_markup)
 
     option, text_emoji = await get_emoji_and_options_for_event(event_info,
                                                                name_column)
@@ -172,7 +174,11 @@ async def start_forma_info(
     await query.answer()
 
     key_option_for_reserve = int(query.data)
+
+    common_data = context.user_data['common_data']
     reserve_user_data = context.user_data['reserve_user_data']
+    reserve_admin_data = context.user_data['reserve_admin_data']
+
     choose_event_info = reserve_user_data['choose_event_info']
     chose_ticket, price = await get_chose_ticket_and_price(
         choose_event_info,
@@ -181,23 +187,11 @@ async def start_forma_info(
         reserve_user_data
     )
 
-    common_data = context.user_data['common_data']
-    common_data['dict_of_shows'].clear()
-
-    reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['chose_price'] = price
-    if context.user_data.get('dict_of_name_show', False):
-        reserve_user_data['dict_of_name_show'].clear()
-    if context.user_data.get('dict_of_name_show_flip', False):
-        reserve_user_data['dict_of_name_show_flip'].clear()
-    if context.user_data.get('dict_of_date_show', False):
-        reserve_user_data['dict_of_date_show'].clear()
-    reserve_user_data['back'].clear()
-
-    reserve_admin_data = context.user_data['reserve_admin_data']
     payment_id = reserve_admin_data['payment_id']
     reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
     event_id = reserve_admin_data[payment_id]['event_id']
+
     list_of_name_colum = [
         'qty_child_free_seat',
         'qty_adult_free_seat',
@@ -226,6 +220,17 @@ async def start_forma_info(
         '<b>Напишите фамилию и имя (взрослого)</b>',
         parse_mode=ParseMode.HTML
     )
+
+    if common_data.get('dict_of_shows', False):
+        common_data['dict_of_shows'].clear()
+    if reserve_user_data.get('dict_of_name_show', False):
+        reserve_user_data['dict_of_name_show'].clear()
+    if reserve_user_data.get('dict_of_name_show_flip', False):
+        reserve_user_data['dict_of_name_show_flip'].clear()
+    if reserve_user_data.get('dict_of_date_show', False):
+        reserve_user_data['dict_of_date_show'].clear()
+    if reserve_user_data.get('dict_of_date_show', False):
+        reserve_user_data['back'].clear()
 
     state = 'FORMA'
     context.user_data['STATE'] = state
