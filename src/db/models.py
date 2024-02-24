@@ -38,6 +38,7 @@ class Child(BaseModel):
 
 
 class TicketStatusEnum(enum.Enum):
+    QUERIED = 'queried'  # Запрошен
     PAID = 'paid'  # Оплачен
     APPROVED = 'approved'  # Подтвержден
     REJECTED = 'rejected'  # Отклонен
