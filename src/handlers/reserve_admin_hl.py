@@ -98,6 +98,7 @@ async def choice_option_of_reserve(
         update.effective_chat.id,
         context.user_data['message'])
     event_id = update.effective_message.text
+    message = await update.effective_chat.send_message('Загружаю данные')
 
     user = context.user_data['user']
     reserve_admin_hl_logger.info(": ".join(
@@ -111,6 +112,7 @@ async def choice_option_of_reserve(
 
     event_info, name_column = load_show_info(int(event_id))
     list_of_tickets = context.bot_data['list_of_tickets']
+    await message.edit_text('Данные загружены')
 
     text = ''
     keyboard = []
@@ -137,8 +139,8 @@ async def choice_option_of_reserve(
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
                                             postfix_for_back=1))
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(text=text,
-                                             reply_markup=reply_markup)
+    await message.edit_text(text=text,
+                            reply_markup=reply_markup)
 
     option, text_emoji = await get_emoji_and_options_for_event(event_info,
                                                                name_column)
