@@ -59,17 +59,18 @@ def bot():
 
     application.bot_data.setdefault('config', config)
 
-    application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
-                                           main_hl.start))
+    application.add_handlers([
+        CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
+        CommandHandler('reset', main_hl.reset),
+        CommandHandler('echo', echo),
+    ])
 
-    application.add_handler(CallbackQueryHandler(main_hl.confirm_reserve,
-                                                 pattern='^confirm-reserve'))
-    application.add_handler(CallbackQueryHandler(main_hl.reject_reserve,
-                                                 pattern='^reject-reserve'))
-    application.add_handler(CallbackQueryHandler(main_hl.confirm_birthday,
-                                                 pattern='^confirm-birthday'))
-    application.add_handler(CallbackQueryHandler(main_hl.reject_birthday,
-                                                 pattern='^reject-birthday'))
+    application.add_handlers([
+        CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-reserve'),
+        CallbackQueryHandler(main_hl.reject_reserve, '^reject-reserve'),
+        CallbackQueryHandler(main_hl.confirm_birthday, '^confirm-birthday'),
+        CallbackQueryHandler(main_hl.reject_birthday, '^reject-birthday'),
+    ])
 
     conversation_handlers = [
         reserve_conv_hl,
@@ -80,9 +81,6 @@ def bot():
         afisha_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
-
-    application.add_handler(CommandHandler('reset', main_hl.reset))
-    application.add_handler(CommandHandler('echo', echo))
 
     filter_admin = filters.User(ADMIN_ID)
     application.add_handlers([
