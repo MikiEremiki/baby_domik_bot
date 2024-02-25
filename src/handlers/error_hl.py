@@ -43,7 +43,6 @@ async def error_handler(update: Update,
     await context.bot.send_message(
         chat_id=CHAT_ID_MIKIEREMIKI,
         text=message,
-        parse_mode=ParseMode.HTML
     )
 
     message = f"<pre>{html.escape(tb_string)}</pre>\n\n"

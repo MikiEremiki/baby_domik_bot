@@ -79,7 +79,6 @@ async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await query.edit_message_text(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
     )
 
     context.user_data['message'] = message.id
@@ -218,7 +217,6 @@ async def start_forma_info(
 
     await query.edit_message_text(
         '<b>Напишите фамилию и имя (взрослого)</b>',
-        parse_mode=ParseMode.HTML
     )
 
     if common_data.get('dict_of_shows', False):

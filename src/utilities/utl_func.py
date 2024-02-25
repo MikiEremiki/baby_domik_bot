@@ -75,7 +75,6 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
-        parse_mode=constants.ParseMode.HTML,
         message_thread_id=update.effective_message.message_thread_id
     )
 
@@ -244,7 +243,6 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode=ParseMode.HTML,
             reply_to_message_id=message_id,
             message_thread_id=thread_id
         )
@@ -261,7 +259,6 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode=ParseMode.HTML,
             message_thread_id=thread_id
         )
 
@@ -554,17 +551,14 @@ async def split_message(context, message: str):
                 await context.bot.send_message(
                     chat_id=CHAT_ID_MIKIEREMIKI,
                     text='<pre>' + message[start:] + '</pre>',
-                    parse_mode=ParseMode.HTML
                 )
                 break
             await context.bot.send_message(
                 chat_id=CHAT_ID_MIKIEREMIKI,
                 text='<pre>' + message[start:end] + '</pre>',
-                parse_mode=ParseMode.HTML
             )
     else:
         await context.bot.send_message(
             chat_id=CHAT_ID_MIKIEREMIKI,
             text='<pre>' + message + '</pre>',
-            parse_mode=ParseMode.HTML
         )

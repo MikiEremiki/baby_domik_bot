@@ -1,7 +1,8 @@
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CommandHandler, CallbackQueryHandler, MessageHandler,
-    filters,
+    filters, Defaults,
 )
 
 from db import pickle_persistence, middleware_db_add_handlers
@@ -53,6 +54,7 @@ def bot():
         .token(config.bot.token.get_secret_value())
         .persistence(pickle_persistence)
         .post_init(post_init)
+        .defaults(Defaults(parse_mode=ParseMode.HTML))
 
         .build()
     )

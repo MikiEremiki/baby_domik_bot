@@ -256,14 +256,12 @@ async def choice_show_or_date(
             photo=photo,
             caption=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
     else:
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
             message_thread_id=update.callback_query.message.message_thread_id,
-            parse_mode=ParseMode.HTML
         )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
@@ -344,13 +342,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_caption(
             caption=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
     else:
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
 
     if context.user_data['command'] == 'list_wait':
@@ -453,7 +449,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
@@ -536,7 +531,6 @@ async def choice_option_of_reserve(
         text = text_select_show
         await query.edit_message_text(
             text=text,
-            parse_mode=ParseMode.HTML
         )
 
         reserve_user_data['event_info_for_list_waiting'] = text
@@ -685,7 +679,6 @@ async def choice_option_of_reserve(
 
     await query.message.edit_text(
         text=text,
-        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup
     )
 
@@ -734,7 +727,6 @@ async def check_and_send_buy_info(
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
         context.user_data['STATE'] = state
         return state
@@ -800,7 +792,6 @@ async def check_and_send_buy_info(
 
         await query.message.edit_text(
             text=text,
-            parse_mode=ParseMode.HTML
         )
         message = await update.effective_chat.send_message(
             'Проверяю наличие свободных мест...')
@@ -863,7 +854,6 @@ async def check_and_send_buy_info(
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
             )
             state = 'CHOOSING'
             context.user_data['STATE'] = state
@@ -960,7 +950,6 @@ __________
 1. Заполнить анкету (она придет автоматически)
 2. Дождаться подтверждения""",
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
         common_data = context.user_data['common_data']
@@ -1035,11 +1024,9 @@ async def forward_photo_or_file(
     )
     await update.effective_chat.send_message(
         text=text_brief,
-        parse_mode=ParseMode.HTML,
     )
     await update.effective_chat.send_message(
         '<b>Напишите фамилию и имя (взрослого)</b>',
-        parse_mode=ParseMode.HTML
     )
 
     # Сообщение для администратора
@@ -1059,7 +1046,6 @@ async def forward_photo_or_file(
              f'Запросил подтверждение брони на сумму {chose_price} руб\n'
              f'Ждем заполнения анкеты, если всё хорошо, то только после '
              f'нажимаем подтвердить',
-        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup,
         message_thread_id=thread_id
     )
@@ -1082,7 +1068,6 @@ async def get_name_adult(
 
     await update.effective_chat.send_message(
         text='<b>Напишите номер телефона</b>',
-        parse_mode=ParseMode.HTML
     )
 
     state = 'PHONE'
@@ -1109,7 +1094,6 @@ __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
  - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>""",
-        parse_mode=ParseMode.HTML
     )
 
     state = 'CHILDREN'
@@ -1145,7 +1129,6 @@ __________
         reserve_hl_logger.info('Не верный формат текста')
         await update.effective_chat.send_message(
             text=text_for_message,
-            parse_mode=ParseMode.HTML
         )
         return context.user_data['STATE']
 
@@ -1181,7 +1164,6 @@ __________
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(
             text=text_for_message,
-            parse_mode=ParseMode.HTML
         )
         state = 'CHILDREN'
         context.user_data['STATE'] = state
@@ -1277,7 +1259,6 @@ async def send_by_ticket_info(update, context):
         'Вам придет сообщение: "Ваша бронь подтверждена"\n'
         '<i>Если сообщение не придет в течение суток, напишите в группу в '
         'контакте</i>',
-        parse_mode=ParseMode.HTML
     )
     text = context.user_data['common_data']['text_for_notification_massage']
     text += (f'__________\n'
@@ -1285,7 +1266,6 @@ async def send_by_ticket_info(update, context):
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
         text=text,
-        parse_mode=ParseMode.HTML
     )
     await message.pin()
 
@@ -1401,7 +1381,6 @@ async def send_clients_data(
             reserve_hl_logger.info('Примечание не задано')
     await query.edit_message_text(
         text=text,
-        parse_mode=ParseMode.HTML
     )
     state = ConversationHandler.END
     context.user_data['STATE'] = state
@@ -1444,7 +1423,6 @@ async def get_phone_for_waiting(
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,
-        parse_mode=ParseMode.HTML,
         message_thread_id=thread_id
     )
     write_client_list_waiting(context)

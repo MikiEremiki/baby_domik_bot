@@ -54,7 +54,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
              f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
              f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
              f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
-        parse_mode=ParseMode.HTML,
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -155,7 +154,6 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             text=text,
             chat_id=chat_id,
-            parse_mode=ParseMode.HTML
         )
 
         # TODO Добавить галочку подтверждения в клиентскую базу
@@ -303,7 +301,6 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
-        parse_mode=ParseMode.HTML
     )
 
 
@@ -358,7 +355,6 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
-        parse_mode=ParseMode.HTML
     )
 
 
@@ -383,7 +379,6 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
-            parse_mode=ParseMode.HTML,
             reply_markup=reply_markup,
             message_thread_id=query.message.message_thread_id
         )
@@ -392,14 +387,12 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_caption(
                 caption=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
             )
         except BadRequest as e:
             main_handlers_logger.error(e)
             await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
-                parse_mode=ParseMode.HTML,
                 reply_markup=reply_markup,
                 message_thread_id=query.message.message_thread_id
             )
@@ -418,14 +411,12 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     photo=photo,
                     caption=text,
                     reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML,
                     message_thread_id=query.message.message_thread_id
                 )
             else:
                 await update.effective_chat.send_message(
                     text=text,
                     reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML,
                     message_thread_id=query.message.message_thread_id
                 )
         except BadRequest as e:
@@ -433,19 +424,16 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
             )
     elif state == 'TIME':
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
     else:
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML,
         )
     context.user_data['STATE'] = state
     return state
@@ -468,7 +456,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
                      f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
                      f'резервирования свободных мест на спектакль',
-                parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
 
@@ -505,7 +492,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'резервирования свободных мест на спектакль\n'
                      f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
                      f'записи без подтверждения',
-                parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
 
@@ -571,7 +557,7 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу'
         'Задать любые интересующие вас вопросы вы можете через сообщения группы'
     )
-    await update.effective_chat.send_message(text, parse_mode=ParseMode.HTML)
+    await update.effective_chat.send_message(text)
 
     chat_id = ADMIN_GROUP
     message = await update.message.forward(
@@ -582,7 +568,6 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id,
         f'Сообщение от пользователя @{user.username} '
         f'<a href="tg://user?id={user.id}">{user.full_name}</a>',
-        parse_mode=ParseMode.HTML,
         reply_to_message_id=message.message_id,
         message_thread_id=message.message_thread_id
     )
