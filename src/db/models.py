@@ -17,7 +17,7 @@ class User(BaseModelTimed):
 
     callback_name: Mapped[str]
     callback_phone: Mapped[Optional[str]]
-    username: Mapped[str]
+    username: Mapped[Optional[str]]
 
     children: Mapped[List['Child']] = relationship(back_populates='users')
     tickets: Mapped[List['Ticket']] = relationship(back_populates='users')
@@ -27,9 +27,9 @@ class Child(BaseModel):
     __tablename__ = 'children'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[Optional[str]]
+    name: Mapped[str]
     age: Mapped[float]
-    birthdate: Mapped[date]
+    birthdate: Mapped[Optional[date]]
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey('users.chat_id', ondelete='CASCADE')
@@ -44,22 +44,22 @@ class Ticket(BaseModelTimed):
 
     base_ticket_id: Mapped[int]
     price: Mapped[int]
-    exclude: Mapped[bool]
+    exclude: Mapped[bool] = mapped_column(default=False)
     status: Mapped[TicketStatus]
 
+    child_id: Mapped[List['Child']] = mapped_column(ForeignKey('children.id'))
     user_id: Mapped[int] = mapped_column(
         ForeignKey('users.chat_id', ondelete='CASCADE')
     )
-    users: Mapped['User'] = relationship(
-        back_populates='tickets')
-
     theater_event_id: Mapped[int] = mapped_column(
         ForeignKey('theater_events.id', ondelete='CASCADE')
     )
+    schedule_event_id: Mapped[int]
+    notes: Mapped[Optional[str]]
+
+    users: Mapped['User'] = relationship(back_populates='tickets')
     theater_events: Mapped['TheaterEvent'] = relationship(
         back_populates='tickets')
-
-    notes: Mapped[Optional[str]]
 
 
 class TypeEvent(BaseModel):
@@ -68,8 +68,7 @@ class TypeEvent(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     name_alias: Mapped[str]
-    base_price_gift: Mapped[int]
-
+    base_price_gift: Mapped[Optional[int]]
     notes: Mapped[Optional[str]]
 
 
@@ -80,12 +79,12 @@ class TheaterEvent(BaseModel):
     name: Mapped[str]
     flag_premier: Mapped[bool] = mapped_column(default=False)
     min_age_child: Mapped[int]
-    max_age_child: Mapped[int]
-    show_emoji: Mapped[str]
-    flag_active_repertoire: Mapped[bool]
-    flag_active_bd: Mapped[bool]
-    max_num_child_bd: Mapped[int]
-    max_num_adult_bd: Mapped[int]
+    max_age_child: Mapped[Optional[int]]
+    show_emoji: Mapped[Optional[str]]
+    flag_active_repertoire: Mapped[bool] = mapped_column(default=False)
+    flag_active_bd: Mapped[bool] = mapped_column(default=False)
+    max_num_child_bd: Mapped[int] = mapped_column(default=8)
+    max_num_adult_bd: Mapped[int] = mapped_column(default=10)
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
     price_type: Mapped[PriceType] = mapped_column(default=PriceType.NONE)
 
@@ -103,7 +102,21 @@ class ScheduleEvent(BaseModelTimed):
         ForeignKey('theater_events.id', ondelete='CASCADE')
     )
     flag_turn_in_bot: Mapped[bool] = mapped_column(default=False)
-    date_event: Mapped[datetime]
+    datetime_event: Mapped[datetime]
+
+    qty_child: Mapped[int]
+    qty_child_free_seat: Mapped[int]
+    qty_child_nonconfirm_seat: Mapped[int]
+    qty_adult: Mapped[int]
+    qty_adult_free_seat: Mapped[int]
+    qty_adult_nonconfirm_seat: Mapped[int]
+
+    flag_gift: Mapped[bool] = mapped_column(default=False)
+    flag_christmas_tree: Mapped[bool] = mapped_column(default=False)
+    flag_santa: Mapped[bool] = mapped_column(default=False)
+
+    ticket_price_type: Mapped[TicketPriceType] = mapped_column(
+        default=TicketPriceType.NONE)
 
     tickets: Mapped[List['Ticket']] = relationship(
-        back_populates='theater_events')
+        back_populates='schedule_events')
