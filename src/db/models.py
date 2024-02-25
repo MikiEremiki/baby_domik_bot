@@ -1,11 +1,11 @@
 from datetime import datetime, date
-import enum
 from typing import Optional, List
 
 from sqlalchemy import ForeignKey, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import BaseModel, BaseModelTimed
+from db import BaseModel, BaseModelTimed
+from db.enum_types import TicketStatus, TicketPriceType, PriceType
 
 
 class User(BaseModelTimed):
@@ -37,16 +37,6 @@ class Child(BaseModel):
     users: Mapped['User'] = relationship(back_populates='children')
 
 
-class TicketStatusEnum(enum.Enum):
-    QUERIED = 'queried'  # Запрошен
-    PAID = 'paid'  # Оплачен
-    APPROVED = 'approved'  # Подтвержден
-    REJECTED = 'rejected'  # Отклонен
-    REFUNDED = 'refunded'  # Возвращен
-    TRANSFERRED = 'transferred'  # Передан
-    POSTPONED = 'postponed'  # Перенесен
-
-
 class Ticket(BaseModelTimed):
     __tablename__ = 'tickets'
 
@@ -55,7 +45,7 @@ class Ticket(BaseModelTimed):
     base_ticket_id: Mapped[int]
     price: Mapped[int]
     exclude: Mapped[bool]
-    status: Mapped[TicketStatusEnum]
+    status: Mapped[TicketStatus]
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey('users.id', ondelete='CASCADE')
@@ -83,13 +73,6 @@ class TypeEvent(BaseModel):
     notes: Mapped[Optional[str]]
 
 
-class PriceTypeEnum(enum.Enum):
-    NONE = None
-    BASE_PRICE = 'Базовая стоимость'
-    OPTIONS = 'Опции'
-    INDIVIDUAL = 'Индивидуальная'
-
-
 class TheaterEvent(BaseModel):
     __tablename__ = 'theater_events'
 
@@ -104,7 +87,7 @@ class TheaterEvent(BaseModel):
     max_num_child_bd: Mapped[int]
     max_num_adult_bd: Mapped[int]
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
-    price_type: Mapped[PriceTypeEnum]
+    price_type: Mapped[PriceType] = mapped_column(default=PriceType.NONE)
 
 
 class ScheduleEvent(BaseModelTimed):

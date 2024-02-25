@@ -1,15 +1,10 @@
-from .base import BaseModel
+from .base import BaseModel, BaseModelTimed
 from .models import (
     User,
     Child,
+    Ticket,
+    TypeEvent,
     TheaterEvent,
-    Ticket
+    ScheduleEvent,
 )
-
-__all__ = [
-    "BaseModel",
-    "User",
-    "Child",
-    "TheaterEvent",
-    "Ticket",
-]
+from .enum_types import TicketStatusEnum, TicketPriceTypeEnum, PriceTypeEnum
