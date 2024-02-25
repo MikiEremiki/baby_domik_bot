@@ -4,7 +4,7 @@ from telegram.ext import (
     filters,
 )
 
-from db.pickle_persistence import pickle_persistence
+from db import pickle_persistence, middleware_db_add_handlers
 from log.logging_conf import load_log_config
 from handlers import main_hl
 from handlers.error_hl import error_handler
@@ -58,6 +58,8 @@ def bot():
     )
 
     application.bot_data.setdefault('config', config)
+
+    middleware_db_add_handlers(application, config)
 
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
