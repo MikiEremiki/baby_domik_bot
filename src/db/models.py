@@ -32,7 +32,7 @@ class Child(BaseModel):
     birthdate: Mapped[date]
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.id', ondelete='CASCADE')
+        ForeignKey('users.chat_id', ondelete='CASCADE')
     )
     users: Mapped['User'] = relationship(back_populates='children')
 
@@ -48,7 +48,7 @@ class Ticket(BaseModelTimed):
     status: Mapped[TicketStatus]
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.id', ondelete='CASCADE')
+        ForeignKey('users.chat_id', ondelete='CASCADE')
     )
     users: Mapped['User'] = relationship(
         back_populates='tickets')
