@@ -11,9 +11,10 @@ from db.enum_types import TicketStatus, TicketPriceType, PriceType
 class User(BaseModelTimed):
     __tablename__ = 'users'
 
-    chat_id: Mapped[int] = mapped_column(BigInteger,
+    user_id: Mapped[int] = mapped_column(BigInteger,
                                          primary_key=True,
                                          autoincrement=False)
+    chat_id: Mapped[int]
 
     callback_name: Mapped[str]
     callback_phone: Mapped[Optional[str]]
@@ -32,7 +33,7 @@ class Child(BaseModel):
     birthdate: Mapped[Optional[date]]
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.chat_id', ondelete='CASCADE')
+        ForeignKey('users.user_id', ondelete='CASCADE')
     )
     users: Mapped['User'] = relationship(back_populates='children')
 
@@ -49,7 +50,7 @@ class Ticket(BaseModelTimed):
 
     child_id: Mapped[List['Child']] = mapped_column(ForeignKey('children.id'))
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.chat_id', ondelete='CASCADE')
+        ForeignKey('users.user_id', ondelete='CASCADE')
     )
     theater_event_id: Mapped[int] = mapped_column(
         ForeignKey('theater_events.id', ondelete='CASCADE')
