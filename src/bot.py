@@ -83,57 +83,33 @@ def bot():
 
     application.add_handler(CommandHandler('reset', main_hl.reset))
     application.add_handler(CommandHandler('echo', echo))
-    application.add_handler(CommandHandler(
-        'print_ud',
-        print_ud,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        'clean_ud',
-        clean_ud,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        'clean_bd',
-        clean_bd,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_T_DATA'][0],
-        update_ticket_data,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_S_DATA'][0],
-        update_show_data,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_BD_PRICE'][0],
-        update_bd_price,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_SPEC_PRICE'][0],
-        update_special_ticket_price,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['LOG'][0],
-        send_log,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['CB_TW'][0],
-        get_balance,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['TOPIC_START'][0],
-        create_or_connect_topic,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['TOPIC_DEL'][0],
-        del_topic,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['ADM_INFO'][0],
-        update_admin_info,
-        filters=filters.User(ADMIN_ID)))
 
-    application.add_handler(CommandHandler('rcl',
-                                           request_contact_location))
+    filter_admin = filters.User(ADMIN_ID)
+    application.add_handlers([
+        CommandHandler('clean_ud', clean_ud, filter_admin),
+        CommandHandler('print_ud', print_ud, filter_admin),
+        CommandHandler('clean_bd', clean_bd, filter_admin),
+        CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
+        CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
+        CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
+        CommandHandler(COMMAND_DICT['TOPIC_START'][0], create_or_connect_topic,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['UP_T_DATA'][0], update_ticket_data,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['UP_S_DATA'][0], update_show_data,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['UP_BD_PRICE'][0], update_bd_price,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['UP_SPEC_PRICE'][0],
+                       update_special_ticket_price,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['ADM_INFO'][0],
+                       update_admin_info,
+                       filter_admin),
+    ])
+
+    application.add_handler(
+        CommandHandler('rcl', request_contact_location))
     application.add_handler(MessageHandler(filters.LOCATION, get_location))
     application.add_handler(MessageHandler(filters.CONTACT, get_contact))
 
