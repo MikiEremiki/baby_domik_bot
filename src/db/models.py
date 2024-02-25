@@ -55,11 +55,13 @@ class Ticket(BaseModelTimed):
     theater_event_id: Mapped[int] = mapped_column(
         ForeignKey('theater_events.id', ondelete='CASCADE')
     )
-    schedule_event_id: Mapped[int]
+    schedule_event_id: Mapped[int] = mapped_column(
+        ForeignKey('schedule_events.id', ondelete='CASCADE')
+    )
     notes: Mapped[Optional[str]]
 
     users: Mapped['User'] = relationship(back_populates='tickets')
-    theater_events: Mapped['TheaterEvent'] = relationship(
+    schedule_events: Mapped['ScheduleEvent'] = relationship(
         back_populates='tickets')
 
 
