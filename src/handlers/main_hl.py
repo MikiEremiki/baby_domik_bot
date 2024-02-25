@@ -16,6 +16,7 @@ from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, utilites_logger
 )
+from db import AsyncORM
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -25,6 +26,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
+    if not await AsyncORM.get_user(update, context.session):
+        res = await AsyncORM.create_user(update, context.session)
+        if res:
+            main_handlers_logger.info(
+                f'Пользователь {res} начал общение с ботом')
+    else:
+        main_handlers_logger.info('Пользователь уже в есть в базе')
     clean_context(context)
 
     context.user_data['user'] = update.effective_user
