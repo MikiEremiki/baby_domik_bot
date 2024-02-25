@@ -7,13 +7,10 @@ from telegram.error import BadRequest
 
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
 from settings.settings import (
-    COMMAND_DICT,
-    ADMIN_GROUP,
-    FEEDBACK_THREAD_ID_GROUP_ADMIN)
+    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
+)
 from api.googlesheets import (
-    get_quality_of_seats,
-    write_data_for_reserve,
-    set_approve_order
+    get_quality_of_seats, write_data_for_reserve, set_approve_order
 )
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
