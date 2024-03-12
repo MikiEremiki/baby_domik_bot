@@ -92,7 +92,7 @@ class Ticket(BaseModelTimed):
     payment_id: Mapped[Optional[str]]
     idempotency_id: Mapped[Optional[str]]
 
-    schedule_event_id: Mapped[int] = mapped_column(
+    schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))
 
     users: Mapped['User'] = relationship(
