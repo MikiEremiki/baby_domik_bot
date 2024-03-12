@@ -28,6 +28,11 @@ class TicketPriceType(enum.Enum):
     weekend = 'выходные'
 
 
+class AgeType(enum.Enum):
+    adult = 'взрослый'
+    child = 'ребенок'
+
+
 TicketStatusEnum = sa.Enum(
     TicketStatus,
     name="TicketStatusEnum",
@@ -41,5 +46,10 @@ PriceTypeEnum = sa.Enum(
 TicketPriceTypeEnum = sa.Enum(
     TicketPriceType,
     name="TicketPriceTypeEnum",
+    metadata=BaseModel.metadata
+)
+AgeTypeEnum = sa.Enum(
+    AgeType,
+    name="AgeTypeEnum",
     metadata=BaseModel.metadata
 )
