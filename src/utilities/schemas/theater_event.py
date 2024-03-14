@@ -58,6 +58,20 @@ class TheaterEvent(BaseModel):
     qty_adult_nonconfirm_seat: int
 
 
+kv_name_attr_theater_event = {
+    'name': 'Название спектакля',
+    'min_age_child': 'Мин возраст',
+    'max_age_child': 'Макс возраст',
+    'show_emoji': 'Эмодзи',
+    'flag_premier': 'Премьера',
+    'flag_active_repertoire': 'В репертуаре',
+    'flag_active_bd': 'День рождения',
+    'max_num_child_bd': 'Макс кол-во детей ДР',
+    'max_num_adult_bd': 'Макс кол-во взрослых ДР',
+    'flag_indiv_cost': 'Индив стоимость',
+    'price_type': 'Расчет стоимости',
+}
+
 if __name__ == '__main__':
     a = TheaterPerformance(
         show_id=1,
