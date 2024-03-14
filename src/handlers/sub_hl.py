@@ -3,11 +3,14 @@ import logging
 from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 
-from settings.settings import SUPPORT_DATA
+from db import db_postgres
+from settings.settings import SUPPORT_DATA, ADMIN_GROUP
 from db.db_googlesheets import (
     load_ticket_data, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
+from utilities.hlp_func import create_approve_and_reject_replay
 from utilities.schemas.ticket import BaseTicket
+from utilities.utl_func import send_message_to_admin
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -237,3 +240,87 @@ async def get_emoji_and_options_for_event(event, name_column=None):
         if event[name_column['flag_santa']] == 'TRUE':
             text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
     return option, text_emoji
+
+
+async def send_breaf_message(update: Update):
+    """
+    Сообщение для опроса
+    :param update: обновление от telegram
+    :return: None
+    """
+    text_brief = (
+        'Для подтверждения брони заполните, пожалуйста, анкету.\n'
+        'Вход на мероприятие ведется по спискам.\n'
+        '__________\n'
+        '<i>Пожалуйста, не пишите лишней информации/дополнительных слов в '
+        'сообщении.\n'
+        'Вопросы будут приходить последовательно (их будет всего 3)</i>'
+    )
+    await update.effective_chat.send_message(
+        text=text_brief,
+    )
+    await update.effective_chat.send_message(
+        '<b>Напишите фамилию и имя (взрослого)</b>',
+    )
+
+
+async def send_approve_reject_message_to_admin(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    # Сообщение для администратора
+    user = update.effective_user
+    message_id = context.user_data['common_data']['message_id_buy_info']
+    text = context.user_data['common_data']['text_for_notification_massage']
+    thread_id = (context.bot_data['dict_topics_name']
+                 .get('Бронирование спектаклей', None))
+    res = await context.bot.send_message(
+        chat_id=ADMIN_GROUP,
+        text=f'#Бронирование\n'
+             f'Квитанция пользователя @{user.username} {user.full_name}\n',
+        message_thread_id=thread_id
+    )
+    await update.effective_message.forward(
+        chat_id=ADMIN_GROUP,
+        message_thread_id=thread_id
+    )
+    message_id_for_admin = res.message_id
+    await send_message_to_admin(ADMIN_GROUP,
+                                text,
+                                message_id_for_admin,
+                                context,
+                                thread_id)
+    reply_markup = create_approve_and_reject_replay(
+        'reserve',
+        update.effective_user.id,
+        message_id,
+    )
+    chose_price = context.user_data['reserve_user_data']['chose_price']
+    message = await context.bot.send_message(
+        chat_id=ADMIN_GROUP,
+        text=f'Пользователь @{user.username} {user.full_name}\n'
+             f'Запросил подтверждение брони на сумму {chose_price} руб\n'
+             f'Ждем заполнения анкеты, если всё хорошо, то только после '
+             f'нажимаем подтвердить',
+        reply_markup=reply_markup,
+        message_thread_id=thread_id
+    )
+    return message
+
+
+async def remove_button_from_last_message(update, context):
+    # Убираем у старого сообщения кнопки
+    message_id = context.user_data['common_data']['message_id_buy_info']
+    await context.bot.edit_message_reply_markup(
+        chat_id=update.effective_chat.id,
+        message_id=message_id
+    )
+
+
+async def update_ticket_status(context, new_status):
+    ticket_id = context.user_data['reserve_admin_data']['payment_data']['ticket_id']
+    await db_postgres.update_ticket(
+        context.session,
+        ticket_id,
+        status=new_status,
+    )
