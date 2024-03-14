@@ -31,11 +31,17 @@ class GoogleSheetsSettings(BaseModel):
     sheet_id: str
 
 
+class YookassaSettings(BaseModel):
+    account_id: int
+    secret_key: SecretStr
+
+
 class Settings(BaseSettings):
     bot: BotSettings
     timeweb: TimeWebSettings
     postgres: PostgresSettings
     sheets: GoogleSheetsSettings
+    yookassa: YookassaSettings
 
 
 def parse_settings(local_file_name: str = "config/settings.yml") -> Settings:

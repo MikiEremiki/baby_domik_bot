@@ -8,3 +8,5 @@ config/*
 settings.py
 /src/utilities/pickle/ud_ids/
 /src/utilities/pickle/user_ids
+**/sql_files/
+docker-compose-*

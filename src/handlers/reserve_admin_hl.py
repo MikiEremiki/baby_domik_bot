@@ -1,14 +1,13 @@
 import logging
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from db.db_googlesheets import load_show_info, load_list_show
 from handlers import init_conv_hl_dialog
-from handlers.sub_hl import get_chose_ticket_and_price, \
-    get_emoji_and_options_for_event
+from handlers.sub_hl import (
+    get_chose_ticket_and_price, get_emoji_and_options_for_event)
 from settings.settings import DICT_OF_EMOJI_FOR_BUTTON
 from utilities.utl_func import add_btn_back_and_cancel, set_back_context
 
@@ -79,7 +78,6 @@ async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await query.edit_message_text(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
     )
 
     context.user_data['message'] = message.id
@@ -155,11 +153,9 @@ async def choice_option_of_reserve(
             flag_indiv_cost = item['flag_indiv_cost']
             choose_event_info['flag_indiv_cost'] = flag_indiv_cost
 
-    reserve_admin_data: dict = context.user_data['reserve_admin_data']
-    payment_id = reserve_admin_data['payment_id']
-    reserve_admin_hl_logger.info(f'Бронирование: {payment_id}')
-    reserve_admin_data[payment_id] = {}
-    reserve_admin_data[payment_id]['event_id'] = event_id
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    reserve_admin_hl_logger.info(f'Бронирование: {payment_data}')
+    payment_data['event_id'] = event_id
 
     state = 'TICKET'
     context.user_data['STATE'] = state
@@ -188,9 +184,9 @@ async def start_forma_info(
     )
 
     reserve_user_data['chose_price'] = price
-    payment_id = reserve_admin_data['payment_id']
-    reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
-    event_id = reserve_admin_data[payment_id]['event_id']
+    payment_data = reserve_admin_data['payment_data']
+    payment_data['chose_ticket'] = chose_ticket
+    event_id = payment_data['event_id']
 
     list_of_name_colum = [
         'qty_child_free_seat',
@@ -218,7 +214,6 @@ async def start_forma_info(
 
     await query.edit_message_text(
         '<b>Напишите фамилию и имя (взрослого)</b>',
-        parse_mode=ParseMode.HTML
     )
 
     if common_data.get('dict_of_shows', False):

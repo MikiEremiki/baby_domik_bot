@@ -8,9 +8,9 @@ services:
       context: .
     image: baby_domik:v1
     restart: always
-#    depends_on:
-#      postgres:
-#        condition: service_healthy
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - network
     environment:
@@ -20,6 +20,8 @@ services:
       - ./config/settings.py:/app/src/settings/settings.py
       - ./src/db/data:/app/src/db/data
       - ./src/log/archive:/app/src/log/archive
+    command: faststream run bot:fast_stream
+
   postgres:
     profiles: [ "all", "db" ]
     container_name: postgres
@@ -34,11 +36,11 @@ services:
     networks:
       - network
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "$POSTGRES_USER", "-d",
-              "$POSTGRES_DB" ]
+      test: [ "CMD", "pg_isready", "-U", "$POSTGRES_USER", "-d", "$POSTGRES_DB" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
   migration:
     profiles: [ "migration" ]
     container_name: migration
@@ -57,8 +59,9 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-config/}
     working_dir: /app
-    command: [ "alembic", "-c", "config/alembic.ini", "upgrade", "head" ]
-#    command: [ "alembic", "-c", "config/alembic.ini", "downgrade", "base" ]
+    command: [ "alembic", "-c", "config/alembic.ini", "upgrade", "+1" ]
+#    command: [ "alembic", "-c", "config/alembic.ini", "downgrade", "-1" ]
+
   pgadmin:
     profiles: [ "pgadmin" ]
     container_name: pgadmin
@@ -74,11 +77,64 @@ services:
     networks:
       - network
 
+  nats:
+    profiles: [ "nats", "1" ]
+    container_name: nats
+    image: nats:2.10.11-alpine
+    restart: unless-stopped
+    ports:
+      - '4222:4222'
+      - '6222:6222'
+      - '8222:8222'
+    volumes:
+      - nats:/nats
+      - ./config/server.conf:/etc/nats/server.conf
+    networks:
+      - network
+    command: 'nats-server -c /etc/nats/server.conf'
+
+  nats-cli:
+    profiles: [ "nats-cli" ]
+    container_name: nats-cli
+    image: natsio/nats-box
+    restart: unless-stopped
+    networks:
+      - network
+    command: [ "tail", "-f", "/dev/null" ]
+
+  fastapi_server:
+    profiles: [ "fastapi", "1" ]
+    container_name: fastapi_server
+    build:
+      context: .
+      dockerfile: Dockerfile-server
+    image: baby_domik_fastapi:v1
+    restart: unless-stopped
+    networks:
+      - network
+    depends_on:
+      - nats
+
+  nginx:
+    profiles: [ "nginx", "1" ]
+    container_name: nginx
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/server.crt:/etc/nginx/server.crt
+      - ./config/server.key:/etc/nginx/server.key
+    networks:
+      - network
+    depends_on:
+      - fastapi_server
+
 volumes:
   db:
-#  data:
-#  logs:
   pgadmin:
+  nats:
 
 networks:
   network:

@@ -46,13 +46,11 @@ async def send_clients_wait_data(
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
-            parse_mode=ParseMode.HTML,
             message_thread_id=update.effective_message.message_thread_id
         )
     else:
         await query.edit_message_text(
             text=text,
-            parse_mode=ParseMode.HTML
         )
     state = ConversationHandler.END
     context.user_data['STATE'] = state

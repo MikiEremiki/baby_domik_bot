@@ -12,7 +12,6 @@ from telegram import (
     InlineKeyboardButton, InlineKeyboardMarkup,
     constants,
 )
-from telegram.constants import ParseMode
 from telegram.ext import (
     ContextTypes,
     ExtBot,
@@ -75,26 +74,26 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
-        parse_mode=constants.ParseMode.HTML,
         message_thread_id=update.effective_message.message_thread_id
     )
 
 
 async def clean_context_on_end_handler(logger, context):
-    logger.info(
-        f'Обработчик завершился на этапе {context.user_data['STATE']}')
-    if context.user_data.get('common_data', False):
-        context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_user_data', False):
-        context.user_data['birthday_user_data'].clear()
-    if context.user_data.get('reserve_user_data', False):
-        context.user_data['reserve_user_data'].clear()
-    context.user_data.pop('STATE')
-    context.user_data.pop('command')
     if context.user_data.get('STATE', False):
-        context.user_data['STATE'].clear()
+        logger.info(
+            f'Обработчик завершился на этапе {context.user_data['STATE']}')
+        context.user_data.pop('STATE')
+    else:
+        logger.info('STATE не задан')
+
     if context.user_data.get('command', False):
-        context.user_data['command'].clear()
+        context.user_data.pop('command')
+    if context.user_data.get('common_data', False):
+        context.user_data.pop('common_data')
+    if context.user_data.get('birthday_user_data', False):
+        context.user_data.pop('birthday_user_data')
+    if context.user_data.get('reserve_user_data', False):
+        context.user_data.pop('reserve_user_data')
 
 
 async def delete_message_for_job_in_callback(
@@ -244,7 +243,6 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode=ParseMode.HTML,
             reply_to_message_id=message_id,
             message_thread_id=thread_id
         )
@@ -261,7 +259,6 @@ async def send_message_to_admin(
         await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode=ParseMode.HTML,
             message_thread_id=thread_id
         )
 
@@ -269,6 +266,10 @@ async def send_message_to_admin(
 def extract_phone_number_from_text(phone):
     phone = re.sub(r'[-\s)(+]', '', phone)
     return re.sub(r'^[78]{,2}(?=9)', '', phone)
+
+
+def check_email(email):
+        return re.fullmatch(r'[^@]+@[^@]+\.[^@]+', email)
 
 
 def yrange(n):
@@ -554,17 +555,14 @@ async def split_message(context, message: str):
                 await context.bot.send_message(
                     chat_id=CHAT_ID_MIKIEREMIKI,
                     text='<pre>' + message[start:] + '</pre>',
-                    parse_mode=ParseMode.HTML
                 )
                 break
             await context.bot.send_message(
                 chat_id=CHAT_ID_MIKIEREMIKI,
                 text='<pre>' + message[start:end] + '</pre>',
-                parse_mode=ParseMode.HTML
             )
     else:
         await context.bot.send_message(
             chat_id=CHAT_ID_MIKIEREMIKI,
             text='<pre>' + message + '</pre>',
-            parse_mode=ParseMode.HTML
         )

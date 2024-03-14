@@ -2,18 +2,16 @@ import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
-from telegram.constants import ParseMode, ChatType
+from telegram.constants import ChatType
 from telegram.error import BadRequest
 
+from handlers import check_user_db
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
 from settings.settings import (
-    COMMAND_DICT,
-    ADMIN_GROUP,
-    FEEDBACK_THREAD_ID_GROUP_ADMIN)
+    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
+)
 from api.googlesheets import (
-    get_quality_of_seats,
-    write_data_for_reserve,
-    set_approve_order
+    get_quality_of_seats, write_data_for_reserve, set_approve_order
 )
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
@@ -28,6 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
+    await check_user_db(update, context)
     clean_context(context)
 
     context.user_data['user'] = update.effective_user
@@ -49,9 +48,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
              f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
              f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
              f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
-        parse_mode=ParseMode.HTML,
         reply_markup=ReplyKeyboardRemove()
     )
+
+
+async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.args[0]
+    await send_approve_message(chat_id, context)
+    await update.effective_message.reply_text(
+        'Подтверждение успешно отправлено')
 
 
 async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,12 +72,11 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
-    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        payment_data = user_data['reserve_admin_data'][payment_id]
+        payment_data = user_data['reserve_admin_data']['payment_data']
         event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
@@ -81,23 +85,28 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'qty_child_nonconfirm_seat',
             'qty_adult_nonconfirm_seat'
         ]
-        (qty_child_nonconfirm_seat_now,
-         qty_adult_nonconfirm_seat_now
-         ) = get_quality_of_seats(event_id,
-                                  list_of_name_colum)
-
-        qty_child_nonconfirm_seat_new = int(
-            qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
-        qty_adult_nonconfirm_seat_new = int(
-            qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
-                                                 chose_ticket.quality_of_add_adult)
-
-        numbers = [
-            qty_child_nonconfirm_seat_new,
-            qty_adult_nonconfirm_seat_new
-        ]
         try:
+            (qty_child_nonconfirm_seat_now,
+             qty_adult_nonconfirm_seat_now
+             ) = get_quality_of_seats(event_id,
+                                      list_of_name_colum)
+            main_handlers_logger.info('Загружаем кол-во мест')
+
+            qty_child_nonconfirm_seat_new = int(
+                qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
+            qty_adult_nonconfirm_seat_new = int(
+                qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
+                                                     chose_ticket.quality_of_add_adult)
+
+            numbers = [
+                qty_child_nonconfirm_seat_new,
+                qty_adult_nonconfirm_seat_new
+            ]
             write_data_for_reserve(event_id, numbers, 2)
+            await query.edit_message_text(
+                text=f'Пользователю @{user.username} {user.full_name} '
+                     f'списаны неподтвержденные места'
+            )
 
             main_handlers_logger.info(": ".join(
                 [
@@ -122,35 +131,27 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     event_id,
                 ]
             ))
+        except ConnectionError:
+            await query.edit_message_text(
+                text=f'Пользователю @{user.username} {user.full_name} '
+                     f'не списаны неподтвержденные места\n'
+                     f'Номер строки для обновления: {event_id}\n'
+                     f'user_id {user.id}'
+            )
+
+        await query.edit_message_text(
+            text=f'Пользователю @{user.username} {user.full_name} '
+                 f'отправляем сообщение о подтверждении бронирования'
+                 f'user_id {user.id}'
+        )
+        chat_id = query.data.split('|')[1].split()[0]
+        message_id = query.data.split('|')[1].split()[1]
+
+        await send_approve_message(chat_id, context)
 
         await query.edit_message_text(
             text=f'Пользователю @{user.username} {user.full_name} '
                  f'подтверждена бронь'
-        )
-
-        chat_id = query.data.split('|')[1].split()[0]
-        message_id = query.data.split('|')[1].split()[1]
-
-        text = (
-            'Ваша бронь подтверждена, ждем вас на спектакле.\n'
-            'Адрес: Малая Покровская, д18, 2 этаж\n\n'
-            '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
-            '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
-            'В ней более подробно описаны:\n'
-            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
-            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
-            '- Фотографии\n'
-            '- Команда и жизнь театра\n'
-            '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
-            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
-            '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
-            'Для продолжения работы используйте команды:\n'
-            f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
-        )
-        await context.bot.send_message(
-            text=text,
-            chat_id=chat_id,
-            parse_mode=ParseMode.HTML
         )
 
         # TODO Добавить галочку подтверждения в клиентскую базу
@@ -161,11 +162,13 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=chat_id,
                 message_id=message_id
             )
-        except BadRequest:
+        except BadRequest as e:
+            main_handlers_logger.error(e)
             main_handlers_logger.info(
                 f'Cообщение уже удалено'
             )
-    except BadRequest:
+    except BadRequest as e:
+        main_handlers_logger.error(e)
         main_handlers_logger.info(": ".join(
             [
                 'Пользователь',
@@ -173,6 +176,29 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'Пытается спамить',
             ]
         ))
+
+
+async def send_approve_message(chat_id, context):
+    text = (
+        'Ваша бронь подтверждена, ждем вас на спектакле.\n'
+        'Адрес: Малая Покровская, д18, 2 этаж\n\n'
+        '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
+        '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
+        'В ней более подробно описаны:\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
+        '- Фотографии\n'
+        '- Команда и жизнь театра\n'
+        '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
+        '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+        'Для продолжения работы используйте команды:\n'
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+    )
+    await context.bot.send_message(
+        text=text,
+        chat_id=chat_id,
+    )
 
 
 async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -187,12 +213,11 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
-    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        payment_data = user_data['reserve_admin_data'][payment_id]
+        payment_data = user_data['reserve_admin_data']['payment_data']
         event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
@@ -298,7 +323,6 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
-        parse_mode=ParseMode.HTML
     )
 
 
@@ -353,7 +377,6 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
-        parse_mode=ParseMode.HTML
     )
 
 
@@ -378,7 +401,6 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
-            parse_mode=ParseMode.HTML,
             reply_markup=reply_markup,
             message_thread_id=query.message.message_thread_id
         )
@@ -387,14 +409,12 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_caption(
                 caption=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
             )
         except BadRequest as e:
             main_handlers_logger.error(e)
             await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
-                parse_mode=ParseMode.HTML,
                 reply_markup=reply_markup,
                 message_thread_id=query.message.message_thread_id
             )
@@ -413,14 +433,12 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     photo=photo,
                     caption=text,
                     reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML,
                     message_thread_id=query.message.message_thread_id
                 )
             else:
                 await update.effective_chat.send_message(
                     text=text,
                     reply_markup=reply_markup,
-                    parse_mode=ParseMode.HTML,
                     message_thread_id=query.message.message_thread_id
                 )
         except BadRequest as e:
@@ -428,19 +446,16 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
             )
     elif state == 'TIME':
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
     else:
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML,
         )
     context.user_data['STATE'] = state
     return state
@@ -463,22 +478,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text='Вы выбрали отмену\nИспользуйте команды:\n'
                      f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
                      f'резервирования свободных мест на спектакль',
-                parse_mode=ParseMode.HTML,
                 message_thread_id=query.message.message_thread_id
             )
 
             if '|' in query.data:
-                chat_id = query.data.split('|')[1].split()[0]
-                message_id = query.data.split('|')[1].split()[1]
-                await context.bot.delete_message(
-                    chat_id=chat_id,
-                    message_id=message_id
-                )
-
-                reserve_admin_data = context.user_data['reserve_admin_data']
-                payment_id = reserve_admin_data['payment_id']
-                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-                event_id = reserve_admin_data[payment_id]['event_id']
+                payment_data = context.user_data['reserve_admin_data']['payment_data']
+                chose_ticket = payment_data['chose_ticket']
+                event_id = payment_data['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)
         case 'bd':
@@ -500,7 +506,12 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'резервирования свободных мест на спектакль\n'
                      f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
                      f'записи без подтверждения',
-                parse_mode=ParseMode.HTML,
+                message_thread_id=query.message.message_thread_id
+            )
+        case 'settings':
+            await query.delete_message()
+            await update.effective_chat.send_message(
+                text='Вы выбрали отмену',
                 message_thread_id=query.message.message_thread_id
             )
 
@@ -566,7 +577,7 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу'
         'Задать любые интересующие вас вопросы вы можете через сообщения группы'
     )
-    await update.effective_chat.send_message(text, parse_mode=ParseMode.HTML)
+    await update.effective_chat.send_message(text)
 
     chat_id = ADMIN_GROUP
     message = await update.message.forward(
@@ -577,7 +588,6 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id,
         f'Сообщение от пользователя @{user.username} '
         f'<a href="tg://user?id={user.id}">{user.full_name}</a>',
-        parse_mode=ParseMode.HTML,
         reply_to_message_id=message.message_id,
         message_thread_id=message.message_thread_id
     )

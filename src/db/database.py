@@ -4,16 +4,20 @@ from telegram.ext import TypeHandler, ContextTypes
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 
-def middleware_db_add_handlers(application, config):
+def create_sessionmaker_and_engine(db_url, echo=True):
     async_engine = create_async_engine(
-        url=str(config.postgres.db_url),
-        echo=True,
+        url=db_url,
+        echo=echo,
         connect_args={"options": "-c timezone=utc"},
     )
-    sessionmaker = async_sessionmaker(
+    return async_sessionmaker(
         async_engine,
         expire_on_commit=False
     )
+
+
+def middleware_db_add_handlers(application, config):
+    sessionmaker = create_sessionmaker_and_engine(str(config.postgres.db_url))
 
     async def open_session_handler(
             _: Update,

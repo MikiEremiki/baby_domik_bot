@@ -6,10 +6,16 @@ google-auth-oauthlib
 psycopg
 psycopg-binary
 pydantic
+pydantic_core
 pydantic-settings
 pytest
-python-telegram-bot[ext]~=20.7
+python-telegram-bot[ext]~=20.8
 PyYAML
 requests
 sqlalchemy
 typing_extensions
+yookassa~=3.0.1
+uvicorn
+fastapi
+faststream
+nats-py==2.6.0

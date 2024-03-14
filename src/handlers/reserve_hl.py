@@ -1,6 +1,7 @@
 import logging
 import pprint
 import re
+import uuid
 from datetime import datetime
 
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
@@ -9,45 +10,41 @@ from telegram import (
     InlineKeyboardButton, InlineKeyboardMarkup,
     ReplyKeyboardMarkup, ReplyKeyboardRemove,
 )
-from telegram.constants import ParseMode, ChatType, ChatAction
+from telegram.constants import ChatType, ChatAction
+from yookassa import Payment
 
-from handlers import init_conv_hl_dialog
+from api.yookassa_connect import create_param_payment
+from db import db_postgres
+from db.enum import TicketStatus
+from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb, write_old_seat_info,
     get_chose_ticket_and_price, get_emoji_and_options_for_event,
+    send_breaf_message, send_approve_reject_message_to_admin,
+    remove_button_from_last_message, update_ticket_status,
 )
 from db.db_googlesheets import (
-    load_clients_data,
-    load_show_data,
-    load_list_show, load_show_info, load_special_ticket_price,
+    load_clients_data, load_show_data, load_list_show, load_show_info,
+    load_special_ticket_price,
 )
 from api.googlesheets import (
-    write_data_for_reserve,
-    write_client,
-    write_client_list_waiting,
+    write_data_for_reserve, write_client, write_client_list_waiting,
     get_quality_of_seats,
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text,
-    add_btn_back_and_cancel,
-    send_message_to_admin,
-    set_back_context, get_back_context,
+    extract_phone_number_from_text, add_btn_back_and_cancel,
+    send_message_to_admin, set_back_context, get_back_context, check_email
 )
 from utilities.hlp_func import (
     check_phone_number,
     create_replay_markup_for_list_of_shows,
-    create_approve_and_reject_replay,
     enum_current_show_by_month,
     add_text_of_show_and_numerate
 )
 from settings.settings import (
-    ADMIN_GROUP,
-    COMMAND_DICT,
-    DICT_OF_EMOJI_FOR_BUTTON,
-    DICT_CONVERT_MONTH_NUMBER_TO_STR,
-    SUPPORT_DATA,
-    RESERVE_TIMEOUT,
+    ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT, OFFER,
+    DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_MONTH_NUMBER_TO_STR, FILE_ID_RULES,
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
@@ -67,6 +64,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.delete_message()
     else:
         state = init_conv_hl_dialog(update, context)
+        await check_user_db(update, context)
 
     user = context.user_data.setdefault('user', update.effective_user)
 
@@ -256,14 +254,12 @@ async def choice_show_or_date(
             photo=photo,
             caption=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
     else:
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
             message_thread_id=update.callback_query.message.message_thread_id,
-            parse_mode=ParseMode.HTML
         )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
@@ -344,13 +340,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_caption(
             caption=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
     else:
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
         )
 
     if context.user_data['command'] == 'list_wait':
@@ -453,7 +447,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
@@ -505,11 +498,9 @@ async def choice_option_of_reserve(
     choose_event_info = reserve_user_data['choose_event_info']
     choose_event_info['time_show'] = time
 
-    reserve_admin_data: dict = context.user_data['reserve_admin_data']
-    payment_id = reserve_admin_data['payment_id']
-    reserve_hl_logger.info(f'Бронирование: {payment_id}')
-    reserve_admin_data[payment_id] = {}
-    reserve_admin_data[payment_id]['event_id'] = event_id
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    reserve_hl_logger.info(f'Бронирование: {payment_data}')
+    payment_data['event_id'] = event_id
 
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
     event = dict_of_shows[int(event_id)]
@@ -536,7 +527,6 @@ async def choice_option_of_reserve(
         text = text_select_show
         await query.edit_message_text(
             text=text,
-            parse_mode=ParseMode.HTML
         )
 
         reserve_user_data['event_info_for_list_waiting'] = text
@@ -683,15 +673,66 @@ async def choice_option_of_reserve(
              '2. Дождитесь ответа\n'
              '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
-    await query.message.edit_text(
+    await query.edit_message_text(
         text=text,
-        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup
     )
 
-    state = 'ORDER'
+    state = 'EMAIL'
     if context.user_data.get('command', False) == 'reserve_admin':
         state = 'TICKET'
+    context.user_data['STATE'] = state
+    return state
+
+
+async def get_email(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    query = update.callback_query
+    await query.answer()
+
+    user = context.user_data['user']
+    reserve_hl_logger.info(": ".join(
+        [
+            'Пользователь',
+            f'{user}',
+            'выбрал',
+            query.data,
+        ]
+    ))
+
+    try:
+        context.user_data['reserve_user_data'][
+            'key_option_for_reserve'] = int(query.data)
+    except ValueError as e:
+        reserve_hl_logger.error(e)
+        state = 'TIME'
+        text_back, reply_markup = get_back_context(context, state)
+        text = '<i>Произошла ошибка. Выберите время еще раз</i>\n'
+        text += text_back
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        context.user_data['STATE'] = state
+        return state
+
+    text = (f'<i>{OFFER}</i>\n\n'
+            'Если вы согласны напишите email, на него вам будет направлен чек '
+            'после оплаты')
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
+                                        postfix_for_back='TIME')]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await query.edit_message_text(
+        text=text,
+        reply_markup=reply_markup
+    )
+
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
+
+    state = 'ORDER'
     context.user_data['STATE'] = state
     return state
 
@@ -708,36 +749,51 @@ async def check_and_send_buy_info(
         возвращает state PAID,
         если проверка не пройдена, то state ORDER
     """
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text('Готовлю информацию об оплате...')
+    await context.bot.edit_message_reply_markup(
+        chat_id=update.effective_chat.id,
+        message_id=context.user_data['reserve_user_data']['message_id']
+    )
+    email = update.effective_message.text
+    if not check_email(email):
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
+                                            postfix_for_back='TIME')]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.effective_chat.send_message(
+            text=f'Вы написали: {email}\n'
+                 f'Пожалуйста проверьте и введите почту еще раз.',
+            reply_markup=reply_markup
+        )
+        state = 'ORDER'
+        context.user_data['STATE'] = state
+        return state
 
+    await db_postgres.update_user(
+        session=context.session,
+        user_id=update.effective_user.id,
+        email=email
+    )
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f'Ваше подтверждение получено.\n'
+             f'Перехожу к формированию ссылки на оплату.'
+    )
+    message = await context.bot.send_message(
+        text='Готовлю информацию об оплате...',
+        chat_id=update.effective_chat.id,
+    )
+
+    key_option_for_reserve = context.user_data['reserve_user_data'][
+        'key_option_for_reserve']
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
             f'{user}',
             'выбрал',
-            query.data,
+            str(key_option_for_reserve),
         ]
     ))
-
-    try:
-        key_option_for_reserve = int(query.data)
-    except ValueError as e:
-        reserve_hl_logger.error(e)
-        state = 'TIME'
-        text_back, reply_markup = get_back_context(context, state)
-        text = '<i>Произошла ошибка. Выберите время еще раз</i>\n'
-        text += text_back
-        await query.delete_message()
-        await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML
-        )
-        context.user_data['STATE'] = state
-        return state
 
     reserve_user_data = context.user_data['reserve_user_data']
     choose_event_info = reserve_user_data['choose_event_info']
@@ -754,7 +810,6 @@ async def check_and_send_buy_info(
         reserve_user_data
     )
 
-    user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
         [
             'Пользователь',
@@ -774,7 +829,7 @@ async def check_and_send_buy_info(
     if chose_ticket.flag_individual:
         text = ('Для оформления данного варианта обратитесь к Администратору:\n'
                 f'{context.bot_data['admin']['contacts']}')
-        await query.message.edit_text(
+        await message.edit_text(
             text=text
         )
 
@@ -798,17 +853,15 @@ async def check_and_send_buy_info(
 
         context.user_data['common_data']['text_for_notification_massage'] = text
 
-        await query.message.edit_text(
+        await message.edit_text(
             text=text,
-            parse_mode=ParseMode.HTML
         )
         message = await update.effective_chat.send_message(
             'Проверяю наличие свободных мест...')
         await update.effective_chat.send_action(ChatAction.TYPING)
 
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        event_id = reserve_admin_data[payment_id]['event_id']
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
+        event_id = payment_data['event_id']
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
             'qty_child_free_seat',
@@ -839,7 +892,7 @@ async def check_and_send_buy_info(
                 ]
             ))
 
-            await query.message.delete()
+            await message.delete()
             reserve_user_data['event_info_for_list_waiting'] = text_select_show
             text = ('К сожалению места уже забронировали и свободных мест для\n'
                     f'{name_show}\n'
@@ -863,7 +916,6 @@ async def check_and_send_buy_info(
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML
             )
             state = 'CHOOSING'
             context.user_data['STATE'] = state
@@ -901,6 +953,14 @@ async def check_and_send_buy_info(
 
             try:
                 write_data_for_reserve(event_id, numbers)
+                await db_postgres.update_schedule_event(
+                    context.session,
+                    int(event_id),
+                    qty_child_free_seat_new=qty_child_free_seat_new,
+                    qty_child_nonconfirm_seat_new=qty_child_nonconfirm_seat_new,
+                    qty_adult_free_seat_new=qty_adult_free_seat_new,
+                    qty_adult_nonconfirm_seat_new=qty_adult_nonconfirm_seat_new,
+                )
             except TimeoutError:
                 reserve_hl_logger.error(": ".join(
                     [
@@ -918,7 +978,7 @@ async def check_and_send_buy_info(
                         'Нажмите "Назад" и выберите время повторно.\n'
                         'Если ошибка повторяется свяжитесь с Администратором:\n'
                         f'{context.bot_data['admin']['contacts']}')
-                await query.message.edit_text(
+                await message.edit_text(
                     text=text,
                     reply_markup=reply_markup
                 )
@@ -926,18 +986,33 @@ async def check_and_send_buy_info(
                 context.user_data['STATE'] = state
                 return state
 
+        idempotency_id = uuid.uuid4()
+        payment = Payment.create(
+            create_param_payment(
+                price,
+                chose_ticket.name,
+                payment_method_type='yoo_money',
+                chat_id=update.effective_chat.id,
+                message_id=message.message_id,
+            ),
+            idempotency_id)
+
         keyboard = []
+        button_payment = InlineKeyboardButton(
+            'Оплатить',
+            callback_data=f'payment|{payment.id}',
+            url=payment.confirmation.confirmation_url
+        )
         button_cancel = InlineKeyboardButton(
             'Отменить',
             callback_data=f'Отменить-res|'
-                          f'{query.message.chat_id} {query.message.message_id}'
+                          f'{update.effective_chat.id} {message.message_id}'
         )
+        keyboard.append([button_payment])
         keyboard.append([button_cancel])
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await message.delete()
-        message = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
+        await message.edit_text(
             text=f"""Бронь билета осуществляется по 100% оплате.
 ❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
 ❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
@@ -945,22 +1020,11 @@ async def check_and_send_buy_info(
 
 Если вы согласны с правилами, то переходите к оплате.
 Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
-
-    <b>К оплате {price} руб</b>
-
-Оплатить можно:
- - Переводом на карту Сбербанка по номеру телефона
- +79159383529 Татьяна Александровна Б.
-
-ВАЖНО! Прислать сюда электронный чек/квитанцию об оплате (файл или скриншот)
-Необходимо отправить чек в течении {RESERVE_TIMEOUT} мин или бронь будет 
-ОТМЕНЕНА!
 __________
-После отправки чека необходимо:
+После оплаты необходимо:
 1. Заполнить анкету (она придет автоматически)
 2. Дождаться подтверждения""",
             reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
         common_data = context.user_data['common_data']
@@ -974,13 +1038,24 @@ __________
         reserve_user_data['dict_of_date_show'].clear()
         reserve_user_data['back'].clear()
 
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
+        payment_data['chose_ticket'] = chose_ticket
 
-    state = 'PAID'
-    context.user_data['STATE'] = state
-    return state
+        ticket_id = await db_postgres.create_ticket(
+            context.session,
+            base_ticket_id=chose_ticket.base_ticket_id,
+            price=price,
+            schedule_event_id=event_id,
+            status=TicketStatus.CREATED,
+            payment_id=payment.id,
+            idempotency_id=idempotency_id,
+        )
+
+        payment_data['ticket_id'] = ticket_id
+
+        state = 'PAID'
+        context.user_data['STATE'] = state
+        return state
 
 
 async def forward_photo_or_file(
@@ -989,80 +1064,39 @@ async def forward_photo_or_file(
 ):
     """
     Пересылает картинку или файл.
-    Запускает цепочку вопросов для клиентской базы, если пользователь нажал
-    кнопку подтвердить.
+    Запускает цепочку вопросов для клиентской базы,
+    если пользователь прислал подтверждающий документ.
     """
 
-    message_id = context.user_data['common_data']['message_id_buy_info']
-    chat_id = update.effective_chat.id
+    await update_ticket_status(context, TicketStatus.PAID)
+    await remove_button_from_last_message(update, context)
+    await send_breaf_message(update)
+    message = await send_approve_reject_message_to_admin(update, context)
 
-    # Убираем у старого сообщения кнопки
-    await context.bot.edit_message_reply_markup(
-        chat_id=chat_id,
-        message_id=message_id
-    )
+    context.user_data['common_data'][
+        'message_id_for_admin'] = message.message_id
 
-    user = context.user_data['user']
-    text = context.user_data['common_data']['text_for_notification_massage']
+    state = 'FORMA'
+    context.user_data['STATE'] = state
+    return state
 
-    thread_id = (context.bot_data['dict_topics_name']
-                 .get('Бронирование спектаклей', None))
-    res = await context.bot.send_message(
-        chat_id=ADMIN_GROUP,
-        text=f'#Бронирование\n'
-             f'Квитанция пользователя @{user.username} {user.full_name}\n',
-        message_thread_id=thread_id
-    )
-    await update.effective_message.forward(
-        chat_id=ADMIN_GROUP,
-        message_thread_id=thread_id
-    )
-    message_id_for_admin = res.message_id
-    await send_message_to_admin(ADMIN_GROUP,
-                                text,
-                                message_id_for_admin,
-                                context,
-                                thread_id)
 
-    # Сообщение для опроса
-    text_brief = (
-        'Для подтверждения брони заполните, пожалуйста, анкету.\n'
-        'Вход на мероприятие ведется по спискам.\n'
-        '__________\n'
-        '<i>Пожалуйста, не пишите лишней информации/дополнительных слов в '
-        'сообщении.\n'
-        'Вопросы будут приходить последовательно (их будет всего 3)</i>'
-    )
-    await update.effective_chat.send_message(
-        text=text_brief,
-        parse_mode=ParseMode.HTML,
-    )
-    await update.effective_chat.send_message(
-        '<b>Напишите фамилию и имя (взрослого)</b>',
-        parse_mode=ParseMode.HTML
-    )
+async def processing_successful_notification(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    """
+    Отрабатывает в случае успешной оплаты и нажатии пользователем кнопки далее.
+    Запускает цепочку вопросов для клиентской базы,
+    если пользователь прислал подтверждающий документ.
+    """
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup()
 
-    # Сообщение для администратора
-    payment_id = context.user_data['reserve_admin_data']['payment_id']
-    reply_markup = create_approve_and_reject_replay(
-        'reserve',
-        update.effective_user.id,
-        message_id,
-        payment_id
-    )
-
-    chose_price = context.user_data['reserve_user_data']['chose_price']
-
-    message = await context.bot.send_message(
-        chat_id=ADMIN_GROUP,
-        text=f'Пользователь @{user.username} {user.full_name}\n'
-             f'Запросил подтверждение брони на сумму {chose_price} руб\n'
-             f'Ждем заполнения анкеты, если всё хорошо, то только после '
-             f'нажимаем подтвердить',
-        parse_mode=ParseMode.HTML,
-        reply_markup=reply_markup,
-        message_thread_id=thread_id
-    )
+    await update_ticket_status(context, TicketStatus.PAID)
+    await send_breaf_message(update)
+    message = await send_approve_reject_message_to_admin(update, context)
 
     context.user_data['common_data'][
         'message_id_for_admin'] = message.message_id
@@ -1082,7 +1116,6 @@ async def get_name_adult(
 
     await update.effective_chat.send_message(
         text='<b>Напишите номер телефона</b>',
-        parse_mode=ParseMode.HTML
     )
 
     state = 'PHONE'
@@ -1109,7 +1142,6 @@ __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
  - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>""",
-        parse_mode=ParseMode.HTML
     )
 
     state = 'CHILDREN'
@@ -1145,7 +1177,6 @@ __________
         reserve_hl_logger.info('Не верный формат текста')
         await update.effective_chat.send_message(
             text=text_for_message,
-            parse_mode=ParseMode.HTML
         )
         return context.user_data['STATE']
 
@@ -1161,9 +1192,7 @@ __________
         list_message_text.append(message_text)
 
     try:
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        payment_data = reserve_admin_data[payment_id]
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
         chose_ticket = payment_data['chose_ticket']
     except KeyError as e:
         reserve_hl_logger.error(e)
@@ -1181,7 +1210,6 @@ __________
         await update.effective_chat.send_message(f'Вы ввели:\n{text}')
         await update.effective_chat.send_message(
             text=text_for_message,
-            parse_mode=ParseMode.HTML
         )
         state = 'CHILDREN'
         context.user_data['STATE'] = state
@@ -1213,13 +1241,24 @@ __________
     reserve_hl_logger.info(client_data)
 
     chose_price = reserve_user_data['chose_price']
-    event_id = reserve_admin_data[payment_id]['event_id']
+    event_id = payment_data['event_id']
     record_id = write_client(
         client_data,
         event_id,
         chose_ticket,
         chose_price,
     )
+    ticket_id = context.user_data['reserve_admin_data']['payment_data'][
+        'ticket_id']
+
+    people = await db_postgres.create_people(context.session,
+                                             update.effective_user.id,
+                                             client_data)
+
+    await db_postgres.attach_user_and_people_to_ticket(context.session,
+                                                       ticket_id,
+                                                       update.effective_user.id,
+                                                       people)
 
     text = '\n'.join([
         client_data['name_adult'],
@@ -1258,9 +1297,6 @@ __________
         thread_id=thread_id
     )
 
-    # TODO Переставить сразу после оплаты (чтобы можно было подтвердить)
-    reserve_admin_data['payment_id'] += 1
-
     reserve_hl_logger.info(f'Для пользователя {user}')
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
@@ -1277,7 +1313,6 @@ async def send_by_ticket_info(update, context):
         'Вам придет сообщение: "Ваша бронь подтверждена"\n'
         '<i>Если сообщение не придет в течение суток, напишите в группу в '
         'контакте</i>',
-        parse_mode=ParseMode.HTML
     )
     text = context.user_data['common_data']['text_for_notification_massage']
     text += (f'__________\n'
@@ -1285,9 +1320,11 @@ async def send_by_ticket_info(update, context):
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
         text=text,
-        parse_mode=ParseMode.HTML
     )
     await message.pin()
+
+    await update.effective_chat.send_photo(photo=FILE_ID_RULES,
+                                           caption='Правила театра')
 
 
 async def conversation_timeout(
@@ -1316,9 +1353,7 @@ async def conversation_timeout(
             f'{context.bot_data['admin']['contacts']}'
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        payment_data = reserve_admin_data[payment_id]
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
         chose_ticket = payment_data['chose_ticket']
         event_id = payment_data['event_id']
 
@@ -1401,7 +1436,6 @@ async def send_clients_data(
             reserve_hl_logger.info('Примечание не задано')
     await query.edit_message_text(
         text=text,
-        parse_mode=ParseMode.HTML
     )
     state = ConversationHandler.END
     context.user_data['STATE'] = state
@@ -1444,7 +1478,6 @@ async def get_phone_for_waiting(
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,
-        parse_mode=ParseMode.HTML,
         message_thread_id=thread_id
     )
     write_client_list_waiting(context)

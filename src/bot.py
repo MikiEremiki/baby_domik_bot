@@ -1,150 +1,75 @@
-from telegram.ext import (
-    Application,
-    CommandHandler, CallbackQueryHandler, MessageHandler,
-    filters,
-)
+import asyncio
+from contextlib import asynccontextmanager
 
-from db.pickle_persistence import pickle_persistence
+from telegram.constants import ParseMode
+from telegram.ext import Application, Defaults
+from yookassa import Configuration
+from faststream import FastStream
+from yookassa.domain.notification import WebhookNotificationFactory
+
+from api.broker_nats import connect_to_nats
+from db import pickle_persistence
+from handlers.set_handlers import set_handlers
 from log.logging_conf import load_log_config
-from handlers import main_hl
-from handlers.error_hl import error_handler
-from handlers.timeweb_hl import get_balance
-from handlers.sub_hl import (
-    update_ticket_data, update_show_data, update_admin_info, update_bd_price,
-    update_special_ticket_price
-)
-from conv_hl.reserve_conv_hl import reserve_conv_hl
-from conv_hl.reserve_admin_conv_hl import reserve_admin_conv_hl
-from conv_hl.list_wait_conv_hl import list_wait_conv_hl
-from conv_hl.birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
-from conv_hl.afisha_conv_hl import afisha_conv_hl
 from utilities.utl_func import (
-    echo, send_log,
     set_menu, set_description, set_ticket_data, set_show_data,
     set_special_ticket_price,
-    get_location, get_contact, request_contact_location,
-    print_ud, clean_ud, clean_bd,
-    create_or_connect_topic, del_topic,
 )
-from settings.settings import ADMIN_ID, COMMAND_DICT
 from settings.config_loader import parse_settings
 
 
-async def post_init(application: Application):
-    await set_menu(application.bot)
-    await set_description(application.bot)
-    set_ticket_data(application)
-    set_show_data(application)
-    set_special_ticket_price(application)
+async def post_init(app: Application):
+    await set_menu(app.bot)
+    await set_description(app.bot)
+    set_ticket_data(app)
+    set_show_data(app)
+    set_special_ticket_price(app)
 
-    application.bot_data.setdefault('admin', {})
-    application.bot_data['admin'].setdefault('contacts', {})
-    application.bot_data.setdefault('dict_topics_name', {})
+    app.bot_data.setdefault('admin', {})
+    app.bot_data['admin'].setdefault('contacts', {})
+    app.bot_data.setdefault('dict_topics_name', {})
 
 
-def bot():
-    bot_logger = load_log_config()
-    bot_logger.info('Инициализация бота')
+bot_logger = load_log_config()
+bot_logger.info('Инициализация бота')
 
-    config = parse_settings()
+config = parse_settings()
 
-    application = (
-        Application.builder()
-        .token(config.bot.token.get_secret_value())
-        .persistence(pickle_persistence)
-        .post_init(post_init)
+application = (
+    Application.builder()
+    .token(config.bot.token.get_secret_value())
+    .persistence(pickle_persistence)
+    .post_init(post_init)
+    .defaults(Defaults(parse_mode=ParseMode.HTML))
 
-        .build()
-    )
+    .build()
+)
+application.bot_data.setdefault('config', config)
 
-    application.bot_data.setdefault('config', config)
+Configuration.configure(config.yookassa.account_id,
+                        config.yookassa.secret_key.get_secret_value())
 
-    application.add_handler(CommandHandler(COMMAND_DICT['START'][0],
-                                           main_hl.start))
+webhook_notification_factory = WebhookNotificationFactory()
+broker = connect_to_nats(application, webhook_notification_factory)
 
-    application.add_handler(CallbackQueryHandler(main_hl.confirm_reserve,
-                                                 pattern='^confirm-reserve'))
-    application.add_handler(CallbackQueryHandler(main_hl.reject_reserve,
-                                                 pattern='^reject-reserve'))
-    application.add_handler(CallbackQueryHandler(main_hl.confirm_birthday,
-                                                 pattern='^confirm-birthday'))
-    application.add_handler(CallbackQueryHandler(main_hl.reject_birthday,
-                                                 pattern='^reject-birthday'))
+@asynccontextmanager
+async def lifespan():
+    set_handlers(application, config)
+    await application.initialize()
+    await post_init(application)
+    await application.start()
+    await application.updater.start_polling()
 
-    application.add_handler(reserve_conv_hl)
-    application.add_handler(reserve_admin_conv_hl)
-    application.add_handler(list_wait_conv_hl)
-    application.add_handler(birthday_conv_hl)
-    application.add_handler(birthday_paid_conv_hl)
-    application.add_handler(afisha_conv_hl)
+    yield
 
-    application.add_handler(CommandHandler('echo', echo))
-    application.add_handler(CommandHandler('reset', main_hl.reset))
-
-    application.add_handler(CommandHandler('print_ud', print_ud))
-    application.add_handler(CommandHandler('clean_ud', clean_ud))
-    application.add_handler(CommandHandler('clean_bd', clean_bd))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_T_DATA'][0],
-        update_ticket_data,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_S_DATA'][0],
-        update_show_data,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_BD_PRICE'][0],
-        update_bd_price,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['UP_SPEC_PRICE'][0],
-        update_special_ticket_price,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['LOG'][0],
-        send_log,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['CB_TW'][0],
-        get_balance,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['TOPIC_START'][0],
-        create_or_connect_topic,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['TOPIC_DEL'][0],
-        del_topic,
-        filters=filters.User(ADMIN_ID)))
-    application.add_handler(CommandHandler(
-        COMMAND_DICT['ADM_INFO'][0],
-        update_admin_info,
-        filters=filters.User(ADMIN_ID)))
-
-    application.add_handler(CommandHandler('rcl',
-                                           request_contact_location))
-    application.add_handler(MessageHandler(filters.LOCATION, get_location))
-    application.add_handler(MessageHandler(filters.CONTACT, get_contact))
-
-    application.add_handler(MessageHandler(
-        filters.ChatType.PRIVATE & (filters.TEXT |
-                                    filters.ATTACHMENT |
-                                    filters.VIDEO |
-                                    filters.PHOTO |
-                                    filters.FORWARDED |
-                                    filters.Document.IMAGE |
-                                    filters.Document.PDF),
-        main_hl.feedback_send_msg),
-    )
-
-    application.add_error_handler(error_handler)
-
-    bot_logger.info('Всё готово к поллингу')
-
-    application.run_polling()
-
+    await application.updater.stop()
+    await application.stop()
     bot_logger.info('Бот остановлен')
+    await application.shutdown()
+
+
+fast_stream = FastStream(broker, lifespan=lifespan)
 
 
 if __name__ == '__main__':
-    bot()
+    asyncio.run(fast_stream.run())
