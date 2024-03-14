@@ -16,38 +16,30 @@ from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb, write_old_seat_info,
     get_chose_ticket_and_price, get_emoji_and_options_for_event,
+    send_breaf_message, send_approve_reject_message_to_admin,
+    remove_button_from_last_message, update_ticket_status,
 )
 from db.db_googlesheets import (
-    load_clients_data,
-    load_show_data,
-    load_list_show, load_show_info, load_special_ticket_price,
+    load_clients_data, load_show_data, load_list_show, load_show_info,
+    load_special_ticket_price,
 )
 from api.googlesheets import (
-    write_data_for_reserve,
-    write_client,
-    write_client_list_waiting,
+    write_data_for_reserve, write_client, write_client_list_waiting,
     get_quality_of_seats,
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text,
-    add_btn_back_and_cancel,
-    send_message_to_admin,
-    set_back_context, get_back_context,
+    extract_phone_number_from_text, add_btn_back_and_cancel,
+    send_message_to_admin, set_back_context, get_back_context, check_email
 )
 from utilities.hlp_func import (
     check_phone_number,
     create_replay_markup_for_list_of_shows,
-    create_approve_and_reject_replay,
     enum_current_show_by_month,
     add_text_of_show_and_numerate
 )
 from settings.settings import (
-    ADMIN_GROUP,
-    COMMAND_DICT,
-    DICT_OF_EMOJI_FOR_BUTTON,
-    DICT_CONVERT_MONTH_NUMBER_TO_STR,
-    SUPPORT_DATA,
-    RESERVE_TIMEOUT,
+    ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT, OFFER,
+    DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_MONTH_NUMBER_TO_STR, FILE_ID_RULES,
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
