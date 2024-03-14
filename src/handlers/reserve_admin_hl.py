@@ -1,14 +1,13 @@
 import logging
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from db.db_googlesheets import load_show_info, load_list_show
 from handlers import init_conv_hl_dialog
-from handlers.sub_hl import get_chose_ticket_and_price, \
-    get_emoji_and_options_for_event
+from handlers.sub_hl import (
+    get_chose_ticket_and_price, get_emoji_and_options_for_event)
 from settings.settings import DICT_OF_EMOJI_FOR_BUTTON
 from utilities.utl_func import add_btn_back_and_cancel, set_back_context
 
