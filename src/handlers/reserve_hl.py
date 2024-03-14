@@ -1,6 +1,7 @@
 import logging
 import pprint
 import re
+import uuid
 from datetime import datetime
 
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
@@ -9,9 +10,13 @@ from telegram import (
     InlineKeyboardButton, InlineKeyboardMarkup,
     ReplyKeyboardMarkup, ReplyKeyboardRemove,
 )
-from telegram.constants import ParseMode, ChatType, ChatAction
+from telegram.constants import ChatType, ChatAction
+from yookassa import Payment
 
-from handlers import init_conv_hl_dialog
+from api.yookassa_connect import create_param_payment
+from db import db_postgres
+from db.enum import TicketStatus
+from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb, write_old_seat_info,
@@ -59,6 +64,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.delete_message()
     else:
         state = init_conv_hl_dialog(update, context)
+        await check_user_db(update, context)
 
     user = context.user_data.setdefault('user', update.effective_user)
 
