@@ -1,4 +1,4 @@
-name: ci
+name: bot_image
 
 on:
   push:

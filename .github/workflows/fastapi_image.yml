@@ -1,4 +1,4 @@
-name: ci
+name: fastapi_image
 
 on:
   push:

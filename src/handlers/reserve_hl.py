@@ -991,7 +991,7 @@ async def check_and_send_buy_info(
             create_param_payment(
                 price,
                 chose_ticket.name,
-                payment_method_type='yoo_money',
+                payment_method_type='sbp',
                 chat_id=update.effective_chat.id,
                 message_id=message.message_id,
             ),
