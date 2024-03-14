@@ -9,4 +9,3 @@ RUN --mount=type=bind,source=requirements-server.txt,target=requirements-server.
     python -m pip install -r requirements-server.txt
 
 COPY /src/api/fastapi_nats.py .
-CMD python3 -m fastapi_nats run
