@@ -1,0 +1,12 @@
+FROM python:3.12-slim as base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN --mount=type=bind,source=requirements-migration.txt,target=requirements-migration.txt \
+    python -m pip install -r requirements-migration.txt
+
+COPY /config .
+COPY /src/db .

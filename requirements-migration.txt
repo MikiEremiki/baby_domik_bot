@@ -1,0 +1,5 @@
+alembic
+black
+psycopg
+psycopg-binary
+sqlalchemy
