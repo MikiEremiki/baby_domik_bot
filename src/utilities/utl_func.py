@@ -79,20 +79,21 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def clean_context_on_end_handler(logger, context):
-    logger.info(
-        f'Обработчик завершился на этапе {context.user_data['STATE']}')
-    if context.user_data.get('common_data', False):
-        context.user_data['common_data'].clear()
-    if context.user_data.get('birthday_user_data', False):
-        context.user_data['birthday_user_data'].clear()
-    if context.user_data.get('reserve_user_data', False):
-        context.user_data['reserve_user_data'].clear()
-    context.user_data.pop('STATE')
-    context.user_data.pop('command')
     if context.user_data.get('STATE', False):
-        context.user_data['STATE'].clear()
+        logger.info(
+            f'Обработчик завершился на этапе {context.user_data['STATE']}')
+        context.user_data.pop('STATE')
+    else:
+        logger.info('STATE не задан')
+
     if context.user_data.get('command', False):
-        context.user_data['command'].clear()
+        context.user_data.pop('command')
+    if context.user_data.get('common_data', False):
+        context.user_data.pop('common_data')
+    if context.user_data.get('birthday_user_data', False):
+        context.user_data.pop('birthday_user_data')
+    if context.user_data.get('reserve_user_data', False):
+        context.user_data.pop('reserve_user_data')
 
 
 async def delete_message_for_job_in_callback(
