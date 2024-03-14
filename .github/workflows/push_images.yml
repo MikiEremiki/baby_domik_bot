@@ -1,4 +1,4 @@
-name: fastapi_image
+name: bot_image
 
 on:
   push:
@@ -26,6 +26,13 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          dockerfile: Dockerfile-server
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:latest
+      -
+        name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile-server
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_fastapi:latest
