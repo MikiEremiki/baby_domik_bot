@@ -40,9 +40,7 @@ async def main():
         config=uvicorn.Config(
             app=app,
             host='0.0.0.0',
-            port=443,
-            ssl_keyfile='server.key',
-            ssl_certfile='server.crt'
+            port=8443,
         )
     )
     await webserver.serve()
