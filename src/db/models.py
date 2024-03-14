@@ -30,11 +30,11 @@ class Person(BaseModelTimed):
     name: Mapped[Optional[str]]
     age_type: Mapped[AgeType]
 
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey('users.id', ondelete='CASCADE'))
+    user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
 
-    children: Mapped[List['Person']] = relationship(lazy='selectin')
-    adults: Mapped[List['Person']] = relationship(lazy='selectin')
+    children: Mapped[List['Child']] = relationship(lazy='selectin')
+    adults: Mapped[List['Adult']] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
 
@@ -64,7 +64,7 @@ class UserTicket(BaseModelTimed):
     __tablename__ = 'users_tickets'
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.id'), primary_key=True)
+        ForeignKey('users.user_id'), primary_key=True)
     ticket_id: Mapped[int] = mapped_column(
         ForeignKey('tickets.id'), primary_key=True)
 
@@ -89,8 +89,8 @@ class Ticket(BaseModelTimed):
     status: Mapped[TicketStatus]
     notes: Mapped[Optional[str]]
 
-    payment_id: Mapped[Optional[str]]
-    idempotency_id: Mapped[Optional[str]]
+    payment_id: Mapped[Optional[str]] = mapped_column(unique=True)
+    idempotency_id: Mapped[Optional[str]] = mapped_column(unique=True)
 
     schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))
