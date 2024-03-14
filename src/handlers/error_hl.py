@@ -5,12 +5,10 @@ import traceback
 from pprint import pformat
 
 from telegram import Update
-from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from handlers.sub_hl import write_old_seat_info
 from settings.settings import CHAT_ID_MIKIEREMIKI
-from utilities.schemas.ticket import BaseTicket
 from utilities.utl_func import clean_context, split_message
 
 error_hl_logger = logging.getLogger('bot.error_hl')
@@ -62,9 +60,7 @@ async def error_handler(update: Update,
             message_id=context.user_data['common_data']['message_id_buy_info']
         )
 
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        payment_data = reserve_admin_data[payment_id]
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
         chose_ticket = payment_data['chose_ticket']
         event_id = payment_data['event_id']
 
