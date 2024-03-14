@@ -268,6 +268,10 @@ def extract_phone_number_from_text(phone):
     return re.sub(r'^[78]{,2}(?=9)', '', phone)
 
 
+def check_email(email):
+        return re.fullmatch(r'[^@]+@[^@]+\.[^@]+', email)
+
+
 def yrange(n):
     i = 0
     while i < n:
