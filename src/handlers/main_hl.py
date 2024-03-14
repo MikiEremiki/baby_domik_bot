@@ -2,9 +2,10 @@ import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove
-from telegram.constants import ParseMode, ChatType
+from telegram.constants import ChatType
 from telegram.error import BadRequest
 
+from handlers import check_user_db
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
 from settings.settings import (
     COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
@@ -16,7 +17,6 @@ from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, utilites_logger
 )
-from db import AsyncORM
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
