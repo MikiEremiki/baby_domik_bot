@@ -10,4 +10,3 @@ settings.py
 /src/utilities/pickle/user_ids
 **/sql_files/
 docker-compose-*
-/src/utilities/db_import_export/
