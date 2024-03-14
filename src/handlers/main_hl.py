@@ -65,12 +65,11 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
-    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        payment_data = user_data['reserve_admin_data'][payment_id]
+        payment_data = user_data['reserve_admin_data']['payment_data']
         event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
@@ -184,12 +183,11 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
-    payment_id = int(query.data.split('|')[1].split()[2])
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
     try:
-        payment_data = user_data['reserve_admin_data'][payment_id]
+        payment_data = user_data['reserve_admin_data']['payment_data']
         event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
@@ -454,17 +452,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             if '|' in query.data:
-                chat_id = query.data.split('|')[1].split()[0]
-                message_id = query.data.split('|')[1].split()[1]
-                await context.bot.delete_message(
-                    chat_id=chat_id,
-                    message_id=message_id
-                )
-
-                reserve_admin_data = context.user_data['reserve_admin_data']
-                payment_id = reserve_admin_data['payment_id']
-                chose_ticket = reserve_admin_data[payment_id]['chose_ticket']
-                event_id = reserve_admin_data[payment_id]['event_id']
+                payment_data = context.user_data['reserve_admin_data']['payment_data']
+                chose_ticket = payment_data['chose_ticket']
+                event_id = payment_data['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)
         case 'bd':
