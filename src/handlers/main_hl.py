@@ -508,6 +508,12 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f'записи без подтверждения',
                 message_thread_id=query.message.message_thread_id
             )
+        case 'settings':
+            await query.delete_message()
+            await update.effective_chat.send_message(
+                text='Вы выбрали отмену',
+                message_thread_id=query.message.message_thread_id
+            )
 
     try:
         main_handlers_logger.info(f'Для пользователя {user}')
