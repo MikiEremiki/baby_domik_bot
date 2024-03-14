@@ -153,11 +153,9 @@ async def choice_option_of_reserve(
             flag_indiv_cost = item['flag_indiv_cost']
             choose_event_info['flag_indiv_cost'] = flag_indiv_cost
 
-    reserve_admin_data: dict = context.user_data['reserve_admin_data']
-    payment_id = reserve_admin_data['payment_id']
-    reserve_admin_hl_logger.info(f'Бронирование: {payment_id}')
-    reserve_admin_data[payment_id] = {}
-    reserve_admin_data[payment_id]['event_id'] = event_id
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    reserve_admin_hl_logger.info(f'Бронирование: {payment_data}')
+    payment_data['event_id'] = event_id
 
     state = 'TICKET'
     context.user_data['STATE'] = state
@@ -186,9 +184,9 @@ async def start_forma_info(
     )
 
     reserve_user_data['chose_price'] = price
-    payment_id = reserve_admin_data['payment_id']
-    reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
-    event_id = reserve_admin_data[payment_id]['event_id']
+    payment_data = reserve_admin_data['payment_data']
+    payment_data['chose_ticket'] = chose_ticket
+    event_id = payment_data['event_id']
 
     list_of_name_colum = [
         'qty_child_free_seat',
