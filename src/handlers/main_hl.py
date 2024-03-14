@@ -26,13 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Приветственная команда при первом запуске бота,
     при перезапуске бота или при использовании команды start
     """
-    if not await AsyncORM.get_user(update, context.session):
-        res = await AsyncORM.create_user(update, context.session)
-        if res:
-            main_handlers_logger.info(
-                f'Пользователь {res} начал общение с ботом')
-    else:
-        main_handlers_logger.info('Пользователь уже в есть в базе')
+    await check_user_db(update, context)
     clean_context(context)
 
     context.user_data['user'] = update.effective_user
