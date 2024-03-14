@@ -65,13 +65,14 @@ context_user_data: Dict = {
         },
         'chose_price': int,
         'type_ticket_price': str,
+        'key_option_for_reserve': int,
     },
     'reserve_admin_data': {
-        int: {  # payment_id
+        'payment_data': {
             'event_id': str,
-            'chose_ticket': BaseTicket
+            'chose_ticket': BaseTicket,
+            'ticket_id': int,
         },
-        'payment_id': int,  # Указатель на последний идентификатор платежа
     },
     'month_afisha': int,
 }
