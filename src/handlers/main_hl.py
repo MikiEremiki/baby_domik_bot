@@ -52,6 +52,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.args[0]
+    await send_approve_message(chat_id, context)
+    await update.effective_message.reply_text(
+        'Подтверждение успешно отправлено')
+
+
 async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Отправляет оповещение о подтверждении в бронировании, удаляет сообщение
@@ -128,25 +135,11 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
 
-        text = (
-            'Ваша бронь подтверждена, ждем вас на спектакле.\n'
-            'Адрес: Малая Покровская, д18, 2 этаж\n\n'
-            '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
-            '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
-            'В ней более подробно описаны:\n'
-            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
-            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
-            '- Фотографии\n'
-            '- Команда и жизнь театра\n'
-            '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
-            '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
-            '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
-            'Для продолжения работы используйте команды:\n'
-            f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
-        )
-        await context.bot.send_message(
-            text=text,
-            chat_id=chat_id,
+        await send_approve_message(chat_id, context)
+
+        await query.edit_message_text(
+            text=f'Пользователю @{user.username} {user.full_name} '
+                 f'подтверждена бронь'
         )
 
         # TODO Добавить галочку подтверждения в клиентскую базу
@@ -169,6 +162,29 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'Пытается спамить',
             ]
         ))
+
+
+async def send_approve_message(chat_id, context):
+    text = (
+        'Ваша бронь подтверждена, ждем вас на спектакле.\n'
+        'Адрес: Малая Покровская, д18, 2 этаж\n\n'
+        '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
+        '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
+        'В ней более подробно описаны:\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
+        '- Фотографии\n'
+        '- Команда и жизнь театра\n'
+        '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
+        '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+        'Для продолжения работы используйте команды:\n'
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+    )
+    await context.bot.send_message(
+        text=text,
+        chat_id=chat_id,
+    )
 
 
 async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
