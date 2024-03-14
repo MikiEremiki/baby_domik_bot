@@ -46,7 +46,8 @@ services:
     container_name: migration
     build:
       context: .
-    image: baby_domik_migration
+      dockerfile: Dockerfile-migration
+    image: mikieremiki/baby_domik_migration
     restart: no
     depends_on:
       postgres:
@@ -59,8 +60,8 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-config/}
     working_dir: /app
-    command: [ "alembic", "-c", "config/alembic.ini", "upgrade", "+1" ]
-#    command: [ "alembic", "-c", "config/alembic.ini", "downgrade", "-1" ]
+  #    command: [ "alembic", "-c", "config/alembic.ini", "upgrade", "+1" ]
+  #    command: [ "alembic", "-c", "config/alembic.ini", "downgrade", "-1" ]
 
   pgadmin:
     profiles: [ "pgadmin" ]
