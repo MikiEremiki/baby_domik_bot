@@ -41,8 +41,8 @@ ___
 
 `alembic -c 'config/alembic.ini' downgrade base`
 
+запуск из PS
 `.\.venv\Scripts\alembic -c 'config/alembic.ini' upgrade +1`
-- запуск из PS
 
 Альтернативные варианты:
 - можно подключится к контейнеру бота и из под него 
