@@ -498,11 +498,9 @@ async def choice_option_of_reserve(
     choose_event_info = reserve_user_data['choose_event_info']
     choose_event_info['time_show'] = time
 
-    reserve_admin_data: dict = context.user_data['reserve_admin_data']
-    payment_id = reserve_admin_data['payment_id']
-    reserve_hl_logger.info(f'Бронирование: {payment_id}')
-    reserve_admin_data[payment_id] = {}
-    reserve_admin_data[payment_id]['event_id'] = event_id
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    reserve_hl_logger.info(f'Бронирование: {payment_data}')
+    payment_data['event_id'] = event_id
 
     dict_of_shows = context.user_data['common_data']['dict_of_shows']
     event = dict_of_shows[int(event_id)]
@@ -795,9 +793,8 @@ async def check_and_send_buy_info(
             'Проверяю наличие свободных мест...')
         await update.effective_chat.send_action(ChatAction.TYPING)
 
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        event_id = reserve_admin_data[payment_id]['event_id']
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
+        event_id = payment_data['event_id']
         # Обновляем кол-во доступных мест
         list_of_name_colum = [
             'qty_child_free_seat',
@@ -961,9 +958,8 @@ __________
         reserve_user_data['dict_of_date_show'].clear()
         reserve_user_data['back'].clear()
 
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        reserve_admin_data[payment_id]['chose_ticket'] = chose_ticket
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
+        payment_data['chose_ticket'] = chose_ticket
 
     state = 'PAID'
     context.user_data['STATE'] = state
@@ -1142,9 +1138,7 @@ __________
         list_message_text.append(message_text)
 
     try:
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        payment_data = reserve_admin_data[payment_id]
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
         chose_ticket = payment_data['chose_ticket']
     except KeyError as e:
         reserve_hl_logger.error(e)
@@ -1193,7 +1187,7 @@ __________
     reserve_hl_logger.info(client_data)
 
     chose_price = reserve_user_data['chose_price']
-    event_id = reserve_admin_data[payment_id]['event_id']
+    event_id = payment_data['event_id']
     record_id = write_client(
         client_data,
         event_id,
@@ -1294,9 +1288,7 @@ async def conversation_timeout(
             f'{context.bot_data['admin']['contacts']}'
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
-        reserve_admin_data = context.user_data['reserve_admin_data']
-        payment_id = reserve_admin_data['payment_id']
-        payment_data = reserve_admin_data[payment_id]
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
         chose_ticket = payment_data['chose_ticket']
         event_id = payment_data['event_id']
 
