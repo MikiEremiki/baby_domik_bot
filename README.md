@@ -22,6 +22,10 @@ ___
 
 `docker image pull mikieremiki/baby_domik_bot`
 
+Для создания автомиграции
+`alembic -c 'config/alembic.ini' revision 
+--autogenerate -m 'init'`
+
 Для запуска миграции
 `docker compose --profile migration up -d`
 
@@ -31,6 +35,9 @@ ___
 `alembic -c 'config/alembic.ini' upgrade head`
 
 `alembic -c 'config/alembic.ini' downgrade base`
+
+`.\.venv\Scripts\alembic -c 'config/alembic.ini' upgrade +1`
+- запуск из PS
 
 Альтернативные варианты:
 - можно подключится к контейнеру бота и из под него 
