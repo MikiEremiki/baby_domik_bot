@@ -3,3 +3,4 @@ black
 psycopg
 psycopg-binary
 sqlalchemy
+python-telegram-bot[ext]~=20.8
