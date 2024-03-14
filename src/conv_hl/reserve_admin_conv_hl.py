@@ -13,9 +13,8 @@ from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 from conv_hl import base_handlers
 
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
-                                               pattern='^Отменить')
-back_callback_handler = CallbackQueryHandler(main_hl.back, pattern='^Назад')
+cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
+back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 states:  Dict[object, List[BaseHandler]] = {
     1: [
         cancel_callback_handler,
