@@ -85,23 +85,28 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'qty_child_nonconfirm_seat',
             'qty_adult_nonconfirm_seat'
         ]
-        (qty_child_nonconfirm_seat_now,
-         qty_adult_nonconfirm_seat_now
-         ) = get_quality_of_seats(event_id,
-                                  list_of_name_colum)
-
-        qty_child_nonconfirm_seat_new = int(
-            qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
-        qty_adult_nonconfirm_seat_new = int(
-            qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
-                                                 chose_ticket.quality_of_add_adult)
-
-        numbers = [
-            qty_child_nonconfirm_seat_new,
-            qty_adult_nonconfirm_seat_new
-        ]
         try:
+            (qty_child_nonconfirm_seat_now,
+             qty_adult_nonconfirm_seat_now
+             ) = get_quality_of_seats(event_id,
+                                      list_of_name_colum)
+            main_handlers_logger.info('Загружаем кол-во мест')
+
+            qty_child_nonconfirm_seat_new = int(
+                qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
+            qty_adult_nonconfirm_seat_new = int(
+                qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
+                                                     chose_ticket.quality_of_add_adult)
+
+            numbers = [
+                qty_child_nonconfirm_seat_new,
+                qty_adult_nonconfirm_seat_new
+            ]
             write_data_for_reserve(event_id, numbers, 2)
+            await query.edit_message_text(
+                text=f'Пользователю @{user.username} {user.full_name} '
+                     f'списаны неподтвержденные места'
+            )
 
             main_handlers_logger.info(": ".join(
                 [
@@ -126,12 +131,19 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     event_id,
                 ]
             ))
+        except ConnectionError:
+            await query.edit_message_text(
+                text=f'Пользователю @{user.username} {user.full_name} '
+                     f'не списаны неподтвержденные места\n'
+                     f'Номер строки для обновления: {event_id}\n'
+                     f'user_id {user.id}'
+            )
 
         await query.edit_message_text(
             text=f'Пользователю @{user.username} {user.full_name} '
-                 f'подтверждена бронь'
+                 f'отправляем сообщение о подтверждении бронирования'
+                 f'user_id {user.id}'
         )
-
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
 
@@ -150,11 +162,13 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=chat_id,
                 message_id=message_id
             )
-        except BadRequest:
+        except BadRequest as e:
+            main_handlers_logger.error(e)
             main_handlers_logger.info(
                 f'Cообщение уже удалено'
             )
-    except BadRequest:
+    except BadRequest as e:
+        main_handlers_logger.error(e)
         main_handlers_logger.info(": ".join(
             [
                 'Пользователь',
