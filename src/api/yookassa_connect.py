@@ -5,6 +5,7 @@ from settings.settings import URL_BOT
 def create_param_payment(
         price: [str, int],
         description: str,
+        email: str,
         return_url: str = URL_BOT,
         *,
         quantity: str = "1",
@@ -25,7 +26,7 @@ def create_param_payment(
         "capture": True,
         'receipt': {
             "customer": {
-                'email': 'mr@eremin-ma.ru'
+                'email': email
             },
             "items": [
                 {

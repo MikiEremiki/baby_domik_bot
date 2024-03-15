@@ -990,8 +990,9 @@ async def check_and_send_buy_info(
         payment = Payment.create(
             create_param_payment(
                 price,
-                chose_ticket.name,
-                payment_method_type='sbp',
+                f'Билет на спектакль {name_show} {date} в {time}{chose_ticket.name}',
+                email,
+                payment_method_type='yoo_money',
                 chat_id=update.effective_chat.id,
                 message_id=message.message_id,
             ),
@@ -1018,7 +1019,11 @@ async def check_and_send_buy_info(
 ❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
-Если вы согласны с правилами, то переходите к оплате:
+- Если вы согласны с правилами, то переходите к оплате:
+  Нажмите кнопку <b>Оплатить</b>
+  <i>Вы будете перенаправлены на платежный сервис Юкасса
+  Способ оплаты - СБП</i>
+
 - Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
 - Если вы уже сделали оплату, <b>отправьте квитанцию об оплате файлом или картинкой.</b>
 
