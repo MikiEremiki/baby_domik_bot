@@ -992,7 +992,7 @@ async def check_and_send_buy_info(
                 price,
                 f'Билет на спектакль {name_show} {date} в {time}{chose_ticket.name}',
                 email,
-                payment_method_type='yoo_money',
+                payment_method_type='sbp',
                 chat_id=update.effective_chat.id,
                 message_id=message.message_id,
             ),
