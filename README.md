@@ -1,7 +1,7 @@
 # BabyDomikBot
 Стек технологий:
 - python
-- pydantic
+- pydantic (по скольку по стольку, по хорошему, стоит его задействовать для DTO, но пока просто использую ORM алхимии)
 - python-telegram-bot
 - googlesheet в качестве базы данных (осуществляется подготовка для переезда на postgresql + sqlalchemy)
 - alembic
