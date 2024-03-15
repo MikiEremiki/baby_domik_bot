@@ -103,9 +103,9 @@ services:
       - network
     command: [ "tail", "-f", "/dev/null" ]
 
-  fastapi_server:
+  fastapi:
     profiles: [ "fastapi", "1" ]
-    container_name: fastapi_server
+    container_name: fastapi
     build:
       context: .
       dockerfile: Dockerfile-server
@@ -130,7 +130,7 @@ services:
     networks:
       - network
     depends_on:
-      - fastapi_server
+      - fastapi
 
 volumes:
   db:
