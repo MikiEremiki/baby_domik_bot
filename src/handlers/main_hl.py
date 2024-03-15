@@ -5,6 +5,7 @@ from telegram import Update, ReplyKeyboardRemove
 from telegram.constants import ChatType
 from telegram.error import BadRequest
 
+from db import db_postgres
 from handlers import check_user_db
 from handlers.sub_hl import write_old_seat_info, remove_inline_button
 from settings.settings import (
@@ -487,6 +488,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 event_id = payment_data['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)
+                await db_postgres.delete_ticket(
+                    context.session,
+                    payment_data['ticket_id']
+                )
         case 'bd':
             await query.delete_message()
             await update.effective_chat.send_message(

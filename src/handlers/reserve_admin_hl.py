@@ -4,7 +4,9 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
+from db import db_postgres
 from db.db_googlesheets import load_show_info, load_list_show
+from db.enum import TicketStatus
 from handlers import init_conv_hl_dialog
 from handlers.sub_hl import (
     get_chose_ticket_and_price, get_emoji_and_options_for_event)
@@ -211,6 +213,17 @@ async def start_forma_info(
     ]
 
     write_data_for_reserve(event_id, numbers, 3)
+
+
+    ticket_id = await db_postgres.create_ticket(
+        context.session,
+        base_ticket_id=chose_ticket.base_ticket_id,
+        price=price,
+        schedule_event_id=event_id,
+        status=TicketStatus.CREATED,
+    )
+
+    payment_data['ticket_id'] = ticket_id
 
     await query.edit_message_text(
         '<b>Напишите фамилию и имя (взрослого)</b>',

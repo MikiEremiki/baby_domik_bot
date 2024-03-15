@@ -257,6 +257,14 @@ async def get_ticket(
     return await session.get(Ticket, ticket_id)
 
 
+async def delete_ticket(
+        session: AsyncSession,
+        ticket_id,
+):
+    ticket = await get_ticket(session, ticket_id)
+    return await session.delete(ticket)
+
+
 async def create_schedule_event(
         session: AsyncSession,
         type_event_id,
