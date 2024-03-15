@@ -4,3 +4,6 @@ psycopg
 psycopg-binary
 sqlalchemy
 python-telegram-bot[ext]~=20.8
+pydantic
+pydantic_core
+pydantic-settings
