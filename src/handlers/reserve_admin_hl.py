@@ -7,7 +7,7 @@ from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from db import db_postgres
 from db.db_googlesheets import load_show_info, load_list_show
 from db.enum import TicketStatus
-from handlers import init_conv_hl_dialog
+from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import (
     get_chose_ticket_and_price, get_emoji_and_options_for_event)
 from settings.settings import DICT_OF_EMOJI_FOR_BUTTON
@@ -23,6 +23,7 @@ async def event_selection_option(
     """
     """
     init_conv_hl_dialog(update, context)
+    await check_user_db(update, context)
 
     user = context.user_data.setdefault('user', update.effective_user)
 
