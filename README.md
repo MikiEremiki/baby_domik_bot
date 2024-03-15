@@ -13,8 +13,9 @@
 - sqlalchemy
 
 timeweb в качестве хостинга
+Покрытие тестами отсутствует (в планах их делать на pytest)
 
-___
+---
 Для запуска со сборкой контейнера миграции
 
 `docker compose --profile migration up -d --build`
