@@ -1,9 +1,5 @@
 import enum
 
-import sqlalchemy as sa
-
-from db import BaseModel
-
 
 class TicketStatus(enum.Enum):
     CREATED = 'Создан'
@@ -13,6 +9,7 @@ class TicketStatus(enum.Enum):
     REFUNDED = 'Возвращен'
     TRANSFERRED = 'Передан'
     POSTPONED = 'Перенесен'
+    CANCELED = 'Отменен'
 
 
 class PriceType(enum.Enum):
@@ -31,25 +28,3 @@ class TicketPriceType(enum.Enum):
 class AgeType(enum.Enum):
     adult = 'взрослый'
     child = 'ребенок'
-
-
-TicketStatusEnum = sa.Enum(
-    TicketStatus,
-    name="TicketStatusEnum",
-    metadata=BaseModel.metadata
-)
-PriceTypeEnum = sa.Enum(
-    PriceType,
-    name="PriceTypeEnum",
-    metadata=BaseModel.metadata
-)
-TicketPriceTypeEnum = sa.Enum(
-    TicketPriceType,
-    name="TicketPriceTypeEnum",
-    metadata=BaseModel.metadata
-)
-AgeTypeEnum = sa.Enum(
-    AgeType,
-    name="AgeTypeEnum",
-    metadata=BaseModel.metadata
-)
