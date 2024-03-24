@@ -8,14 +8,48 @@ Create Date: 2024-02-24 18:51:15.996266
 from alembic import op
 import sqlalchemy as sa
 
-from db import TicketStatusEnum, TicketPriceTypeEnum, PriceTypeEnum, AgeTypeEnum
-
+from db import BaseModel
 
 # revision identifiers, used by Alembic.
 revision = "31c46999db1a"
 down_revision = None
 branch_labels = None
 depends_on = None
+
+
+TicketStatusEnum = sa.Enum(
+    "CREATED",
+    "PAID",
+    "APPROVED",
+    "REJECTED",
+    "REFUNDED",
+    "TRANSFERRED",
+    "POSTPONED",
+    "CANCELED",
+    name="ticket_status",
+    metadata=BaseModel.metadata
+)
+PriceTypeEnum = sa.Enum(
+    "NONE",
+    "BASE_PRICE",
+    "OPTIONS",
+    "INDIVIDUAL",
+    name="price_type",
+    metadata=BaseModel.metadata
+)
+TicketPriceTypeEnum = sa.Enum(
+    "NONE",
+    "weekday",
+    "weekend",
+    name="ticket_price_type",
+    metadata=BaseModel.metadata
+)
+AgeTypeEnum = sa.Enum(
+    "adult",
+    "child",
+    name="age_type",
+    metadata=BaseModel.metadata
+)
 
 
 def upgrade() -> None:
@@ -171,7 +205,6 @@ def upgrade() -> None:
         sa.Column("id", sa.BIGINT(), nullable=False),
         sa.Column("base_ticket_id", sa.BIGINT(), nullable=False),
         sa.Column("price", sa.BIGINT(), nullable=False),
-        sa.Column("exclude", sa.Boolean(), nullable=False),
         sa.Column("status", TicketStatusEnum, nullable=False),
         sa.Column("schedule_event_id", sa.BIGINT()),
         sa.Column("notes", sa.String()),
@@ -261,16 +294,6 @@ def upgrade() -> None:
             "user_id", "ticket_id", name=op.f("pk__users_tickets")
         ),
     )
-
-    path = r'/src/db/data/sql_files'
-    schedule_events = path + r"/schedule_events.sql"
-    theater_events = path + r"/theater_events.sql"
-    type_events = path + r"/type_events.sql"
-    items = [type_events, theater_events, schedule_events]
-    for file in items:
-        with open(file, encoding='utf-8') as f:
-            query = sa.text(f.read())
-            op.execute(query)
     # ### end Alembic commands ###
 
 

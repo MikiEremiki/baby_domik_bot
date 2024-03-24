@@ -63,7 +63,7 @@ async def create_people(
     people_ids.append(adult.person_id)
     for item in data_children:
         name_child = item[0]
-        age = item[1]
+        age = item[1].replace(',', '.')
         child = await create_child(session, user_id, name_child, age)
         people_ids.append(child.person_id)
 

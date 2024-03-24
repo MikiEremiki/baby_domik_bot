@@ -85,7 +85,6 @@ class Ticket(BaseModelTimed):
 
     base_ticket_id: Mapped[int]
     price: Mapped[int]
-    exclude: Mapped[bool] = mapped_column(default=False)
     status: Mapped[TicketStatus]
     notes: Mapped[Optional[str]]
 
