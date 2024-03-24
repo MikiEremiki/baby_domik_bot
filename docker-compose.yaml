@@ -60,8 +60,7 @@ services:
     environment:
       - CONFIG_PATH=${CONFIG_PATH:-config/}
     working_dir: /app
-  #    command: [ "alembic", "-c", "config/alembic.ini", "upgrade", "+1" ]
-  #    command: [ "alembic", "-c", "config/alembic.ini", "downgrade", "-1" ]
+    command: tail -F anything
 
   pgadmin:
     profiles: [ "pgadmin" ]
