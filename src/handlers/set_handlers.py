@@ -4,7 +4,6 @@ from telegram.ext import (
     CommandHandler, CallbackQueryHandler, MessageHandler, filters,
 )
 
-from db import middleware_db_add_handlers
 from handlers.webhook_hl import WebhookHandler
 from handlers import main_hl
 from handlers.error_hl import error_handler
@@ -17,6 +16,7 @@ from conv_hl import (
     reserve_conv_hl, reserve_admin_conv_hl, list_wait_conv_hl, birthday_conv_hl,
     birthday_paid_conv_hl, afisha_conv_hl, support_conv_hl
 )
+from middleware import add_middleware_glob_on_off, add_middleware_db_handlers
 from utilities.utl_func import (
     echo, send_log,
     get_location, get_contact, request_contact_location,
@@ -29,7 +29,8 @@ set_handlers_logger = logging.getLogger('bot.set_handlers')
 
 
 def set_handlers(application, config):
-    middleware_db_add_handlers(application, config)
+    add_middleware_db_handlers(application, config)
+    add_middleware_glob_on_off(application, config)
 
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
@@ -65,6 +66,8 @@ def set_handlers(application, config):
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_START'][0], create_or_connect_topic,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0], main_hl.global_on_off,
                        filter_admin),
         CommandHandler(COMMAND_DICT['UP_T_DATA'][0], update_ticket_data,
                        filter_admin),

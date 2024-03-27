@@ -596,3 +596,18 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_to_message_id=message.message_id,
         message_thread_id=message.message_thread_id
     )
+
+
+async def global_on_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Функция для обработки команды /global_on_off и вкл/выкл возможности
+    использовать команды пользователями в личных чатах
+    """
+    if context.args[0] == 'on':
+        context.bot_data['global_on_off'] = True
+        await update.effective_chat.send_message(
+            'Использование команд пользователями включено')
+    if context.args[0] == 'off':
+        context.bot_data['global_on_off'] = False
+        await update.effective_chat.send_message(
+            'Использование команд пользователями выключено')

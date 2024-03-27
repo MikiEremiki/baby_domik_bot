@@ -5,6 +5,7 @@ from typing import (
 from ticket import list_of_tickets
 
 context_bot_data: Dict = {
+    'global_on_off': bool,
     'list_of_tickets': list_of_tickets,
     'dict_show_data': {
         'show_id': {  # int

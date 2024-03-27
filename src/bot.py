@@ -28,6 +28,7 @@ async def post_init(app: Application):
     app.bot_data.setdefault('admin', {})
     app.bot_data['admin'].setdefault('contacts', {})
     app.bot_data.setdefault('dict_topics_name', {})
+    app.bot_data.setdefault('global_on_off', True)
 
 
 bot_logger = load_log_config()
