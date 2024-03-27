@@ -23,6 +23,7 @@ from db.db_googlesheets import (
     load_date_show_data, load_ticket_data, load_list_show,
     load_special_ticket_price
 )
+from settings import parse_settings
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
@@ -566,3 +567,11 @@ async def split_message(context, message: str):
             chat_id=CHAT_ID_MIKIEREMIKI,
             text='<pre>' + message + '</pre>',
         )
+
+
+async def update_config(_: Update, context: ContextTypes.DEFAULT_TYPE):
+    config = parse_settings()
+    context.bot_data['config'] = config
+    utilites_logger.info(
+        'Параметры из settings.yml загружены')
+

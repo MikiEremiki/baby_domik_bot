@@ -21,7 +21,7 @@ from utilities.utl_func import (
     echo, send_log,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
-    create_or_connect_topic, del_topic,
+    create_or_connect_topic, del_topic, update_config,
 )
 from settings.settings import ADMIN_ID, COMMAND_DICT
 
@@ -62,6 +62,7 @@ def set_handlers(application, config):
         CommandHandler('clean_ud', clean_ud, filter_admin),
         CommandHandler('print_ud', print_ud, filter_admin),
         CommandHandler('clean_bd', clean_bd, filter_admin),
+        CommandHandler('update_config', update_config, filter_admin),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
