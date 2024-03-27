@@ -53,6 +53,7 @@ Configuration.configure(config.yookassa.account_id,
 webhook_notification_factory = WebhookNotificationFactory()
 broker = connect_to_nats(application, webhook_notification_factory)
 
+
 @asynccontextmanager
 async def lifespan():
     set_handlers(application, config)

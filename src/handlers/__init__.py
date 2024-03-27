@@ -20,6 +20,7 @@ def init_conv_hl_dialog(update, context):
 
     return state
 
+
 async def check_user_db(update, context):
     logger = logging.getLogger(__name__)
     res = await db_postgres.get_user(context.session, update.effective_user.id)
