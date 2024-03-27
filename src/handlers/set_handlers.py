@@ -99,6 +99,9 @@ def set_handlers(application, config):
                                     filters.Document.PDF),
         main_hl.feedback_send_msg),
     )
+    application.add_handler(MessageHandler(filters.REPLY,
+                                           main_hl.feedback_reply_msg))
+
     application.add_handler(WebhookHandler)
 
     application.add_error_handler(error_handler)

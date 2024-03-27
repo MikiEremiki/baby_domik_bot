@@ -593,9 +593,23 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id,
         f'Сообщение от пользователя @{user.username} '
-        f'<a href="tg://user?id={user.id}">{user.full_name}</a>',
+        f'<a href="tg://user?id={user.id}">{user.full_name}</a>\n'
+        f'{update.effective_message.message_id}\n'
+        f'{update.effective_chat.id}',
         reply_to_message_id=message.message_id,
         message_thread_id=message.message_thread_id
+    )
+
+
+async def feedback_reply_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.effective_message.text
+    technical_info = update.effective_message.reply_to_message.text.split('\n')
+    chat_id = technical_info[-1]
+    message_id = technical_info[-2]
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_to_message_id=int(message_id)
     )
 
 
