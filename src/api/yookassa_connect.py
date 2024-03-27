@@ -14,6 +14,20 @@ def create_param_payment(
         payment_subject: str = "service",
         **kwargs,
 ) -> dict:
+    """
+
+    :param price:
+    :param description:
+    :param email:
+    :param return_url:
+    :param quantity:
+    :param payment_method_type: takes only one method
+    https://yookassa.ru/developers/payment-acceptance/integration-scenarios/manual-integration/basics#integration-options
+    :param payment_mode:
+    :param payment_subject:
+    :param kwargs:
+    :return:
+    """
     return {
         "amount": models.Amount(value=price, currency="RUB"),
         "payment_method_data": {

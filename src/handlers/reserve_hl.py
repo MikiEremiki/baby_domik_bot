@@ -990,9 +990,9 @@ async def check_and_send_buy_info(
         payment = Payment.create(
             create_param_payment(
                 price,
-                f'Билет на спектакль {name_show} {date} в {time}{chose_ticket.name}',
+                f'Билет на спектакль {name_show} {date} в {time} {chose_ticket.name}',
                 email,
-                payment_method_type='sbp',
+                payment_method_type=context.config.yookassa.payment_method_type,
                 chat_id=update.effective_chat.id,
                 message_id=message.message_id,
             ),

@@ -34,6 +34,7 @@ class GoogleSheetsSettings(BaseModel):
 class YookassaSettings(BaseModel):
     account_id: int
     secret_key: SecretStr
+    payment_method_type: str
 
 
 class Settings(BaseSettings):
