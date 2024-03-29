@@ -201,6 +201,42 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk__schedule_events")),
     )
     op.create_table(
+        "base_tickets",
+        sa.Column("base_ticket_id", sa.BIGINT(), autoincrement=False,
+                  nullable=False),
+        sa.Column("flag_active", sa.Boolean(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
+        sa.Column("cost_main", sa.Numeric(), nullable=False),
+        sa.Column("cost_privilege", sa.Numeric(), nullable=False),
+        sa.Column(
+            "period_start_change_price",
+            sa.TIMESTAMP(timezone=True),
+        ),
+        sa.Column(
+            "period_end_change_price",
+            sa.TIMESTAMP(timezone=True),
+        ),
+        sa.Column("cost_main_in_period", sa.Numeric(), nullable=False),
+        sa.Column("cost_privilege_in_period", sa.Numeric(), nullable=False),
+        sa.Column("quality_of_children", sa.BIGINT(), nullable=False),
+        sa.Column("quality_of_adult", sa.BIGINT(), nullable=False),
+        sa.Column("quality_of_add_adult", sa.BIGINT(), nullable=False),
+        sa.Column("quality_visits", sa.BIGINT(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk__base_tickets")),
+    )
+    op.create_table(
         "tickets",
         sa.Column("id", sa.BIGINT(), nullable=False),
         sa.Column("base_ticket_id", sa.BIGINT(), nullable=False),
@@ -230,7 +266,11 @@ def upgrade() -> None:
             ["schedule_event_id"],
             ["schedule_events.id"],
             name=op.f("fk__tickets__schedule_event_id__schedule_events"),
-            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["base_ticket_id"],
+            ["base_ticket.id"],
+            name=op.f("fk__tickets__base_ticket_id__base_tickets"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk__tickets")),
     )
@@ -302,6 +342,7 @@ def downgrade() -> None:
     op.drop_table("users_tickets")
     op.drop_table("people_tickets")
     op.drop_table("tickets")
+    op.drop_table("base_tickets")
     op.drop_table("schedule_events")
     op.drop_table("adults")
     op.drop_table("children")

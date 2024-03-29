@@ -11,3 +11,4 @@ settings.py
 **/sql_files/
 docker-compose-*
 /src/db/data/dump/
+/src/db/migrations/versions_*/
