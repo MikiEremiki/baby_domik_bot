@@ -20,7 +20,7 @@ from telegram.ext import (
 from telegram.error import BadRequest
 
 from db.db_googlesheets import (
-    load_date_show_data, load_ticket_data, load_list_show,
+    load_date_show_data, load_base_tickets, load_list_show,
     load_special_ticket_price
 )
 from settings import parse_settings
@@ -206,7 +206,7 @@ async def set_description(bot: ExtBot) -> None:
 
 
 def set_ticket_data(application: Application):
-    application.bot_data['list_of_tickets'] = load_ticket_data()
+    application.bot_data['list_of_tickets'] = load_base_tickets()
 
 
 def set_show_data(application: Application):

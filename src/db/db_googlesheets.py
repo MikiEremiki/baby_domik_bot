@@ -255,8 +255,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     )
 
 
-def load_ticket_data() -> List[BaseTicket]:
     list_of_tickets = []
+def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
 
     dict_column_name, len_column = get_column_info('Варианты стоимости_')
 

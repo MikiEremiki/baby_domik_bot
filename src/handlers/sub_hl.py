@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 from db import db_postgres
 from settings.settings import SUPPORT_DATA, ADMIN_GROUP
 from db.db_googlesheets import (
-    load_ticket_data, load_list_show, load_special_ticket_price)
+    load_base_tickets, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from utilities.hlp_func import create_approve_and_reject_replay
 from utilities.schemas.ticket import BaseTicket
@@ -117,7 +117,7 @@ async def update_ticket_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    context.bot_data['list_of_tickets'] = load_ticket_data()
+    context.bot_data['list_of_tickets'] = load_base_tickets()
     text = 'Билеты обновлены'
     await update.effective_chat.send_message(text)
 
