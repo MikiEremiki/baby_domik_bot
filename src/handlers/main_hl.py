@@ -488,7 +488,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 event_id = payment_data['event_id']
 
                 await write_old_seat_info(user, event_id, chose_ticket)
-                await db_postgres.delete_ticket(
+                await db_postgres.del_ticket(
                     context.session,
                     payment_data['ticket_id']
                 )

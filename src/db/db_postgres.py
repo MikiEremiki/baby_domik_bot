@@ -6,49 +6,43 @@ from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
 from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
 
 
-async def create_person(session: AsyncSession, user_id, name, age_type):
-    user = await session.get(User, user_id)
-    person = Person(name=name, age_type=age_type)
-    user.people.append(person)
-
-    await session.commit()
-    return person
-
-async def get_persons(session: AsyncSession, user_id: int):
-    query = select(Person).where(exists().where(Person.user_id == user_id))
-    result = await session.execute(query)
-    persons = result.all()
-
-    if persons:
-        return persons
-    else:
-        return None
-
-
-async def create_adult(session: AsyncSession, user_id, name, phone):
-    person = await create_person(session, user_id, name, AgeType.adult)
-    await session.refresh(person)
-    adult = Adult(phone=phone)
-    person.adults.append(adult)
-
-    await session.commit()
-    return adult
-
-
-async def create_child(
+async def add_people_to_ticket(
         session: AsyncSession,
-        user_id,
-        name,
-        age=None,
-        birthdate=None,
+        ticket_id,
+        people_ids
 ):
-    person = await create_person(session, user_id, name, AgeType.child)
-    await session.refresh(person)
-    child = Child(age=age, birthdate=birthdate)
-    person.children.append(child)
-
+    ticket = await session.get(Ticket, ticket_id)
+    for person_id in people_ids:
+        person = await session.get(Person, person_id)
+        ticket.people.append(person)
     await session.commit()
-    return child
+    return ticket
+
+
+async def add_user_to_ticket(session: AsyncSession, ticket_id, user_id):
+    ticket = await session.get(Ticket, ticket_id)
+    user = await session.get(User, user_id)
+    ticket.users = user
+    await session.commit()
+    return ticket
+
+
+async def attach_user_and_people_to_ticket(
+        session: AsyncSession,
+        ticket_id,
+        user_id,
+        people
+):
+    await add_people_to_ticket(session, ticket_id, people)
+    await add_user_to_ticket(session, ticket_id, user_id)
+
+
+async def update_base_tickets(session: AsyncSession, tickets):
+    for _ticket in tickets:
+        # ticket = await session.get(BaseTicket, _ticket.base_ticket_id)
+        dto_model = _ticket.to_dto()
+        await session.merge(BaseTicket(**dto_model))
+    await session.commit()
 
 
 async def create_people(
@@ -72,37 +66,6 @@ async def create_people(
     return people_ids
 
 
-async def add_people_ticket(
-        session: AsyncSession,
-        ticket_id,
-        people_ids
-):
-    ticket = await session.get(Ticket, ticket_id)
-    for person_id in people_ids:
-        person = await session.get(Person, person_id)
-        ticket.people.append(person)
-    await session.commit()
-    return ticket
-
-
-async def add_user_ticket(session: AsyncSession, ticket_id, user_id):
-    ticket = await session.get(Ticket, ticket_id)
-    user = await session.get(User, user_id)
-    ticket.users = user
-    await session.commit()
-    return ticket
-
-
-async def attach_user_and_people_to_ticket(
-        session: AsyncSession,
-        ticket_id,
-        user_id,
-        people
-):
-    await add_people_ticket(session, ticket_id, people)
-    await add_user_ticket(session, ticket_id, user_id)
-
-
 async def create_user(
         session: AsyncSession,
         user_id,
@@ -110,107 +73,86 @@ async def create_user(
         username=None,
         email=None,
 ):
-    stmt = insert(User).values(
+    user = User(
         id=user_id,
         chat_id=chat_id,
         username=username,
         email=email,
     )
-    result = await session.execute(stmt.returning(User.id))
-    await session.commit()
-    return result.scalar()
-
-
-async def update_user(
-        session: AsyncSession,
-        user_id,
-        **kwargs
-):
-    user = await session.get(User, user_id)
-    for key, value in kwargs.items():
-        setattr(user, key, value)
+    session.add(user)
     await session.commit()
     return user
 
 
-async def get_user(session: AsyncSession, user_id: int):
-    exists_criteria = (
-        exists().where(User.id == user_id))
-    query = select(User).where(exists_criteria)
-    result = await session.execute(query)
-    user = result.all()
+async def create_person(session: AsyncSession, user_id, name, age_type):
+    user = await session.get(User, user_id)
+    person = Person(name=name, age_type=age_type)
+    user.people.append(person)
 
-    if user:
-        return user
-    else:
-        return None
-
-
-async def create_theater_event(
-        session: AsyncSession,
-        name,
-        min_age_child,
-        show_emoji,
-        max_age_child=0,
-        flag_premier=False,
-        flag_active_repertoire=False,
-        flag_active_bd=False,
-        max_num_child_bd=8,
-        max_num_adult_bd=10,
-        flag_indiv_cost=False,
-        price_type=PriceType.NONE,
-        theater_event_id=None,
-):
-    if not theater_event_id:
-        stmt = insert(TheaterEvent).values(
-            name=name,
-            min_age_child=min_age_child,
-            show_emoji=show_emoji,
-            max_age_child=max_age_child,
-            flag_premier=flag_premier,
-            flag_active_repertoire=flag_active_repertoire,
-            flag_active_bd=flag_active_bd,
-            max_num_child_bd=max_num_child_bd,
-            max_num_adult_bd=max_num_adult_bd,
-            flag_indiv_cost=flag_indiv_cost,
-            price_type=price_type,
-        )
-    else:
-        stmt = insert(TheaterEvent).values(
-            id=theater_event_id,
-            name=name,
-            min_age_child=min_age_child,
-            show_emoji=show_emoji,
-            max_age_child=max_age_child,
-            flag_premier=flag_premier,
-            flag_active_repertoire=flag_active_repertoire,
-            flag_active_bd=flag_active_bd,
-            max_num_child_bd=max_num_child_bd,
-            max_num_adult_bd=max_num_adult_bd,
-            flag_indiv_cost=flag_indiv_cost,
-            price_type=price_type,
-        )
-    result = await session.execute(stmt.returning(TheaterEvent.id))
     await session.commit()
-    return result.scalar()
+    return person
 
 
-async def get_theater_event(session: AsyncSession, theater_event_id: int):
-    return await session.get(TheaterEvent, theater_event_id)
+async def create_adult(session: AsyncSession, user_id, name, phone):
+    person = await create_person(session, user_id, name, AgeType.adult)
+    await session.refresh(person)
+    adult = Adult(phone=phone)
+    person.adult.append(adult)
+
+    await session.commit()
+    return adult
 
 
-async def del_theater_event(session: AsyncSession, theater_event_id: int):
-    query = (
-        delete(TheaterEvent)
-        .where(TheaterEvent.id == theater_event_id)
+async def create_child(
+        session: AsyncSession,
+        user_id,
+        name,
+        age=None,
+        birthdate=None,
+):
+    person = await create_person(session, user_id, name, AgeType.child)
+    await session.refresh(person)
+    child = Child(age=age, birthdate=birthdate)
+    person.child.append(child)
+
+    await session.commit()
+    return child
+
+
+async def create_base_ticket(
+        session: AsyncSession,
+        base_ticket_id,
+        flag_active,
+        name,
+        cost_main,
+        cost_privilege,
+        period_start_change_price,
+        period_end_change_price,
+        cost_main_in_period,
+        cost_privilege_in_period,
+        quality_of_children,
+        quality_of_adult,
+        quality_of_add_adult,
+        quality_visits,
+):
+    base_ticket = BaseTicket(
+        base_ticket_id=base_ticket_id,
+        flag_active=flag_active,
+        name=name,
+        cost_main=cost_main,
+        cost_privilege=cost_privilege,
+        period_start_change_price=period_start_change_price,
+        period_end_change_price=period_end_change_price,
+        cost_main_in_period=cost_main_in_period,
+        cost_privilege_in_period=cost_privilege_in_period,
+        quality_of_children=quality_of_children,
+        quality_of_adult=quality_of_adult,
+        quality_of_add_adult=quality_of_add_adult,
+        quality_visits=quality_visits,
     )
-    return await session.execute(query)
-
-
-async def get_all_theater_events(session: AsyncSession):
-    query = select(TheaterEvent)
-    result = await session.execute(query)
-    return result.all()
+    session.add(base_ticket)
+    await session.commit()
+    return base_ticket
 
 
 async def create_ticket(
@@ -223,7 +165,7 @@ async def create_ticket(
         payment_id=None,
         idempotency_id=None,
 ):
-    stmt = insert(Ticket).values(
+    ticket = Ticket(
         base_ticket_id=base_ticket_id,
         price=price,
         schedule_event_id=schedule_event_id,
@@ -232,36 +174,43 @@ async def create_ticket(
         payment_id=payment_id,
         idempotency_id=idempotency_id,
     )
-    result = await session.execute(stmt.returning(Ticket.id))
-    await session.commit()
-    return result.scalar()
-
-
-async def update_ticket(
-        session: AsyncSession,
-        ticket_id,
-        **kwargs
-):
-    ticket = await session.get(Ticket, ticket_id)
-    for key, value in kwargs.items():
-        setattr(ticket, key, value)
+    session.add(ticket)
     await session.commit()
     return ticket
 
 
-async def get_ticket(
+async def create_theater_event(
         session: AsyncSession,
-        ticket_id,
+        name,
+        min_age_child,
+        show_emoji='',
+        max_age_child=0,
+        flag_premier=False,
+        flag_active_repertoire=False,
+        flag_active_bd=False,
+        max_num_child_bd=8,
+        max_num_adult_bd=10,
+        flag_indiv_cost=False,
+        price_type=PriceType.NONE,
+        theater_event_id=None,
 ):
-    return await session.get(Ticket, ticket_id)
-
-
-async def delete_ticket(
-        session: AsyncSession,
-        ticket_id,
-):
-    ticket = await get_ticket(session, ticket_id)
-    return await session.delete(ticket)
+    theater_event = TheaterEvent(
+        id=theater_event_id,
+        name=name,
+        min_age_child=min_age_child,
+        show_emoji=show_emoji,
+        max_age_child=max_age_child,
+        flag_premier=flag_premier,
+        flag_active_repertoire=flag_active_repertoire,
+        flag_active_bd=flag_active_bd,
+        max_num_child_bd=max_num_child_bd,
+        max_num_adult_bd=max_num_adult_bd,
+        flag_indiv_cost=flag_indiv_cost,
+        price_type=price_type
+    )
+    session.add(theater_event)
+    await session.commit()
+    return theater_event.id
 
 
 async def create_schedule_event(
@@ -282,44 +231,123 @@ async def create_schedule_event(
         ticket_price_type=TicketPriceType.NONE,
         schedule_event_id=None,
 ):
-    if not schedule_event_id:
-        stmt = insert(ScheduleEvent).values(
-            type_event_id=type_event_id,
-            theater_events_id=theater_events_id,
-            flag_turn_in_bot=flag_turn_in_bot,
-            datetime_event=datetime_event,
-            qty_child=qty_child,
-            qty_child_free_seat=qty_child_free_seat,
-            qty_child_nonconfirm_seat=qty_child_nonconfirm_seat,
-            qty_adult=qty_adult,
-            qty_adult_free_seat=qty_adult_free_seat,
-            qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat,
-            flag_gift=flag_gift,
-            flag_christmas_tree=flag_christmas_tree,
-            flag_santa=flag_santa,
-            ticket_price_type=ticket_price_type,
-        )
-    else:
-        stmt = insert(ScheduleEvent).values(
-            id=schedule_event_id,
-            type_event_id=type_event_id,
-            theater_events_id=theater_events_id,
-            flag_turn_in_bot=flag_turn_in_bot,
-            datetime_event=datetime_event,
-            qty_child=qty_child,
-            qty_child_free_seat=qty_child_free_seat,
-            qty_child_nonconfirm_seat=qty_child_nonconfirm_seat,
-            qty_adult=qty_adult,
-            qty_adult_free_seat=qty_adult_free_seat,
-            qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat,
-            flag_gift=flag_gift,
-            flag_christmas_tree=flag_christmas_tree,
-            flag_santa=flag_santa,
-            ticket_price_type=ticket_price_type,
-        )
-    result = await session.execute(stmt.returning(ScheduleEvent.id))
+    schedule_event = ScheduleEvent(
+        id=schedule_event_id,
+        type_event_id=type_event_id,
+        theater_events_id=theater_events_id,
+        flag_turn_in_bot=flag_turn_in_bot,
+        datetime_event=datetime_event,
+        qty_child=qty_child,
+        qty_child_free_seat=qty_child_free_seat,
+        qty_child_nonconfirm_seat=qty_child_nonconfirm_seat,
+        qty_adult=qty_adult,
+        qty_adult_free_seat=qty_adult_free_seat,
+        qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat,
+        flag_gift=flag_gift,
+        flag_christmas_tree=flag_christmas_tree,
+        flag_santa=flag_santa,
+        ticket_price_type=ticket_price_type,
+    )
+    session.add(schedule_event)
     await session.commit()
-    return result.scalar()
+    return schedule_event.id
+
+
+async def get_user(session: AsyncSession, user_id: int):
+    query = select(User).where(User.user_id == user_id)
+    result = await session.execute(query)
+    user = result.all()
+
+    if user:
+        return user
+    else:
+        return None
+
+async def get_persons(session: AsyncSession, user_id: int):
+    query = select(Person).where(exists().where(Person.user_id == user_id))
+    result = await session.execute(query)
+    persons = result.all()
+
+    if persons:
+        return persons
+    else:
+        return None
+
+
+async def get_base_ticket(session: AsyncSession, base_ticket_id: int):
+    return await session.get(BaseTicket, base_ticket_id)
+
+
+async def get_ticket(session: AsyncSession, ticket_id: int):
+    return await session.get(Ticket, ticket_id)
+
+
+async def get_theater_event(session: AsyncSession, theater_event_id: int):
+    return await session.get(TheaterEvent, theater_event_id)
+
+
+async def get_schedule_event(session: AsyncSession, schedule_event_id: int):
+    return await session.get(ScheduleEvent, schedule_event_id)
+
+
+async def get_all_theater_events(session: AsyncSession):
+    query = select(TheaterEvent)
+    result = await session.execute(query)
+    return result.all()
+
+
+async def get_all_schedule_events(session: AsyncSession):
+    query = select(ScheduleEvent)
+    result = await session.execute(query)
+    return result.all()
+
+
+async def update_user(
+        session: AsyncSession,
+        user_id,
+        **kwargs
+):
+    user = await session.get(User, user_id)
+    for key, value in kwargs.items():
+        setattr(user, key, value)
+    await session.commit()
+    return user
+
+
+async def update_base_ticket(
+        session: AsyncSession,
+        base_ticket_id,
+        **kwargs
+):
+    ticket = await session.get(BaseTicket, base_ticket_id)
+    for key, value in kwargs.items():
+        setattr(ticket, key, value)
+    await session.commit()
+    return ticket
+
+
+async def update_ticket(
+        session: AsyncSession,
+        ticket_id,
+        **kwargs
+):
+    ticket = await session.get(Ticket, ticket_id)
+    for key, value in kwargs.items():
+        setattr(ticket, key, value)
+    await session.commit()
+    return ticket
+
+
+async def update_theater_event(
+        session: AsyncSession,
+        theater_event_id,
+        **kwargs
+):
+    theater_event = await session.get(TheaterEvent, theater_event_id)
+    for key, value in kwargs.items():
+        setattr(theater_event, key, value)
+    await session.commit()
+    return theater_event
 
 
 async def update_schedule_event(
@@ -327,26 +355,32 @@ async def update_schedule_event(
         schedule_event_id,
         **kwargs
 ):
-    event = await session.get(ScheduleEvent, schedule_event_id)
+    schedule_event = await session.get(ScheduleEvent, schedule_event_id)
     for key, value in kwargs.items():
-        setattr(event, key, value)
+        setattr(schedule_event, key, value)
     await session.commit()
-    return event
+    return schedule_event
 
 
-async def get_schedule_event(session: AsyncSession, schedule_event_id: int):
-    return await session.get(ScheduleEvent, schedule_event_id)
+async def del_ticket(
+        session: AsyncSession,
+        ticket_id,
+):
+    result = await session.get(Ticket, ticket_id)
+    await session.delete(result)
+    await session.commit()
+    return result
+
+
+async def del_theater_event(session: AsyncSession, theater_event_id: int):
+    result = await session.get(TheaterEvent, theater_event_id)
+    await session.delete(result)
+    await session.commit()
+    return result
 
 
 async def del_schedule_event(session: AsyncSession, schedule_event_id: int):
-    query = (
-        delete(ScheduleEvent)
-        .where(ScheduleEvent.id == schedule_event_id)
-    )
-    return await session.execute(query)
-
-
-async def get_all_schedule_events(session: AsyncSession):
-    query = select(ScheduleEvent)
-    result = await session.execute(query)
-    return result.all()
+    result = await session.get(ScheduleEvent, schedule_event_id)
+    await session.delete(result)
+    await session.commit()
+    return result
