@@ -956,10 +956,10 @@ async def check_and_send_buy_info(
                 await db_postgres.update_schedule_event(
                     context.session,
                     int(event_id),
-                    qty_child_free_seat_new=qty_child_free_seat_new,
-                    qty_child_nonconfirm_seat_new=qty_child_nonconfirm_seat_new,
-                    qty_adult_free_seat_new=qty_adult_free_seat_new,
-                    qty_adult_nonconfirm_seat_new=qty_adult_nonconfirm_seat_new,
+                    qty_child_free_seat=qty_child_free_seat_new,
+                    qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
+                    qty_adult_free_seat=qty_adult_free_seat_new,
+                    qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
                 )
             except TimeoutError:
                 reserve_hl_logger.error(": ".join(
