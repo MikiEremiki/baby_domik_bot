@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger
+from sqlalchemy import ForeignKey, BigInteger, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -11,7 +11,7 @@ from db.enum import TicketStatus, TicketPriceType, PriceType, AgeType
 class User(BaseModelTimed):
     __tablename__ = 'users'
 
-    id: Mapped[int] = mapped_column(
+    user_id: Mapped[int] = mapped_column(
         BigInteger, primary_key=True, autoincrement=False, name='user_id')
     chat_id: Mapped[int] = mapped_column(BigInteger)
 
@@ -20,7 +20,7 @@ class User(BaseModelTimed):
 
     people: Mapped[List['Person']] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
-        back_populates='users', secondary='users_tickets', lazy='selectin')
+        back_populates='user', secondary='users_tickets', lazy='selectin')
 
 
 class Person(BaseModelTimed):
@@ -33,8 +33,8 @@ class Person(BaseModelTimed):
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
 
-    children: Mapped[List['Child']] = relationship(lazy='selectin')
-    adults: Mapped[List['Adult']] = relationship(lazy='selectin')
+    child: Mapped['Child'] = relationship(lazy='selectin')
+    adult: Mapped['Adult'] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
 
@@ -114,7 +114,7 @@ class Ticket(BaseModelTimed):
     schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))
 
-    users: Mapped['User'] = relationship(
+    user: Mapped['User'] = relationship(
         secondary='users_tickets', back_populates='tickets', lazy='selectin')
     people: Mapped[List['Person']] = relationship(
         secondary='people_tickets', back_populates='tickets', lazy='selectin')
