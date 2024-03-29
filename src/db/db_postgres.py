@@ -1,7 +1,8 @@
 from sqlalchemy import select, exists, insert, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import User, Person, Adult, TheaterEvent, Ticket, Child, ScheduleEvent
+from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
+                ScheduleEvent, BaseTicket)
 from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
 
 

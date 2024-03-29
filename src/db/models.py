@@ -78,12 +78,32 @@ class PersonTicket(BaseModelTimed):
         ForeignKey('tickets.id'), primary_key=True)
 
 
+class BaseTicket(BaseModelTimed):
+    __tablename__ = 'base_tickets'
+
+    base_ticket_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+
+    flag_active: Mapped[bool] = mapped_column(default=False)
+    name: Mapped[str]
+    cost_main: Mapped[float] = mapped_column(Numeric)
+    cost_privilege: Mapped[float] = mapped_column(Numeric)
+    period_start_change_price: Mapped[Optional[datetime]]
+    period_end_change_price: Mapped[Optional[datetime]]
+    cost_main_in_period: Mapped[float] = mapped_column(Numeric)
+    cost_privilege_in_period: Mapped[float] = mapped_column(Numeric)
+    quality_of_children: Mapped[int]
+    quality_of_adult: Mapped[int]
+    quality_of_add_adult: Mapped[int]
+    quality_visits: Mapped[int]
+
+
 class Ticket(BaseModelTimed):
     __tablename__ = 'tickets'
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    base_ticket_id: Mapped[int]
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id'))
     price: Mapped[int]
     status: Mapped[TicketStatus]
     notes: Mapped[Optional[str]]
