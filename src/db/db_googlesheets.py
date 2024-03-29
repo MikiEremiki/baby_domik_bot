@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from api.googlesheets import get_data_from_spreadsheet, get_column_info
 from settings.settings import RANGE_NAME
-from utilities.schemas.ticket import BaseTicket
+from utilities.schemas.ticket import BaseTicketDTO
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 
@@ -255,8 +255,8 @@ def load_list_show() -> dict[int, dict[str, Any]]:
     )
 
 
-    list_of_tickets = []
 def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
+    tickets = []
 
     dict_column_name, len_column = get_column_info('Варианты стоимости_')
 
@@ -270,7 +270,7 @@ def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
     )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
-    fields_ticket = [*BaseTicket.model_fields.keys()]
+    fields_ticket = [*BaseTicketDTO.model_fields.keys()]
     for item in data[1:]:
         tmp_dict = {}
         for value in fields_ticket:
@@ -281,15 +281,16 @@ def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
                     db_googlesheets_logger.error(item)
                     db_googlesheets_logger.error(e)
         try:
-            ticket = BaseTicket(**tmp_dict)
-            if ticket.flag_active:
-                list_of_tickets.append(ticket)
+            ticket = BaseTicketDTO(**tmp_dict)
+            if only_active and not ticket.flag_active:
+                    continue
+            tickets.append(ticket)
         except ValidationError as exc:
             db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
             db_googlesheets_logger.error(tmp_dict)
 
     db_googlesheets_logger.info('Список билетов загружен')
-    return list_of_tickets
+    return tickets
 
 
 def load_special_ticket_price() -> Dict:

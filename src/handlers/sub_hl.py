@@ -9,7 +9,7 @@ from db.db_googlesheets import (
     load_base_tickets, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 from utilities.hlp_func import create_approve_and_reject_replay
-from utilities.schemas.ticket import BaseTicket
+from utilities.schemas.ticket import BaseTicketDTO
 from utilities.utl_func import send_message_to_admin
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
@@ -199,7 +199,7 @@ async def get_chose_ticket_and_price(
     option = choose_event_info['option']
     flag_indiv_cost = choose_event_info['flag_indiv_cost']
     list_of_tickets = context.bot_data['list_of_tickets']
-    chose_ticket: BaseTicket = list_of_tickets[0]
+    chose_ticket: BaseTicketDTO = list_of_tickets[0]
     price = chose_ticket.price
     for ticket in list_of_tickets:
         if ticket.base_ticket_id == key_option_for_reserve:
