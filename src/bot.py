@@ -41,7 +41,6 @@ application = (
     Application.builder()
     .token(config.bot.token.get_secret_value())
     .persistence(pickle_persistence)
-    .post_init(post_init)
     .defaults(Defaults(parse_mode=ParseMode.HTML))
 
     .build()
