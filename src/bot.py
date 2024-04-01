@@ -29,6 +29,7 @@ async def post_init(app: Application):
     app.bot_data['admin'].setdefault('contacts', {})
     app.bot_data.setdefault('dict_topics_name', {})
     app.bot_data.setdefault('global_on_off', True)
+    app.context_types.context.config = config
 
 
 bot_logger = load_log_config()
@@ -45,7 +46,6 @@ application = (
 
     .build()
 )
-application.bot_data.setdefault('config', config)
 
 Configuration.configure(config.yookassa.account_id,
                         config.yookassa.secret_key.get_secret_value())

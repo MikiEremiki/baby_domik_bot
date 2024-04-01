@@ -571,7 +571,7 @@ async def split_message(context, message: str):
 
 async def update_config(_: Update, context: ContextTypes.DEFAULT_TYPE):
     config = parse_settings()
-    context.bot_data['config'] = config
+    context.config = config
     utilites_logger.info(
         'Параметры из settings.yml загружены')
 
