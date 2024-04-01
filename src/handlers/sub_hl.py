@@ -8,9 +8,8 @@ from settings.settings import SUPPORT_DATA, ADMIN_GROUP
 from db.db_googlesheets import (
     load_base_tickets, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
-from utilities.hlp_func import create_approve_and_reject_replay
+from utilities import create_approve_and_reject_replay, send_message_to_admin
 from utilities.schemas.ticket import BaseTicketDTO
-from utilities.utl_func import send_message_to_admin
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 

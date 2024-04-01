@@ -35,10 +35,7 @@ from api.googlesheets import (
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
     send_message_to_admin, set_back_context, get_back_context, check_email,
-    get_month_numbers
-)
-from utilities.hlp_func import (
-    check_phone_number,
+    get_month_numbers, check_phone_number,
     create_replay_markup_for_list_of_shows,
     enum_current_show_by_month,
     add_text_of_show_and_numerate

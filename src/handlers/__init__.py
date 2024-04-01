@@ -1,7 +1,8 @@
 import logging
 
+from .sub_hl import write_old_seat_info
 from db import db_postgres
-from utilities.utl_func import clean_context, extract_command
+from utilities import clean_context, extract_command
 
 
 def init_conv_hl_dialog(update, context):
