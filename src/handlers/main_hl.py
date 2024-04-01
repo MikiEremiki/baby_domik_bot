@@ -33,22 +33,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
 
+    start_text = (
+        '<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
+        '--><a href="https://vk.com/baby_theater_domik">Наша группа ВКонтакте</a>\n\n'
+        'В ней более подробно описаны:\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
+        '- Фотографии\n'
+        '- Команда и жизнь театра\n'
+        '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
+        '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+    )
+    command_text = (
+        'Для продолжения работы используйте команды:\n'
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+        f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
+        f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
+        f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)'
+    )
     await update.effective_chat.send_message(
-        text='<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
-             '--><a href="https://vk.com/baby_theater_domik">Наша группа ВКонтакте</a>\n\n'
-             'В ней более подробно описаны:\n'
-             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
-             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
-             '- Фотографии\n'
-             '- Команда и жизнь театра\n'
-             '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
-             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
-             '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
-             'Для продолжения работы используйте команды:\n'
-             f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
-             f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
-             f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
-             f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
+        text=start_text + command_text,
         reply_markup=ReplyKeyboardRemove()
     )
 
