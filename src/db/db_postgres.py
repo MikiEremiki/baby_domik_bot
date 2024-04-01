@@ -45,6 +45,14 @@ async def update_base_tickets(session: AsyncSession, tickets):
     await session.commit()
 
 
+async def get_email(session: AsyncSession, user_id):
+    user = await session.get(User, user_id)
+    if user.email:
+        return user.email
+    else:
+        return None
+
+
 async def create_people(
         session: AsyncSession,
         user_id,
