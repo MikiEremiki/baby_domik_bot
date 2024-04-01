@@ -64,8 +64,8 @@ def create_replay_markup_for_list_of_shows(
 
                         if item in filter_show_id.keys():
                             button_tmp = InlineKeyboardButton(
-                                text=key + ' ' + DICT_OF_EMOJI_FOR_BUTTON[
-                                    filter_show_id[item]],
+                                text=DICT_OF_EMOJI_FOR_BUTTON[
+                                         filter_show_id[item]] + ' ' + key,
                                 callback_data=str(item) + ' | ' + key
                             )
                     if button_tmp is None:
