@@ -16,6 +16,7 @@ class BotSettings(BaseModel):
     token: SecretStr
     admin_group: Optional[int] = None
     feedback_thread_id_group_admin: Optional[int] = None
+    developer_chat_id: Optional[int]
 
 
 class TimeWebSettings(BaseModel):
