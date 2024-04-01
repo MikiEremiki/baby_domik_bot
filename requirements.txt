@@ -17,5 +17,5 @@ typing_extensions
 yookassa~=3.0.1
 uvicorn
 fastapi
-faststream
+faststream==0.4.7
 nats-py==2.6.0

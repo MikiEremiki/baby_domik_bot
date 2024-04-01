@@ -1,3 +1,4 @@
 uvicorn
 fastapi
-faststream[nats]
+faststream==0.4.7
+nats-py==2.6.0
