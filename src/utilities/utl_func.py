@@ -575,3 +575,10 @@ async def update_config(_: Update, context: ContextTypes.DEFAULT_TYPE):
     utilites_logger.info(
         'Параметры из settings.yml загружены')
 
+
+def get_month_numbers(dict_of_date_show):
+    list_of_months = []
+    for item in dict_of_date_show.keys():
+        if int(item[3:5]) not in list_of_months:
+            list_of_months.append(int(item[3:5]))
+    return list_of_months

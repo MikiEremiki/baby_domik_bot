@@ -34,7 +34,8 @@ from api.googlesheets import (
 )
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
-    send_message_to_admin, set_back_context, get_back_context, check_email
+    send_message_to_admin, set_back_context, get_back_context, check_email,
+    get_month_numbers
 )
 from utilities.hlp_func import (
     check_phone_number,
@@ -122,10 +123,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    list_of_months = []
-    for item in dict_of_date_show.keys():
-        if int(item[3:5]) not in list_of_months:
-            list_of_months.append(int(item[3:5]))
+    list_of_months = get_month_numbers(dict_of_date_show)
 
     keyboard = []
 
