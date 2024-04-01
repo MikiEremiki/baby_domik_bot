@@ -23,6 +23,7 @@ from db.db_googlesheets import (
     load_date_show_data, load_base_tickets, load_list_show,
     load_special_ticket_price
 )
+from handlers.sub_hl import write_old_seat_info
 from settings import parse_settings
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
@@ -582,3 +583,11 @@ def get_month_numbers(dict_of_date_show):
         if int(item[3:5]) not in list_of_months:
             list_of_months.append(int(item[3:5]))
     return list_of_months
+
+
+async def write_to_return_seats_for_sale(context):
+    user = context.user_data['user']
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    chose_ticket = payment_data['chose_ticket']
+    event_id = payment_data['event_id']
+    await write_old_seat_info(user, event_id, chose_ticket)
