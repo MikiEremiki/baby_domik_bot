@@ -714,11 +714,17 @@ async def get_email(
         context.user_data['STATE'] = state
         return state
 
+    email = await db_postgres.get_email(context.session,
+                                        update.effective_user.id)
     text = (f'<i>{OFFER}</i>\n\n'
             'Если вы согласны напишите email, на него вам будет направлен чек '
-            'после оплаты')
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                        postfix_for_back='TIME')]
+            'после оплаты\n')
+    if email:
+        text += f'Последний введенный email: <code>{email}</code>'
+    keyboard = [
+        [InlineKeyboardButton('Далее', callback_data='Next')],
+        add_btn_back_and_cancel(postfix_for_cancel='res',
+                                postfix_for_back='TIME')]
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await query.edit_message_text(
         text=text,
@@ -744,29 +750,35 @@ async def check_and_send_buy_info(
         возвращает state PAID,
         если проверка не пройдена, то state ORDER
     """
-    await context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
-    )
-    email = update.effective_message.text
-    if not check_email(email):
-        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='TIME')]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.effective_chat.send_message(
-            text=f'Вы написали: {email}\n'
-                 f'Пожалуйста проверьте и введите почту еще раз.',
-            reply_markup=reply_markup
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        email = await db_postgres.get_email(context.session,
+                                            update.effective_user.id)
+    else:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=context.user_data['reserve_user_data']['message_id']
         )
-        state = 'ORDER'
-        context.user_data['STATE'] = state
-        return state
+        email = update.effective_message.text
+        if not check_email(email):
+            keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
+                                                postfix_for_back='TIME')]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.effective_chat.send_message(
+                text=f'Вы написали: {email}\n'
+                     f'Пожалуйста проверьте и введите почту еще раз.',
+                reply_markup=reply_markup
+            )
+            state = 'ORDER'
+            context.user_data['STATE'] = state
+            return state
 
-    await db_postgres.update_user(
-        session=context.session,
-        user_id=update.effective_user.id,
-        email=email
-    )
+        await db_postgres.update_user(
+            session=context.session,
+            user_id=update.effective_user.id,
+            email=email
+        )
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
