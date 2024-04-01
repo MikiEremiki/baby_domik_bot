@@ -993,6 +993,9 @@ async def check_and_send_buy_info(
                 context.user_data['STATE'] = state
                 return state
 
+        payment_data = context.user_data['reserve_admin_data']['payment_data']
+        payment_data['chose_ticket'] = chose_ticket
+
         idempotency_id = uuid.uuid4()
         payment = Payment.create(
             create_param_payment(
@@ -1051,9 +1054,6 @@ __________
         reserve_user_data['dict_of_name_show_flip'].clear()
         reserve_user_data['dict_of_date_show'].clear()
         reserve_user_data['back'].clear()
-
-        payment_data = context.user_data['reserve_admin_data']['payment_data']
-        payment_data['chose_ticket'] = chose_ticket
 
         ticket_id = await db_postgres.create_ticket(
             context.session,
