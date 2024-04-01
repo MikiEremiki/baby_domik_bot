@@ -3,7 +3,7 @@ venv/*
 __pycache__/*
 config/*
 **/archive/log.txt*
-**/data/conversationbot
+**/data/conversationbot*
 **/json_files/*
 settings.py
 /src/utilities/pickle/ud_ids/
