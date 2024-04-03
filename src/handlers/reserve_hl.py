@@ -1055,15 +1055,17 @@ __________
         reserve_user_data['dict_of_date_show'].clear()
         reserve_user_data['back'].clear()
 
-        ticket_id = await db_postgres.create_ticket(
-            context.session,
-            base_ticket_id=chose_ticket.base_ticket_id,
-            price=price,
-            schedule_event_id=event_id,
-            status=TicketStatus.CREATED,
-            payment_id=payment.id,
-            idempotency_id=idempotency_id,
-        )
+    ticket = await db_postgres.create_ticket(
+        context.session,
+        base_ticket_id=chose_ticket.base_ticket_id,
+        price=price,
+        schedule_event_id=event_id,
+        status=TicketStatus.CREATED,
+        payment_id=payment.id,
+        idempotency_id=idempotency_id,
+    )
+    payment_data['ticket_id'] = ticket.id
+
 
         payment_data['ticket_id'] = ticket_id
 
