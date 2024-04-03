@@ -448,6 +448,19 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=text,
             reply_markup=reply_markup,
         )
+    elif state == 'TICKET':
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        try:
+            await context.bot.delete_message(
+                update.effective_chat.id,
+                context.user_data['reserve_user_data']['accept_message_id']
+            )
+        except BadRequest as e:
+            main_handlers_logger.error(e)
+
     else:
         await query.edit_message_text(
             text=text,
