@@ -2,7 +2,7 @@ import pickle
 from pathlib import Path
 from typing import Any
 
-from utilities.schemas.ticket import BaseTicketDTO, BaseTicket
+import utilities.schemas.ticket as tic
 
 _REPLACED_KNOWN_BOT = "a known bot replaced by PTB's PicklePersistence"
 _REPLACED_UNKNOWN_BOT = "an unknown bot replaced by PTB's PicklePersistence"
@@ -27,8 +27,8 @@ class _BotPickler(pickle.Pickler):
 
 
 fix_base_ticket = True
-path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
-# path = r'D:\Temp\conversationbot'
+# path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
+path = r'D:\Temp\conversationbot'
 # path = r'src\db\data\conversationbot'
 new_path: Path = Path(r'D:\Temp\conversationbot2')
 with open(path, "rb") as file:
@@ -56,14 +56,16 @@ if fix_base_ticket:
                 if 'reserve_admin_data' in item2.keys():
                     for key3, item3 in item2['reserve_admin_data'].items():
                         if isinstance(item3, dict) and isinstance(key3, int):
-                            if isinstance(item3['chose_ticket'], BaseTicket):
+                            if isinstance(item3.get('chose_ticket', False),
+                                          tic.BaseTicket):
                                 ticket = item3['chose_ticket'].to_dto()
-                                item3['chose_ticket'] = BaseTicketDTO(**ticket)
+                                item3['chose_ticket'] = tic.BaseTicketDTO(
+                                    **ticket)
         if key1 == 'bot_data':
             for i, base_ticket in enumerate(item1['list_of_tickets']):
-                if isinstance(base_ticket, BaseTicket):
+                if isinstance(base_ticket, tic.BaseTicket):
                     ticket = base_ticket.to_dto()
-                    item1['list_of_tickets'][i] = BaseTicketDTO(**ticket)
+                    item1['list_of_tickets'][i] = tic.BaseTicketDTO(**ticket)
 
 with new_path.open("wb") as file:
     _BotPickler(file).dump(objects)
