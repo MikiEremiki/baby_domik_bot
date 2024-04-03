@@ -1000,7 +1000,7 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return state
 
     await message.delete()
-    await send_breaf_message(update)
+    await send_breaf_message(update, context)
 
     state = 'FORMA'
     context.user_data['STATE'] = state
