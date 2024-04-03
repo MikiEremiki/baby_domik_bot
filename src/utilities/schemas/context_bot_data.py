@@ -50,4 +50,7 @@ context_bot_data: Dict = {
     'birthday_price': {
         int: (int, str),
     },
+    'texts': {
+        'description': str,
+    },
 }
