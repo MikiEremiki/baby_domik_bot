@@ -138,7 +138,7 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res_adm',
                                             postfix_for_back=1))
     reply_markup = InlineKeyboardMarkup(keyboard)
     await message.edit_text(text=text,
@@ -190,6 +190,7 @@ async def start_forma_info(
         reserve_user_data
     )
 
+    reserve_user_data['key_option_for_reserve'] = key_option_for_reserve
     reserve_user_data['chose_price'] = price
     payment_data = reserve_admin_data['payment_data']
     payment_data['chose_ticket'] = chose_ticket
@@ -235,8 +236,12 @@ async def start_forma_info(
 
     payment_data['ticket_id'] = ticket.id
 
-    await query.edit_message_text(
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res_adm|',
+                                        add_back_btn=False)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message= await query.edit_message_text(
         '<b>Напишите фамилию и имя (взрослого)</b>',
+        reply_markup=reply_markup
     )
 
     if common_data.get('dict_of_shows', False):
@@ -250,6 +255,7 @@ async def start_forma_info(
     if reserve_user_data.get('dict_of_date_show', False):
         reserve_user_data['back'].clear()
 
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
     state = 'FORMA'
     context.user_data['STATE'] = state
     return state

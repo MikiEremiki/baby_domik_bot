@@ -829,11 +829,13 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
                                             postfix_for_back=state)]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.effective_chat.send_message(
+        message = await update.effective_chat.send_message(
             text=f'Вы написали: {email}\n'
                  f'Пожалуйста проверьте и введите почту еще раз.',
             reply_markup=reply_markup
         )
+        context.user_data['reserve_user_data'][
+            'message_id'] = message.message_id
         context.user_data['STATE'] = state
         return state
 
@@ -1017,34 +1019,42 @@ async def get_name_adult(
     )
     text = update.effective_message.text
 
-    context.user_data['reserve_user_data']['client_data']['name_adult'] = text
-
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res|',
+    postfix = 'res|'
+    if context.user_data.get('command', False) == 'reserve_admin':
+        postfix = 'res_adm|'
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel=postfix,
                                         add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(
+    message = await update.effective_chat.send_message(
         text='<b>Напишите номер телефона</b>',
         reply_markup=reply_markup
     )
 
+    context.user_data['reserve_user_data']['client_data']['name_adult'] = text
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
     state = 'PHONE'
     context.user_data['STATE'] = state
     return state
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.edit_message_reply_markup(
+        update.effective_chat.id,
+        message_id=context.user_data['reserve_user_data']['message_id']
+    )
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
         await request_phone_number(update, phone)
         return context.user_data['STATE']
 
-    context.user_data['reserve_user_data']['client_data']['phone'] = phone
-
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res|',
+    postfix = 'res|'
+    if context.user_data.get('command', False) == 'reserve_admin':
+        postfix = 'res_adm|'
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel=postfix,
                                         add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_chat.send_message(
+    message = await update.effective_chat.send_message(
         text="""<b>Напишите, имя и сколько полных лет ребенку</b>
 __________
 Например:
@@ -1057,6 +1067,8 @@ __________
         reply_markup=reply_markup
     )
 
+    context.user_data['reserve_user_data']['client_data']['phone'] = phone
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
     state = 'CHILDREN'
     context.user_data['STATE'] = state
     return state
@@ -1066,6 +1078,10 @@ async def get_name_children(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
+    await context.bot.edit_message_reply_markup(
+        update.effective_chat.id,
+        message_id=context.user_data['reserve_user_data']['message_id']
+    )
     await update.effective_chat.send_action(ChatAction.TYPING)
 
     text = update.effective_message.text
@@ -1080,7 +1096,10 @@ async def get_name_children(
         ' - Не используйте дополнительные слова и пунктуацию, '
         'кроме тех, что указаны в примерах</i>'
     )
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res|',
+    postfix = 'res|'
+    if context.user_data.get('command', False) == 'reserve_admin':
+        postfix = 'res_adm|'
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel=postfix,
                                         add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -1144,9 +1163,12 @@ async def get_name_children(
     ))
     reserve_hl_logger.info(client_data)
 
-    await create_and_send_payment(update, context)
-
-    state = 'PAID'
+    if context.user_data.get('command', False) == 'reserve_admin':
+        await processing_successful_payment(update, context)
+        state = ConversationHandler.END
+    else:
+        await create_and_send_payment(update, context)
+        state = 'PAID'
     context.user_data['STATE'] = state
     return state
 
