@@ -234,7 +234,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk__base_tickets")),
+        sa.PrimaryKeyConstraint("base_ticket_id", name=op.f("pk__base_tickets")),
     )
     op.create_table(
         "tickets",
@@ -269,7 +269,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["base_ticket_id"],
-            ["base_ticket.id"],
+            ["base_tickets.base_ticket_id"],
             name=op.f("fk__tickets__base_ticket_id__base_tickets"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk__tickets")),
