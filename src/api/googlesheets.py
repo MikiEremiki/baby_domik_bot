@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 
 from settings.config_loader import parse_settings
 from settings.settings import RANGE_NAME
-from utilities.schemas.ticket import BaseTicket
+from utilities.schemas.ticket import BaseTicketDTO
 
 config = parse_settings()
 SPREADSHEET_ID = {}
@@ -224,7 +224,7 @@ def write_data_for_reserve(
 def write_client(
         client: dict,
         event_id: str,
-        ticket: BaseTicket,
+        ticket: BaseTicketDTO,
         price: int,
 ) -> Optional[int]:
     # TODO Переписать функцию, чтобы принимала весь контекст целиком и внутри

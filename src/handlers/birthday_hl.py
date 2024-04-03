@@ -30,10 +30,7 @@ from settings.settings import (
 from utilities.utl_func import (
     extract_phone_number_from_text,
     send_message_to_admin,
-    clean_context
-)
-from utilities.hlp_func import (
-    check_phone_number,
+    clean_context, check_phone_number,
     create_approve_and_reject_replay,
     create_replay_markup_for_list_of_shows,
     create_replay_markup_with_number_btn,

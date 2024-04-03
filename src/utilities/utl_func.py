@@ -17,16 +17,16 @@ from telegram.ext import (
     ExtBot,
     Application,
 )
+from telegram.helpers import escape_markdown
 from telegram.error import BadRequest
 
-from db.db_googlesheets import (
-    load_date_show_data, load_ticket_data, load_list_show,
-    load_special_ticket_price
-)
+from db import db_googlesheets
+import handlers
+from settings import parse_settings
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
-    LIST_TOPICS_NAME,
+    LIST_TOPICS_NAME, DICT_OF_EMOJI_FOR_BUTTON, SUPPORT_DATA
 )
 from utilities.schemas.context_user_data import context_user_data
 
@@ -205,15 +205,15 @@ async def set_description(bot: ExtBot) -> None:
 
 
 def set_ticket_data(application: Application):
-    application.bot_data['list_of_tickets'] = load_ticket_data()
+    application.bot_data['list_of_tickets'] = db_googlesheets.load_base_tickets()
 
 
 def set_show_data(application: Application):
-    application.bot_data['dict_show_data'] = load_list_show()
+    application.bot_data['dict_show_data'] = db_googlesheets.load_list_show()
 
 
 def set_special_ticket_price(application: Application):
-    application.bot_data['special_ticket_price'] = load_special_ticket_price()
+    application.bot_data['special_ticket_price'] = db_googlesheets.load_special_ticket_price()
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -269,7 +269,13 @@ def extract_phone_number_from_text(phone):
 
 
 def check_email(email):
-        return re.fullmatch(r'[^@]+@[^@]+\.[^@]+', email)
+        return re.fullmatch(r"^[-a-z0-9!#$%&'*+/=?^_`{|}~]+"
+                            r"(?:\.[-a-z0-9!#$%&'*+/=?^_`{|}~]+)*"
+                            r"@(?:[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\.)*"
+                            r"(?:aero|arpa|asia|biz|cat|com|coop|"
+                            r"edu|gov|info|int|jobs|mil|mobi|museum|"
+                            r"name|net|org|pro|tel|travel|[a-z][a-z])$",
+                            email)
 
 
 def yrange(n):
@@ -336,7 +342,7 @@ def create_keys_for_sort(item):
 
 
 def load_and_concat_date_of_shows():
-    list_of_date_show = sorted(load_date_show_data(),
+    list_of_date_show: list = sorted(db_googlesheets.load_base_tickets(),
                                key=create_keys_for_sort)
     text_date = '\n'.join(item for item in list_of_date_show)
     return ('\n__________\nВ следующие даты проводятся спектакли, поэтому их '
@@ -566,3 +572,293 @@ async def split_message(context, message: str):
             chat_id=CHAT_ID_MIKIEREMIKI,
             text='<pre>' + message + '</pre>',
         )
+
+
+async def update_config(_: Update, context: ContextTypes.DEFAULT_TYPE):
+    config = parse_settings()
+    context.config = config
+    utilites_logger.info(
+        'Параметры из settings.yml загружены')
+
+
+def get_month_numbers(dict_of_date_show):
+    list_of_months = []
+    for item in dict_of_date_show.keys():
+        if int(item[3:5]) not in list_of_months:
+            list_of_months.append(int(item[3:5]))
+    return list_of_months
+
+
+async def write_to_return_seats_for_sale(context):
+    user = context.user_data['user']
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    chose_ticket = payment_data['chose_ticket']
+    event_id = payment_data['event_id']
+    await handlers.write_old_seat_info(user, event_id, chose_ticket)
+
+
+def create_replay_markup_for_list_of_shows(
+        dict_of_show: dict,
+        num_colum=2,
+        ver=1,
+        add_cancel_btn=True,
+        postfix_for_cancel=None,
+        add_back_btn=True,
+        postfix_for_back=None,
+        number_of_month=None,
+        number_of_show=None,
+        dict_of_events_show: dict = None
+):
+    """
+    Создает inline клавиатуру
+    :param number_of_month: номер месяца
+    :param number_of_show: номер спектакля при загрузке всех дат из расписания
+    :param dict_of_show: Словарь со списком спектаклей
+    :param num_colum: Кол-во кнопок в строке
+    :param ver:
+    ver = 1 для бронирования обычного спектакля
+    ver = 2 для бронирования дня рождения
+    ver = 3 для бронирования в декабре
+    :param add_cancel_btn: если True, то добавляет кнопку Отменить
+    :param add_back_btn: если True, то добавляет кнопку Назад
+    :param postfix_for_cancel: Добавление дополнительной приписки для
+    корректного определения случая при использовании Отменить
+    :param postfix_for_back: Добавление дополнительной приписки для
+    корректного определения случая при использовании Назад
+    :param dict_of_events_show:
+    :return: InlineKeyboardMarkup
+    """
+    # Определение кнопок для inline клавиатуры
+    keyboard = []
+    list_btn_of_numbers = []
+
+    i = 0
+    y = yrange(len(dict_of_show))
+    for key, items in dict_of_show.items():
+        if (number_of_month is not None and
+                int(key[3:5]) != int(number_of_month)):
+            continue
+        num = next(y) + 1
+        button_tmp = None
+        match ver:
+            case 1:
+                for item in items:
+                    if number_of_month:
+                        filter_show_id = enum_current_show_by_month(
+                            dict_of_show, number_of_month)
+
+                        if item in filter_show_id.keys():
+                            button_tmp = InlineKeyboardButton(
+                                text=DICT_OF_EMOJI_FOR_BUTTON[
+                                         filter_show_id[item]] + ' ' + key,
+                                callback_data=str(item) + ' | ' + key
+                            )
+                    if button_tmp is None:
+                        continue
+                    list_btn_of_numbers.append(button_tmp)
+
+                    i += 1
+                    # Две кнопки в строке так как для узких экранов телефонов
+                    # дни недели обрезаются
+                    if i % num_colum == 0:
+                        i = 0
+                        keyboard.append(list_btn_of_numbers)
+                        list_btn_of_numbers = []
+            case 2:
+                button_tmp = InlineKeyboardButton(
+                    text=DICT_OF_EMOJI_FOR_BUTTON[num],
+                    callback_data=key
+                )
+                if button_tmp is None:
+                    continue
+                list_btn_of_numbers.append(button_tmp)
+
+                i += 1
+                # Две кнопки в строке так как для узких экранов телефонов
+                # дни недели обрезаются
+                if i % num_colum == 0:
+                    i = 0
+                    keyboard.append(list_btn_of_numbers)
+                    list_btn_of_numbers = []
+            case 3:
+                # Если в день разные спектакли с разным наполнением,
+                # то к тексту добавляются все статусы
+                for item in items:
+                    if number_of_month:
+                        filter_show_id = enum_current_show_by_month(
+                            dict_of_show, number_of_month)
+                        if (item in filter_show_id.keys() and
+                                item == number_of_show):
+                            text = key
+                            flag_gift = False
+                            flag_christmas_tree = False
+                            flag_santa = False
+                            for event in dict_of_events_show.values():
+                                if key == event['date_show']:
+                                    if event['flag_gift']:
+                                        flag_gift = True
+                                    if event['flag_christmas_tree']:
+                                        flag_christmas_tree = True
+                                    if event['flag_santa']:
+                                        flag_santa = True
+                            if flag_gift:
+                                text += f'{SUPPORT_DATA['Подарок'][0]}'
+                            if flag_christmas_tree:
+                                text += f'{SUPPORT_DATA['Елка'][0]}'
+                            if flag_santa:
+                                text += f'{SUPPORT_DATA['Дед'][0]}'
+                            button_tmp = InlineKeyboardButton(
+                                text=text,
+                                callback_data=str(item) + ' | ' + key
+                            )
+                        else:
+                            continue
+                    if button_tmp is None:
+                        continue
+                    list_btn_of_numbers.append(button_tmp)
+
+                    i += 1
+                    # Две кнопки в строке так как для узких экранов телефонов
+                    # дни недели обрезаются
+                    if i % num_colum == 0:
+                        i = 0
+                        keyboard.append(list_btn_of_numbers)
+                        list_btn_of_numbers = []
+    if len(list_btn_of_numbers):
+        keyboard.append(list_btn_of_numbers)
+
+    list_end_btn = add_btn_back_and_cancel(
+        add_cancel_btn,
+        postfix_for_cancel,
+        add_back_btn,
+        postfix_for_back
+    )
+    if len(list_end_btn):
+        keyboard.append(list_end_btn)
+    return InlineKeyboardMarkup(keyboard)
+
+
+def create_replay_markup_with_number_btn(
+        qty_btn,
+        num_colum=8,
+):
+    """
+    Создает inline клавиатуру
+    :param qty_btn: диапазон кнопок
+    :param num_colum: Кол-во кнопок в строке, по умолчанию 8
+    :return: InlineKeyboardMarkup
+    """
+    # Определение кнопок для inline клавиатуры
+    keyboard = []
+    list_btn_of_numbers = []
+
+    i = 0
+    for num in range(qty_btn):
+        button_tmp = InlineKeyboardButton(str(num + 1),
+                                          callback_data=str(num + 1))
+        list_btn_of_numbers.append(button_tmp)
+
+        i += 1
+        # Две кнопки в строке так как для узких экранов телефонов дни недели
+        # обрезаются
+        if i % num_colum == 0:
+            i = 0
+            keyboard.append(list_btn_of_numbers)
+            list_btn_of_numbers = []
+    if len(list_btn_of_numbers):
+        keyboard.append(list_btn_of_numbers)
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def check_phone_number(phone):
+    if len(phone) != 10 or phone[0] != '9':
+        return True
+    else:
+        return False
+
+
+def create_approve_and_reject_replay(
+        callback_name,
+        chat_id,
+        message_id
+):
+    keyboard = []
+
+    button_approve = InlineKeyboardButton(
+        "Подтвердить",
+        callback_data=f'confirm-{callback_name}|'
+                      f'{chat_id} {message_id}'
+    )
+
+    button_cancel = InlineKeyboardButton(
+        "Отклонить",
+        callback_data=f'reject-{callback_name}|'
+                      f'{chat_id} {message_id}'
+    )
+    keyboard.append([button_approve, button_cancel])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def replace_markdown_v2(text: str) -> str:
+    text = text.replace('_', '\_')
+    text = text.replace('*', '\*')
+    text = text.replace('[', '\[')
+    text = text.replace(']', '\]')
+    text = text.replace('(', '\(')
+    text = text.replace(')', '\)')
+    text = text.replace('~', '\~')
+    text = text.replace('`', '\`')
+    text = text.replace('>', '\>')
+    text = text.replace('#', '\#')
+    text = text.replace('+', '\+')
+    text = text.replace('-', '\-')
+    text = text.replace('=', '\=')
+    text = text.replace('|', '\|')
+    text = text.replace('{', '\{')
+    text = text.replace('}', '\}')
+    text = text.replace('.', '\.')
+    text = text.replace('!', '\!')
+
+    return text
+
+
+def do_italic(text):
+    return f'_{escape_markdown(text, 2)}_'
+# TODO Сделать одну общую функцию для разного форматирования с несколькими
+#  параметрами-флагами
+
+
+def do_bold(text):
+    return f'*{escape_markdown(text, 2)}*'
+
+
+def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
+    filter_show_id = {}
+    i = 1
+    for key, items in dict_of_date_show.items():
+        if num is not None and int(key[3:5]) != int(num):
+            continue
+        for item in items:
+            if item not in filter_show_id.keys():
+                filter_show_id[item] = i
+                i += 1
+
+    return filter_show_id
+
+
+def add_text_of_show_and_numerate(
+        text,
+        dict_of_name_show: dict,
+        filter_show_id: dict,
+        dict_show_data: dict = None,
+):
+    for key in filter_show_id.keys():
+        for name, item in dict_of_name_show.items():
+            if key == item:
+                for show in dict_show_data.values():
+                    if show['name'] == name:
+                        text += (
+                            f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]}'
+                            f' {show['full_name']}\n')
+    return text

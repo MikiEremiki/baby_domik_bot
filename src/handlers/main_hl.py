@@ -33,22 +33,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
 
+    start_text = '<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
+    description = context.bot_data['texts']['description']
+    command = (
+        'Для продолжения работы используйте команды:\n'
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+        f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
+        f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
+        f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)'
+    )
     await update.effective_chat.send_message(
-        text='<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
-             '--><a href="https://vk.com/baby_theater_domik">Наша группа ВКонтакте</a>\n\n'
-             'В ней более подробно описаны:\n'
-             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
-             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
-             '- Фотографии\n'
-             '- Команда и жизнь театра\n'
-             '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
-             '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
-             '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
-             'Для продолжения работы используйте команды:\n'
-             f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
-             f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
-             f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
-             f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)',
+        text=start_text + description + command,
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -453,6 +448,19 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=text,
             reply_markup=reply_markup,
         )
+    elif state == 'TICKET':
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        try:
+            await context.bot.delete_message(
+                update.effective_chat.id,
+                context.user_data['reserve_user_data']['accept_message_id']
+            )
+        except BadRequest as e:
+            main_handlers_logger.error(e)
+
     else:
         await query.edit_message_text(
             text=text,
@@ -472,51 +480,64 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = context.user_data['user']
     data = query.data.split('|')[0].split('-')[-1]
+
+    first_text = 'Вы выбрали отмену\n'
+    use_command_text = 'Используйте команды:\n'
+    reserve_text = (f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
+    f'резервирования свободных мест на спектакль\n')
+    reserve_admin_text = (f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
+    f'записи без подтверждения\n')
+    bd_order_text = (f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
+    f'отправки заявки на проведение Дня рождения\n')
+    bd_paid_text = (f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
+    f'запуска процедуры внесения предоплаты, если ваша заявка '
+    f'была одобрена\n')
+
+    explanation_text = ('\nОзнакомится более подробно с театром можно по '
+                        'ссылкам:\n')
+    description = context.bot_data['texts']['description']
     match data:
         case 'res':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
-                     f'резервирования свободных мест на спектакль',
-                message_thread_id=query.message.message_thread_id
+                text=first_text + use_command_text + reserve_text +
+                     explanation_text + description,
+                message_thread_id=query.message.message_thread_id,
+                reply_markup=ReplyKeyboardRemove()
             )
+            if context.user_data['STATE'] == 'OFFER':
+                await context.bot.delete_message(
+                    update.effective_chat.id,
+                    context.user_data['reserve_user_data']['accept_message_id']
+                )
 
             if '|' in query.data:
                 payment_data = context.user_data['reserve_admin_data']['payment_data']
                 chose_ticket = payment_data['chose_ticket']
                 event_id = payment_data['event_id']
+                ticket_id = payment_data.get('ticket_id')
 
                 await write_old_seat_info(user, event_id, chose_ticket)
-                await db_postgres.delete_ticket(
-                    context.session,
-                    payment_data['ticket_id']
-                )
+                if ticket_id:
+                    await db_postgres.del_ticket(context.session, ticket_id)
         case 'bd':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
-                     f'отправки заявки на проведение Дня рождения\n'
-                     f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
-                     f'запуска процедуры внесения предоплаты, если ваша заявка '
-                     f'была одобрена',
+                text=first_text + use_command_text + bd_order_text +
+                     bd_paid_text,
                 message_thread_id=query.message.message_thread_id
             )
         case 'res_adm':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
-                     f'резервирования свободных мест на спектакль\n'
-                     f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
-                     f'записи без подтверждения',
+                text=first_text + use_command_text + reserve_text +
+                     reserve_admin_text,
                 message_thread_id=query.message.message_thread_id
             )
         case 'settings':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену',
+                text=first_text,
                 message_thread_id=query.message.message_thread_id
             )
 
@@ -567,21 +588,7 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = context.user_data['user']
 
-    text = (
-        'К сожалению, у меня пока нет полномочий для помощи по любым вопросам\n'
-        'Я переслал ваше сообщение Администратору, дождитесь ответа\n\n'
-        'Также проверьте, пожалуйста:\n <i>Настройки > Конфиденциальность > '
-        'Пересылка сообщений</i>\n'
-        'Если установлен вариант <code>Мои контакты</code> или '
-        '<code>Никто</code>, добавьте бота в исключения, иначе Администратор '
-        'не сможет с вами связаться\n\n'
-        'После смены настроек отправьте сообщение еще раз или перешлите в '
-        'этот чат предыдущее сообщение\n\n'
-        'Вместо смены настроек можете написать свой номер телефона или '
-        'связаться самостоятельно\n\n'
-        '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу'
-        'Задать любые интересующие вас вопросы вы можете через сообщения группы'
-    )
+    text = 'Ваше сообщение принято.\n\n'
     await update.effective_chat.send_message(text)
 
     chat_id = ADMIN_GROUP
@@ -592,7 +599,36 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id,
         f'Сообщение от пользователя @{user.username} '
-        f'<a href="tg://user?id={user.id}">{user.full_name}</a>',
+        f'<a href="tg://user?id={user.id}">{user.full_name}</a>\n'
+        f'{update.effective_message.message_id}\n'
+        f'{update.effective_chat.id}',
         reply_to_message_id=message.message_id,
         message_thread_id=message.message_thread_id
     )
+
+
+async def feedback_reply_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.effective_message.text
+    technical_info = update.effective_message.reply_to_message.text.split('\n')
+    chat_id = technical_info[-1]
+    message_id = technical_info[-2]
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_to_message_id=int(message_id)
+    )
+
+
+async def global_on_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Функция для обработки команды /global_on_off и вкл/выкл возможности
+    использовать команды пользователями в личных чатах
+    """
+    if context.args[0] == 'on':
+        context.bot_data['global_on_off'] = True
+        await update.effective_chat.send_message(
+            'Использование команд пользователями включено')
+    if context.args[0] == 'off':
+        context.bot_data['global_on_off'] = False
+        await update.effective_chat.send_message(
+            'Использование команд пользователями выключено')

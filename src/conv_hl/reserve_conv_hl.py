@@ -5,6 +5,7 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
     filters,
 )
+from telegram.ext.filters import Text
 
 from handlers import reserve_hl, main_hl
 from conv_hl import base_handlers
@@ -14,14 +15,40 @@ F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
 back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 states:  Dict[object, List[BaseHandler]] = {
-    'EMAIL': [
+    'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
-        CallbackQueryHandler(reserve_hl.get_email),
+        CallbackQueryHandler(reserve_hl.get_ticket),
+    ],
+    'OFFER': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
+        MessageHandler(Text(('Принимаю',)),
+                       reserve_hl.get_offer),
+    ],
+    'EMAIL': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_email),
+    ],
+    'FORMA': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_name_adult),
+    ],
+    'PHONE': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_phone),
+    ],
+    'CHILDREN': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_name_children),
     ],
     'ORDER': [
         cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.check_and_send_buy_info),
     ],
@@ -33,18 +60,6 @@ states:  Dict[object, List[BaseHandler]] = {
             filters.PHOTO | filters.ATTACHMENT,
             reserve_hl.forward_photo_or_file
         ),
-    ],
-    'FORMA': [
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_name_adult),
-    ],
-    'PHONE': [
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_phone),
-    ],
-    'CHILDREN': [
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_name_children),
     ],
     'LIST': [
         cancel_callback_handler,

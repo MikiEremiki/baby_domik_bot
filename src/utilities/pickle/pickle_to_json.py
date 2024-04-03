@@ -8,7 +8,7 @@ from pydantic_core import MultiHostUrl
 from telegram import User, InlineKeyboardMarkup
 
 from settings.config_loader import Settings
-from utilities.schemas.ticket import BaseTicket
+from utilities.schemas.ticket import BaseTicketDTO
 
 _REPLACED_KNOWN_BOT = "a known bot replaced by PTB's PicklePersistence"
 _REPLACED_UNKNOWN_BOT = "an unknown bot replaced by PTB's PicklePersistence"
@@ -35,7 +35,7 @@ class CustomEncoder(json.JSONEncoder):
             return list(obj)
         if isinstance(obj, Settings):
             return obj.model_dump(exclude_defaults=True)
-        if isinstance(obj, BaseTicket):
+        if isinstance(obj, BaseTicketDTO):
             return {"base_ticket_id": obj.base_ticket_id, "price": obj.price}
         if isinstance(obj, datetime):
             return obj.isoformat()

@@ -1,50 +1,41 @@
 import logging
 import pprint
-import re
-import uuid
 from datetime import datetime
 
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
     InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, ReplyKeyboardRemove,
+    ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton,
 )
 from telegram.constants import ChatType, ChatAction
-from yookassa import Payment
 
-from api.yookassa_connect import create_param_payment
 from db import db_postgres
-from db.enum import TicketStatus
 from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import (
     request_phone_number,
     send_and_del_message_to_remove_kb, write_old_seat_info,
     get_chose_ticket_and_price, get_emoji_and_options_for_event,
-    send_breaf_message, send_approve_reject_message_to_admin,
-    remove_button_from_last_message, update_ticket_status,
+    send_breaf_message, remove_button_from_last_message,
+    create_and_send_payment, processing_successful_payment, check_input_text,
 )
 from db.db_googlesheets import (
-    load_clients_data, load_show_data, load_list_show, load_show_info,
+    load_clients_data, load_show_data, load_list_show,
     load_special_ticket_price,
 )
 from api.googlesheets import (
-    write_data_for_reserve, write_client, write_client_list_waiting,
-    get_quality_of_seats,
+    write_data_for_reserve, write_client_list_waiting, get_quality_of_seats,
 )
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
-    send_message_to_admin, set_back_context, get_back_context, check_email
-)
-from utilities.hlp_func import (
-    check_phone_number,
+    set_back_context, get_back_context, check_email,
+    get_month_numbers, check_phone_number,
     create_replay_markup_for_list_of_shows,
-    enum_current_show_by_month,
-    add_text_of_show_and_numerate
+    enum_current_show_by_month, add_text_of_show_and_numerate
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT, OFFER,
-    DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_MONTH_NUMBER_TO_STR, FILE_ID_RULES,
+    DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_MONTH_NUMBER_TO_STR
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
@@ -122,10 +113,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    list_of_months = []
-    for item in dict_of_date_show.keys():
-        if int(item[3:5]) not in list_of_months:
-            list_of_months.append(int(item[3:5]))
+    list_of_months = get_month_numbers(dict_of_date_show)
 
     keyboard = []
 
@@ -437,10 +425,9 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += 'Выберите время'
     else:
         # Отправка сообщения пользователю
-        text += ('<i>Выберите удобное время\n'
-                 '1 ребенок = 1 место</i>\n\n'
-                 'Вы также можете выбрать вариант с 0 кол-вом мест '
-                 'для записи в лист ожидания на данное время\n\n'
+        text += ('<b>Выберите удобное время</b>\n\n'
+                 '<i>Вы также можете выбрать вариант с 0 кол-вом мест '
+                 'для записи в лист ожидания на данное время</i>\n\n'
                  'Кол-во свободных мест:\n'
                  '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️')
 
@@ -647,7 +634,7 @@ async def choice_option_of_reserve(
                      f'{price} руб\n')
 
             button_tmp = InlineKeyboardButton(
-                text=str(i + 1),
+                text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
                 callback_data=str(key)
             )
             list_btn_of_numbers.append(button_tmp)
@@ -678,14 +665,15 @@ async def choice_option_of_reserve(
         reply_markup=reply_markup
     )
 
-    state = 'EMAIL'
+    state = 'TICKET'
     if context.user_data.get('command', False) == 'reserve_admin':
         state = 'TICKET'
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
 
-async def get_email(
+async def get_ticket(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
@@ -719,70 +707,6 @@ async def get_email(
         context.user_data['STATE'] = state
         return state
 
-    text = (f'<i>{OFFER}</i>\n\n'
-            'Если вы согласны напишите email, на него вам будет направлен чек '
-            'после оплаты')
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                        postfix_for_back='TIME')]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    message = await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
-
-    context.user_data['reserve_user_data']['message_id'] = message.message_id
-
-    state = 'ORDER'
-    context.user_data['STATE'] = state
-    return state
-
-
-async def check_and_send_buy_info(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-):
-    """
-    Проверяет кол-во доступных мест, для выбранного варианта пользователем и
-    отправляет сообщение об оплате
-
-    :return:
-        возвращает state PAID,
-        если проверка не пройдена, то state ORDER
-    """
-    await context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
-    )
-    email = update.effective_message.text
-    if not check_email(email):
-        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='TIME')]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.effective_chat.send_message(
-            text=f'Вы написали: {email}\n'
-                 f'Пожалуйста проверьте и введите почту еще раз.',
-            reply_markup=reply_markup
-        )
-        state = 'ORDER'
-        context.user_data['STATE'] = state
-        return state
-
-    await db_postgres.update_user(
-        session=context.session,
-        user_id=update.effective_user.id,
-        email=email
-    )
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f'Ваше подтверждение получено.\n'
-             f'Перехожу к формированию ссылки на оплату.'
-    )
-    message = await context.bot.send_message(
-        text='Готовлю информацию об оплате...',
-        chat_id=update.effective_chat.id,
-    )
-
     key_option_for_reserve = context.user_data['reserve_user_data'][
         'key_option_for_reserve']
     user = context.user_data['user']
@@ -797,12 +721,7 @@ async def check_and_send_buy_info(
 
     reserve_user_data = context.user_data['reserve_user_data']
     choose_event_info = reserve_user_data['choose_event_info']
-    dict_show_data = context.bot_data['dict_show_data']
-    show_data = dict_show_data[choose_event_info['show_id']]
-    name_show = show_data['full_name']
-    date = choose_event_info['date_show']
-    time = choose_event_info['time_show']
-    text_emoji = choose_event_info['text_emoji']
+
     chose_ticket, price = await get_chose_ticket_and_price(
         choose_event_info,
         context,
@@ -820,16 +739,11 @@ async def check_and_send_buy_info(
         ]
     ))
 
-    text_select_show = (f'Вы выбрали спектакль:\n'
-                        f'<b>{name_show}\n'
-                        f'{date}\n'
-                        f'{time}</b>\n'
-                        f'{text_emoji}\n')
     # Если пользователь выбрал не стандартный вариант
     if chose_ticket.flag_individual:
         text = ('Для оформления данного варианта обратитесь к Администратору:\n'
                 f'{context.bot_data['admin']['contacts']}')
-        await message.edit_text(
+        await query.edit_message_text(
             text=text
         )
 
@@ -843,270 +757,250 @@ async def check_and_send_buy_info(
         state = ConversationHandler.END
         context.user_data['STATE'] = state
         return state
+
     # Для всех стандартных вариантов
-    else:
-        # Отправляем сообщение пользователю, которое он будет использовать как
-        # памятку
-        text = text_select_show + (f'Вариант бронирования:\n'
-                                   f'{chose_ticket.name} '
-                                   f'{price}руб\n')
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    payment_data['chose_ticket'] = chose_ticket
 
-        context.user_data['common_data']['text_for_notification_massage'] = text
+    text = f'<i>{OFFER}</i>'
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
+                                        postfix_for_back='TICKET')]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    inline_message = await query.edit_message_text(
+        text=text,
+        reply_markup=reply_markup
+    )
+    reply_markup = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton('Принимаю')]],
+        one_time_keyboard=True,
+        resize_keyboard=True
+    )
+    message = await update.effective_chat.send_message(
+        text='Если вы согласны нажмите внизу экрана\n'
+             '⬇️⬇️⬇️️<b>Принимаю</b>⬇️⬇️⬇️️',
+        reply_markup=reply_markup
+    )
 
-        await message.edit_text(
-            text=text,
-        )
-        message = await update.effective_chat.send_message(
-            'Проверяю наличие свободных мест...')
-        await update.effective_chat.send_action(ChatAction.TYPING)
+    context.user_data['reserve_user_data']['message_id'] = inline_message.message_id
+    context.user_data['reserve_user_data']['accept_message_id'] = message.message_id
 
-        payment_data = context.user_data['reserve_admin_data']['payment_data']
-        event_id = payment_data['event_id']
-        # Обновляем кол-во доступных мест
-        list_of_name_colum = [
-            'qty_child_free_seat',
-            'qty_child_nonconfirm_seat',
-            'qty_adult_free_seat',
-            'qty_adult_nonconfirm_seat'
-        ]
-        (qty_child_free_seat_now,
-         qty_child_nonconfirm_seat_now,
-         qty_adult_free_seat_now,
-         qty_adult_nonconfirm_seat_now
-         ) = get_quality_of_seats(event_id,
-                                  list_of_name_colum)
-
-        # Проверка доступности нужного кол-ва мест, за время взаимодействия с
-        # ботом, могли изменить базу в ручную или забронировать места раньше
-        if (int(qty_child_free_seat_now) <
-                int(chose_ticket.quality_of_children)):
-            reserve_hl_logger.info(": ".join(
-                [
-                    'Мест не достаточно',
-                    'Кол-во доступных мест д',
-                    qty_child_free_seat_now,
-                    'в',
-                    qty_adult_free_seat_now,
-                    'Для',
-                    f'{name_show} {date} в {time}',
-                ]
-            ))
-
-            await message.delete()
-            reserve_user_data['event_info_for_list_waiting'] = text_select_show
-            text = ('К сожалению места уже забронировали и свободных мест для\n'
-                    f'{name_show}\n'
-                    f'{date} в {time}\n'
-                    f'{text_emoji}\n'
-                    f' Осталось: '
-                    f'<i>{qty_adult_free_seat_now} взр</i> '
-                    f'| <i>{qty_child_free_seat_now} дет</i>\n\n'
-                    '⬇️Нажмите на одну из двух кнопок ниже, '
-                    'чтобы выбрать другое время '
-                    'или записаться в лист ожидания на эту дату и время⬇️')
-            reply_keyboard = [
-                ['Выбрать другое время'],
-                ['Записаться в лист ожидания'],
-            ]
-            reply_markup = ReplyKeyboardMarkup(
-                reply_keyboard,
-                resize_keyboard=True,
-                one_time_keyboard=True
-            )
-            await update.effective_chat.send_message(
-                text=text,
-                reply_markup=reply_markup,
-            )
-            state = 'CHOOSING'
-            context.user_data['STATE'] = state
-            return state
-        else:
-            reserve_hl_logger.info(": ".join(
-                [
-                    'Пользователь',
-                    f'{user}',
-                    'получил разрешение на бронирование'
-                ]
-            ))
-
-            qty_child_free_seat_new = int(
-                qty_child_free_seat_now) - int(
-                chose_ticket.quality_of_children)
-            qty_child_nonconfirm_seat_new = int(
-                qty_child_nonconfirm_seat_now) + int(
-                chose_ticket.quality_of_children)
-            qty_adult_free_seat_new = int(
-                qty_adult_free_seat_now) - int(
-                chose_ticket.quality_of_adult +
-                chose_ticket.quality_of_add_adult)
-            qty_adult_nonconfirm_seat_new = int(
-                qty_adult_nonconfirm_seat_now) + int(
-                chose_ticket.quality_of_adult +
-                chose_ticket.quality_of_add_adult)
-
-            numbers = [
-                qty_child_free_seat_new,
-                qty_child_nonconfirm_seat_new,
-                qty_adult_free_seat_new,
-                qty_adult_nonconfirm_seat_new
-            ]
-
-            try:
-                write_data_for_reserve(event_id, numbers)
-                await db_postgres.update_schedule_event(
-                    context.session,
-                    int(event_id),
-                    qty_child_free_seat_new=qty_child_free_seat_new,
-                    qty_child_nonconfirm_seat_new=qty_child_nonconfirm_seat_new,
-                    qty_adult_free_seat_new=qty_adult_free_seat_new,
-                    qty_adult_nonconfirm_seat_new=qty_adult_nonconfirm_seat_new,
-                )
-            except TimeoutError:
-                reserve_hl_logger.error(": ".join(
-                    [
-                        f'Для пользователя {user} бронирование в '
-                        f'авто-режиме не сработало',
-                        'event_id для обновления',
-                        event_id,
-                    ]
-                ))
-
-                keyboard = [add_btn_back_and_cancel('res')]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-
-                text = ('К сожалению произошла непредвиденная ошибка\n'
-                        'Нажмите "Назад" и выберите время повторно.\n'
-                        'Если ошибка повторяется свяжитесь с Администратором:\n'
-                        f'{context.bot_data['admin']['contacts']}')
-                await message.edit_text(
-                    text=text,
-                    reply_markup=reply_markup
-                )
-                state = 'ORDER'
-                context.user_data['STATE'] = state
-                return state
-
-        idempotency_id = uuid.uuid4()
-        payment = Payment.create(
-            create_param_payment(
-                price,
-                f'Билет на спектакль {name_show} {date} в {time}{chose_ticket.name}',
-                email,
-                payment_method_type='sbp',
-                chat_id=update.effective_chat.id,
-                message_id=message.message_id,
-            ),
-            idempotency_id)
-
-        keyboard = []
-        button_payment = InlineKeyboardButton(
-            'Оплатить',
-            callback_data=f'payment|{payment.id}',
-            url=payment.confirmation.confirmation_url
-        )
-        button_cancel = InlineKeyboardButton(
-            'Отменить',
-            callback_data=f'Отменить-res|'
-                          f'{update.effective_chat.id} {message.message_id}'
-        )
-        keyboard.append([button_payment])
-        keyboard.append([button_cancel])
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await message.edit_text(
-            text=f"""Бронь билета осуществляется по 100% оплате.
-❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
-❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
-Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
-
-- Если вы согласны с правилами, то переходите к оплате:
-  Нажмите кнопку <b>Оплатить</b>
-  <i>Вы будете перенаправлены на платежный сервис Юкасса
-  Способ оплаты - СБП</i>
-
-- Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
-- Если вы уже сделали оплату, <b>отправьте квитанцию об оплате файлом или картинкой.</b>
-
-__________
-После оплаты необходимо:
-1. Заполнить анкету (она придет автоматически)
-2. Дождаться подтверждения""",
-            reply_markup=reply_markup,
-            disable_web_page_preview=True
-        )
-        common_data = context.user_data['common_data']
-        common_data['message_id_buy_info'] = message.message_id
-        common_data['dict_of_shows'].clear()
-
-        reserve_user_data = context.user_data['reserve_user_data']
-        reserve_user_data['chose_price'] = price
-        reserve_user_data['dict_of_name_show'].clear()
-        reserve_user_data['dict_of_name_show_flip'].clear()
-        reserve_user_data['dict_of_date_show'].clear()
-        reserve_user_data['back'].clear()
-
-        payment_data = context.user_data['reserve_admin_data']['payment_data']
-        payment_data['chose_ticket'] = chose_ticket
-
-        ticket_id = await db_postgres.create_ticket(
-            context.session,
-            base_ticket_id=chose_ticket.base_ticket_id,
-            price=price,
-            schedule_event_id=event_id,
-            status=TicketStatus.CREATED,
-            payment_id=payment.id,
-            idempotency_id=idempotency_id,
-        )
-
-        payment_data['ticket_id'] = ticket_id
-
-        state = 'PAID'
-        context.user_data['STATE'] = state
-        return state
-
-
-async def forward_photo_or_file(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-):
-    """
-    Пересылает картинку или файл.
-    Запускает цепочку вопросов для клиентской базы,
-    если пользователь прислал подтверждающий документ.
-    """
-
-    await update_ticket_status(context, TicketStatus.PAID)
-    await remove_button_from_last_message(update, context)
-    await send_breaf_message(update)
-    message = await send_approve_reject_message_to_admin(update, context)
-
-    context.user_data['common_data'][
-        'message_id_for_admin'] = message.message_id
-
-    state = 'FORMA'
+    state = 'OFFER'
     context.user_data['STATE'] = state
     return state
 
 
-async def processing_successful_notification(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-):
-    """
-    Отрабатывает в случае успешной оплаты и нажатии пользователем кнопки далее.
-    Запускает цепочку вопросов для клиентской базы,
-    если пользователь прислал подтверждающий документ.
-    """
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
+async def get_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_chat.delete_message(
+        context.user_data['reserve_user_data']['accept_message_id']
+    )
+    await context.bot.edit_message_reply_markup(
+        chat_id=update.effective_chat.id,
+        message_id=context.user_data['reserve_user_data']['message_id'],
+    )
 
-    await update_ticket_status(context, TicketStatus.PAID)
+    text = 'Напишите email, на него вам будет направлен чек после оплаты\n\n'
+    email = await db_postgres.get_email(context.session,
+                                        update.effective_user.id)
+    if email:
+        text += f'Последний введенный email:\n<code>{email}</code>'
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
+                                        postfix_for_back='TICKET')]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
+
+    state = 'EMAIL'
+    context.user_data['STATE'] = state
+    return state
+
+
+async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.edit_message_reply_markup(
+        chat_id=update.effective_chat.id,
+        message_id=context.user_data['reserve_user_data']['message_id']
+    )
+    email = update.effective_message.text
+    if not check_email(email):
+        state = 'EMAIL'
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
+                                            postfix_for_back=state)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.effective_chat.send_message(
+            text=f'Вы написали: {email}\n'
+                 f'Пожалуйста проверьте и введите почту еще раз.',
+            reply_markup=reply_markup
+        )
+        context.user_data['STATE'] = state
+        return state
+
+    await db_postgres.update_user(
+        session=context.session,
+        user_id=update.effective_user.id,
+        email=email
+    )
+
+    user = context.user_data['user']
+    reserve_user_data = context.user_data['reserve_user_data']
+    choose_event_info = reserve_user_data['choose_event_info']
+    dict_show_data = context.bot_data['dict_show_data']
+    show_data = dict_show_data[choose_event_info['show_id']]
+    name_show = show_data['full_name']
+    date = choose_event_info['date_show']
+    time = choose_event_info['time_show']
+    text_emoji = choose_event_info['text_emoji']
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    chose_ticket = payment_data['chose_ticket']
+    price = chose_ticket.price
+
+    text_select_show = (f'Вы выбрали спектакль:\n'
+                        f'<b>{name_show}\n'
+                        f'{date}\n'
+                        f'{time}</b>\n'
+                        f'{text_emoji}\n')
+    text = text_select_show + (f'Вариант бронирования:\n'
+                               f'{chose_ticket.name} '
+                               f'{price}руб\n')
+
+    context.user_data['common_data']['text_for_notification_massage'] = text
+
+    await update.effective_chat.send_message(
+        text=text,
+    )
+    message = await update.effective_chat.send_message(
+        'Проверяю наличие свободных мест...')
+    await update.effective_chat.send_action(ChatAction.TYPING)
+
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    event_id = payment_data['event_id']
+    # Обновляем кол-во доступных мест
+    list_of_name_colum = [
+        'qty_child_free_seat',
+        'qty_child_nonconfirm_seat',
+        'qty_adult_free_seat',
+        'qty_adult_nonconfirm_seat'
+    ]
+    (qty_child_free_seat_now,
+     qty_child_nonconfirm_seat_now,
+     qty_adult_free_seat_now,
+     qty_adult_nonconfirm_seat_now
+     ) = get_quality_of_seats(event_id,
+                              list_of_name_colum)
+
+    # Проверка доступности нужного кол-ва мест, за время взаимодействия с
+    # ботом, могли изменить базу в ручную или забронировать места раньше
+    if (int(qty_child_free_seat_now) <
+            int(chose_ticket.quality_of_children)):
+        reserve_hl_logger.info(": ".join(
+            [
+                'Мест не достаточно',
+                'Кол-во доступных мест д',
+                qty_child_free_seat_now,
+                'в',
+                qty_adult_free_seat_now,
+                'Для',
+                f'{name_show} {date} в {time}',
+            ]
+        ))
+
+        await message.delete()
+        reserve_user_data['event_info_for_list_waiting'] = text_select_show
+        text = ('К сожалению места уже забронировали и свободных мест для\n'
+                f'{name_show}\n'
+                f'{date} в {time}\n'
+                f'{text_emoji}\n'
+                f' Осталось: '
+                f'<i>{qty_adult_free_seat_now} взр</i> '
+                f'| <i>{qty_child_free_seat_now} дет</i>\n\n'
+                '⬇️Нажмите на одну из двух кнопок ниже, '
+                'чтобы выбрать другое время '
+                'или записаться в лист ожидания на эту дату и время⬇️')
+        reply_keyboard = [
+            ['Выбрать другое время'],
+            ['Записаться в лист ожидания'],
+        ]
+        reply_markup = ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        state = 'CHOOSING'
+        context.user_data['STATE'] = state
+        return state
+    else:
+        reserve_hl_logger.info(": ".join(
+            [
+                'Пользователь',
+                f'{user}',
+                'получил разрешение на бронирование'
+            ]
+        ))
+        qty_child_free_seat_new = int(
+            qty_child_free_seat_now) - int(
+            chose_ticket.quality_of_children)
+        qty_child_nonconfirm_seat_new = int(
+            qty_child_nonconfirm_seat_now) + int(
+            chose_ticket.quality_of_children)
+        qty_adult_free_seat_new = int(
+            qty_adult_free_seat_now) - int(
+            chose_ticket.quality_of_adult +
+            chose_ticket.quality_of_add_adult)
+        qty_adult_nonconfirm_seat_new = int(
+            qty_adult_nonconfirm_seat_now) + int(
+            chose_ticket.quality_of_adult +
+            chose_ticket.quality_of_add_adult)
+
+        numbers = [
+            qty_child_free_seat_new,
+            qty_child_nonconfirm_seat_new,
+            qty_adult_free_seat_new,
+            qty_adult_nonconfirm_seat_new
+        ]
+
+        try:
+            write_data_for_reserve(event_id, numbers)
+            await db_postgres.update_schedule_event(
+                context.session,
+                int(event_id),
+                qty_child_free_seat=qty_child_free_seat_new,
+                qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
+                qty_adult_free_seat=qty_adult_free_seat_new,
+                qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
+            )
+        except TimeoutError:
+            reserve_hl_logger.error(": ".join(
+                [
+                    f'Для пользователя {user} бронирование в '
+                    f'авто-режиме не сработало',
+                    'event_id для обновления',
+                    event_id,
+                ]
+            ))
+
+            keyboard = [add_btn_back_and_cancel('res')]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            text = ('К сожалению произошла непредвиденная ошибка\n'
+                    'Нажмите "Назад" и выберите время повторно.\n'
+                    'Если ошибка повторяется свяжитесь с Администратором:\n'
+                    f'{context.bot_data['admin']['contacts']}')
+            await message.edit_text(
+                text=text,
+                reply_markup=reply_markup
+            )
+            state = 'ORDER'
+            context.user_data['STATE'] = state
+            return state
+
+    await message.delete()
     await send_breaf_message(update)
-    message = await send_approve_reject_message_to_admin(update, context)
-
-    context.user_data['common_data'][
-        'message_id_for_admin'] = message.message_id
 
     state = 'FORMA'
     context.user_data['STATE'] = state
@@ -1117,12 +1011,20 @@ async def get_name_adult(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
+    await context.bot.edit_message_reply_markup(
+        update.effective_chat.id,
+        message_id=context.user_data['reserve_user_data']['message_id']
+    )
     text = update.effective_message.text
 
     context.user_data['reserve_user_data']['client_data']['name_adult'] = text
 
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res|',
+                                        add_back_btn=False)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.effective_chat.send_message(
         text='<b>Напишите номер телефона</b>',
+        reply_markup=reply_markup
     )
 
     state = 'PHONE'
@@ -1139,6 +1041,9 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['reserve_user_data']['client_data']['phone'] = phone
 
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res|',
+                                        add_back_btn=False)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.effective_chat.send_message(
         text="""<b>Напишите, имя и сколько полных лет ребенку</b>
 __________
@@ -1149,6 +1054,7 @@ __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
  - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>""",
+        reply_markup=reply_markup
     )
 
     state = 'CHILDREN'
@@ -1163,40 +1069,36 @@ async def get_name_children(
     await update.effective_chat.send_action(ChatAction.TYPING)
 
     text = update.effective_message.text
-    text_for_message = """Проверьте, что указали дату или возраст правильно
-Например:
-Сергей 2
-Юля 3
-__________
-<i> - Если детей несколько, напишите всех в одном сообщении
- - Один ребенок = одна строка
- - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>"""
-
-    # Проверка корректности ввода
-    count = text.count('\n')
-    result = re.findall(
-        r'\w+ \d',
-        text,
-        flags=re.U | re.M
+    wrong_input_data_text = (
+        'Проверьте, что указали дату или возраст правильно\n'
+        'Например:\n'
+        'Сергей 2\n'
+        'Юля 3\n'
+        '__________\n'
+        '<i> - Если детей несколько, напишите всех в одном сообщении\n'
+        ' - Один ребенок = одна строка\n'
+        ' - Не используйте дополнительные слова и пунктуацию, '
+        'кроме тех, что указаны в примерах</i>'
     )
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res|',
+                                        add_back_btn=False)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if len(result) < count + 1:
-        reserve_hl_logger.info('Не верный формат текста')
-        await update.effective_chat.send_message(
-            text=text_for_message,
-        )
+    result = await check_input_text(update, wrong_input_data_text)
+    if not result:
         return context.user_data['STATE']
-
     reserve_hl_logger.info('Проверка пройдена успешно')
 
-    list_message_text = []
-    if '\n' in text:
-        message_text = text.split('\n')
-        for item in message_text:
-            list_message_text.append(item.split())
-    else:
-        message_text = text.split()
-        list_message_text.append(message_text)
+    processed_data_on_children = [item.split() for item in text.split('\n')]
+
+    if not isinstance(processed_data_on_children[0], list):
+        await update.effective_chat.send_message(
+            text=f'Вы ввели:\n{text}' + wrong_input_data_text,
+            reply_markup=reply_markup
+        )
+        state = 'CHILDREN'
+        context.user_data['STATE'] = state
+        return state
 
     try:
         payment_data = context.user_data['reserve_admin_data']['payment_data']
@@ -1213,29 +1115,24 @@ __________
         context.user_data['STATE'] = state
         return state
 
-    if not isinstance(list_message_text[0], list):
-        await update.effective_chat.send_message(f'Вы ввели:\n{text}')
+    if len(processed_data_on_children) != chose_ticket.quality_of_children:
         await update.effective_chat.send_message(
-            text=text_for_message,
+            text=f'Кол-во детей, которое определено: '
+                 f'{len(processed_data_on_children)}\n'
+                 f'Кол-во детей, согласно выбранному билету: '
+                 f'{chose_ticket.quality_of_children}\n'
+                 f'Повторите ввод еще раз, проверьте что каждый ребенок на '
+                 f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3',
+            reply_markup=reply_markup
         )
-        state = 'CHILDREN'
-        context.user_data['STATE'] = state
-        return state
-
-    if len(list_message_text) != chose_ticket.quality_of_children:
-        await update.effective_chat.send_message(
-            f'Кол-во детей, которое определено: {len(list_message_text)}\n'
-            f'Кол-во детей, согласно выбранному билету: '
-            f'{chose_ticket.quality_of_children}\n'
-            f'Повторите ввод еще раз, проверьте что каждый ребенок на '
-            f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3')
         state = 'CHILDREN'
         context.user_data['STATE'] = state
         return state
 
     reserve_user_data = context.user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']
-    client_data['data_children'] = list_message_text
+    client_data['data_children'] = processed_data_on_children
+    reserve_user_data['original_input_text'] = text
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -1247,91 +1144,57 @@ __________
     ))
     reserve_hl_logger.info(client_data)
 
-    chose_price = reserve_user_data['chose_price']
-    event_id = payment_data['event_id']
-    record_id = write_client(
-        client_data,
-        event_id,
-        chose_ticket,
-        chose_price,
-    )
-    ticket_id = context.user_data['reserve_admin_data']['payment_data'][
-        'ticket_id']
+    await create_and_send_payment(update, context)
 
-    people = await db_postgres.create_people(context.session,
-                                             update.effective_user.id,
-                                             client_data)
+    state = 'PAID'
+    context.user_data['STATE'] = state
+    return state
 
-    await db_postgres.attach_user_and_people_to_ticket(context.session,
-                                                       ticket_id,
-                                                       update.effective_user.id,
-                                                       people)
 
-    text = '\n'.join([
-        client_data['name_adult'],
-        '+7' + client_data['phone'],
-        text,
-    ])
+async def check_and_send_buy_info(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    """
+    Проверяет кол-во доступных мест, для выбранного варианта пользователем и
+    отправляет сообщение об оплате.
+    Возвращает state PAID, но если проверка не пройдена, то state ORDER
 
-    message_id_for_admin = None
-    if context.user_data.get('command', False) == 'reserve':
-        message_id_for_admin = context.user_data['common_data'][
-            'message_id_for_admin']
+    :return: str
+    """
+    await create_and_send_payment(update, context)
 
-        text += '\n\n'
-        text += f'#id{record_id}\n'
+    state = 'PAID'
+    context.user_data['STATE'] = state
+    return state
 
-        await send_by_ticket_info(update, context)
-    if context.user_data.get('command', False) == 'reserve_admin':
-        text += '\n\n'
-        text += f'event_id: {event_id}\n'
-        event_info, name_column = load_show_info(int(event_id))
-        text += event_info[name_column['name_show']]
-        text += '\n' + event_info[name_column['date_show']]
-        text += '\n' + event_info[name_column['time_show']]
-        text += '\n' + chose_ticket.name + ' ' + str(chose_price) + 'руб'
-        text += '\n\n'
-        text += f'Добавлено: {update.effective_chat.full_name}\n'
-        text += f'#id{record_id}'
 
-    thread_id = (context.bot_data['dict_topics_name']
-                 .get('Бронирование спектаклей', None))
-    await send_message_to_admin(
-        chat_id=ADMIN_GROUP,
-        text=text,
-        message_id=message_id_for_admin,
-        context=context,
-        thread_id=thread_id
-    )
+async def forward_photo_or_file(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    await remove_button_from_last_message(update, context)
 
-    reserve_hl_logger.info(f'Для пользователя {user}')
-    reserve_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data['STATE']}')
+    await processing_successful_payment(update, context)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state
 
 
-async def send_by_ticket_info(update, context):
-    await update.effective_chat.send_message(
-        'Благодарим за ответы.\n\n'
-        'Ожидайте подтверждения брони.\n'
-        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
-        '<i>Если сообщение не придет в течение суток, напишите в группу в '
-        'контакте</i>',
-    )
-    text = context.user_data['common_data']['text_for_notification_massage']
-    text += (f'__________\n'
-             'Задать вопросы можно в сообщениях группы\n'
-             'https://vk.com/baby_theater_domik')
-    message = await update.effective_chat.send_message(
-        text=text,
-    )
-    await message.pin()
+async def processing_successful_notification(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_reply_markup()
 
-    await update.effective_chat.send_photo(photo=FILE_ID_RULES,
-                                           caption='Правила театра')
+    await processing_successful_payment(update, context)
+
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
 
 
 async def conversation_timeout(

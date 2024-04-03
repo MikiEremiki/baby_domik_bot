@@ -6,7 +6,7 @@ from telegram import (
     InlineKeyboardMarkup
 )
 
-from utilities.schemas.ticket import BaseTicket
+from utilities.schemas.ticket import BaseTicketDTO
 
 context_user_data: Dict = {
     'STATE': str,
@@ -66,11 +66,12 @@ context_user_data: Dict = {
         'chose_price': int,
         'type_ticket_price': str,
         'key_option_for_reserve': int,
+        'original_input_text': str,
     },
     'reserve_admin_data': {
         'payment_data': {
             'event_id': str,
-            'chose_ticket': BaseTicket,
+            'chose_ticket': BaseTicketDTO,
             'ticket_id': int,
         },
     },

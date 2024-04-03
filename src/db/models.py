@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger
+from sqlalchemy import ForeignKey, BigInteger, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -11,7 +11,7 @@ from db.enum import TicketStatus, TicketPriceType, PriceType, AgeType
 class User(BaseModelTimed):
     __tablename__ = 'users'
 
-    id: Mapped[int] = mapped_column(
+    user_id: Mapped[int] = mapped_column(
         BigInteger, primary_key=True, autoincrement=False, name='user_id')
     chat_id: Mapped[int] = mapped_column(BigInteger)
 
@@ -20,7 +20,7 @@ class User(BaseModelTimed):
 
     people: Mapped[List['Person']] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
-        back_populates='users', secondary='users_tickets', lazy='selectin')
+        back_populates='user', secondary='users_tickets', lazy='selectin')
 
 
 class Person(BaseModelTimed):
@@ -33,8 +33,8 @@ class Person(BaseModelTimed):
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
 
-    children: Mapped[List['Child']] = relationship(lazy='selectin')
-    adults: Mapped[List['Adult']] = relationship(lazy='selectin')
+    child: Mapped['Child'] = relationship(lazy='selectin')
+    adult: Mapped['Adult'] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
 
@@ -78,12 +78,32 @@ class PersonTicket(BaseModelTimed):
         ForeignKey('tickets.id'), primary_key=True)
 
 
+class BaseTicket(BaseModelTimed):
+    __tablename__ = 'base_tickets'
+
+    base_ticket_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+
+    flag_active: Mapped[bool] = mapped_column(default=False)
+    name: Mapped[str]
+    cost_main: Mapped[float] = mapped_column(Numeric)
+    cost_privilege: Mapped[float] = mapped_column(Numeric)
+    period_start_change_price: Mapped[Optional[datetime]]
+    period_end_change_price: Mapped[Optional[datetime]]
+    cost_main_in_period: Mapped[float] = mapped_column(Numeric)
+    cost_privilege_in_period: Mapped[float] = mapped_column(Numeric)
+    quality_of_children: Mapped[int]
+    quality_of_adult: Mapped[int]
+    quality_of_add_adult: Mapped[int]
+    quality_visits: Mapped[int]
+
+
 class Ticket(BaseModelTimed):
     __tablename__ = 'tickets'
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    base_ticket_id: Mapped[int]
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id'))
     price: Mapped[int]
     status: Mapped[TicketStatus]
     notes: Mapped[Optional[str]]
@@ -94,7 +114,7 @@ class Ticket(BaseModelTimed):
     schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))
 
-    users: Mapped['User'] = relationship(
+    user: Mapped['User'] = relationship(
         secondary='users_tickets', back_populates='tickets', lazy='selectin')
     people: Mapped[List['Person']] = relationship(
         secondary='people_tickets', back_populates='tickets', lazy='selectin')

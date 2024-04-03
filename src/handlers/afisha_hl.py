@@ -3,7 +3,7 @@ import logging
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update
 
-from utilities.hlp_func import create_replay_markup_with_number_btn
+from utilities.utl_func import create_replay_markup_with_number_btn
 
 afisha_hl_logger = logging.getLogger('bot.afisha_hl')
 

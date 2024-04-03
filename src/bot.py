@@ -25,9 +25,23 @@ async def post_init(app: Application):
     set_show_data(app)
     set_special_ticket_price(app)
 
+    app.bot_data.setdefault('texts', {})
+    app.bot_data['texts']['description'] = (
+        '--><a href="https://vk.com/baby_theater_domik">Наша группа ВКонтакте</a>\n\n'
+        'В ней более подробно описаны:\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
+        '- Фотографии\n'
+        '- Команда и жизнь театра\n'
+        '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
+        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
+        '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+    )
     app.bot_data.setdefault('admin', {})
     app.bot_data['admin'].setdefault('contacts', {})
     app.bot_data.setdefault('dict_topics_name', {})
+    app.bot_data.setdefault('global_on_off', True)
+    app.context_types.context.config = config
 
 
 bot_logger = load_log_config()
@@ -39,18 +53,17 @@ application = (
     Application.builder()
     .token(config.bot.token.get_secret_value())
     .persistence(pickle_persistence)
-    .post_init(post_init)
     .defaults(Defaults(parse_mode=ParseMode.HTML))
 
     .build()
 )
-application.bot_data.setdefault('config', config)
 
 Configuration.configure(config.yookassa.account_id,
                         config.yookassa.secret_key.get_secret_value())
 
 webhook_notification_factory = WebhookNotificationFactory()
 broker = connect_to_nats(application, webhook_notification_factory)
+
 
 @asynccontextmanager
 async def lifespan():

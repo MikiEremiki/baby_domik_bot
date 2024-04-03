@@ -8,4 +8,4 @@ WORKDIR /app
 RUN --mount=type=bind,source=requirements-migration.txt,target=requirements-migration.txt \
     python -m pip install -r requirements-migration.txt
 
-COPY /src/db .
+COPY /src .

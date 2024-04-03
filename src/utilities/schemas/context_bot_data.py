@@ -2,9 +2,12 @@ from typing import (
     Dict, Optional
 )
 
+from settings.config_loader import Settings
 from ticket import list_of_tickets
 
 context_bot_data: Dict = {
+    'global_on_off': bool,
+    'config': Settings,
     'list_of_tickets': list_of_tickets,
     'dict_show_data': {
         'show_id': {  # int
@@ -46,5 +49,8 @@ context_bot_data: Dict = {
     },
     'birthday_price': {
         int: (int, str),
+    },
+    'texts': {
+        'description': str,
     },
 }
