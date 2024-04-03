@@ -61,7 +61,9 @@ async def error_handler(update: Update,
         message = pformat(context.user_data)
         error_hl_logger.info(message)
 
-        if context.user_data['STATE'] == 'PAID':
+        states_for_cancel = [
+            'PAID', 'EMAIL', 'FORMA', 'PHONE', 'CHILDREN', 'ORDER']
+        if context.user_data['STATE'] in states_for_cancel:
             error_hl_logger.info('Отправка чека об оплате не была совершена')
             await context.bot.edit_message_reply_markup(
                 chat_id=update.effective_chat.id,
