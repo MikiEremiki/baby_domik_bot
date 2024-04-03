@@ -480,51 +480,64 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = context.user_data['user']
     data = query.data.split('|')[0].split('-')[-1]
+
+    first_text = 'Вы выбрали отмену\n'
+    use_command_text = 'Используйте команды:\n'
+    reserve_text = (f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
+    f'резервирования свободных мест на спектакль\n')
+    reserve_admin_text = (f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
+    f'записи без подтверждения\n')
+    bd_order_text = (f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
+    f'отправки заявки на проведение Дня рождения\n')
+    bd_paid_text = (f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
+    f'запуска процедуры внесения предоплаты, если ваша заявка '
+    f'была одобрена\n')
+
+    explanation_text = ('\nОзнакомится более подробно с театром можно по '
+                        'ссылкам:\n')
+    description = context.bot_data['texts']['description']
     match data:
         case 'res':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
-                     f'резервирования свободных мест на спектакль',
-                message_thread_id=query.message.message_thread_id
+                text=first_text + use_command_text + reserve_text +
+                     explanation_text + description,
+                message_thread_id=query.message.message_thread_id,
+                reply_markup=ReplyKeyboardRemove()
             )
+            if context.user_data['STATE'] == 'OFFER':
+                await context.bot.delete_message(
+                    update.effective_chat.id,
+                    context.user_data['reserve_user_data']['accept_message_id']
+                )
 
             if '|' in query.data:
                 payment_data = context.user_data['reserve_admin_data']['payment_data']
                 chose_ticket = payment_data['chose_ticket']
                 event_id = payment_data['event_id']
+                ticket_id = payment_data.get('ticket_id')
 
                 await write_old_seat_info(user, event_id, chose_ticket)
-                await db_postgres.del_ticket(
-                    context.session,
-                    payment_data['ticket_id']
-                )
+                if ticket_id:
+                    await db_postgres.del_ticket(context.session, ticket_id)
         case 'bd':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
-                     f'отправки заявки на проведение Дня рождения\n'
-                     f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
-                     f'запуска процедуры внесения предоплаты, если ваша заявка '
-                     f'была одобрена',
+                text=first_text + use_command_text + bd_order_text +
+                     bd_paid_text,
                 message_thread_id=query.message.message_thread_id
             )
         case 'res_adm':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену\nИспользуйте команды:\n'
-                     f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
-                     f'резервирования свободных мест на спектакль\n'
-                     f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
-                     f'записи без подтверждения',
+                text=first_text + use_command_text + reserve_text +
+                     reserve_admin_text,
                 message_thread_id=query.message.message_thread_id
             )
         case 'settings':
             await query.delete_message()
             await update.effective_chat.send_message(
-                text='Вы выбрали отмену',
+                text=first_text,
                 message_thread_id=query.message.message_thread_id
             )
 
