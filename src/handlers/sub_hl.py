@@ -9,8 +9,8 @@ from yookassa import Payment
 
 import utilities as utl
 from api.yookassa_connect import create_param_payment
-from api.googlesheets import (get_quality_of_seats, write_data_for_reserve,
-    write_client)
+from api.googlesheets import (
+    get_quality_of_seats, write_data_for_reserve, write_client)
 from db import db_postgres
 from db.enum import TicketStatus
 from db.db_googlesheets import (
@@ -38,10 +38,11 @@ async def send_and_del_message_to_remove_kb(update: Update):
     )
 
 
-async def write_old_seat_info(
+async def write_old_all_seat_info(
         user,
         event_id,
-        chose_ticket
+        chose_ticket,
+        context: ContextTypes.DEFAULT_TYPE
 ):
     # Обновляем кол-во доступных мест
     list_of_name_colum = [
@@ -57,16 +58,20 @@ async def write_old_seat_info(
      ) = get_quality_of_seats(event_id,
                               list_of_name_colum)
 
-    qty_child_free_seat_new = int(
-        qty_child_free_seat_now) + int(chose_ticket.quality_of_children)
-    qty_child_nonconfirm_seat_new = int(
-        qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
-    qty_adult_free_seat_new = int(
-        qty_adult_free_seat_now) + int(chose_ticket.quality_of_adult +
-                                       chose_ticket.quality_of_add_adult)
-    qty_adult_nonconfirm_seat_new = int(
-        qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
-                                             chose_ticket.quality_of_add_adult)
+    qty_child_free_seat_new = (
+            int(qty_child_free_seat_now) +
+            int(chose_ticket.quality_of_children))
+    qty_child_nonconfirm_seat_new = (
+            int(qty_child_nonconfirm_seat_now) -
+            int(chose_ticket.quality_of_children))
+    qty_adult_free_seat_new = (
+            int(qty_adult_free_seat_now) +
+            int(chose_ticket.quality_of_adult +
+                chose_ticket.quality_of_add_adult))
+    qty_adult_nonconfirm_seat_new = (
+            int(qty_adult_nonconfirm_seat_now) -
+            int(chose_ticket.quality_of_adult +
+                chose_ticket.quality_of_add_adult))
 
     numbers = [
         qty_child_free_seat_new,
@@ -77,6 +82,62 @@ async def write_old_seat_info(
 
     try:
         write_data_for_reserve(event_id, numbers)
+        await db_postgres.update_schedule_event(
+            context.session,
+            int(event_id),
+            qty_child_free_seat=qty_child_free_seat_new,
+            qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
+            qty_adult_free_seat=qty_adult_free_seat_new,
+            qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
+        )
+    except TimeoutError:
+        sub_hl_logger.error(": ".join(
+            [
+                f'Для пользователя {user} отклонение в '
+                f'авто-режиме не сработало',
+                'event_id для обновления',
+                event_id,
+            ]
+        ))
+
+
+async def write_old_main_seat_info(
+        user,
+        event_id,
+        chose_ticket,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    # Обновляем кол-во доступных мест
+    list_of_name_colum = [
+        'qty_child_free_seat',
+        'qty_adult_free_seat',
+    ]
+    (qty_child_free_seat_now,
+     qty_adult_free_seat_now,
+     ) = get_quality_of_seats(event_id,
+                              list_of_name_colum)
+
+    qty_child_free_seat_new = (
+            int(qty_child_free_seat_now) +
+            int(chose_ticket.quality_of_children))
+    qty_adult_free_seat_new = (
+            int(qty_adult_free_seat_now) +
+            int(chose_ticket.quality_of_adult +
+                chose_ticket.quality_of_add_adult))
+
+    numbers = [
+        qty_child_free_seat_new,
+        qty_adult_free_seat_new,
+    ]
+
+    try:
+        write_data_for_reserve(event_id, numbers, 3)
+        await db_postgres.update_schedule_event(
+            context.session,
+            int(event_id),
+            qty_child_free_seat=qty_child_free_seat_new,
+            qty_adult_free_seat=qty_adult_free_seat_new,
+        )
     except TimeoutError:
         sub_hl_logger.error(": ".join(
             [
@@ -263,7 +324,7 @@ async def send_breaf_message(update: Update,
         'Вопросы будут приходить последовательно (их будет всего 3)</i>'
     )
     keyboard = [utl.add_btn_back_and_cancel(postfix_for_cancel='res|',
-                                        add_back_btn=False)]
+                                            add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.effective_chat.send_message(
         text=text_brief,
@@ -297,10 +358,10 @@ async def send_approve_reject_message_to_admin(
     )
     message_id_for_admin = res.message_id
     await utl.send_message_to_admin(ADMIN_GROUP,
-                                text,
-                                message_id_for_admin,
-                                context,
-                                thread_id)
+                                    text,
+                                    message_id_for_admin,
+                                    context,
+                                    thread_id)
     reply_markup = utl.create_approve_and_reject_replay(
         'reserve',
         update.effective_user.id,
@@ -449,10 +510,6 @@ async def processing_successful_payment(update, context):
 
     await update_ticket_status(context, TicketStatus.PAID)
 
-    message = await send_approve_reject_message_to_admin(update, context)
-    context.user_data['common_data'][
-        'message_id_for_admin'] = message.message_id
-
     people = await db_postgres.create_people(context.session,
                                              update.effective_user.id,
                                              client_data)
@@ -464,9 +521,12 @@ async def processing_successful_payment(update, context):
         client_data['name_adult'],
         '+7' + client_data['phone'],
         text,
-        ])
+    ])
     message_id_for_admin = None
     if context.user_data.get('command', False) == 'reserve':
+        message = await send_approve_reject_message_to_admin(update, context)
+        context.user_data['common_data'][
+            'message_id_for_admin'] = message.message_id
         message_id_for_admin = context.user_data['common_data'][
             'message_id_for_admin']
 
@@ -510,7 +570,7 @@ async def check_input_text(update, text_for_message):
     if len(result) <= count:
         sub_hl_logger.info('Не верный формат текста')
         keyboard = [utl.add_btn_back_and_cancel(postfix_for_cancel='res|',
-                                            add_back_btn=False)]
+                                                add_back_btn=False)]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.effective_chat.send_message(
             text=text_for_message,

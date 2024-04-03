@@ -7,7 +7,8 @@ from telegram.error import BadRequest
 
 from db import db_postgres
 from handlers import check_user_db
-from handlers.sub_hl import write_old_seat_info, remove_inline_button
+from handlers.sub_hl import (
+    write_old_main_seat_info, write_old_all_seat_info, remove_inline_button)
 from settings.settings import (
     COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
 )
@@ -99,6 +100,12 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 qty_adult_nonconfirm_seat_new
             ]
             write_data_for_reserve(event_id, numbers, 2)
+            await db_postgres.update_schedule_event(
+                context.session,
+                int(event_id),
+                qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
+                qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
+            )
             await query.edit_message_text(
                 text=f'Пользователю @{user.username} {user.full_name} '
                      f'списаны неподтвержденные места'
@@ -217,9 +224,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         event_id = payment_data['event_id']
         chose_ticket = payment_data['chose_ticket']
 
-        await write_old_seat_info(user,
-                                  event_id,
-                                  chose_ticket)
+        await write_old_all_seat_info(user,
+                                      event_id,
+                                      chose_ticket,
+                                      context)
 
         await query.edit_message_text(
             text=f'Пользователю @{user.username} {user.full_name} '
@@ -517,7 +525,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 event_id = payment_data['event_id']
                 ticket_id = payment_data.get('ticket_id')
 
-                await write_old_seat_info(user, event_id, chose_ticket)
+                await write_old_all_seat_info(user, event_id, chose_ticket, context)
                 if ticket_id:
                     await db_postgres.del_ticket(context.session, ticket_id)
         case 'bd':
@@ -534,6 +542,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      reserve_admin_text,
                 message_thread_id=query.message.message_thread_id
             )
+
+            if '|' in query.data:
+                payment_data = context.user_data['reserve_admin_data']['payment_data']
+                chose_ticket = payment_data['chose_ticket']
+                event_id = payment_data['event_id']
+                ticket_id = payment_data.get('ticket_id')
+
+                await write_old_main_seat_info(user, event_id, chose_ticket, context)
+                if ticket_id:
+                    await db_postgres.del_ticket(context.session, ticket_id)
         case 'settings':
             await query.delete_message()
             await update.effective_chat.send_message(

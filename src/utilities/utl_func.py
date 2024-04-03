@@ -268,14 +268,14 @@ def extract_phone_number_from_text(phone):
     return re.sub(r'^[78]{,2}(?=9)', '', phone)
 
 
-def check_email(email):
+def check_email(email: str):
         return re.fullmatch(r"^[-a-z0-9!#$%&'*+/=?^_`{|}~]+"
                             r"(?:\.[-a-z0-9!#$%&'*+/=?^_`{|}~]+)*"
                             r"@(?:[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\.)*"
                             r"(?:aero|arpa|asia|biz|cat|com|coop|"
                             r"edu|gov|info|int|jobs|mil|mobi|museum|"
                             r"name|net|org|pro|tel|travel|[a-z][a-z])$",
-                            email)
+                            email.lower())
 
 
 def yrange(n):
@@ -595,7 +595,7 @@ async def write_to_return_seats_for_sale(context):
     chose_ticket = payment_data['chose_ticket']
     event_id = payment_data['event_id']
     ticket_id = payment_data.get('ticket_id')
-    await handlers.write_old_seat_info(user, event_id, chose_ticket)
+    await handlers.write_old_all_seat_info(user, event_id, chose_ticket, context)
     if ticket_id:
         await db_postgres.del_ticket(context.session, ticket_id)
 

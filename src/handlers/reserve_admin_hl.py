@@ -1,6 +1,7 @@
 import logging
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
@@ -123,7 +124,7 @@ async def choice_option_of_reserve(
                  f'{ticket.name}\n')
         key = ticket.base_ticket_id
         button_tmp = InlineKeyboardButton(
-            text=str(i + 1),
+            text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
             callback_data=str(key)
         )
         list_btn_of_numbers.append(button_tmp)
@@ -137,7 +138,7 @@ async def choice_option_of_reserve(
     if len(list_btn_of_numbers):
         keyboard.append(list_btn_of_numbers)
 
-    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res_adm',
                                             postfix_for_back=1))
     reply_markup = InlineKeyboardMarkup(keyboard)
     await message.edit_text(text=text,
@@ -172,6 +173,9 @@ async def start_forma_info(
     query = update.callback_query
     await query.answer()
 
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
     key_option_for_reserve = int(query.data)
 
     common_data = context.user_data['common_data']
@@ -186,6 +190,7 @@ async def start_forma_info(
         reserve_user_data
     )
 
+    reserve_user_data['key_option_for_reserve'] = key_option_for_reserve
     reserve_user_data['chose_price'] = price
     payment_data = reserve_admin_data['payment_data']
     payment_data['chose_ticket'] = chose_ticket
@@ -214,6 +219,12 @@ async def start_forma_info(
     ]
 
     write_data_for_reserve(event_id, numbers, 3)
+    await db_postgres.update_schedule_event(
+        context.session,
+        int(event_id),
+        qty_child_free_seat=qty_child_free_seat_new,
+        qty_adult_free_seat=qty_adult_free_seat_new,
+    )
 
     ticket = await db_postgres.create_ticket(
         context.session,
@@ -225,8 +236,12 @@ async def start_forma_info(
 
     payment_data['ticket_id'] = ticket.id
 
-    await query.edit_message_text(
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res_adm|',
+                                        add_back_btn=False)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message= await query.edit_message_text(
         '<b>Напишите фамилию и имя (взрослого)</b>',
+        reply_markup=reply_markup
     )
 
     if common_data.get('dict_of_shows', False):
@@ -240,6 +255,7 @@ async def start_forma_info(
     if reserve_user_data.get('dict_of_date_show', False):
         reserve_user_data['back'].clear()
 
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
     state = 'FORMA'
     context.user_data['STATE'] = state
     return state

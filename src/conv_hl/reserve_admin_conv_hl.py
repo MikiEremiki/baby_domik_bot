@@ -33,14 +33,17 @@ states:  Dict[object, List[BaseHandler]] = {
         CallbackQueryHandler(reserve_admin_hl.start_forma_info),
     ],
     'FORMA': [
+        cancel_callback_handler,
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_name_adult),
     ],
     'PHONE': [
+        cancel_callback_handler,
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_phone),
     ],
     'CHILDREN': [
+        cancel_callback_handler,
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_name_children),
     ],
