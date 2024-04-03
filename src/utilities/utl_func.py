@@ -595,7 +595,7 @@ async def write_to_return_seats_for_sale(context):
     chose_ticket = payment_data['chose_ticket']
     event_id = payment_data['event_id']
     ticket_id = payment_data.get('ticket_id')
-    await handlers.write_old_seat_info(user, event_id, chose_ticket)
+    await handlers.write_old_all_seat_info(user, event_id, chose_ticket, context)
     if ticket_id:
         await db_postgres.del_ticket(context.session, ticket_id)
 

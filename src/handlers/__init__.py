@@ -1,6 +1,6 @@
 import logging
 
-from .sub_hl import write_old_seat_info
+from .sub_hl import write_old_all_seat_info
 from db import db_postgres
 import utilities as utl
 

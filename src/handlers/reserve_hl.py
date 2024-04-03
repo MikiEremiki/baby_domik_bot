@@ -14,7 +14,7 @@ from db import db_postgres
 from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import (
     request_phone_number,
-    send_and_del_message_to_remove_kb, write_old_seat_info,
+    send_and_del_message_to_remove_kb, write_old_all_seat_info,
     get_chose_ticket_and_price, get_emoji_and_options_for_event,
     send_breaf_message, remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment, check_input_text,
@@ -1227,9 +1227,10 @@ async def conversation_timeout(
         chose_ticket = payment_data['chose_ticket']
         event_id = payment_data['event_id']
 
-        await write_old_seat_info(user,
-                                  event_id,
-                                  chose_ticket)
+        await write_old_all_seat_info(user,
+                                      event_id,
+                                      chose_ticket,
+                                      context)
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(
