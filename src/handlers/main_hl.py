@@ -610,13 +610,20 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def feedback_reply_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.effective_message.text
     technical_info = update.effective_message.reply_to_message.text.split('\n')
-    chat_id = technical_info[-1]
-    message_id = technical_info[-2]
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        reply_to_message_id=int(message_id)
-    )
+    try:
+        chat_id = technical_info[-1]
+        message_id = technical_info[-2]
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_to_message_id=int(message_id)
+        )
+    except (IndexError, ValueError) as e:
+        main_handlers_logger.error(e)
+        await update.effective_message.reply_text(
+            text='Проверьте что отвечаете на правильное сообщение',
+            message_thread_id=update.message.message_thread_id
+        )
 
 
 async def global_on_off(update: Update, context: ContextTypes.DEFAULT_TYPE):

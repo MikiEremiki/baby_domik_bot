@@ -4,6 +4,7 @@ from telegram.ext import (
     CommandHandler, CallbackQueryHandler, MessageHandler, filters,
 )
 
+import custom_filters
 from handlers.webhook_hl import WebhookHandler
 from handlers import main_hl
 from handlers.error_hl import error_handler
@@ -99,8 +100,9 @@ def set_handlers(application, config):
                                     filters.Document.PDF),
         main_hl.feedback_send_msg),
     )
-    application.add_handler(MessageHandler(filters.REPLY,
-                                           main_hl.feedback_reply_msg))
+    application.add_handler(MessageHandler(
+        custom_filters.REPLY_IN_TOPIC_FROM_BOT,
+        main_hl.feedback_reply_msg))
 
     application.add_handler(WebhookHandler)
 
