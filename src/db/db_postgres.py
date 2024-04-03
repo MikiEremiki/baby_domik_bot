@@ -82,7 +82,7 @@ async def create_user(
         email=None,
 ):
     user = User(
-        id=user_id,
+        user_id=user_id,
         chat_id=chat_id,
         username=username,
         email=email,
