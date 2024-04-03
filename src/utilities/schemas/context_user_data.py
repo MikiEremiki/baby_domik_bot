@@ -66,6 +66,7 @@ context_user_data: Dict = {
         'chose_price': int,
         'type_ticket_price': str,
         'key_option_for_reserve': int,
+        'original_input_text': str,
     },
     'reserve_admin_data': {
         'payment_data': {

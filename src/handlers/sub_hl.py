@@ -1,14 +1,22 @@
 import logging
+import re
+import uuid
 
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardMarkup, \
+    InlineKeyboardButton
 from telegram.ext import ContextTypes
+from yookassa import Payment
 
-from db import db_postgres
-from settings.settings import SUPPORT_DATA, ADMIN_GROUP
-from db.db_googlesheets import (
-    load_base_tickets, load_list_show, load_special_ticket_price)
-from api.googlesheets import get_quality_of_seats, write_data_for_reserve
 import utilities as utl
+from api.yookassa_connect import create_param_payment
+from api.googlesheets import (get_quality_of_seats, write_data_for_reserve,
+    write_client)
+from db import db_postgres
+from db.enum import TicketStatus
+from db.db_googlesheets import (
+    load_base_tickets, load_list_show, load_special_ticket_price,
+    load_show_info)
+from settings.settings import SUPPORT_DATA, ADMIN_GROUP, FILE_ID_RULES
 from utilities.schemas.ticket import BaseTicketDTO
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
@@ -207,7 +215,7 @@ async def get_chose_ticket_and_price(
 
             key = chose_ticket.base_ticket_id
             if flag_indiv_cost:
-                special_ticket_price: dict = load_special_ticket_price()
+                special_ticket_price: dict = context.bot_data['special_ticket_price']
                 try:
                     type_ticket_price = reserve_user_data['type_ticket_price']
                     price = special_ticket_price[option][type_ticket_price][key]
@@ -241,11 +249,10 @@ async def get_emoji_and_options_for_event(event, name_column=None):
     return option, text_emoji
 
 
-async def send_breaf_message(update: Update):
+async def send_breaf_message(update: Update,
+                             context: ContextTypes.DEFAULT_TYPE):
     """
     Сообщение для опроса
-    :param update: обновление от telegram
-    :return: None
     """
     text_brief = (
         'Для подтверждения брони заполните, пожалуйста, анкету.\n'
@@ -255,12 +262,17 @@ async def send_breaf_message(update: Update):
         'сообщении.\n'
         'Вопросы будут приходить последовательно (их будет всего 3)</i>'
     )
-    await update.effective_chat.send_message(
+    keyboard = [utl.add_btn_back_and_cancel(postfix_for_cancel='res|',
+                                        add_back_btn=False)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
         text=text_brief,
+        reply_markup=reply_markup
     )
     await update.effective_chat.send_message(
         '<b>Напишите фамилию и имя (взрослого)</b>',
     )
+    context.user_data['reserve_user_data']['message_id'] = message.message_id
 
 
 async def send_approve_reject_message_to_admin(
@@ -323,3 +335,207 @@ async def update_ticket_status(context, new_status):
         ticket_id,
         status=new_status,
     )
+
+
+async def create_and_send_payment(update, context):
+    message = await context.bot.send_message(
+        text='Готовлю информацию об оплате...',
+        chat_id=update.effective_chat.id,
+    )
+    key_option_for_reserve = context.user_data['reserve_user_data'][
+        'key_option_for_reserve']
+    reserve_user_data = context.user_data['reserve_user_data']
+    choose_event_info = reserve_user_data['choose_event_info']
+    dict_show_data = context.bot_data['dict_show_data']
+    show_data = dict_show_data[choose_event_info['show_id']]
+    name_show = show_data['full_name']
+    date = choose_event_info['date_show']
+    time = choose_event_info['time_show']
+    chose_ticket, price = await get_chose_ticket_and_price(
+        choose_event_info,
+        context,
+        key_option_for_reserve,
+        reserve_user_data
+    )
+    email = await db_postgres.get_email(context.session,
+                                        update.effective_user.id)
+    idempotency_id = uuid.uuid4()
+    payment = Payment.create(
+        create_param_payment(
+            price,
+            f'Билет на спектакль {name_show} {date} в {time} {chose_ticket.name}',
+            email,
+            payment_method_type=context.config.yookassa.payment_method_type,
+            chat_id=update.effective_chat.id,
+            message_id=message.message_id,
+        ),
+        idempotency_id)
+    keyboard = []
+    button_payment = InlineKeyboardButton(
+        'Оплатить',
+        callback_data=f'payment|{payment.id}',
+        url=payment.confirmation.confirmation_url
+    )
+    button_cancel = InlineKeyboardButton(
+        'Отменить',
+        callback_data=f'Отменить-res|'
+                      f'{update.effective_chat.id} {message.message_id}'
+    )
+    keyboard.append([button_payment])
+    keyboard.append([button_cancel])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await message.edit_text(
+        text=f"""Бронь билета осуществляется по 100% оплате.
+❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
+❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
+Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
+
+- Если вы согласны с правилами, то переходите к оплате:
+  Нажмите кнопку <b>Оплатить</b>
+  <i>Вы будете перенаправлены на платежный сервис Юкасса
+  Способ оплаты - СБП</i>
+
+- Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
+- Если вы уже сделали оплату, <b>отправьте квитанцию об оплате файлом или картинкой.</b>
+
+__________
+После оплаты необходимо:
+Дождаться подтверждения""",
+        reply_markup=reply_markup,
+        disable_web_page_preview=True
+    )
+    common_data = context.user_data['common_data']
+    common_data['message_id_buy_info'] = message.message_id
+    common_data['dict_of_shows'].clear()
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data['chose_price'] = price
+    reserve_user_data['dict_of_name_show'].clear()
+    reserve_user_data['dict_of_name_show_flip'].clear()
+    reserve_user_data['dict_of_date_show'].clear()
+    reserve_user_data['back'].clear()
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    event_id = payment_data['event_id']
+
+    ticket = await db_postgres.create_ticket(
+        context.session,
+        base_ticket_id=chose_ticket.base_ticket_id,
+        price=price,
+        schedule_event_id=event_id,
+        status=TicketStatus.CREATED,
+        payment_id=payment.id,
+        idempotency_id=idempotency_id,
+    )
+    payment_data['ticket_id'] = ticket.id
+
+
+async def processing_successful_payment(update, context):
+    user = context.user_data['user']
+    reserve_user_data = context.user_data['reserve_user_data']
+    client_data = reserve_user_data['client_data']
+    text = reserve_user_data['original_input_text']
+    chose_price = reserve_user_data['chose_price']
+    payment_data = context.user_data['reserve_admin_data']['payment_data']
+    chose_ticket = payment_data['chose_ticket']
+    event_id = payment_data['event_id']
+    record_id = write_client(
+        client_data,
+        event_id,
+        chose_ticket,
+        chose_price,
+    )
+    ticket_id = context.user_data['reserve_admin_data']['payment_data'][
+        'ticket_id']
+
+    await update_ticket_status(context, TicketStatus.PAID)
+
+    message = await send_approve_reject_message_to_admin(update, context)
+    context.user_data['common_data'][
+        'message_id_for_admin'] = message.message_id
+
+    people = await db_postgres.create_people(context.session,
+                                             update.effective_user.id,
+                                             client_data)
+    await db_postgres.attach_user_and_people_to_ticket(context.session,
+                                                       ticket_id,
+                                                       update.effective_user.id,
+                                                       people)
+    text = '\n'.join([
+        client_data['name_adult'],
+        '+7' + client_data['phone'],
+        text,
+        ])
+    message_id_for_admin = None
+    if context.user_data.get('command', False) == 'reserve':
+        message_id_for_admin = context.user_data['common_data'][
+            'message_id_for_admin']
+
+        text += '\n\n'
+        text += f'#id{record_id}\n'
+
+        await send_by_ticket_info(update, context)
+    if context.user_data.get('command', False) == 'reserve_admin':
+        text += '\n\n'
+        text += f'event_id: {event_id}\n'
+        event_info, name_column = load_show_info(int(event_id))
+        text += event_info[name_column['name_show']]
+        text += '\n' + event_info[name_column['date_show']]
+        text += '\n' + event_info[name_column['time_show']]
+        text += '\n' + chose_ticket.name + ' ' + str(chose_price) + 'руб'
+        text += '\n\n'
+        text += f'Добавлено: {update.effective_chat.full_name}\n'
+        text += f'#id{record_id}'
+    thread_id = (context.bot_data['dict_topics_name']
+                 .get('Бронирование спектаклей', None))
+    await utl.send_message_to_admin(
+        chat_id=ADMIN_GROUP,
+        text=text,
+        message_id=message_id_for_admin,
+        context=context,
+        thread_id=thread_id
+    )
+    sub_hl_logger.info(f'Для пользователя {user}')
+    sub_hl_logger.info(
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
+
+
+async def check_input_text(update, text_for_message):
+    text = update.effective_message.text
+    count = text.count('\n')
+    result = re.findall(
+        r'\w+ \d',
+        text,
+        flags=re.U | re.M
+    )
+    if len(result) <= count:
+        sub_hl_logger.info('Не верный формат текста')
+        keyboard = [utl.add_btn_back_and_cancel(postfix_for_cancel='res|',
+                                            add_back_btn=False)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.effective_chat.send_message(
+            text=text_for_message,
+            reply_markup=reply_markup,
+        )
+        return False
+    return True
+
+
+async def send_by_ticket_info(update, context):
+    await update.effective_chat.send_message(
+        'Благодарим за ответы.\n\n'
+        'Ожидайте подтверждение брони в течении 24 часов.\n'
+        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
+        '<i>Если сообщение не поступит, напишите боту:</i>\n'
+        '<code>Подтверждение не поступило</code>',
+    )
+    text = context.user_data['common_data']['text_for_notification_massage']
+    text += (f'__________\n'
+             'Задать вопросы можно в сообщениях группы\n'
+             'https://vk.com/baby_theater_domik')
+    message = await update.effective_chat.send_message(
+        text=text,
+    )
+    await message.pin()
+
+    await update.effective_chat.send_photo(photo=FILE_ID_RULES,
+                                           caption='Правила театра')
