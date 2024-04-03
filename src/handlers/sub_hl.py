@@ -8,7 +8,7 @@ from settings.settings import SUPPORT_DATA, ADMIN_GROUP
 from db.db_googlesheets import (
     load_base_tickets, load_list_show, load_special_ticket_price)
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
-from utilities import create_approve_and_reject_replay, send_message_to_admin
+import utilities as utl
 from utilities.schemas.ticket import BaseTicketDTO
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
@@ -284,12 +284,12 @@ async def send_approve_reject_message_to_admin(
         message_thread_id=thread_id
     )
     message_id_for_admin = res.message_id
-    await send_message_to_admin(ADMIN_GROUP,
+    await utl.send_message_to_admin(ADMIN_GROUP,
                                 text,
                                 message_id_for_admin,
                                 context,
                                 thread_id)
-    reply_markup = create_approve_and_reject_replay(
+    reply_markup = utl.create_approve_and_reject_replay(
         'reserve',
         update.effective_user.id,
         message_id,

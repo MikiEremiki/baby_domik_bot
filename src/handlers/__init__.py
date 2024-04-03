@@ -2,14 +2,14 @@ import logging
 
 from .sub_hl import write_old_seat_info
 from db import db_postgres
-from utilities import clean_context, extract_command
+import utilities as utl
 
 
 def init_conv_hl_dialog(update, context):
-    clean_context(context)
+    utl.clean_context(context)
     state = 'START'
     context.user_data['STATE'] = state
-    context.user_data['command'] = extract_command(
+    context.user_data['command'] = utl.extract_command(
         update.effective_message.text)
     context.user_data.setdefault('common_data', {})
     context.user_data.setdefault('reserve_admin_data', {})
