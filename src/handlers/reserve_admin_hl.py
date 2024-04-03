@@ -124,7 +124,7 @@ async def choice_option_of_reserve(
                  f'{ticket.name}\n')
         key = ticket.base_ticket_id
         button_tmp = InlineKeyboardButton(
-            text=str(i + 1),
+            text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
             callback_data=str(key)
         )
         list_btn_of_numbers.append(button_tmp)
