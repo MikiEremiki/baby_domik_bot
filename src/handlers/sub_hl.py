@@ -9,8 +9,8 @@ from yookassa import Payment
 
 import utilities as utl
 from api.yookassa_connect import create_param_payment
-from api.googlesheets import (get_quality_of_seats, write_data_for_reserve,
-    write_client)
+from api.googlesheets import (
+    get_quality_of_seats, write_data_for_reserve, write_client)
 from db import db_postgres
 from db.enum import TicketStatus
 from db.db_googlesheets import (
