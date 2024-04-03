@@ -510,10 +510,6 @@ async def processing_successful_payment(update, context):
 
     await update_ticket_status(context, TicketStatus.PAID)
 
-    message = await send_approve_reject_message_to_admin(update, context)
-    context.user_data['common_data'][
-        'message_id_for_admin'] = message.message_id
-
     people = await db_postgres.create_people(context.session,
                                              update.effective_user.id,
                                              client_data)
@@ -528,6 +524,9 @@ async def processing_successful_payment(update, context):
     ])
     message_id_for_admin = None
     if context.user_data.get('command', False) == 'reserve':
+        message = await send_approve_reject_message_to_admin(update, context)
+        context.user_data['common_data'][
+            'message_id_for_admin'] = message.message_id
         message_id_for_admin = context.user_data['common_data'][
             'message_id_for_admin']
 
