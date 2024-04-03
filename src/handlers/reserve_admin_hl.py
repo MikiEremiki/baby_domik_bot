@@ -1,6 +1,7 @@
 import logging
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
 from api.googlesheets import get_quality_of_seats, write_data_for_reserve
@@ -172,6 +173,9 @@ async def start_forma_info(
     query = update.callback_query
     await query.answer()
 
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
     key_option_for_reserve = int(query.data)
 
     common_data = context.user_data['common_data']
