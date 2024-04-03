@@ -20,7 +20,7 @@ from telegram.ext import (
 from telegram.helpers import escape_markdown
 from telegram.error import BadRequest
 
-from db import db_googlesheets
+from db import db_googlesheets, db_postgres
 import handlers
 from settings import parse_settings
 from settings.settings import (
@@ -594,7 +594,10 @@ async def write_to_return_seats_for_sale(context):
     payment_data = context.user_data['reserve_admin_data']['payment_data']
     chose_ticket = payment_data['chose_ticket']
     event_id = payment_data['event_id']
+    ticket_id = payment_data.get('ticket_id')
     await handlers.write_old_seat_info(user, event_id, chose_ticket)
+    if ticket_id:
+        await db_postgres.del_ticket(context.session, ticket_id)
 
 
 def create_replay_markup_for_list_of_shows(
