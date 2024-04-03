@@ -100,6 +100,12 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 qty_adult_nonconfirm_seat_new
             ]
             write_data_for_reserve(event_id, numbers, 2)
+            await db_postgres.update_schedule_event(
+                context.session,
+                int(event_id),
+                qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
+                qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
+            )
             await query.edit_message_text(
                 text=f'Пользователю @{user.username} {user.full_name} '
                      f'списаны неподтвержденные места'

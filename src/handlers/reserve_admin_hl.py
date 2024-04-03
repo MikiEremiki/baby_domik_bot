@@ -214,6 +214,12 @@ async def start_forma_info(
     ]
 
     write_data_for_reserve(event_id, numbers, 3)
+    await db_postgres.update_schedule_event(
+        context.session,
+        int(event_id),
+        qty_child_free_seat=qty_child_free_seat_new,
+        qty_adult_free_seat=qty_adult_free_seat_new,
+    )
 
     ticket = await db_postgres.create_ticket(
         context.session,
