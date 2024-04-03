@@ -105,7 +105,7 @@ async def create_adult(session: AsyncSession, user_id, name, phone):
     person = await create_person(session, user_id, name, AgeType.adult)
     await session.refresh(person)
     adult = Adult(phone=phone)
-    person.adult.append(adult)
+    person.adult = adult
 
     await session.commit()
     return adult
@@ -121,7 +121,7 @@ async def create_child(
     person = await create_person(session, user_id, name, AgeType.child)
     await session.refresh(person)
     child = Child(age=age, birthdate=birthdate)
-    person.child.append(child)
+    person.child = child
 
     await session.commit()
     return child
