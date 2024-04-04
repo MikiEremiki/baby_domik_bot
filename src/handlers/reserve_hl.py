@@ -1210,7 +1210,7 @@ async def processing_successful_notification(
 ):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_reply_markup()
+    await query.edit_message_text('Платеж успешно обработан')
 
     await processing_successful_payment(update, context)
 

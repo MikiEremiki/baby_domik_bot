@@ -4,6 +4,7 @@ import uuid
 
 from telegram import Update, ReplyKeyboardRemove, InlineKeyboardMarkup, \
     InlineKeyboardButton
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 from yookassa import Payment
 
@@ -383,10 +384,15 @@ async def send_approve_reject_message_to_admin(
 async def remove_button_from_last_message(update, context):
     # Убираем у старого сообщения кнопки
     message_id = context.user_data['common_data']['message_id_buy_info']
-    await context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id,
-        message_id=message_id
-    )
+    try:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=message_id
+        )
+    except BadRequest as e:
+        sub_hl_logger.error(e)
+
+
 
 
 async def update_ticket_status(context, new_status):

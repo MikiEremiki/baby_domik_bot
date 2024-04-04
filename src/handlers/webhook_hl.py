@@ -19,12 +19,16 @@ async def webhook_update(update: WebhookNotification,
 
         await context.bot.edit_message_reply_markup(chat_id, message_id)
 
-        text = 'Платеж успешно обработан\nНажмите далее'
+        text = ('Платеж успешно обработан\n\n'
+                'Нажмите <b>«ДАЛЕЕ»</b> под сообщением\n\n'
+                '<i>Или отправьте квитанцию/чек об оплате</i>')
         reply_markup = InlineKeyboardMarkup(
-            [[InlineKeyboardButton('Далее', callback_data='Next')]])
+            [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
         await context.bot.send_message(chat_id=chat_id,
                                        text=text,
                                        reply_markup=reply_markup)
+        state = 'PAID'
+        return state
     if update.object.status == 'canceled':
         pass
 
