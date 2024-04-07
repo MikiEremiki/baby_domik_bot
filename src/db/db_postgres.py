@@ -1,9 +1,10 @@
-from sqlalchemy import select, exists, insert, delete, update
+from sqlalchemy import select, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
                 ScheduleEvent, BaseTicket)
 from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
+from db.models import Promotion
 
 
 async def add_people_to_ticket(
@@ -78,14 +79,19 @@ async def create_user(
         session: AsyncSession,
         user_id,
         chat_id,
+        *,
         username=None,
         email=None,
+        agreement_received=None,
+        is_privilege=None,
 ):
     user = User(
         user_id=user_id,
         chat_id=chat_id,
         username=username,
         email=email,
+        agreement_received=agreement_received,
+        is_privilege=is_privilege,
     )
     session.add(user)
     await session.commit()
@@ -168,6 +174,7 @@ async def create_ticket(
         base_ticket_id,
         price,
         schedule_event_id,
+        promo_id=None,
         status=TicketStatus.CREATED,
         notes=None,
         payment_id=None,
@@ -177,6 +184,7 @@ async def create_ticket(
         base_ticket_id=base_ticket_id,
         price=price,
         schedule_event_id=schedule_event_id,
+        promo_id=promo_id,
         status=status,
         notes=notes,
         payment_id=payment_id,
@@ -261,6 +269,43 @@ async def create_schedule_event(
     return schedule_event.id
 
 
+async def create_promotion(
+        session: AsyncSession,
+        name,
+        code,
+        discount,
+        for_who_discount,
+        *,
+        start_date=None,
+        expire_date=None,
+        base_ticket_ids=None,
+        type_event_ids=None,
+        theater_event_ids=None,
+        schedule_event_ids=None,
+        flag_active=True,
+        count_of_usage=0,
+        max_count_of_usage=0,
+):
+    promo = Promotion(
+        name=name,
+        code=code,
+        discount=discount,
+        start_date=start_date,
+        expire_date=expire_date,
+        base_ticket_ids=base_ticket_ids,
+        type_event_ids=type_event_ids,
+        theater_event_ids=theater_event_ids,
+        schedule_event_ids=schedule_event_ids,
+        for_who_discount=for_who_discount,
+        flag_active=flag_active,
+        count_of_usage=count_of_usage,
+        max_count_of_usage=max_count_of_usage,
+    )
+    session.add(promo)
+    await session.commit()
+    return promo
+
+
 async def get_user(session: AsyncSession, user_id: int):
     query = select(User).where(User.user_id == user_id)
     result = await session.execute(query)
@@ -298,6 +343,10 @@ async def get_schedule_event(session: AsyncSession, schedule_event_id: int):
     return await session.get(ScheduleEvent, schedule_event_id)
 
 
+async def get_promotion(session: AsyncSession, promotion_id: int):
+    return await session.get(ScheduleEvent, promotion_id)
+
+
 async def get_all_theater_events(session: AsyncSession):
     query = select(TheaterEvent)
     result = await session.execute(query)
@@ -306,6 +355,12 @@ async def get_all_theater_events(session: AsyncSession):
 
 async def get_all_schedule_events(session: AsyncSession):
     query = select(ScheduleEvent)
+    result = await session.execute(query)
+    return result.all()
+
+
+async def get_all_promotions(session: AsyncSession):
+    query = select(Promotion)
     result = await session.execute(query)
     return result.all()
 
@@ -370,6 +425,18 @@ async def update_schedule_event(
     return schedule_event
 
 
+async def update_promotion(
+        session: AsyncSession,
+        promotion_id,
+        **kwargs
+):
+    promotion = await session.get(Promotion, promotion_id)
+    for key, value in kwargs.items():
+        setattr(promotion, key, value)
+    await session.commit()
+    return promotion
+
+
 async def del_ticket(
         session: AsyncSession,
         ticket_id,
@@ -389,6 +456,13 @@ async def del_theater_event(session: AsyncSession, theater_event_id: int):
 
 async def del_schedule_event(session: AsyncSession, schedule_event_id: int):
     result = await session.get(ScheduleEvent, schedule_event_id)
+    await session.delete(result)
+    await session.commit()
+    return result
+
+
+async def del_promotion(session: AsyncSession, promotion_id: int):
+    result = await session.get(Promotion, promotion_id)
     await session.delete(result)
     await session.commit()
     return result
