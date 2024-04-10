@@ -393,7 +393,7 @@ async def get_contact(
 
 def create_btn(text, postfix_for_callback):
     callback_data = text
-    if postfix_for_callback:
+    if not postfix_for_callback is None:
         callback_data += f'-{postfix_for_callback}'
     btn = InlineKeyboardButton(
         text,
