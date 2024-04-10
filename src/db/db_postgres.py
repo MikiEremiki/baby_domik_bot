@@ -2,9 +2,8 @@ from sqlalchemy import select, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
-                ScheduleEvent, BaseTicket)
+                ScheduleEvent, BaseTicket, Promotion)
 from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
-from db.models import Promotion
 
 
 async def add_people_to_ticket(
