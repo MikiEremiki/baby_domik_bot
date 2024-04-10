@@ -6,7 +6,8 @@ from telegram.ext import (
 )
 
 from handlers import support_hl, main_hl
-from conv_hl import F_text_and_no_command, cancel_callback_handler
+from conv_hl import (
+    F_text_and_no_command, cancel_callback_handler, back_callback_handler)
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
 states:  Dict[object, List[BaseHandler]] = {
@@ -16,12 +17,10 @@ states:  Dict[object, List[BaseHandler]] = {
     ],
     2: [
         cancel_callback_handler,
-        CallbackQueryHandler(support_hl.theater_event_settings,
-                             '^theater_event'),
-        CallbackQueryHandler(support_hl.schedule_event_settings,
-                             '^schedule_event'),
+        CallbackQueryHandler(support_hl.get_settings),
     ],
     3: [
+        back_callback_handler,
         cancel_callback_handler,
         CallbackQueryHandler(support_hl.theater_event_select,
                              '^theater_event_select$'),

@@ -5,25 +5,27 @@ from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
 
 from db import db_postgres
 from db.enum import PriceType, TicketPriceType
+from handlers import init_conv_hl_dialog
 from settings.settings import RESERVE_TIMEOUT
 from utilities.schemas.schedule_event import kv_name_attr_schedule_event
 from utilities.schemas.theater_event import kv_name_attr_theater_event
-from utilities.utl_func import add_btn_back_and_cancel
+from utilities.utl_func import add_btn_back_and_cancel, set_back_context
 
 support_hl_logger = logging.getLogger('bot.support_hl')
 
 
 def create_keyboard_crud(name: str):
     button_create = InlineKeyboardButton(text='Добавить',
-                                         callback_data=f'{name}_event_create')
+                                         callback_data=f'{name}_create')
     button_update = InlineKeyboardButton(text='Изменить',
-                                         callback_data=f'{name}_event_update')
+                                         callback_data=f'{name}_update')
     button_delete = InlineKeyboardButton(text='Удалить',
-                                         callback_data=f'{name}_event_delete')
+                                         callback_data=f'{name}_delete')
     button_select = InlineKeyboardButton(text='Посмотреть',
-                                         callback_data=f'{name}_event_select')
+                                         callback_data=f'{name}_select')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
-                                            add_back_btn=False)
+                                            add_back_btn=True,
+                                            postfix_for_back='2')
     keyboard = [
         [button_create, ],
         [button_update, ],
@@ -54,13 +56,44 @@ def get_validated_data(string, option):
     for kv in query:
         key, value = kv.split('=')
         validated_value = validate_value(value, option)
-        for k, v in kv_name_attr_schedule_event.items():
-            if key == v:
-                data[k] = validated_value
+        if option == 'theater':
+            for k, v in kv_name_attr_theater_event.items():
+                if key == v:
+                    data[k] = validated_value
+        if option == 'schedule':
+            for k, v in kv_name_attr_schedule_event.items():
+                if key == v:
+                    data[k] = validated_value
     return data
 
 
+def validate_value(value, option):
+    if value == 'Да':
+        value = True
+    if value == 'Нет':
+        value = False
+    if option == 'theater':
+        if value == 'По умолчанию':
+            value = PriceType.NONE
+        if value == 'Базовая стоимость':
+            value = PriceType.BASE_PRICE
+        if value == 'Опции':
+            value = PriceType.OPTIONS
+        if value == 'Индивидуальная':
+            value = PriceType.INDIVIDUAL
+    if option == 'schedule':
+        if value == 'По умолчанию':
+            value = TicketPriceType.NONE
+        if value == 'будни':
+            value = TicketPriceType.weekday
+        if value == 'выходные':
+            value = TicketPriceType.weekend
+
+    return value
+
+
 async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    init_conv_hl_dialog(update, context)
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
@@ -87,14 +120,30 @@ async def choice_db_settings(
     query = update.callback_query
     await query.answer()
 
+    button_base_ticket = InlineKeyboardButton(text='Базовые билеты',
+                                              callback_data='base_ticket')
+    button_event_type = InlineKeyboardButton(text='Типы показов',
+                                             callback_data='event_type')
     button_event = InlineKeyboardButton(text='Репертуар',
                                         callback_data='theater_event')
     button_schedule = InlineKeyboardButton(text='Расписание',
                                            callback_data='schedule_event')
+    button_promotion = InlineKeyboardButton(text='Акции',
+                                            callback_data='promotion')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
     keyboard = [
-        [button_event, button_schedule],
+        [
+            button_base_ticket,
+            button_event_type,
+        ],
+        [
+            button_event,
+            button_schedule,
+        ],
+        [
+            button_promotion,
+        ],
         [*button_cancel, ],
     ]
 
@@ -106,36 +155,18 @@ async def choice_db_settings(
         reply_markup=reply_markup
     )
 
+    set_back_context(context, 2, text, reply_markup)
     return 2
 
 
-async def theater_event_settings(
+async def get_settings(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
     await query.answer()
 
-    reply_markup = create_keyboard_crud('theater')
-
-    text = 'Выберите что хотите настроить'
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
-
-    context.user_data['reply_markup'] = reply_markup
-    return 3
-
-
-async def schedule_event_settings(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-):
-    query = update.callback_query
-    await query.answer()
-
-    reply_markup = create_keyboard_crud('schedule')
+    reply_markup = create_keyboard_crud(query.data)
 
     text = 'Выберите что хотите настроить'
     await query.edit_message_text(
@@ -228,31 +259,6 @@ async def schedule_event_preview(
     return 42
 
 
-def validate_value(value, option):
-    if value == 'Да':
-        value = True
-    if value == 'Нет':
-        value = False
-    if option == 'theater':
-        if value == 'По умолчанию':
-            value = PriceType.NONE
-        if value == 'Базовая стоимость':
-            value = PriceType.BASE_PRICE
-        if value == 'Опции':
-            value = PriceType.OPTIONS
-        if value == 'Индивидуальная':
-            value = PriceType.INDIVIDUAL
-    if option == 'schedule':
-        if value == 'По умолчанию':
-            value = TicketPriceType.NONE
-        if value == 'будни':
-            value = TicketPriceType.weekday
-        if value == 'выходные':
-            value = TicketPriceType.weekend
-
-    return value
-
-
 async def theater_event_check(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
@@ -297,17 +303,7 @@ async def theater_event_create(
 
     res = await db_postgres.create_theater_event(
         context.session,
-        name=theater_event['name'],
-        min_age_child=theater_event['min_age_child'],
-        max_age_child=theater_event['max_age_child'],
-        show_emoji=theater_event['show_emoji'],
-        flag_premier=theater_event['flag_premier'],
-        flag_active_repertoire=theater_event['flag_active_repertoire'],
-        flag_active_bd=theater_event['flag_active_bd'],
-        max_num_child_bd=theater_event['max_num_child_bd'],
-        max_num_adult_bd=theater_event['max_num_adult_bd'],
-        flag_indiv_cost=theater_event['flag_indiv_cost'],
-        price_type=theater_event['price_type'],
+        **theater_event
     )
 
     context.user_data.pop('theater_event')
@@ -335,22 +331,12 @@ async def schedule_event_create(
 
     res = await db_postgres.create_schedule_event(
         context.session,
-        type_event_id=schedule_event['type_event_id'],
-        theater_events_id=schedule_event['theater_events_id'],
-        flag_turn_in_bot=schedule_event['flag_turn_in_bot'],
-        datetime_event=schedule_event['datetime_event'],
-        qty_child=schedule_event['qty_child'],
-        qty_child_free_seat=schedule_event['qty_child'],
-        qty_adult=schedule_event['qty_adult'],
-        qty_adult_free_seat=schedule_event['qty_adult'],
-        flag_gift=schedule_event['flag_gift'],
-        flag_christmas_tree=schedule_event['flag_christmas_tree'],
-        flag_santa=schedule_event['flag_santa'],
-        ticket_price_type=schedule_event['ticket_price_type'],
+        **schedule_event
     )
 
     context.user_data.pop('schedule_event')
     if res:
+        # Получаю элемент репертуара, так как название есть только в репертуаре
         res = await db_postgres.get_theater_event(
             context.session,
             schedule_event['theater_events_id'])

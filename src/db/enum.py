@@ -28,3 +28,9 @@ class TicketPriceType(enum.Enum):
 class AgeType(enum.Enum):
     adult = 'взрослый'
     child = 'ребенок'
+
+
+class GroupOfPeopleByDiscountType(enum.Enum):
+    all = 0
+    privilege = 1
+    non_privilege = 2

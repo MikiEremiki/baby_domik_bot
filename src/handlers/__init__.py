@@ -12,12 +12,16 @@ def init_conv_hl_dialog(update, context):
     context.user_data['command'] = utl.extract_command(
         update.effective_message.text)
     context.user_data.setdefault('common_data', {})
+
     context.user_data.setdefault('reserve_admin_data', {})
-    context.user_data['reserve_user_data'] = {}
-    context.user_data['reserve_user_data']['back'] = {}
-    context.user_data['reserve_user_data']['client_data'] = {}
-    context.user_data['reserve_user_data']['choose_event_info'] = {}
-    context.user_data['reserve_admin_data']['payment_data'] = {}
+    reserve_admin_data = context.user_data['reserve_admin_data']
+    reserve_admin_data.setdefault('payment_data', {})
+
+    context.user_data.setdefault('reserve_user_data', {})
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data.setdefault('back', {})
+    reserve_user_data.setdefault('client_data', {})
+    reserve_user_data.setdefault('choose_event_info', {})
 
     return state
 

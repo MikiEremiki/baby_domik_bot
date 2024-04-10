@@ -781,8 +781,9 @@ async def get_ticket(
         reply_markup=reply_markup
     )
 
-    context.user_data['reserve_user_data']['message_id'] = inline_message.message_id
-    context.user_data['reserve_user_data']['accept_message_id'] = message.message_id
+    reserve_user_data['chose_price'] = price
+    reserve_user_data['message_id'] = inline_message.message_id
+    reserve_user_data['accept_message_id'] = message.message_id
 
     state = 'OFFER'
     context.user_data['STATE'] = state
@@ -856,7 +857,7 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_emoji = choose_event_info['text_emoji']
     payment_data = context.user_data['reserve_admin_data']['payment_data']
     chose_ticket = payment_data['chose_ticket']
-    price = chose_ticket.price
+    price = reserve_user_data['chose_price']
 
     text_select_show = (f'Вы выбрали спектакль:\n'
                         f'<b>{name_show}\n'

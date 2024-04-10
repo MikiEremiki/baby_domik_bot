@@ -5,7 +5,9 @@ from sqlalchemy import ForeignKey, BigInteger, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
-from db.enum import TicketStatus, TicketPriceType, PriceType, AgeType
+from db.enum import (
+    TicketStatus, TicketPriceType, PriceType, AgeType,
+    GroupOfPeopleByDiscountType)
 
 
 class User(BaseModelTimed):
@@ -17,6 +19,8 @@ class User(BaseModelTimed):
 
     username: Mapped[Optional[str]]
     email: Mapped[Optional[str]]
+    agreement_received: Mapped[Optional[date]]
+    is_privilege: Mapped[Optional[bool]]
 
     people: Mapped[List['Person']] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
@@ -113,6 +117,8 @@ class Ticket(BaseModelTimed):
 
     schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))
+    promo_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('promotions.id'))
 
     user: Mapped['User'] = relationship(
         secondary='users_tickets', back_populates='tickets', lazy='selectin')
@@ -173,5 +179,34 @@ class ScheduleEvent(BaseModelTimed):
 
     ticket_price_type: Mapped[TicketPriceType] = mapped_column(
         default=TicketPriceType.NONE)
+
+    tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
+
+
+class Promotion(BaseModelTimed):
+    __tablename__ = 'promotions'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    name: Mapped[str]
+    code: Mapped[str] = mapped_column(unique=True)
+    discount: Mapped[int]
+    start_date: Mapped[Optional[datetime]]
+    expire_date: Mapped[Optional[datetime]]
+
+    base_ticket_ids: Mapped[Optional[List[int]]] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id'))
+    type_event_ids: Mapped[Optional[List[int]]] = mapped_column(
+        ForeignKey('type_events.id'))
+    theater_event_ids: Mapped[Optional[List[int]]] = mapped_column(
+        ForeignKey('theater_events.id'))
+    schedule_event_ids: Mapped[Optional[List[int]]] = mapped_column(
+        ForeignKey('schedule_events.id'))
+
+    for_who_discount: Mapped[GroupOfPeopleByDiscountType]
+
+    flag_active: Mapped[bool] = mapped_column(default=True)
+    count_of_usage: Mapped[int] = mapped_column(default=0)
+    max_count_of_usage: Mapped[int] = mapped_column(default=0)
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')

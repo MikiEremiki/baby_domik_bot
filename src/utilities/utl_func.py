@@ -393,7 +393,7 @@ async def get_contact(
 
 def create_btn(text, postfix_for_callback):
     callback_data = text
-    if postfix_for_callback:
+    if not postfix_for_callback is None:
         callback_data += f'-{postfix_for_callback}'
     btn = InlineKeyboardButton(
         text,
@@ -801,29 +801,6 @@ def create_approve_and_reject_replay(
     )
     keyboard.append([button_approve, button_cancel])
     return InlineKeyboardMarkup(keyboard)
-
-
-def replace_markdown_v2(text: str) -> str:
-    text = text.replace('_', '\_')
-    text = text.replace('*', '\*')
-    text = text.replace('[', '\[')
-    text = text.replace(']', '\]')
-    text = text.replace('(', '\(')
-    text = text.replace(')', '\)')
-    text = text.replace('~', '\~')
-    text = text.replace('`', '\`')
-    text = text.replace('>', '\>')
-    text = text.replace('#', '\#')
-    text = text.replace('+', '\+')
-    text = text.replace('-', '\-')
-    text = text.replace('=', '\=')
-    text = text.replace('|', '\|')
-    text = text.replace('{', '\{')
-    text = text.replace('}', '\}')
-    text = text.replace('.', '\.')
-    text = text.replace('!', '\!')
-
-    return text
 
 
 def do_italic(text):
