@@ -1,6 +1,6 @@
 from warnings import filterwarnings
 
-from telegram.ext import CallbackQueryHandler, filters
+from telegram.ext import CallbackQueryHandler, filters, MessageHandler
 from telegram.warnings import PTBUserWarning
 
 from handlers import main_hl, reserve_hl
@@ -9,7 +9,7 @@ F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
 back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 
-base_handlers = {
+handlers_event_selection  = {
     'MONTH': [
         cancel_callback_handler,
         CallbackQueryHandler(reserve_hl.choice_show_or_date),
@@ -29,6 +29,24 @@ base_handlers = {
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
+    ],
+}
+
+handlers_client_data_selection = {
+    'FORMA': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_name_adult),
+    ],
+    'PHONE': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_phone),
+    ],
+    'CHILDREN': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       reserve_hl.get_name_children),
     ],
 }
 
