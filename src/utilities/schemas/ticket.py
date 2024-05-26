@@ -106,6 +106,8 @@ class BaseTicket(BaseModel):
 class BaseTicketDTO(BaseModel):
     base_ticket_id: int  # Идентификатор билета
     flag_active: bool = True
+    flag_individual: bool = False  # Флаг для индивидуального обращения
+    flag_season_ticket: bool = False  # Флаг для индивидуального обращения
     name: str  # Наименование вариантов билетов
     cost_main: int  # Стоимость
     cost_privilege: int = 0  # Стоимость для льгот
@@ -119,7 +121,6 @@ class BaseTicketDTO(BaseModel):
     quality_of_adult: int = 0  # Кол-во взр мест
     quality_of_add_adult: int = 0  # Кол-во доп взр мест
     quality_visits: int = 0  # Общее кол-во посещений по билету
-    flag_individual: bool = False  # Флаг для индивидуального обращения
 
     date_show_tmp: datetime = Field(
         default=datetime.fromisoformat('2000-01-01'))
@@ -167,8 +168,10 @@ class BaseTicketDTO(BaseModel):
 
     def to_dto(self):
         return {
-            'flag_active': self.flag_active,
             'base_ticket_id': self.base_ticket_id,
+            'flag_active': self.flag_active,
+            'flag_individual': self.flag_individual,
+            'flag_season_ticket': self.flag_season_ticket,
             'name': self.name,
             'cost_main': self.cost_main,
             'cost_privilege': self.cost_privilege,
@@ -180,7 +183,6 @@ class BaseTicketDTO(BaseModel):
             'quality_of_adult': self.quality_of_adult,
             'quality_of_add_adult': self.quality_of_add_adult,
             'quality_visits': self.quality_visits,
-            'flag_individual': self.flag_individual,
         }
 
 
