@@ -625,17 +625,34 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def feedback_reply_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.effective_message.text
+async def feedback_reply_msg(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     technical_info = update.effective_message.reply_to_message.text.split('\n')
     try:
         chat_id = technical_info[-1]
         message_id = technical_info[-2]
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_to_message_id=int(message_id)
-        )
+        if bool(update.message.text):
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=update.message.text,
+                reply_to_message_id=int(message_id),
+            )
+        if bool(update.message.document):
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=update.message.document,
+                caption=update.message.caption,
+                reply_to_message_id=int(message_id),
+            )
+        if bool(update.message.photo):
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=update.message.photo[-1],
+                caption=update.message.caption,
+                reply_to_message_id=int(message_id),
+            )
     except (IndexError, ValueError) as e:
         main_handlers_logger.error(e)
         await update.effective_message.reply_text(
