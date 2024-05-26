@@ -1,34 +1,14 @@
 from typing import (
-    Dict, Optional
+    Dict, Optional, List
 )
 
 from settings.config_loader import Settings
-from ticket import list_of_tickets
 
 context_bot_data: Dict = {
     'global_on_off': bool,
     'config': Settings,
-    'list_of_tickets': list_of_tickets,
-    'dict_show_data': {
-        'show_id': {  # int
-                'name': str,
-                'flag_premiere': bool,
-                'min_age_child': int,
-                'max_age_child': int,
-                'show_emoji': str,
-                'full_name': str,
-                'flag_repertoire': bool,
-                'birthday': {
-                    'flag': bool,
-                    'max_num_child': int,
-                    'max_num_adult': int,
-                },
-                'flag_indiv_cost': bool,
-                'price_type': str,
-        },
-    },
     'special_ticket_price': {
-        str: {
+        str | int: {
             'будни': {
                 int: int,
             },
@@ -53,4 +33,7 @@ context_bot_data: Dict = {
     'texts': {
         'description': str,
     },
+    'studio': {
+        'name': List[List[int]]
+    }
 }

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, List
 from telegram import (
     User,
@@ -6,11 +7,12 @@ from telegram import (
     InlineKeyboardMarkup
 )
 
-from utilities.schemas.ticket import BaseTicketDTO
+from db import ScheduleEvent, TheaterEvent, BaseTicket
 
 context_user_data: Dict = {
     'STATE': str,
     'command': str,
+    'postfix_for_cancel': str,
     'user': User,
     'common_data': {
         'dict_of_shows': dict,
@@ -56,24 +58,28 @@ context_user_data: Dict = {
             'text_emoji': str,
             'flag_indiv_cost': bool,
         },
-        'event_info_for_list_waiting': str,
+        'text_select_event': str,
         # Инфо о выбранном показе пользователя
         'client_data': {
             'name_adult': str,
             'phone': str,
             'data_children': List[List[str]],
         },
-        'chose_price': int,
+        'schedule_event_ids': List[ScheduleEvent.id],
+        'chose_price': Decimal,
+        'choose_schedule_event_id': ScheduleEvent.id,
+        'choose_schedule_event_ids': List[ScheduleEvent.id],
+        'choose_theater_event_id': TheaterEvent.id,
+        'chose_base_ticket_id': BaseTicket.base_ticket_id,
         'type_ticket_price': str,
         'key_option_for_reserve': int,
         'original_input_text': str,
+        'date_for_price': datetime,
+        'ticket_ids': List[int],
     },
     'reserve_admin_data': {
-        'payment_data': {
-            'event_id': str,
-            'chose_ticket': BaseTicketDTO,
-            'ticket_id': int,
-        },
+        'ticket_id': int,
+        'message_id': Message.message_id,
     },
     'month_afisha': int,
 }
