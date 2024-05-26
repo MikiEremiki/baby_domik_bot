@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import Optional, List
 
 from sqlalchemy import ForeignKey, BigInteger, Numeric
@@ -85,9 +85,12 @@ class PersonTicket(BaseModelTimed):
 class BaseTicket(BaseModelTimed):
     __tablename__ = 'base_tickets'
 
-    base_ticket_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    base_ticket_id: Mapped[int] = mapped_column(primary_key=True,
+                                                autoincrement=False)
 
     flag_active: Mapped[bool] = mapped_column(default=False)
+    flag_individual: Mapped[Optional[bool]] = mapped_column(default=False)
+    flag_season_ticket: Mapped[Optional[bool]] = mapped_column(default=False)
     name: Mapped[str]
     cost_main: Mapped[float] = mapped_column(Numeric)
     cost_privilege: Mapped[float] = mapped_column(Numeric)
@@ -99,6 +102,62 @@ class BaseTicket(BaseModelTimed):
     quality_of_adult: Mapped[int]
     quality_of_add_adult: Mapped[int]
     quality_visits: Mapped[int]
+
+    type_events: Mapped[List['TypeEvent']] = relationship(
+        back_populates='base_tickets',
+        secondary='base_tickets_type_events',
+        lazy='selectin')
+    theater_events: Mapped[List['TheaterEvent']] = relationship(
+        back_populates='base_tickets',
+        secondary='base_tickets_theater_events',
+        lazy='selectin')
+    schedule_events: Mapped[List['ScheduleEvent']] = relationship(
+        back_populates='base_tickets',
+        secondary='base_tickets_schedule_events',
+        lazy='selectin')
+
+    def get_price_from_date(self, _date: date = date.today()):
+        flag_set_period_price = False
+        date_gt_start = False
+        date_le_end = False
+        if isinstance(self.period_start_change_price, date):
+            date_gt_start = _date >= self.period_start_change_price
+        if isinstance(self.period_end_change_price, date):
+            date_le_end = _date <= self.period_end_change_price
+
+        check_1 = date_gt_start and date_le_end
+        check_2 = date_gt_start and not date_le_end
+        check_3 = not date_gt_start and date_le_end
+
+        if check_1 or check_2 or check_3:
+            flag_set_period_price = True
+
+        if flag_set_period_price:
+            price_main = self.cost_main_in_period
+            price_privilege = self.cost_privilege_in_period
+        else:
+            price_main = self.cost_main
+            price_privilege = self.cost_privilege
+        return price_main, price_privilege
+
+    def to_dto(self):
+        return {
+            'base_ticket_id': self.base_ticket_id,
+            'flag_active': self.flag_active,
+            'flag_individual': self.flag_individual,
+            'flag_season_ticket': self.flag_season_ticket,
+            'name': self.name,
+            'cost_main': self.cost_main,
+            'cost_privilege': self.cost_privilege,
+            'period_start_change_price': self.period_start_change_price,
+            'period_end_change_price': self.period_end_change_price,
+            'cost_main_in_period': self.cost_main_in_period,
+            'cost_privilege_in_period': self.cost_privilege_in_period,
+            'quality_of_children': self.quality_of_children,
+            'quality_of_adult': self.quality_of_adult,
+            'quality_of_add_adult': self.quality_of_add_adult,
+            'quality_visits': self.quality_visits,
+        }
 
 
 class Ticket(BaseModelTimed):
@@ -135,6 +194,22 @@ class TypeEvent(BaseModel):
     base_price_gift: Mapped[Optional[int]]
     notes: Mapped[Optional[str]]
 
+    schedule_events: Mapped[List['ScheduleEvent']] = relationship(
+        lazy='selectin')
+    base_tickets: Mapped[List['BaseTicket']] = relationship(
+        secondary='base_tickets_type_events',
+        back_populates='type_events',
+        lazy='selectin')
+
+
+class BaseTicketTypeEvent(BaseModelTimed):
+    __tablename__ = 'base_tickets_type_events'
+
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id'), primary_key=True)
+    type_event_id: Mapped[int] = mapped_column(
+        ForeignKey('type_events.id'), primary_key=True)
+
 
 class TheaterEvent(BaseModel):
     __tablename__ = 'theater_events'
@@ -142,9 +217,10 @@ class TheaterEvent(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     flag_premier: Mapped[bool] = mapped_column(default=False)
-    min_age_child: Mapped[int]
+    min_age_child: Mapped[int] = mapped_column(default=0)
     max_age_child: Mapped[Optional[int]]
     show_emoji: Mapped[Optional[str]]
+    duration: Mapped[Optional[time]]
     flag_active_repertoire: Mapped[bool] = mapped_column(default=False)
     flag_active_bd: Mapped[bool] = mapped_column(default=False)
     max_num_child_bd: Mapped[int] = mapped_column(default=8)
@@ -154,6 +230,19 @@ class TheaterEvent(BaseModel):
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
         lazy='selectin')
+    base_tickets: Mapped[List['BaseTicket']] = relationship(
+        secondary='base_tickets_theater_events',
+        back_populates='theater_events',
+        lazy='selectin')
+
+
+class BaseTicketTheaterEvent(BaseModelTimed):
+    __tablename__ = 'base_tickets_theater_events'
+
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id'), primary_key=True)
+    theater_event_id: Mapped[int] = mapped_column(
+        ForeignKey('theater_events.id'), primary_key=True)
 
 
 class ScheduleEvent(BaseModelTimed):
@@ -162,7 +251,8 @@ class ScheduleEvent(BaseModelTimed):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     type_event_id: Mapped[int] = mapped_column(ForeignKey('type_events.id'))
-    theater_events_id: Mapped[int] = mapped_column(ForeignKey('theater_events.id'))
+    theater_events_id: Mapped[int] = mapped_column(
+        ForeignKey('theater_events.id'))
     flag_turn_in_bot: Mapped[bool] = mapped_column(default=False)
     datetime_event: Mapped[datetime]
 
@@ -181,6 +271,19 @@ class ScheduleEvent(BaseModelTimed):
         default=TicketPriceType.NONE)
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
+    base_tickets: Mapped[List['BaseTicket']] = relationship(
+        secondary='base_tickets_schedule_events',
+        back_populates='schedule_events',
+        lazy='selectin')
+
+
+class BaseTicketScheduleEvent(BaseModelTimed):
+    __tablename__ = 'base_tickets_schedule_events'
+
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id'), primary_key=True)
+    schedule_event_id: Mapped[int] = mapped_column(
+        ForeignKey('schedule_events.id'), primary_key=True)
 
 
 class Promotion(BaseModelTimed):
