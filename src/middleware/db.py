@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes, TypeHandler
 
+from yookassa.domain.notification import WebhookNotification
 from db import create_sessionmaker_and_engine
 
 
@@ -20,7 +21,11 @@ def add_middleware_db_handlers(application, config):
     ):
         await context.session.close()
 
-    application.add_handler(TypeHandler(Update, open_session_handler),
-                            group=-100)
-    application.add_handler(TypeHandler(Update, close_session_handler),
-                            group=100)
+    application.add_handlers([
+        TypeHandler(Update, open_session_handler),
+        TypeHandler(WebhookNotification, open_session_handler)
+    ], group=-100)
+    application.add_handlers([
+        TypeHandler(Update, close_session_handler),
+        TypeHandler(WebhookNotification, close_session_handler)
+    ], group=100)
