@@ -6,48 +6,13 @@ from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
 from db import db_postgres
 from db.enum import PriceType, TicketPriceType
 from handlers import init_conv_hl_dialog
-from settings.settings import RESERVE_TIMEOUT
+from settings.settings import RESERVE_TIMEOUT, COMMAND_DICT
 from utilities.schemas.schedule_event import kv_name_attr_schedule_event
 from utilities.schemas.theater_event import kv_name_attr_theater_event
 from utilities.utl_func import add_btn_back_and_cancel, set_back_context
+from utilities.utl_kbd import create_kbd_crud, create_kbd_confirm
 
 support_hl_logger = logging.getLogger('bot.support_hl')
-
-
-def create_keyboard_crud(name: str):
-    button_create = InlineKeyboardButton(text='Добавить',
-                                         callback_data=f'{name}_create')
-    button_update = InlineKeyboardButton(text='Изменить',
-                                         callback_data=f'{name}_update')
-    button_delete = InlineKeyboardButton(text='Удалить',
-                                         callback_data=f'{name}_delete')
-    button_select = InlineKeyboardButton(text='Посмотреть',
-                                         callback_data=f'{name}_select')
-    button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
-                                            add_back_btn=True,
-                                            postfix_for_back='2')
-    keyboard = [
-        [button_create, ],
-        [button_update, ],
-        [button_delete, ],
-        [button_select, ],
-        [*button_cancel, ],
-    ]
-
-    return InlineKeyboardMarkup(keyboard)
-
-
-def create_keyboard_confirm():
-    button_accept = InlineKeyboardButton(text='Подтвердить',
-                                         callback_data='accept')
-    button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
-                                            add_back_btn=False)
-    keyboard = [
-        [button_accept, ],
-        [*button_cancel, ],
-    ]
-
-    return InlineKeyboardMarkup(keyboard)
 
 
 def get_validated_data(string, option):
@@ -95,10 +60,13 @@ def validate_value(value, option):
 async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     init_conv_hl_dialog(update, context)
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
+    button_updates = InlineKeyboardButton(text='Обновление данных',
+                                          callback_data='update_data')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
     keyboard = [
         [button_db, ],
+        [button_updates, ],
         [*button_cancel, ],
     ]
 
@@ -110,7 +78,10 @@ async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    return 1
+    state = 1
+    set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
 
 
 async def choice_db_settings(
@@ -130,8 +101,9 @@ async def choice_db_settings(
                                            callback_data='schedule_event')
     button_promotion = InlineKeyboardButton(text='Акции',
                                             callback_data='promotion')
-    button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
-                                            add_back_btn=False)
+    button_back_and_cancel = add_btn_back_and_cancel(
+        postfix_for_cancel='settings',
+        postfix_for_back='1')
     keyboard = [
         [
             button_base_ticket,
@@ -144,7 +116,7 @@ async def choice_db_settings(
         [
             button_promotion,
         ],
-        [*button_cancel, ],
+        [*button_back_and_cancel, ],
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -155,8 +127,52 @@ async def choice_db_settings(
         reply_markup=reply_markup
     )
 
-    set_back_context(context, 2, text, reply_markup)
-    return 2
+    state = 2
+    set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def get_updates_option(update: Update,
+                             _: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    btn_update_base_ticket_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_BT_DATA'][0],
+        callback_data=COMMAND_DICT['UP_BT_DATA'][0])
+    btn_update_theater_event_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_TE_DATA'][0],
+        callback_data=COMMAND_DICT['UP_TE_DATA'][0])
+    btn_update_schedule_event_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_SE_DATA'][0],
+        callback_data=COMMAND_DICT['UP_SE_DATA'][0])
+    btn_update_special_ticket_price = InlineKeyboardButton(
+        COMMAND_DICT['UP_SPEC_PRICE'][0],
+        callback_data=COMMAND_DICT['UP_SPEC_PRICE'][0])
+    button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
+                                            postfix_for_back='1')
+    keyboard = [
+        [btn_update_base_ticket_data,
+         btn_update_special_ticket_price],
+        [btn_update_schedule_event_data,
+         btn_update_theater_event_data],
+        [*button_cancel, ],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    text = 'Выберите что хотите настроить\n\n'
+    text += (f'{COMMAND_DICT['UP_BT_DATA'][1]}\n'
+             f'{COMMAND_DICT['UP_TE_DATA'][1]}\n'
+             f'{COMMAND_DICT['UP_SE_DATA'][1]}\n'
+             f'{COMMAND_DICT['UP_SPEC_PRICE'][1]}')
+    await query.edit_message_text(
+        text=text,
+        reply_markup=reply_markup
+    )
+
+    return 'updates'
 
 
 async def get_settings(
@@ -166,7 +182,7 @@ async def get_settings(
     query = update.callback_query
     await query.answer()
 
-    reply_markup = create_keyboard_crud(query.data)
+    reply_markup = create_kbd_crud(query.data)
 
     text = 'Выберите что хотите настроить'
     await query.edit_message_text(
@@ -231,7 +247,7 @@ async def theater_event_preview(
             f'{kv_name_attr_theater_event['max_num_child_bd']}=8\n'
             f'{kv_name_attr_theater_event['max_num_adult_bd']}=10\n'
             f'{kv_name_attr_theater_event['flag_indiv_cost']}=Нет\n'
-            f'{kv_name_attr_theater_event['price_type']}=По умолчанию')
+            f'{kv_name_attr_theater_event['price_type']}=По умолчанию/Базовая стоимость/Опции/Индивидуальная\n')
     await query.edit_message_text(text)
 
     return 41
@@ -266,7 +282,7 @@ async def theater_event_check(
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
 
-    reply_markup = create_keyboard_confirm()
+    reply_markup = create_kbd_confirm()
 
     text = update.effective_message.text
     await update.effective_chat.send_message(text, reply_markup=reply_markup)
@@ -282,7 +298,7 @@ async def schedule_event_check(
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
 
-    reply_markup = create_keyboard_confirm()
+    reply_markup = create_kbd_confirm()
 
     text = update.effective_message.text
     await update.effective_chat.send_message(text, reply_markup=reply_markup)
