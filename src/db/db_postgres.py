@@ -96,6 +96,7 @@ async def create_people(
         adult = Adult(phone=phone)
         session.add(adult)
         person.adult = adult
+        await session.flush()
     people_ids.append(adult.person_id)
 
     for item in data_children:
@@ -114,7 +115,7 @@ async def create_people(
         if res:
             person = res[0]
             child = person.child
-            child.age = int(age)
+            child.age = float(age)
         else:
             person = Person(name=name_child, age_type=AgeType.child)
             session.add(person)
@@ -122,6 +123,7 @@ async def create_people(
             child = Child(age=age)
             session.add(child)
             person.child = child
+            await session.flush()
         people_ids.append(child.person_id)
 
     await session.commit()
