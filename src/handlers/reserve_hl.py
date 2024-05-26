@@ -5,37 +5,50 @@ from datetime import datetime
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
-    InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 from telegram.constants import ChatType, ChatAction
 
 from db import db_postgres
+from db.db_postgres import get_schedule_theater_base_tickets
+from db.enum import TicketStatus
 from handlers import init_conv_hl_dialog, check_user_db
+from handlers.email_hl import check_email_and_update_user
 from handlers.sub_hl import (
     request_phone_number,
-    send_and_del_message_to_remove_kb, write_old_all_seat_info,
-    get_chose_ticket_and_price, get_emoji_and_options_for_event,
-    send_breaf_message, remove_button_from_last_message,
-    create_and_send_payment, processing_successful_payment, check_input_text,
+    send_breaf_message, send_filtered_schedule_events,
+    send_message_about_list_waiting,
+    remove_button_from_last_message,
+    create_and_send_payment, processing_successful_payment,
+    get_theater_and_schedule_events_by_month,
 )
 from db.db_googlesheets import (
-    load_clients_data, load_show_data, load_list_show,
-    load_special_ticket_price,
+    load_clients_data, increase_free_and_decrease_nonconfirm_seat,
+    decrease_free_and_increase_nonconfirm_seat,
 )
-from api.googlesheets import (
-    write_data_for_reserve, write_client_list_waiting, get_quality_of_seats,
+from api.googlesheets import write_client_list_waiting, write_client_reserve
+from utilities.utl_check import (
+    check_available_seats, check_available_ticket_by_free_seat,
+    check_entered_command, check_topic, check_input_text, is_skip_ticket
 )
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
-    set_back_context, get_back_context, check_email,
-    get_month_numbers, check_phone_number,
+    set_back_context, check_phone_number,
     create_replay_markup_for_list_of_shows,
-    enum_current_show_by_month, add_text_of_show_and_numerate
+    get_full_name_event, render_text_for_choice_time,
+    get_formatted_date_and_time_of_event,
+    create_event_names_text, get_events_for_time_hl,
+    get_type_event_ids_by_command, get_emoji
+)
+from utilities.utl_kbd import (
+    adjust_kbd,
+    create_kbd_schedule_and_date, create_kbd_schedule,
+    create_kbd_for_time_in_reserve, create_replay_markup,
+    create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio
 )
 from settings.settings import (
-    ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT, OFFER,
-    DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_MONTH_NUMBER_TO_STR
+    ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
@@ -57,99 +70,22 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = init_conv_hl_dialog(update, context)
         await check_user_db(update, context)
 
-    user = context.user_data.setdefault('user', update.effective_user)
-
     if update.effective_message.is_topic_message:
-        thread_id = None
-        if context.user_data['command'] == 'list':
-            thread_id = (context.bot_data['dict_topics_name']
-                         .get('Списки на показы', None))
-        if context.user_data['command'] == 'list_wait':
-            thread_id = (context.bot_data['dict_topics_name']
-                         .get('Лист ожидания', None))
-        if update.effective_message.message_thread_id != thread_id:
-            await update.effective_message.reply_text(
-                'Выполните команду в правильном топике')
+        is_correct_topic = await check_topic(update, context)
+        if not is_correct_topic:
             return ConversationHandler.END
 
+    command = context.user_data['command']
+    postfix_for_cancel = command
+    context.user_data['postfix_for_cancel'] = postfix_for_cancel
+
+    user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
-    message = await send_and_del_message_to_remove_kb(update)
-    thread_id = update.effective_message.message_thread_id
-    await update.effective_chat.send_action(ChatAction.TYPING,
-                                            message_thread_id=thread_id)
-
-    try:
-        (
-            dict_of_shows,
-            dict_of_name_show,
-            dict_of_name_show_flip,
-            dict_of_date_show
-        ) = load_show_data()
-    except ConnectionError or ValueError:
-        reserve_hl_logger.info(
-            f'Для пользователя {user}')
-        reserve_hl_logger.info(
-            f'Обработчик завершился на этапе {state}')
-        await update.effective_chat.send_message(
-            text='К сожалению я сегодня на техническом обслуживании\n'
-                 'Но вы можете забронировать место связавшись напрямую с '
-                 'Администратором:\n'
-                 f'{context.bot_data['admin']['contacts']}',
-            message_thread_id=update.effective_message.message_thread_id
-        )
-        return ConversationHandler.END
-    except TimeoutError:
-        reserve_hl_logger.info(
-            f'Для пользователя {user}')
-        reserve_hl_logger.info(
-            f'Обработчик завершился на этапе {state}')
-        await update.effective_chat.send_message(
-            text='Произошел разрыв соединения, попробуйте еще раз\n'
-                 'Если проблема повторится вы можете оформить заявку '
-                 'напрямую у Администратора:\n'
-                 f'{context.bot_data['admin']['contacts']}',
-            message_thread_id=update.effective_message.message_thread_id
-        )
-        return ConversationHandler.END
-
-    list_of_months = get_month_numbers(dict_of_date_show)
-
-    keyboard = []
-
-    for item in list_of_months:
-        button_tmp = InlineKeyboardButton(
-            text=DICT_CONVERT_MONTH_NUMBER_TO_STR[item],
-            callback_data=str(item)
-        )
-        keyboard.append([button_tmp])
-
-    keyboard.append(add_btn_back_and_cancel(
-        postfix_for_cancel='res',
-        add_back_btn=False
-    ))
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    text = 'Выберите месяц'
-
-    await context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=message.message_id
-    )
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id
-    )
-
-    context.user_data['common_data'][
-        'dict_of_shows'] = dict_of_shows
-    context.user_data['reserve_user_data'][
-        'dict_of_name_show'] = dict_of_name_show
-    context.user_data['reserve_user_data'][
-        'dict_of_name_show_flip'] = dict_of_name_show_flip
-    context.user_data['reserve_user_data'][
-        'dict_of_date_show'] = dict_of_date_show
+    type_event_ids = await get_type_event_ids_by_command(command)
+    reply_markup, text = await send_filtered_schedule_events(update,
+                                                             context,
+                                                             type_event_ids)
 
     state = 'MONTH'
     set_back_context(context, state, text, reply_markup)
@@ -171,42 +107,37 @@ async def choice_show_or_date(
     await query.answer()
     await query.delete_message()
 
-    user = context.user_data['user']
-
-    reserve_hl_logger.info(f'Пользователь начал выбор спектакля:'
-                           f' {user}')
-
-    reserve_user_data = context.user_data['reserve_user_data']
-    dict_of_name_show = reserve_user_data['dict_of_name_show']
-    dict_of_date_show = reserve_user_data['dict_of_date_show']
-
     number_of_month_str = query.data
-    filter_show_id = enum_current_show_by_month(dict_of_date_show,
-                                                number_of_month_str)
 
-    dict_show_data = context.bot_data['dict_show_data']
-    text_age_note = 'Пожалуйста, обратите внимание на рекомендованный возраст\n'
-    if number_of_month_str == '12':
-        text = '<b>Выберите спектакль\n</b>' + text_age_note
-        text = add_text_of_show_and_numerate(text,
-                                             dict_of_name_show,
-                                             filter_show_id,
-                                             dict_show_data)
-        keyboard = []
-        for key, item in dict_of_name_show.items():
-            if item in filter_show_id.keys():
-                button_tmp = InlineKeyboardButton(
-                    text=f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]}',
-                    callback_data=str(item)
-                )
-                if len(keyboard) == 0:
-                    keyboard.append([button_tmp])
-                else:
-                    keyboard[0].append(button_tmp)
+    reserve_hl_logger.info(f'Пользователь выбрал месяц: {number_of_month_str}')
+    reserve_user_data = context.user_data['reserve_user_data']
+    schedule_event_ids = reserve_user_data['schedule_event_ids']
+    schedule_events = await db_postgres.get_schedule_events_by_ids(
+        context.session, schedule_event_ids)
 
+    enum_theater_events, schedule_events_filter_by_month = await (
+        get_theater_and_schedule_events_by_month(context,
+                                                 schedule_events,
+                                                 number_of_month_str)
+    )
+
+    text_legend = (
+        '📍 - Премьера\n'
+        '👶🏼 - Рекомендованный возраст\n'
+        '⏳ - Продолжительность\n'
+        '\n'
+    )
+
+    december = '12'
+    if number_of_month_str == december:
+        text = '<b>Выберите мероприятие\n</b>' + text_legend
+        text = await create_event_names_text(enum_theater_events, text)
+
+        # TODO Сделать клавиатуру без дат, только название
+        keyboard = await create_kbd_schedule(enum_theater_events)
+        keyboard = adjust_kbd(keyboard, 5)
         keyboard.append(add_btn_back_and_cancel(
-            postfix_for_cancel='res',
-            add_back_btn=True,
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
             postfix_for_back='MONTH'
         ))
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -214,18 +145,18 @@ async def choice_show_or_date(
         state = 'SHOW'
         set_back_context(context, state, text, reply_markup)
     else:
-        text = '<b>Выберите спектакль и дату\n</b>' + text_age_note
-        text = add_text_of_show_and_numerate(text,
-                                             dict_of_name_show,
-                                             filter_show_id,
-                                             dict_show_data)
-        reply_markup = create_replay_markup_for_list_of_shows(
-            dict_of_date_show,
-            add_cancel_btn=True,
-            postfix_for_cancel='res',
+        text = '<b>Выберите мероприятие и дату\n</b>' + text_legend
+        text = await create_event_names_text(enum_theater_events, text)
+
+        keyboard = await create_kbd_schedule_and_date(
+            schedule_events_filter_by_month, enum_theater_events)
+        reply_markup = await create_replay_markup(
+            keyboard,
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
             postfix_for_back='MONTH',
-            number_of_month=number_of_month_str,
+            size_row=2
         )
+
         if context.user_data['command'] == 'list_wait':
             state = 'LIST_WAIT'
         else:
@@ -264,18 +195,9 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state TIME
     """
+    # TODO Переписать большую часть функции, содержит устаревший код
     query = update.callback_query
     await query.answer()
-
-    user = context.user_data['user']
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'выбрал',
-            query.data,
-        ]
-    ))
 
     number_of_show = int(query.data)
     reserve_user_data = context.user_data['reserve_user_data']
@@ -289,7 +211,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dict_of_date_show,
         ver=3,
         add_cancel_btn=True,
-        postfix_for_cancel='res',
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back='SHOW',
         number_of_month=number_of_month_str,
         number_of_show=number_of_show,
@@ -309,7 +231,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if event['flag_santa']:
                 flag_santa = True
 
-    text = (f'Вы выбрали спектакль:\n'
+    text = (f'Вы выбрали мероприятие:\n'
             f'<b>{name_of_show}</b>\n'
             f'<i>Выберите удобную дату</i>\n\n')
     if flag_gift:
@@ -356,80 +278,35 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.delete_message()
 
-    user = context.user_data['user']
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'выбрал',
-            query.data,
-        ]
-    ))
+    schedule_events, theater_event = await get_events_for_time_hl(update,
+                                                                  context)
 
-    key_of_name_show, date_show = query.data.split(' | ')
-    key_of_name_show = int(key_of_name_show)
+    check_command_studio = check_entered_command(context, 'studio')
 
-    dict_of_shows: dict = context.user_data['common_data']['dict_of_shows']
-    reserve_user_data = context.user_data['reserve_user_data']
-    dict_of_name_show_flip = reserve_user_data['dict_of_name_show_flip']
-    name_show: str = dict_of_name_show_flip[key_of_name_show]
+    if check_command_studio:
+        keyboard = await create_kbd_for_time_in_studio(schedule_events)
+    else:
+        keyboard = await create_kbd_for_time_in_reserve(schedule_events)
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back='DATE',
+        size_row=1
+    )
 
-    keyboard = []
-
-    # Определение кнопок для inline клавиатуры с исключением вариантов где
-    # свободных мест уже не осталось
-    for key, item in dict_of_shows.items():
-        if item['name_show'] == name_show and item['date_show'] == date_show:
-            show_id = item['show_id']
-            time = item['time_show']
-            qty_child = item['qty_child_free_seat']
-            qty_adult = item['qty_adult_free_seat']
-            if int(qty_child) < 0:
-                qty_child = 0
-            if int(qty_adult) < 0:
-                qty_adult = 0
-            text = time
-            text_emoji = ''
-            if item['flag_gift']:
-                text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
-            if item['flag_christmas_tree']:
-                text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
-            if item['flag_santa']:
-                text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
-            text += text_emoji
-            # TODO вместо key использовать event_id, и кол-во мест на
-            #  следующих этапах доставать из контекста по event_id вместо
-            #  callback_data
-            text += ' | ' + str(qty_child) + ' дет'
-            text += ' | ' + str(qty_adult) + ' взр'
-
-            callback_data = time
-            callback_data += ' | ' + str(key)
-            callback_data += ' | ' + str(qty_child)
-            callback_data += ' | ' + str(qty_adult)
-            button_tmp = InlineKeyboardButton(
-                text=text,
-                callback_data=callback_data
-            )
-            keyboard.append([button_tmp])
-
-    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='DATE'))
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    text = (f'Вы выбрали:\n'
-            f'<b>{name_show}\n'
-            f'{date_show}</b>\n\n')
+    text = await render_text_for_choice_time(theater_event, schedule_events)
     if update.effective_chat.id == ADMIN_GROUP:
-        # Отправка сообщения в админский чат
         text += 'Выберите время'
     else:
-        # Отправка сообщения пользователю
         text += ('<b>Выберите удобное время</b>\n\n'
                  '<i>Вы также можете выбрать вариант с 0 кол-вом мест '
                  'для записи в лист ожидания на данное время</i>\n\n'
-                 'Кол-во свободных мест:\n'
-                 '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️')
+                 'Кол-во свободных мест:\n')
+
+        if check_command_studio:
+            text += '⬇️<i>Время</i> | <i>Детских</i>⬇️'
+        else:
+            text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
 
     await update.effective_chat.send_message(
         text=text,
@@ -437,10 +314,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
-    choose_event_info = reserve_user_data['choose_event_info']
-    choose_event_info['show_id'] = int(show_id)
-    choose_event_info['name_show'] = name_show
-    choose_event_info['date_show'] = date_show
+    schedule_event_ids = [item.id for item in schedule_events]
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data['schedule_event_ids'] = schedule_event_ids
+    reserve_user_data['choose_theater_event_id'] = theater_event.id
 
     if context.user_data.get('command', False) == 'list':
         state = 'LIST'
@@ -470,186 +347,88 @@ async def choice_option_of_reserve(
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
 
-    user = context.user_data['user']
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'выбрал',
-            query.data,
-        ]
-    ))
+    choice_event_id = int(query.data)
+    reserve_hl_logger.info(
+        f'Пользователь выбрал мероприятие: {choice_event_id}')
 
-    time, event_id, qty_child, qty_adult = query.data.split(' | ')
+    base_tickets, schedule_event, theater_event = await get_schedule_theater_base_tickets(
+        context, choice_event_id)
+
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
+
+    text_emoji = await get_emoji(schedule_event)
+    text_select_event = (f'Вы выбрали мероприятие:\n'
+                         f'<b>{full_name}\n'
+                         f'{date_event}\n'
+                         f'{time_event}</b>\n')
+    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+
     reserve_user_data = context.user_data['reserve_user_data']
-    choose_event_info = reserve_user_data['choose_event_info']
-    choose_event_info['time_show'] = time
+    reserve_user_data['text_select_event'] = text_select_event
 
-    payment_data = context.user_data['reserve_admin_data']['payment_data']
-    reserve_hl_logger.info(f'Бронирование: {payment_data}')
-    payment_data['event_id'] = event_id
+    check_command_reserve = check_entered_command(context, 'reserve')
+    only_child = False
+    text = (f'Кол-во свободных мест: '
+            f'<i>'
+            f'{schedule_event.qty_adult_free_seat} взр'
+            f' | '
+            f'{schedule_event.qty_child_free_seat} дет'
+            f'</i>\n')
 
-    dict_of_shows = context.user_data['common_data']['dict_of_shows']
-    event = dict_of_shows[int(event_id)]
-    choose_event_info['event_id'] = int(event_id)
-    option, text_emoji = await get_emoji_and_options_for_event(event)
+    check_command_studio = check_entered_command(context, 'studio')
+    if check_command_studio:
+        only_child = True
+        text = (f'Кол-во свободных мест: '
+                f'<i>'
+                f'{schedule_event.qty_child_free_seat} дет'
+                f'</i>\n')
 
-    choose_event_info['text_emoji'] = text_emoji
-
-    name_show = choose_event_info['name_show']
-    date = choose_event_info['date_show']
-    text_select_show = (f'Вы выбрали спектакль:\n'
-                        f'<b>{name_show}\n'
-                        f'{date}\n'
-                        f'{time}</b>\n'
-                        f'{text_emoji}\n')
-    if ((int(qty_child) == 0 or int(qty_adult) == 0) and
-            context.user_data.get('command', False) == 'reserve'):
+    check_command = check_command_reserve or check_command_studio
+    check_seats = check_available_seats(schedule_event, only_child=only_child)
+    if check_command and not check_seats:
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
-        reserve_hl_logger.info('Мест нет')
-        reserve_hl_logger.info(f'qty_child: {qty_child}')
-        reserve_hl_logger.info(f'qty_adult: {qty_adult}')
+        await send_message_about_list_waiting(update, context)
 
-        text = text_select_show
-        await query.edit_message_text(
-            text=text,
-        )
-
-        reserve_user_data['event_info_for_list_waiting'] = text
-        reply_keyboard = [
-            ['Выбрать другое время'],
-            ['Записаться в лист ожидания'],
-        ]
-        reply_markup = ReplyKeyboardMarkup(
-            reply_keyboard,
-            resize_keyboard=True,
-            one_time_keyboard=True
-        )
-        await update.effective_chat.send_message(
-            text='⬇️Нажмите на одну из двух кнопок ниже, '
-                 'чтобы выбрать другое время '
-                 'или записаться в лист ожидания на эту дату и время⬇️',
-            reply_markup=reply_markup
-        )
         state = 'CHOOSING'
         context.user_data['STATE'] = state
         return state
 
-    await query.edit_message_text(
-        'Проверяю не изменилось ли кол-во свободных мест...')
-    list_of_name_colum = ['qty_child_free_seat',
-                          'qty_adult_free_seat']
-    (qty_child_free_seat_now,
-     qty_adult_free_seat_now
-     ) = get_quality_of_seats(event_id,
-                              list_of_name_colum)
-    await update.effective_chat.send_action(ChatAction.TYPING)
-
-    reserve_hl_logger.info(f'Загрузили данные о доступных билетах')
-    reserve_hl_logger.info(f'Свободных детских: {qty_child_free_seat_now}')
-    reserve_hl_logger.info(f'Свободных взрослых: {qty_adult_free_seat_now}')
-
-    # TODO Загружать список спектаклей из контекста bot_data и сменить
-    #  название dict_of_show на другое
     await query.edit_message_text('Формирую список доступных билетов...')
-    dict_of_shows: dict = load_list_show()
-    special_ticket_price: dict = load_special_ticket_price()
-    show_id = choose_event_info['show_id']
-    flag_indiv_cost = False
-    for key, item in dict_of_shows.items():
-        if key == show_id:
-            flag_indiv_cost = item['flag_indiv_cost']
-            price_type = item['price_type']
-            choose_event_info['flag_indiv_cost'] = flag_indiv_cost
-            choose_event_info['price_type'] = price_type
-            if not option:
-                if price_type == 'Индивид':
-                    option = key
-                else:
-                    option = price_type
-    choose_event_info['option'] = option
 
-    list_of_tickets = context.bot_data['list_of_tickets']
-    text = (f'Кол-во свободных мест: '
-            f'<i>{qty_adult_free_seat_now} взр | '
-            f'{qty_child_free_seat_now} дет</i>\n')
-    text = text_select_show + text
+    text = text_select_event + text
     text += '<b>Выберите подходящий вариант бронирования:</b>\n'
 
-    date_now = datetime.now().date()
-    date_tmp = date.split()[0] + f'.{date_now.year}'
-    date_for_price: datetime = datetime.strptime(date_tmp, f'%d.%m.%Y')
+    base_tickets_filtered = []
+    for i, ticket in enumerate(base_tickets):
+        check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                           ticket,
+                                                           only_child=only_child)
+        if not ticket.flag_active or (check_command and not check_ticket):
+            continue
+        base_tickets_filtered.append(ticket)
 
-    keyboard = []
-    list_btn_of_numbers = []
-    flag_indiv_cost_sep = False
-    for i, ticket in enumerate(list_of_tickets):
-        key = ticket.base_ticket_id
-        quality_of_children = ticket.quality_of_children
-        quality_of_adult = ticket.quality_of_adult
-        quality_of_add_adult = ticket.quality_of_add_adult
-
-        if context.user_data.get('command') == 'reserve':
-            if (
-                    quality_of_children <
-                    quality_of_adult + quality_of_add_adult and
-                    int(qty_child_free_seat_now) >= int(qty_adult_free_seat_now)
-            ):
-                continue
-
-        name = ticket.name
-        ticket.date_show = date_for_price  # Для расчета стоимости в периоде или нет
-        price = ticket.price
-
-        # Если свободных мест меньше, чем требуется для варианта
-        # бронирования, то кнопку с этим вариантом не предлагать
-        flag = True
-        if context.user_data.get('command', False) == 'reserve':
-            if int(quality_of_children) <= int(qty_child_free_seat_now):
-                flag = True
-            else:
-                flag = False
-        if flag:
-            if key // 100 >= 3 and not flag_indiv_cost_sep:
-                text += "__________\n    Варианты со скидками:\n"
-                flag_indiv_cost_sep = True
-
-            if flag_indiv_cost:
-                try:
-                    if event['ticket_price_type'] == '':
-                        if date_for_price.weekday() in range(5):
-                            type_ticket_price = 'будни'
-                        else:
-                            type_ticket_price = 'выходные'
-                    else:
-                        type_ticket_price = event['ticket_price_type']
-                    reserve_user_data['type_ticket_price'] = type_ticket_price
-
-                    price = special_ticket_price[option][type_ticket_price][key]
-                except KeyError:
-                    reserve_hl_logger.error(
-                        f'{key=} - данному билету не назначена индив. цена')
-            text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name} | '
-                     f'{price} руб\n')
-
-            button_tmp = InlineKeyboardButton(
-                text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
-                callback_data=str(key)
-            )
-            list_btn_of_numbers.append(button_tmp)
-
-            # Позволяет управлять кол-вом кнопок в ряду
-            # Максимальное кол-во кнопок в ряду равно 8
-            if (i + 1) % 5 == 0:
-                keyboard.append(list_btn_of_numbers)
-                list_btn_of_numbers = []
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
-
-    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back='TIME'))
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    date_for_price = datetime.today()
+    keyboard, text = await create_kbd_and_text_tickets_for_choice(
+        context,
+        text,
+        base_tickets_filtered,
+        schedule_event,
+        theater_event,
+        date_for_price
+    )
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back='TIME',
+        size_row=5
+    )
 
     text += ('__________\n'
              '<i>Если вы хотите оформить несколько билетов, '
@@ -665,345 +444,101 @@ async def choice_option_of_reserve(
         reply_markup=reply_markup
     )
 
+    reserve_user_data['choose_schedule_event_id'] = schedule_event.id
+    context.user_data['reserve_user_data']['date_for_price'] = date_for_price
+
     state = 'TICKET'
-    if context.user_data.get('command', False) == 'reserve_admin':
-        state = 'TICKET'
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
 
-async def get_ticket(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-):
-    query = update.callback_query
-    await query.answer()
-
-    user = context.user_data['user']
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'выбрал',
-            query.data,
-        ]
-    ))
-
-    try:
-        context.user_data['reserve_user_data'][
-            'key_option_for_reserve'] = int(query.data)
-    except ValueError as e:
-        reserve_hl_logger.error(e)
-        state = 'TIME'
-        text_back, reply_markup = get_back_context(context, state)
-        text = '<i>Произошла ошибка. Выберите время еще раз</i>\n'
-        text += text_back
-        await query.delete_message()
-        await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-        )
-        context.user_data['STATE'] = state
-        return state
-
-    key_option_for_reserve = context.user_data['reserve_user_data'][
-        'key_option_for_reserve']
-    user = context.user_data['user']
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'выбрал',
-            str(key_option_for_reserve),
-        ]
-    ))
-
-    reserve_user_data = context.user_data['reserve_user_data']
-    choose_event_info = reserve_user_data['choose_event_info']
-
-    chose_ticket, price = await get_chose_ticket_and_price(
-        choose_event_info,
-        context,
-        key_option_for_reserve,
-        reserve_user_data
-    )
-
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'выбрал',
-            chose_ticket.name,
-            str(price),
-        ]
-    ))
-
-    # Если пользователь выбрал не стандартный вариант
-    if chose_ticket.flag_individual:
-        text = ('Для оформления данного варианта обратитесь к Администратору:\n'
-                f'{context.bot_data['admin']['contacts']}')
-        await query.edit_message_text(
-            text=text
-        )
-
-        reserve_hl_logger.info(
-            f'Для пользователя {user}')
-        reserve_hl_logger.info(
-            f'Обработчик завершился на этапе {context.user_data['STATE']}')
-        context.user_data['common_data'].clear()
-        context.user_data['reserve_user_data'].clear()
-
-        state = ConversationHandler.END
-        context.user_data['STATE'] = state
-        return state
-
-    # Для всех стандартных вариантов
-    payment_data = context.user_data['reserve_admin_data']['payment_data']
-    payment_data['chose_ticket'] = chose_ticket
-
-    text = f'<i>{OFFER}</i>'
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                        postfix_for_back='TICKET')]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    inline_message = await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton('Принимаю')]],
-        one_time_keyboard=True,
-        resize_keyboard=True
-    )
-    message = await update.effective_chat.send_message(
-        text='Если вы согласны нажмите внизу экрана\n'
-             '⬇️⬇️⬇️️<b>Принимаю</b>⬇️⬇️⬇️️',
-        reply_markup=reply_markup
-    )
-
-    reserve_user_data['chose_price'] = price
-    reserve_user_data['message_id'] = inline_message.message_id
-    reserve_user_data['accept_message_id'] = message.message_id
-
-    state = 'OFFER'
-    context.user_data['STATE'] = state
-    return state
-
-
-async def get_offer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.effective_chat.delete_message(
-        context.user_data['reserve_user_data']['accept_message_id']
-    )
-    await context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id'],
-    )
-
-    text = 'Напишите email, на него вам будет направлен чек после оплаты\n\n'
-    email = await db_postgres.get_email(context.session,
-                                        update.effective_user.id)
-    if email:
-        text += f'Последний введенный email:\n<code>{email}</code>'
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                        postfix_for_back='TICKET')]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    message = await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup
-    )
-
-    context.user_data['reserve_user_data']['message_id'] = message.message_id
-
-    state = 'EMAIL'
-    context.user_data['STATE'] = state
-    return state
-
-
 async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.edit_message_reply_markup(
-        chat_id=update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
-    )
-    email = update.effective_message.text
-    if not check_email(email):
-        state = 'EMAIL'
-        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res',
-                                            postfix_for_back=state)]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        message = await update.effective_chat.send_message(
-            text=f'Вы написали: {email}\n'
-                 f'Пожалуйста проверьте и введите почту еще раз.',
-            reply_markup=reply_markup
-        )
-        context.user_data['reserve_user_data'][
-            'message_id'] = message.message_id
-        context.user_data['STATE'] = state
-        return state
+    query = update.callback_query
+    if not query:
+        await check_email_and_update_user(update, context)
+    else:
+        await query.answer()
+        await query.delete_message()
 
-    await db_postgres.update_user(
-        session=context.session,
-        user_id=update.effective_user.id,
-        email=email
-    )
-
-    user = context.user_data['user']
     reserve_user_data = context.user_data['reserve_user_data']
-    choose_event_info = reserve_user_data['choose_event_info']
-    dict_show_data = context.bot_data['dict_show_data']
-    show_data = dict_show_data[choose_event_info['show_id']]
-    name_show = show_data['full_name']
-    date = choose_event_info['date_show']
-    time = choose_event_info['time_show']
-    text_emoji = choose_event_info['text_emoji']
-    payment_data = context.user_data['reserve_admin_data']['payment_data']
-    chose_ticket = payment_data['chose_ticket']
-    price = reserve_user_data['chose_price']
 
-    text_select_show = (f'Вы выбрали спектакль:\n'
-                        f'<b>{name_show}\n'
-                        f'{date}\n'
-                        f'{time}</b>\n'
-                        f'{text_emoji}\n')
-    text = text_select_show + (f'Вариант бронирования:\n'
-                               f'{chose_ticket.name} '
-                               f'{price}руб\n')
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    price = reserve_user_data['chose_price']
+    text_select_event = reserve_user_data['text_select_event']
+
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+    text = text_select_event + (f'Вариант бронирования:\n'
+                                f'{chose_base_ticket.name} '
+                                f'{int(price)}руб\n')
 
     context.user_data['common_data']['text_for_notification_massage'] = text
 
-    await update.effective_chat.send_message(
-        text=text,
-    )
+    await update.effective_chat.send_message(text=text)
     message = await update.effective_chat.send_message(
         'Проверяю наличие свободных мест...')
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    payment_data = context.user_data['reserve_admin_data']['payment_data']
-    event_id = payment_data['event_id']
-    # Обновляем кол-во доступных мест
-    list_of_name_colum = [
-        'qty_child_free_seat',
-        'qty_child_nonconfirm_seat',
-        'qty_adult_free_seat',
-        'qty_adult_nonconfirm_seat'
-    ]
-    (qty_child_free_seat_now,
-     qty_child_nonconfirm_seat_now,
-     qty_adult_free_seat_now,
-     qty_adult_nonconfirm_seat_now
-     ) = get_quality_of_seats(event_id,
-                              list_of_name_colum)
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, schedule_event_id)
+    context.session.add(schedule_event)
+    await context.session.refresh(schedule_event)
 
-    # Проверка доступности нужного кол-ва мест, за время взаимодействия с
-    # ботом, могли изменить базу в ручную или забронировать места раньше
-    if (int(qty_child_free_seat_now) <
-            int(chose_ticket.quality_of_children)):
-        reserve_hl_logger.info(": ".join(
-            [
-                'Мест не достаточно',
-                'Кол-во доступных мест д',
-                qty_child_free_seat_now,
-                'в',
-                qty_adult_free_seat_now,
-                'Для',
-                f'{name_show} {date} в {time}',
-            ]
-        ))
+    command_to_check = 'reserve'
+    check_command = check_entered_command(context, command_to_check)
+    if check_command:
+        check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                           chose_base_ticket)
+    command_to_check = 'studio'
+    check_command = check_entered_command(context, command_to_check)
+    if check_command:
+        check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                           chose_base_ticket,
+                                                           only_child=True)
 
+    if check_command and not check_ticket:
         await message.delete()
-        reserve_user_data['event_info_for_list_waiting'] = text_select_show
-        text = ('К сожалению места уже забронировали и свободных мест для\n'
-                f'{name_show}\n'
-                f'{date} в {time}\n'
-                f'{text_emoji}\n'
-                f' Осталось: '
-                f'<i>{qty_adult_free_seat_now} взр</i> '
-                f'| <i>{qty_child_free_seat_now} дет</i>\n\n'
-                '⬇️Нажмите на одну из двух кнопок ниже, '
-                'чтобы выбрать другое время '
-                'или записаться в лист ожидания на эту дату и время⬇️')
-        reply_keyboard = [
-            ['Выбрать другое время'],
-            ['Записаться в лист ожидания'],
-        ]
-        reply_markup = ReplyKeyboardMarkup(
-            reply_keyboard,
-            resize_keyboard=True,
-            one_time_keyboard=True
-        )
-        await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        await send_message_about_list_waiting(update, context)
+
         state = 'CHOOSING'
         context.user_data['STATE'] = state
         return state
-    else:
-        reserve_hl_logger.info(": ".join(
-            [
-                'Пользователь',
-                f'{user}',
-                'получил разрешение на бронирование'
-            ]
-        ))
-        qty_child_free_seat_new = int(
-            qty_child_free_seat_now) - int(
-            chose_ticket.quality_of_children)
-        qty_child_nonconfirm_seat_new = int(
-            qty_child_nonconfirm_seat_now) + int(
-            chose_ticket.quality_of_children)
-        qty_adult_free_seat_new = int(
-            qty_adult_free_seat_now) - int(
-            chose_ticket.quality_of_adult +
-            chose_ticket.quality_of_add_adult)
-        qty_adult_nonconfirm_seat_new = int(
-            qty_adult_nonconfirm_seat_now) + int(
-            chose_ticket.quality_of_adult +
-            chose_ticket.quality_of_add_adult)
 
-        numbers = [
-            qty_child_free_seat_new,
-            qty_child_nonconfirm_seat_new,
-            qty_adult_free_seat_new,
-            qty_adult_nonconfirm_seat_new
-        ]
+    reserve_hl_logger.info('Получено разрешение на бронирование')
 
-        try:
-            write_data_for_reserve(event_id, numbers)
-            await db_postgres.update_schedule_event(
-                context.session,
-                int(event_id),
-                qty_child_free_seat=qty_child_free_seat_new,
-                qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
-                qty_adult_free_seat=qty_adult_free_seat_new,
-                qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
-            )
-        except TimeoutError:
-            reserve_hl_logger.error(": ".join(
-                [
-                    f'Для пользователя {user} бронирование в '
-                    f'авто-режиме не сработало',
-                    'event_id для обновления',
-                    event_id,
-                ]
-            ))
+    result = await decrease_free_and_increase_nonconfirm_seat(context,
+                                                              schedule_event_id,
+                                                              chose_base_ticket_id)
 
-            keyboard = [add_btn_back_and_cancel('res')]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+    if not result:
+        state = 'TICKET'
 
-            text = ('К сожалению произошла непредвиденная ошибка\n'
-                    'Нажмите "Назад" и выберите время повторно.\n'
-                    'Если ошибка повторяется свяжитесь с Администратором:\n'
-                    f'{context.bot_data['admin']['contacts']}')
-            await message.edit_text(
-                text=text,
-                reply_markup=reply_markup
-            )
-            state = 'ORDER'
-            context.user_data['STATE'] = state
-            return state
+        reserve_hl_logger.error(f'Бронирование в авто-режиме не сработало')
+
+        keyboard = [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            postfix_for_back='TIME')]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        text = ('К сожалению произошла непредвиденная ошибка\n'
+                'Нажмите "Назад" и выберите время повторно.\n'
+                'Если ошибка повторяется свяжитесь с Администратором:\n'
+                f'{context.bot_data['admin']['contacts']}')
+        await message.edit_text(
+            text=text,
+            reply_markup=reply_markup
+        )
+        context.user_data['STATE'] = state
+        return state
 
     await message.delete()
     await send_breaf_message(update, context)
+
+    # Нужно на случай отмены пользователем
+    choose_schedule_event_ids = [schedule_event_id]
+    reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
 
     state = 'FORMA'
     context.user_data['STATE'] = state
@@ -1014,46 +549,47 @@ async def get_name_adult(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
+    reserve_user_data = context.user_data['reserve_user_data']
+
     await context.bot.edit_message_reply_markup(
         update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
+        message_id=reserve_user_data['message_id']
     )
     text = update.effective_message.text
 
-    postfix = 'res|'
-    if context.user_data.get('command', False) == 'reserve_admin':
-        postfix = 'res_adm|'
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel=postfix,
-                                        add_back_btn=False)]
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.effective_chat.send_message(
         text='<b>Напишите номер телефона</b>',
         reply_markup=reply_markup
     )
 
-    context.user_data['reserve_user_data']['client_data']['name_adult'] = text
-    context.user_data['reserve_user_data']['message_id'] = message.message_id
+    reserve_user_data['client_data']['name_adult'] = text
+    reserve_user_data['message_id'] = message.message_id
     state = 'PHONE'
     context.user_data['STATE'] = state
     return state
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reserve_user_data = context.user_data['reserve_user_data']
+
     await context.bot.edit_message_reply_markup(
         update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
+        message_id=reserve_user_data['message_id']
     )
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
-        await request_phone_number(update, phone)
+        message = await request_phone_number(update, context)
+        reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
 
-    postfix = 'res|'
-    if context.user_data.get('command', False) == 'reserve_admin':
-        postfix = 'res_adm|'
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel=postfix,
-                                        add_back_btn=False)]
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.effective_chat.send_message(
         text="""<b>Напишите, имя и сколько полных лет ребенку</b>
@@ -1079,9 +615,11 @@ async def get_name_children(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
+    reserve_user_data = context.user_data['reserve_user_data']
+
     await context.bot.edit_message_reply_markup(
         update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
+        message_id=reserve_user_data['message_id']
     )
     await update.effective_chat.send_action(ChatAction.TYPING)
 
@@ -1097,32 +635,41 @@ async def get_name_children(
         ' - Не используйте дополнительные слова и пунктуацию, '
         'кроме тех, что указаны в примерах</i>'
     )
-    postfix = 'res|'
-    if context.user_data.get('command', False) == 'reserve_admin':
-        postfix = 'res_adm|'
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel=postfix,
-                                        add_back_btn=False)]
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=False)]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    result = await check_input_text(update, wrong_input_data_text)
+    result = await check_input_text(update.effective_message.text)
     if not result:
+        keyboard = [add_btn_back_and_cancel(
+            context.user_data['postfix_for_cancel'] + '|',
+            add_back_btn=False)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        message = await update.effective_chat.send_message(
+            text=wrong_input_data_text,
+            reply_markup=reply_markup,
+        )
+        reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
     reserve_hl_logger.info('Проверка пройдена успешно')
 
     processed_data_on_children = [item.split() for item in text.split('\n')]
 
     if not isinstance(processed_data_on_children[0], list):
-        await update.effective_chat.send_message(
+        message = await update.effective_chat.send_message(
             text=f'Вы ввели:\n{text}' + wrong_input_data_text,
             reply_markup=reply_markup
         )
+        reserve_user_data['message_id'] = message.message_id
         state = 'CHILDREN'
         context.user_data['STATE'] = state
         return state
 
     try:
-        payment_data = context.user_data['reserve_admin_data']['payment_data']
-        chose_ticket = payment_data['chose_ticket']
+        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+        chose_base_ticket = await db_postgres.get_base_ticket(
+            context.session, chose_base_ticket_id)
     except KeyError as e:
         reserve_hl_logger.error(e)
         await update.effective_chat.send_message(
@@ -1135,16 +682,17 @@ async def get_name_children(
         context.user_data['STATE'] = state
         return state
 
-    if len(processed_data_on_children) != chose_ticket.quality_of_children:
-        await update.effective_chat.send_message(
+    if len(processed_data_on_children) != chose_base_ticket.quality_of_children:
+        message = await update.effective_chat.send_message(
             text=f'Кол-во детей, которое определено: '
                  f'{len(processed_data_on_children)}\n'
                  f'Кол-во детей, согласно выбранному билету: '
-                 f'{chose_ticket.quality_of_children}\n'
+                 f'{chose_base_ticket.quality_of_children}\n'
                  f'Повторите ввод еще раз, проверьте что каждый ребенок на '
                  f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3',
             reply_markup=reply_markup
         )
+        reserve_user_data['message_id'] = message.message_id
         state = 'CHILDREN'
         context.user_data['STATE'] = state
         return state
@@ -1152,7 +700,7 @@ async def get_name_children(
     reserve_user_data = context.user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']
     client_data['data_children'] = processed_data_on_children
-    reserve_user_data['original_input_text'] = text
+    reserve_user_data['original_input_text'] = update.effective_message.text
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -1164,30 +712,50 @@ async def get_name_children(
     ))
     reserve_hl_logger.info(client_data)
 
-    if context.user_data.get('command', False) == 'reserve_admin':
+    command = context.user_data.get('command', False)
+    if '_admin' in command:
+        studio = context.bot_data['studio']
+        schedule_event_id = reserve_user_data['choose_schedule_event_id']
+        price = reserve_user_data['chose_price']
+        choose_schedule_event_ids = [schedule_event_id]
+
+        ticket_ids = []
+        if chose_base_ticket.flag_season_ticket:
+            for v in studio['Театральный интенсив']:
+                if schedule_event_id in v:
+                    choose_schedule_event_ids = v
+        for event_id in choose_schedule_event_ids:
+            ticket = await db_postgres.create_ticket(
+                context.session,
+                base_ticket_id=chose_base_ticket.base_ticket_id,
+                price=price,
+                schedule_event_id=event_id,
+                status=TicketStatus.CREATED,
+            )
+            ticket_ids.append(ticket.id)
+
+        reserve_user_data['ticket_ids'] = ticket_ids
+        reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
+
+        people_ids = await db_postgres.create_people(context.session,
+                                                     update.effective_user.id,
+                                                     client_data)
+        for ticket_id in ticket_ids:
+            await db_postgres.attach_user_and_people_to_ticket(context.session,
+                                                               ticket_id,
+                                                               update.effective_user.id,
+                                                               people_ids)
+        write_client_reserve(context,
+                             update.effective_chat.id,
+                             chose_base_ticket,
+                             TicketStatus.APPROVED.value)
+
         await processing_successful_payment(update, context)
+
         state = ConversationHandler.END
     else:
         await create_and_send_payment(update, context)
         state = 'PAID'
-    context.user_data['STATE'] = state
-    return state
-
-
-async def check_and_send_buy_info(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-):
-    """
-    Проверяет кол-во доступных мест, для выбранного варианта пользователем и
-    отправляет сообщение об оплате.
-    Возвращает state PAID, но если проверка не пройдена, то state ORDER
-
-    :return: str
-    """
-    await create_and_send_payment(update, context)
-
-    state = 'PAID'
     context.user_data['STATE'] = state
     return state
 
@@ -1246,14 +814,13 @@ async def conversation_timeout(
             f'{context.bot_data['admin']['contacts']}'
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
-        payment_data = context.user_data['reserve_admin_data']['payment_data']
-        chose_ticket = payment_data['chose_ticket']
-        event_id = payment_data['event_id']
+        reserve_user_data = context.user_data['reserve_user_data']
+        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+        schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
-        await write_old_all_seat_info(user,
-                                      event_id,
-                                      chose_ticket,
-                                      context)
+        await increase_free_and_decrease_nonconfirm_seat(context,
+                                                         schedule_event_id,
+                                                         chose_base_ticket_id)
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(
@@ -1288,15 +855,27 @@ async def send_clients_data(
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
 
-    reserve_user_data = context.user_data['reserve_user_data']
-    choose_event_info = reserve_user_data['choose_event_info']
-    name = choose_event_info['name_show']
-    date = choose_event_info['date_show']
-    time, event_id, qty_child, qty_adult = query.data.split(' | ')
+    event_id = int(query.data)
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, event_id)
+    theater_event = await db_postgres.get_theater_event(
+        context.session, schedule_event.theater_events_id)
+
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
 
     clients_data, name_column = load_clients_data(event_id)
     text = f'#Показ #event_id_{event_id}\n'
-    text += f'Список людей для\n{name}\n{date}\n{time}\nКол-во посетителей: '
+    text += (f'Список людей на\n'
+             f'{full_name}\n'
+             f'{date_event}\n'
+             f'{time_event}\n'
+             f'Кол-во посетителей: ')
     qty_child = 0
     qty_adult = 0
     for item in clients_data:
@@ -1305,6 +884,10 @@ async def send_clients_data(
             qty_adult += int(item[name_column['qty_adult']])
     text += f"д={qty_child}|в={qty_adult}"
     for i, item in enumerate(clients_data):
+        ticket_status = item[name_column['ticket_status']]
+        if is_skip_ticket(ticket_status):
+            continue
+
         text += '\n__________\n'
         text += str(i + 1) + '| '
         text += '<b>' + item[name_column['callback_name']] + '</b>'
@@ -1321,6 +904,9 @@ async def send_clients_data(
         if name != '':
             text += '\nСпособ брони: '
             text += name
+        if ticket_status != '':
+            text += '\nСтатус билета: '
+            text += ticket_status
         try:
             notes = item[name_column['notes']]
             if notes != '':
@@ -1353,15 +939,18 @@ async def get_phone_for_waiting(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
+    reserve_user_data = context.user_data['reserve_user_data']
+
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
-        await request_phone_number(update, phone)
+        message = await request_phone_number(update, context)
+        reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
 
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['client_data']['phone'] = phone
-    text = reserve_user_data['event_info_for_list_waiting'] + '+7' + phone
+    text = reserve_user_data['text_select_event'] + '+7' + phone
 
     user = context.user_data['user']
     thread_id = (context.bot_data['dict_topics_name']
