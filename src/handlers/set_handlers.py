@@ -5,17 +5,15 @@ from telegram.ext import (
 )
 
 import custom_filters
-from handlers.webhook_hl import WebhookHandler
 from handlers import main_hl
+from handlers.sub_hl import update_admin_info, update_bd_price
+from handlers.webhook_hl import WebhookHandler
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
-from handlers.sub_hl import (
-    update_ticket_data, update_show_data, update_admin_info, update_bd_price,
-    update_special_ticket_price
-)
 from conv_hl import (
     reserve_conv_hl, reserve_admin_conv_hl, list_wait_conv_hl, birthday_conv_hl,
-    birthday_paid_conv_hl, afisha_conv_hl, support_conv_hl
+    birthday_paid_conv_hl, afisha_conv_hl, support_conv_hl,
+    migration_admin_conv_hl, studio_conv_hl,
 )
 from middleware import add_middleware_glob_on_off, add_middleware_db_handlers
 from utilities.utl_func import (
@@ -24,7 +22,7 @@ from utilities.utl_func import (
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic, update_config,
 )
-from settings.settings import ADMIN_ID, COMMAND_DICT
+from settings.settings import COMMAND_DICT
 
 set_handlers_logger = logging.getLogger('bot.set_handlers')
 
@@ -38,11 +36,14 @@ def set_handlers(application, config):
         CommandHandler('reset', main_hl.reset),
         CommandHandler('send', main_hl.send_approve_msg),
         CommandHandler('echo', echo),
+        CommandHandler('refunded', main_hl.refund),
     ])
 
     application.add_handlers([
         CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-reserve'),
         CallbackQueryHandler(main_hl.reject_reserve, '^reject-reserve'),
+        CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-studio'),
+        CallbackQueryHandler(main_hl.reject_reserve, '^reject-studio'),
         CallbackQueryHandler(main_hl.confirm_birthday, '^confirm-birthday'),
         CallbackQueryHandler(main_hl.reject_birthday, '^reject-birthday'),
     ])
@@ -55,10 +56,12 @@ def set_handlers(application, config):
         birthday_paid_conv_hl,
         afisha_conv_hl,
         support_conv_hl,
+        migration_admin_conv_hl,
+        studio_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
-    filter_admin = filters.User(ADMIN_ID)
+    filter_admin = custom_filters.filter_admin
     application.add_handlers([
         CommandHandler('clean_ud', clean_ud, filter_admin),
         CommandHandler('print_ud', print_ud, filter_admin),
@@ -67,18 +70,11 @@ def set_handlers(application, config):
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
-        CommandHandler(COMMAND_DICT['TOPIC_START'][0], create_or_connect_topic,
+        CommandHandler(COMMAND_DICT['TOPIC'][0], create_or_connect_topic,
                        filter_admin),
         CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0], main_hl.global_on_off,
                        filter_admin),
-        CommandHandler(COMMAND_DICT['UP_T_DATA'][0], update_ticket_data,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['UP_S_DATA'][0], update_show_data,
-                       filter_admin),
         CommandHandler(COMMAND_DICT['UP_BD_PRICE'][0], update_bd_price,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['UP_SPEC_PRICE'][0],
-                       update_special_ticket_price,
                        filter_admin),
         CommandHandler(COMMAND_DICT['ADM_INFO'][0],
                        update_admin_info,
