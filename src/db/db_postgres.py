@@ -1,47 +1,57 @@
-from sqlalchemy import select, exists
+from datetime import date, datetime
+from typing import Collection, List
+
+from sqlalchemy import select, func, DATE
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
-                ScheduleEvent, BaseTicket, Promotion)
+                ScheduleEvent, BaseTicket, Promotion, TypeEvent)
 from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
-
-
-async def add_people_to_ticket(
-        session: AsyncSession,
-        ticket_id,
-        people_ids
-):
-    ticket = await session.get(Ticket, ticket_id)
-    for person_id in people_ids:
-        person = await session.get(Person, person_id)
-        ticket.people.append(person)
-    await session.commit()
-    return ticket
-
-
-async def add_user_to_ticket(session: AsyncSession, ticket_id, user_id):
-    ticket = await session.get(Ticket, ticket_id)
-    user = await session.get(User, user_id)
-    ticket.users = user
-    await session.commit()
-    return ticket
 
 
 async def attach_user_and_people_to_ticket(
         session: AsyncSession,
         ticket_id,
         user_id,
-        people
+        people_ids
 ):
-    await add_people_to_ticket(session, ticket_id, people)
-    await add_user_to_ticket(session, ticket_id, user_id)
+    result = await (session.execute(
+        select(Ticket)
+        .where(Ticket.id == ticket_id)
+        .options(selectinload(Ticket.people))
+    ))
+    ticket = result.scalar_one()
+    for person_id in people_ids:
+        person = await session.get(Person, person_id)
+        if person:
+            ticket.people.append(person)
+
+    user = await session.get(User, user_id)
+    ticket.user = user
+    await session.commit()
 
 
-async def update_base_tickets(session: AsyncSession, tickets):
+async def update_base_tickets_from_googlesheets(session: AsyncSession, tickets):
     for _ticket in tickets:
-        # ticket = await session.get(BaseTicket, _ticket.base_ticket_id)
         dto_model = _ticket.to_dto()
         await session.merge(BaseTicket(**dto_model))
+    await session.commit()
+
+
+async def update_theater_events_from_googlesheets(
+        session: AsyncSession, theater_events):
+    for _event in theater_events:
+        dto_model = _event.to_dto()
+        await session.merge(TheaterEvent(**dto_model))
+    await session.commit()
+
+
+async def update_schedule_events_from_googlesheets(
+        session: AsyncSession, schedule_events):
+    for _event in schedule_events:
+        dto_model = _event.to_dto()
+        await session.merge(ScheduleEvent(**dto_model))
     await session.commit()
 
 
@@ -58,16 +68,60 @@ async def create_people(
         user_id,
         client_data,
 ):
+    session.autoflush = False
+
     people_ids = []
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    adult = await create_adult(session, user_id, name_adult, phone)
+    user = await session.get(User, user_id)
+    query = (
+        select(Person)
+        .where(
+            Person.name == name_adult,
+            Person.age_type == AgeType.adult,
+            Person.user_id == user_id,
+        )
+    )
+    res = await session.execute(query)
+    res = res.scalars().all()
+    if res:
+        person = res[0]
+        adult = person.adult
+        adult.phone = phone
+    else:
+        person = Person(name=name_adult, age_type=AgeType.adult)
+        session.add(person)
+        user.people.append(person)
+        adult = Adult(phone=phone)
+        session.add(adult)
+        person.adult = adult
     people_ids.append(adult.person_id)
+
     for item in data_children:
         name_child = item[0]
         age = item[1].replace(',', '.')
-        child = await create_child(session, user_id, name_child, age)
+        query = (
+            select(Person)
+            .where(
+                Person.name == name_child,
+                Person.age_type == AgeType.child,
+                Person.user_id == user_id,
+            )
+        )
+        res = await session.execute(query)
+        res = res.scalars().all()
+        if res:
+            person = res[0]
+            child = person.child
+            child.age = int(age)
+        else:
+            person = Person(name=name_child, age_type=AgeType.child)
+            session.add(person)
+            user.people.append(person)
+            child = Child(age=age)
+            session.add(child)
+            person.child = child
         people_ids.append(child.person_id)
 
     await session.commit()
@@ -194,11 +248,32 @@ async def create_ticket(
     return ticket
 
 
+async def create_type_event(
+        session: AsyncSession,
+        name,
+        name_alias,
+        base_price_gift=None,
+        notes=None,
+        type_event_id=None,
+):
+    type_event = TypeEvent(
+        id=type_event_id,
+        name=name,
+        name_alias=name_alias,
+        base_price_gift=base_price_gift,
+        notes=notes,
+    )
+    session.add(type_event)
+    await session.commit()
+    return type_event
+
+
 async def create_theater_event(
         session: AsyncSession,
         name,
-        min_age_child,
+        min_age_child=0,
         show_emoji='',
+        duration=None,
         max_age_child=0,
         flag_premier=False,
         flag_active_repertoire=False,
@@ -214,6 +289,7 @@ async def create_theater_event(
         name=name,
         min_age_child=min_age_child,
         show_emoji=show_emoji,
+        duration=duration,
         max_age_child=max_age_child,
         flag_premier=flag_premier,
         flag_active_repertoire=flag_active_repertoire,
@@ -225,7 +301,7 @@ async def create_theater_event(
     )
     session.add(theater_event)
     await session.commit()
-    return theater_event.id
+    return theater_event
 
 
 async def create_schedule_event(
@@ -265,7 +341,7 @@ async def create_schedule_event(
     )
     session.add(schedule_event)
     await session.commit()
-    return schedule_event.id
+    return schedule_event
 
 
 async def create_promotion(
@@ -305,63 +381,176 @@ async def create_promotion(
     return promo
 
 
-async def get_user(session: AsyncSession, user_id: int):
-    query = select(User).where(User.user_id == user_id)
-    result = await session.execute(query)
-    user = result.all()
-
-    if user:
-        return user
-    else:
-        return None
-
-async def get_persons(session: AsyncSession, user_id: int):
-    query = select(Person).where(exists().where(Person.user_id == user_id))
-    result = await session.execute(query)
-    persons = result.all()
-
-    if persons:
-        return persons
-    else:
-        return None
+async def get_user(session: AsyncSession,
+                   user_id: int):
+    return await session.get(User, user_id)
 
 
-async def get_base_ticket(session: AsyncSession, base_ticket_id: int):
+async def get_persons(session: AsyncSession,
+                      user_id: int):
+    return await session.get(Person, user_id)
+
+
+async def get_base_ticket(session: AsyncSession,
+                          base_ticket_id: int):
     return await session.get(BaseTicket, base_ticket_id)
 
 
-async def get_ticket(session: AsyncSession, ticket_id: int):
+async def get_ticket(session: AsyncSession,
+                     ticket_id: int):
     return await session.get(Ticket, ticket_id)
 
 
-async def get_theater_event(session: AsyncSession, theater_event_id: int):
+async def get_type_event(session: AsyncSession,
+                            type_event_id: int):
+    return await session.get(TypeEvent, type_event_id)
+
+
+async def get_theater_event(session: AsyncSession,
+                            theater_event_id: int):
     return await session.get(TheaterEvent, theater_event_id)
 
 
-async def get_schedule_event(session: AsyncSession, schedule_event_id: int):
+async def get_schedule_event(session: AsyncSession,
+                             schedule_event_id: int):
     return await session.get(ScheduleEvent, schedule_event_id)
 
 
-async def get_promotion(session: AsyncSession, promotion_id: int):
+async def get_users_by_ids(session: AsyncSession,
+                           user_id: Collection[int]):
+    query = select(User).where(
+        User.user_id.in_(user_id))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_persons_by_ids(session: AsyncSession,
+                             user_id: Collection[int]):
+    query = select(Person).where(
+        Person.user_id.in_(user_id))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_base_tickets_by_ids(session: AsyncSession,
+                                  base_ticket_id: Collection[int]):
+    query = select(BaseTicket).where(
+        BaseTicket.base_ticket_id.in_(base_ticket_id))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_tickets_by_ids(session: AsyncSession,
+                             ticket_id: Collection[int]):
+    query = select(Ticket).where(
+        Ticket.id.in_(ticket_id))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_theater_events_by_ids(session: AsyncSession,
+                                    theater_event_id: Collection[int]):
+    query = select(TheaterEvent).where(
+        TheaterEvent.id.in_(theater_event_id))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_schedule_events_by_ids(session: AsyncSession,
+                                     schedule_event_id: Collection[int]):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.id.in_(schedule_event_id)
+    ).order_by(ScheduleEvent.datetime_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_promotion(session: AsyncSession,
+                        promotion_id: int):
     return await session.get(ScheduleEvent, promotion_id)
+
+
+async def get_all_base_tickets(session: AsyncSession):
+    query = select(BaseTicket).order_by(BaseTicket.base_ticket_id)
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
 async def get_all_theater_events(session: AsyncSession):
     query = select(TheaterEvent)
     result = await session.execute(query)
-    return result.all()
+    return result.scalars().all()
 
 
 async def get_all_schedule_events(session: AsyncSession):
     query = select(ScheduleEvent)
     result = await session.execute(query)
-    return result.all()
+    return result.scalars().all()
 
 
 async def get_all_promotions(session: AsyncSession):
     query = select(Promotion)
     result = await session.execute(query)
-    return result.all()
+    return result.scalars().all()
+
+
+async def get_base_tickets_by_event_or_all(
+        schedule_event,
+        theater_event,
+        type_event,
+        session
+):
+    if schedule_event.base_tickets:
+        base_tickets = schedule_event.base_tickets
+    elif theater_event.base_tickets:
+        base_tickets = theater_event.base_tickets
+    elif type_event.base_tickets:
+        base_tickets = type_event.base_tickets
+    else:
+        base_tickets = await get_all_base_tickets(session)
+        sorted(base_tickets, key=lambda x: x.base_ticket_id)
+    base_tickets = sorted(base_tickets, key=lambda x: x.base_ticket_id)
+    return base_tickets
+
+
+async def get_schedule_events_by_type(
+        session: AsyncSession, type_event_id: List[int]):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.type_event_id.in_(type_event_id))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_schedule_events_by_type_actual(
+        session: AsyncSession, type_event_id: List[int]):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.type_event_id.in_(type_event_id),
+        ScheduleEvent.datetime_event >= datetime.now()
+    ).order_by(ScheduleEvent.datetime_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_actual_schedule_events_by_date(
+        session: AsyncSession, date_event: date):
+    query = select(ScheduleEvent).where(
+        func.cast(ScheduleEvent.datetime_event, DATE) == date_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_schedule_theater_base_tickets(context, choice_event_id):
+    schedule_event = await get_schedule_event(context.session,
+                                              choice_event_id)
+    theater_event = await get_theater_event(context.session,
+                                            schedule_event.theater_events_id)
+    type_event = await get_type_event(context.session,
+                                      schedule_event.type_event_id)
+    base_tickets = await get_base_tickets_by_event_or_all(schedule_event,
+                                                          theater_event,
+                                                          type_event,
+                                                          context.session)
+    return base_tickets, schedule_event, theater_event
 
 
 async def update_user(
@@ -398,6 +587,18 @@ async def update_ticket(
         setattr(ticket, key, value)
     await session.commit()
     return ticket
+
+
+async def update_type_event(
+        session: AsyncSession,
+        type_event_id,
+        **kwargs
+):
+    type_event = await session.get(TheaterEvent, type_event_id)
+    for key, value in kwargs.items():
+        setattr(type_event, key, value)
+    await session.commit()
+    return type_event
 
 
 async def update_theater_event(
