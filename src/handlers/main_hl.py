@@ -6,19 +6,19 @@ from telegram.constants import ChatType
 from telegram.error import BadRequest
 
 from db import db_postgres
+from db.enum import TicketStatus
 from handlers import check_user_db
-from handlers.sub_hl import (
-    write_old_main_seat_info, write_old_all_seat_info, remove_inline_button)
+from handlers.sub_hl import remove_inline_button
+from db.db_googlesheets import decrease_nonconfirm_seat, increase_free_seat
 from settings.settings import (
     COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
 )
-from api.googlesheets import (
-    get_quality_of_seats, write_data_for_reserve, set_approve_order
-)
+from api.googlesheets import set_approve_order, update_ticket_in_gspread
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
-    clean_context_on_end_handler, utilites_logger
+    clean_context_on_end_handler, utilites_logger, cancel_common
 )
+from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -56,6 +56,64 @@ async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Подтверждение успешно отправлено')
 
 
+async def refund(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ticket_id = int(context.args[0])
+    ticket = await db_postgres.get_ticket(context.session, ticket_id)
+    schedule_event_id = ticket.schedule_event_id
+    base_ticket_id = ticket.base_ticket_id
+
+    ticket_status = TicketStatus.REFUNDED
+    update_ticket_in_gspread(ticket_id, ticket_status.value)
+    await db_postgres.update_ticket(context.session,
+                                    ticket_id,
+                                    status=ticket_status)
+    await increase_free_seat(context,
+                             schedule_event_id,
+                             base_ticket_id)
+
+    if bool(update.message.reply_to_message):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Билет возвращен',
+            reply_to_message_id=update.message.reply_to_message.message_id,
+            message_thread_id=update.message.message_thread_id
+        )
+    else:
+        await update.effective_message.reply_text(
+            text='Билет возвращен',
+            message_thread_id=update.message.message_thread_id
+        )
+
+
+async def migration(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ticket_id = int(context.args[0])
+    ticket = await db_postgres.get_ticket(context.session, ticket_id)
+    schedule_event_id = ticket.schedule_event_id
+    base_ticket_id = ticket.base_ticket_id
+
+    ticket_status = TicketStatus.MIGRATED
+    update_ticket_in_gspread(ticket_id, ticket_status.value)
+    await db_postgres.update_ticket(context.session,
+                                    ticket_id,
+                                    status=ticket_status)
+    await increase_free_seat(context,
+                             schedule_event_id,
+                             base_ticket_id)
+
+    if bool(update.message.reply_to_message):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Билет возвращен',
+            reply_to_message_id=update.message.reply_to_message.message_id,
+            message_thread_id=update.message.message_thread_id
+        )
+    else:
+        await update.effective_message.reply_text(
+            text='Билет возвращен',
+            message_thread_id=update.message.message_thread_id
+        )
+
+
 async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Отправляет оповещение о подтверждении в бронировании, удаляет сообщение
@@ -73,91 +131,40 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = user_data['user']
 
     try:
-        payment_data = user_data['reserve_admin_data']['payment_data']
-        event_id = payment_data['event_id']
-        chose_ticket = payment_data['chose_ticket']
+        reserve_user_data = context.user_data['reserve_user_data']
+        schedule_event_id = reserve_user_data['choose_schedule_event_id']
+        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+        ticket_ids = reserve_user_data['ticket_ids']
 
-        # Обновляем кол-во доступных мест
-        list_of_name_colum = [
-            'qty_child_nonconfirm_seat',
-            'qty_adult_nonconfirm_seat'
-        ]
-        try:
-            (qty_child_nonconfirm_seat_now,
-             qty_adult_nonconfirm_seat_now
-             ) = get_quality_of_seats(event_id,
-                                      list_of_name_colum)
-            main_handlers_logger.info('Загружаем кол-во мест')
+        await decrease_nonconfirm_seat(update,
+                                       context,
+                                       schedule_event_id,
+                                       chose_base_ticket_id)
+        for ticket_id in ticket_ids:
+            update_ticket_in_gspread(ticket_id, TicketStatus.APPROVED.value)
 
-            qty_child_nonconfirm_seat_new = int(
-                qty_child_nonconfirm_seat_now) - int(chose_ticket.quality_of_children)
-            qty_adult_nonconfirm_seat_new = int(
-                qty_adult_nonconfirm_seat_now) - int(chose_ticket.quality_of_adult +
-                                                     chose_ticket.quality_of_add_adult)
+        text = (f'\n\nПользователю @{user.username} {user.full_name} '
+                f'Только списаны неподтвержденные места')
 
-            numbers = [
-                qty_child_nonconfirm_seat_new,
-                qty_adult_nonconfirm_seat_new
-            ]
-            write_data_for_reserve(event_id, numbers, 2)
-            await db_postgres.update_schedule_event(
-                context.session,
-                int(event_id),
-                qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
-                qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
-            )
-            await query.edit_message_text(
-                text=f'Пользователю @{user.username} {user.full_name} '
-                     f'списаны неподтвержденные места'
-            )
-
-            main_handlers_logger.info(": ".join(
-                [
-                    'Для пользователя',
-                    f'{user}',
-                    'event_id для обновления',
-                    event_id,
-                ]
-            ))
-        except TimeoutError:
-            await update.effective_chat.send_message(
-                text=f'Для пользователя @{user.username} {user.full_name} '
-                     f'подтверждение в авто-режиме не сработало\n'
-                     f'Номер строки для обновления:\n{event_id}'
-            )
-            main_handlers_logger.error(TimeoutError)
-            main_handlers_logger.error(": ".join(
-                [
-                    f'Для пользователя {user} подтверждение в '
-                    f'авто-режиме не сработало',
-                    'event_id для обновления',
-                    event_id,
-                ]
-            ))
-        except ConnectionError:
-            await query.edit_message_text(
-                text=f'Пользователю @{user.username} {user.full_name} '
-                     f'не списаны неподтвержденные места\n'
-                     f'Номер строки для обновления: {event_id}\n'
-                     f'user_id {user.id}'
-            )
-
-        await query.edit_message_text(
-            text=f'Пользователю @{user.username} {user.full_name} '
-                 f'отправляем сообщение о подтверждении бронирования'
-                 f'user_id {user.id}'
+        message = await update.effective_chat.send_message(
+            text=text,
+            reply_to_message_id=query.message.message_id,
+            message_thread_id=query.message.message_thread_id
         )
+        text = (f'Пользователю @{user.username} {user.full_name} '
+                f'отправляем сообщение о подтверждении бронирования'
+                f'user_id {user.id}')
+        await message.edit_text(text)
+
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
 
         await send_approve_message(chat_id, context)
 
-        await query.edit_message_text(
+        await message.edit_text(
             text=f'Пользователю @{user.username} {user.full_name} '
                  f'подтверждена бронь'
         )
-
-        # TODO Добавить галочку подтверждения в клиентскую базу
 
         # Сообщение уже было удалено самим пользователем
         try:
@@ -183,7 +190,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_approve_message(chat_id, context):
     text = (
-        'Ваша бронь подтверждена, ждем вас на спектакле.\n'
+        'Ваша бронь подтверждена, ждем вас на мероприятии.\n'
         'Адрес: Малая Покровская, д18, 2 этаж\n\n'
         '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
         '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
@@ -218,30 +225,39 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
+    ticket_ids = user_data['reserve_user_data']['ticket_ids']
 
     try:
-        payment_data = user_data['reserve_admin_data']['payment_data']
-        event_id = payment_data['event_id']
-        chose_ticket = payment_data['chose_ticket']
+        ticket_status = TicketStatus.REJECTED
+        await write_to_return_seats_for_sale(context, status=ticket_status)
+        for ticket_id in ticket_ids:
+            update_ticket_in_gspread(ticket_id, ticket_status.value)
+            await db_postgres.update_ticket(context.session,
+                                            ticket_id,
+                                            status=ticket_status)
 
-        await write_old_all_seat_info(user,
-                                      event_id,
-                                      chose_ticket,
-                                      context)
-
-        await query.edit_message_text(
+        message = await update.effective_chat.send_message(
             text=f'Пользователю @{user.username} {user.full_name} '
-                 f'отклонена бронь'
+                 f'отправляем сообщение об отклонении бронирования'
+                 f'user_id {user.id}',
+            reply_to_message_id=query.message.message_id,
+            message_thread_id=query.message.message_thread_id
         )
 
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
+
         await context.bot.send_message(
             text='Ваша бронь отклонена.\n'
                  'Для решения данного вопроса, пожалуйста, '
                  'напишите в ЛС или позвоните Администратору:\n'
                  f'{context.bot_data['admin']['contacts']}',
             chat_id=chat_id,
+        )
+
+        await message.edit_text(
+            text=f'Пользователю @{user.username} {user.full_name} '
+                 f'отклонена бронь'
         )
 
         # Сообщение уже было удалено самим пользователем
@@ -255,14 +271,6 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f'Cообщение {message_id}, которое должно быть удалено'
             )
 
-        main_handlers_logger.info(": ".join(
-            [
-                'Для пользователя',
-                f'{user}',
-                'event_id для обновления',
-                event_id,
-            ]
-        ))
     except BadRequest:
         main_handlers_logger.info(": ".join(
             [
@@ -462,18 +470,33 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup,
         )
         try:
-            await context.bot.delete_message(
-                update.effective_chat.id,
-                context.user_data['reserve_user_data']['accept_message_id']
-            )
+            message_id = context.user_data['reserve_user_data'].get(
+                'accept_message_id', False)
+            if message_id:
+                await context.bot.delete_message(
+                    update.effective_chat.id,
+                    message_id
+                )
         except BadRequest as e:
             main_handlers_logger.error(e)
 
     else:
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        try:
+            await query.edit_message_text(
+                text=text,
+                reply_markup=reply_markup,
+            )
+        except BadRequest as e:
+            main_handlers_logger.error(e)
+            try:
+                await query.delete_message()
+            except BadRequest as e:
+                main_handlers_logger.error(e)
+            await update.effective_chat.send_message(
+                text=text,
+                reply_markup=reply_markup,
+                message_thread_id=query.message.message_thread_id
+            )
     context.user_data['STATE'] = state
     return state
 
@@ -492,27 +515,32 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_text = 'Вы выбрали отмену\n'
     use_command_text = 'Используйте команды:\n'
     reserve_text = (f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
-    f'резервирования свободных мест на спектакль\n')
-    reserve_admin_text = (f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
-    f'записи без подтверждения\n')
+                    f'резервирования свободных мест на мероприятие\n')
+    reserve_admin_text = (
+        f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
+        f'записи без подтверждения\n')
+    studio_text = (f'/{COMMAND_DICT['STUDIO'][0]} - для повторного '
+                   f'резервирования свободных мест на мероприятие\n')
+    studio_admin_text = (
+        f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
+        f'записи без подтверждения\n')
     bd_order_text = (f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
-    f'отправки заявки на проведение Дня рождения\n')
+                     f'отправки заявки на проведение Дня рождения\n')
     bd_paid_text = (f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
-    f'запуска процедуры внесения предоплаты, если ваша заявка '
-    f'была одобрена\n')
+                    f'запуска процедуры внесения предоплаты, если ваша заявка '
+                    f'была одобрена\n')
 
     explanation_text = ('\nОзнакомится более подробно с театром можно по '
                         'ссылкам:\n')
     description = context.bot_data['texts']['description']
+
+    text = first_text
     match data:
-        case 'res':
-            await query.delete_message()
-            await update.effective_chat.send_message(
-                text=first_text + use_command_text + reserve_text +
-                     explanation_text + description,
-                message_thread_id=query.message.message_thread_id,
-                reply_markup=ReplyKeyboardRemove()
-            )
+        case 'reserve':
+            text += (use_command_text + reserve_text + explanation_text +
+                     description)
+            await cancel_common(update, text)
+
             if context.user_data['STATE'] == 'OFFER':
                 await context.bot.delete_message(
                     update.effective_chat.id,
@@ -520,44 +548,45 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
             if '|' in query.data:
-                payment_data = context.user_data['reserve_admin_data']['payment_data']
-                chose_ticket = payment_data['chose_ticket']
-                event_id = payment_data['event_id']
-                ticket_id = payment_data.get('ticket_id')
-
-                await write_old_all_seat_info(user, event_id, chose_ticket, context)
-                if ticket_id:
-                    await db_postgres.del_ticket(context.session, ticket_id)
-        case 'bd':
-            await query.delete_message()
-            await update.effective_chat.send_message(
-                text=first_text + use_command_text + bd_order_text +
-                     bd_paid_text,
-                message_thread_id=query.message.message_thread_id
-            )
-        case 'res_adm':
-            await query.delete_message()
-            await update.effective_chat.send_message(
-                text=first_text + use_command_text + reserve_text +
-                     reserve_admin_text,
-                message_thread_id=query.message.message_thread_id
-            )
+                await cancel_payment(context)
+        case 'reserve_admin':
+            text += (use_command_text + reserve_text +
+                     reserve_admin_text)
+            await cancel_common(update, text)
 
             if '|' in query.data:
-                payment_data = context.user_data['reserve_admin_data']['payment_data']
-                chose_ticket = payment_data['chose_ticket']
-                event_id = payment_data['event_id']
-                ticket_id = payment_data.get('ticket_id')
+                status = TicketStatus.CANCELED
+                await write_to_return_seats_for_sale(context, status=status)
+        case 'studio':
+            text += (use_command_text + studio_text + explanation_text +
+                     description)
+            await cancel_common(update, text)
 
-                await write_old_main_seat_info(user, event_id, chose_ticket, context)
-                if ticket_id:
-                    await db_postgres.del_ticket(context.session, ticket_id)
+            if context.user_data['STATE'] == 'OFFER':
+                await context.bot.delete_message(
+                    update.effective_chat.id,
+                    context.user_data['reserve_user_data']['accept_message_id']
+                )
+
+            if '|' in query.data:
+                await cancel_payment(context)
+        case 'studio_admin':
+            text += (use_command_text + studio_text + studio_admin_text)
+            await cancel_common(update, text)
+
+            if '|' in query.data:
+                await cancel_payment(context)
+        case 'bd':
+            text += (use_command_text + bd_order_text + bd_paid_text)
+            await cancel_common(update, text)
         case 'settings':
-            await query.delete_message()
-            await update.effective_chat.send_message(
-                text=first_text,
-                message_thread_id=query.message.message_thread_id
-            )
+            await cancel_common(update, text)
+        case 'migration_admin':
+            await cancel_common(update, text)
+        case 'list':
+            await cancel_common(update, text)
+        case 'list_wait':
+            await cancel_common(update, text)
 
     try:
         main_handlers_logger.info(f'Для пользователя {user}')
@@ -567,6 +596,20 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
     await clean_context_on_end_handler(main_handlers_logger, context)
     return ConversationHandler.END
+
+
+async def cancel_payment(context):
+    reserve_user_data = context.user_data['reserve_user_data']
+    ticket_ids = reserve_user_data.get('ticket_ids', None)
+
+    ticket_status = TicketStatus.CANCELED
+    await write_to_return_seats_for_sale(context, status=ticket_status)
+    if ticket_ids:
+        for ticket_id in ticket_ids:
+            update_ticket_in_gspread(ticket_id, ticket_status.value)
+            await db_postgres.update_ticket(context.session,
+                                            ticket_id,
+                                            status=ticket_status)
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
