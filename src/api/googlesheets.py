@@ -8,9 +8,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from telegram.ext import ContextTypes
 
+from db import BaseTicket
+from db.enum import TicketStatus
 from settings.config_loader import parse_settings
 from settings.settings import RANGE_NAME
-from utilities.schemas.ticket import BaseTicketDTO
 
 config = parse_settings()
 SPREADSHEET_ID = {}
@@ -114,8 +115,8 @@ def get_column_info(name_sheet):
     return dict_column_name, len(data_column_name[0])
 
 
-def write_data_for_reserve(
-        event_id: str,
+def write_data_reserve(
+        event_id,
         numbers: List[int],
         option: int = 1
 ) -> None:
@@ -124,13 +125,15 @@ def write_data_for_reserve(
 
         values = get_values(
             SPREADSHEET_ID['Домик'],
-            f'{RANGE_NAME['База спектаклей']}'
+            f'{RANGE_NAME['База спектаклей']}',
+            value_render_option='UNFORMATTED_VALUE'
         )
 
         if not values:
             googlesheets_logger.info('No data found')
             raise ValueError
 
+        row_event = 0
         for i, row in enumerate(values):
             if event_id == row[dict_column_name['event_id']]:
                 row_event = i + 1
@@ -221,14 +224,18 @@ def write_data_for_reserve(
         googlesheets_logger.error(err)
 
 
-def write_client(
-        client: dict,
-        event_id: str,
-        ticket: BaseTicketDTO,
-        price: int,
-) -> Optional[int]:
-    # TODO Переписать функцию, чтобы принимала весь контекст целиком и внутри
-    #  вытаскивать нужные значения
+def write_client_reserve(
+        context: ContextTypes.DEFAULT_TYPE,
+        chat_id: int,
+        base_ticket: BaseTicket,
+        ticket_status = TicketStatus.CREATED.value,
+) -> Optional[List[int]]:
+    reserve_user_data = context.user_data['reserve_user_data']
+    chose_price = reserve_user_data['chose_price']
+    client_data: dict = reserve_user_data['client_data']
+    ticket_ids = reserve_user_data['ticket_ids']
+    event_ids = reserve_user_data['choose_schedule_event_ids']
+
     try:
         values_column = get_values(
             SPREADSHEET_ID['Домик'],
@@ -242,45 +249,49 @@ def write_client(
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
-        values: List[Any] = [[]]
+        values: List[Any] = []
 
-        record_id = int(values_column[-1][0]) + 1
-        values[0].append(record_id)
-        # TODO Добавить запись user_id
-        for key, item in client.items():
-            if key == 'data_children':
-                values[0].append(' | '.join([i[0] for i in item]))
-                values[0].append('')
-                values[0].append(' | '.join([i[1] for i in item]))
-            else:
-                values[0].append(item)
+        for i, event_id in enumerate(event_ids):
+            values.append([])
+            values[i].append(ticket_ids[i])
+            values[i].append(chat_id)
+            for key, item in client_data.items():
+                if key == 'data_children':
+                    values[i].append(' | '.join([i[0] for i in item]))
+                    values[i].append('')
+                    values[i].append(' | '.join([i[1] for i in item]))
+                else:
+                    values[i].append(item)
 
-        # Спектакль
-        values[0].append(event_id)
-        for j in range(4):
-            values[0].append(
-                f'=VLOOKUP('
-                f'INDIRECT("R"&ROW()&"C"&MATCH("event_id";$2:$2;0);FALSE);'
-                f'INDIRECT("\'Расписание\'!R1C1:C"&MATCH('
-                f'INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);FALSE);'
-                f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
-                f'0)'
-            )
-        values[0].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
+            # Спектакль
+            values[i].append(event_id)
+            for j in range(5):
+                values[i].append(
+                    f'=VLOOKUP('
+                    f'INDIRECT("R"&ROW()&"C"&MATCH("event_id";$2:$2;0);FALSE);'
+                    f'INDIRECT("\'Расписание\'!R1C1:C"&MATCH('
+                    f'INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);FALSE);'
+                    f'MATCH(INDIRECT("R2C"&COLUMN();FALSE);\'Расписание\'!$2:$2;0);'
+                    f'0)'
+                )
+            values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
-        # add ticket info
-        values[0].append(ticket.base_ticket_id)
-        values[0].append(ticket.name)
-        values[0].append(price)
-        values[0].append(ticket.quality_of_children)
-        values[0].append(ticket.quality_of_adult +
-                         ticket.quality_of_add_adult)
+            # add ticket info
+            values[i].append(base_ticket.base_ticket_id)
+            values[i].append(base_ticket.name)
+            values[i].append(int(chose_price))
+            values[i].append(base_ticket.quality_of_children)
+            values[i].append(base_ticket.quality_of_adult +
+                             base_ticket.quality_of_add_adult)
 
-        values[0].append(False)
-        values[0].append(False)
-        values[0].append(False)
-        values[0].append('')
-        values[0].append('=iferror(SPLIT(L1916;" "))')
+            (flag_exclude,
+             flag_exclude_place_sum,
+             flag_transfer) = get_flags_by_ticket_status(ticket_status)
+
+            values[i].append(flag_exclude)
+            values[i].append(flag_transfer)
+            values[i].append(flag_exclude_place_sum)
+            values[i].append(ticket_status)
 
         googlesheets_logger.info(values)
 
@@ -300,10 +311,110 @@ def write_client(
                                    response_value_render_option,
                                    value_range_body)
 
-        return record_id
     except HttpError as err:
         googlesheets_logger.error(err)
-        # TODO добавить возврат списка с нулевым значением
+
+
+def update_ticket_in_gspread(
+        ticket_id: int,
+        ticket_status: str,
+        option: int = 1
+) -> None:
+    try:
+        dict_column_name, len_column = get_column_info('База клиентов_')
+
+        values = get_values(
+            SPREADSHEET_ID['Домик'],
+            f'{RANGE_NAME['База клиентов']}',
+            value_render_option='UNFORMATTED_VALUE'
+        )
+
+        if not values:
+            googlesheets_logger.info('No data found')
+            raise ValueError
+
+        row_event = 0
+        for i, row in enumerate(values):
+            if ticket_id == row[dict_column_name['ticket_id']]:
+                row_event = i + 1
+        if row_event <= 1:
+            raise ValueError('Билет удален из гугл-таблицы')
+
+        sheet = get_service_sacc(SCOPES).spreadsheets()
+        value_input_option = 'RAW'
+        major_dimension = 'ROWS'
+        data = []
+
+        (flag_exclude,
+         flag_exclude_place_sum,
+         flag_transfer) = get_flags_by_ticket_status(ticket_status)
+
+        match option:
+            case 1:
+                col1 = dict_column_name['flag_exclude'] + 1
+                col2 = dict_column_name['ticket_status'] + 1
+                range_sheet = (f'{RANGE_NAME['База клиентов_']}'
+                               f'R{row_event}C{col1}:R{row_event}C{col2}')
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[
+                        flag_exclude,
+                        flag_transfer,
+                        flag_exclude_place_sum,
+                        ticket_status,
+                    ]]
+                })
+
+        value_range_body = {
+            'valueInputOption': value_input_option,
+            'data': data
+        }
+        request = sheet.values().batchUpdate(
+            spreadsheetId=SPREADSHEET_ID['Домик'],
+            body=value_range_body
+        )
+        try:
+            responses = request.execute()
+            googlesheets_logger.info(
+                f'spreadsheetId: {responses['spreadsheetId']}')
+            for response in responses['responses']:
+                googlesheets_logger.info(': '.join(
+                    [
+                        'updatedRange: ',
+                        response['updatedRange']
+                    ]
+                ))
+        except TimeoutError:
+            googlesheets_logger.error(value_range_body)
+
+    except HttpError as err:
+        googlesheets_logger.error(err)
+    except ValueError as e:
+        googlesheets_logger.error(e)
+
+
+def get_flags_by_ticket_status(ticket_status):
+    flag_exclude = False
+    flag_transfer = False
+    flag_exclude_place_sum = False
+    if ticket_status == TicketStatus.CANCELED.value:
+        flag_exclude = True
+        flag_transfer = False
+        flag_exclude_place_sum = True
+    if ticket_status == TicketStatus.REJECTED.value:
+        flag_exclude = True
+        flag_transfer = False
+        flag_exclude_place_sum = True
+    if ticket_status == TicketStatus.REFUNDED.value:
+        flag_exclude = True
+        flag_transfer = True
+        flag_exclude_place_sum = True
+    if ticket_status == TicketStatus.MIGRATED.value:
+        flag_exclude = True
+        flag_transfer = True
+        flag_exclude_place_sum = True
+    return flag_exclude, flag_exclude_place_sum, flag_transfer
 
 
 def write_client_bd(
@@ -393,10 +504,10 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values[0].append(context.user_data['user'].username)
         values[0].append(context.user_data['user'].full_name)
         reserve_user_data = context.user_data['reserve_user_data']
-        choose_event_info = reserve_user_data['choose_event_info']
+        schedule_event_id = reserve_user_data['choose_schedule_event_id']
         values[0].append(reserve_user_data['client_data']['phone'])
         values[0].append(date)
-        values[0].append(choose_event_info['event_id'])
+        values[0].append(schedule_event_id)
         for i in range(5):
             values[0].append(
                 f'=VLOOKUP('
