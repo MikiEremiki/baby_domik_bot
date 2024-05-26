@@ -8,7 +8,7 @@ class TicketStatus(enum.Enum):
     REJECTED = 'Отклонен'
     REFUNDED = 'Возвращен'
     TRANSFERRED = 'Передан'
-    POSTPONED = 'Перенесен'
+    MIGRATED = 'Перенесен'
     CANCELED = 'Отменен'
 
 
