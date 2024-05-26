@@ -115,7 +115,7 @@ async def create_people(
         if res:
             person = res[0]
             child = person.child
-            child.age = int(age)
+            child.age = float(age)
         else:
             person = Person(name=name_child, age_type=AgeType.child)
             session.add(person)
