@@ -9,7 +9,8 @@ pydantic
 pydantic_core
 pydantic-settings
 pytest
-python-telegram-bot[ext]~=20.8
+python-telegram-bot[ext]
+pytz
 PyYAML
 requests
 sqlalchemy
@@ -17,5 +18,5 @@ typing_extensions
 yookassa~=3.0.1
 uvicorn
 fastapi
-faststream==0.5.0rc0
+faststream
 nats-py
