@@ -1,9 +1,12 @@
+import datetime
 import logging
 import os
 import re
+from datetime import time
 from pprint import pformat
-from typing import List, Union, Optional
+from typing import List, Sequence
 
+import pytz
 from telegram import (
     Update,
     BotCommand, BotCommandScopeDefault,
@@ -12,21 +15,18 @@ from telegram import (
     InlineKeyboardButton, InlineKeyboardMarkup,
     constants,
 )
-from telegram.ext import (
-    ContextTypes,
-    ExtBot,
-    Application,
-)
+from telegram.constants import ChatAction
+from telegram.ext import ContextTypes, ExtBot
 from telegram.helpers import escape_markdown
 from telegram.error import BadRequest
 
-from db import db_googlesheets, db_postgres
-import handlers
+from db import ScheduleEvent, db_postgres, TheaterEvent
 from settings import parse_settings
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
-    LIST_TOPICS_NAME, DICT_OF_EMOJI_FOR_BUTTON, SUPPORT_DATA
+    LIST_TOPICS_NAME, SUPPORT_DATA,
+    DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, DICT_OF_EMOJI_FOR_BUTTON
 )
 from utilities.schemas.context_user_data import context_user_data
 
@@ -63,14 +63,16 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f'{update.effective_user.full_name} '
         f'Вызвал команду echo'
     )
-    text = ('chat_id = <code>' +
-            str(update.effective_chat.id) + '</code>\n' +
-            'user_id = <code>' +
-            str(update.effective_user.id) + '</code>\n' +
-            'is_forum = <code>' +
-            str(update.effective_chat.is_forum) + '</code>\n' +
-            'message_thread_id = <code>' +
-            str(update.message.message_thread_id) + '</code>')
+    chat_id = str(update.effective_chat.id)
+    user_id = str(update.effective_user.id)
+    is_forum = str(update.effective_chat.is_forum)
+    message_thread_id = str(update.message.message_thread_id)
+    topic_name = str(update.message.reply_to_message.forum_topic_created.name)
+    text = ('chat_id = <code>' + chat_id + '</code>\n' +
+            'user_id = <code>' + user_id + '</code>\n' +
+            'is_forum = <code>' + is_forum + '</code>\n' +
+            'message_thread_id = <code>' + message_thread_id + '</code>\n' +
+            'topic_name = <code>' + topic_name + '</code>\n')
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
@@ -111,6 +113,8 @@ async def set_menu(bot: ExtBot) -> None:
                    COMMAND_DICT['START'][1]),
         BotCommand(COMMAND_DICT['RESERVE'][0],
                    COMMAND_DICT['RESERVE'][1]),
+        BotCommand(COMMAND_DICT['STUDIO'][0],
+                   COMMAND_DICT['STUDIO'][1]),
         BotCommand(COMMAND_DICT['BD_ORDER'][0],
                    COMMAND_DICT['BD_ORDER'][1]),
     ]
@@ -124,24 +128,22 @@ async def set_menu(bot: ExtBot) -> None:
     admin_commands = sub_admin_commands + [
         BotCommand(COMMAND_DICT['RESERVE_ADMIN'][0],
                    COMMAND_DICT['RESERVE_ADMIN'][1]),
+        BotCommand(COMMAND_DICT['MIGRATION_ADMIN'][0],
+                   COMMAND_DICT['MIGRATION_ADMIN'][1]),
         BotCommand(COMMAND_DICT['AFISHA'][0],
                    COMMAND_DICT['AFISHA'][1]),
         BotCommand(COMMAND_DICT['ADM_INFO'][0],
                    COMMAND_DICT['ADM_INFO'][1]),
-        BotCommand(COMMAND_DICT['UP_T_DATA'][0],
-                   COMMAND_DICT['UP_T_DATA'][1]),
-        BotCommand(COMMAND_DICT['UP_S_DATA'][0],
-                   COMMAND_DICT['UP_S_DATA'][1]),
         BotCommand(COMMAND_DICT['UP_BD_PRICE'][0],
                    COMMAND_DICT['UP_BD_PRICE'][1]),
-        BotCommand(COMMAND_DICT['UP_SPEC_PRICE'][0],
-                   COMMAND_DICT['UP_SPEC_PRICE'][1]),
         BotCommand(COMMAND_DICT['CB_TW'][0],
                    COMMAND_DICT['CB_TW'][1]),
+        BotCommand(COMMAND_DICT['SETTINGS'][0],
+                   COMMAND_DICT['SETTINGS'][1]),
     ]
     backend_commands = [
-        BotCommand(COMMAND_DICT['TOPIC_START'][0],
-                   COMMAND_DICT['TOPIC_START'][1]),
+        BotCommand(COMMAND_DICT['TOPIC'][0],
+                   COMMAND_DICT['TOPIC'][1]),
         BotCommand(COMMAND_DICT['TOPIC_DEL'][0],
                    COMMAND_DICT['TOPIC_DEL'][1]),
         BotCommand(COMMAND_DICT['LOG'][0],
@@ -190,7 +192,7 @@ async def set_description(bot: ExtBot) -> None:
     await bot.set_my_description(
         'Вас приветствует Бот Бэби-театра «Домик»!\n\n'
         'Этот бот поможет вам:\n\n'
-        '- забронировать билет на спектакль\n'
+        '- забронировать билет на мероприятие\n'
         '- приобрести абонемент\n'
         '- посмотреть наличие свободных мест\n'
         '- записаться в лист ожидания\n'
@@ -202,18 +204,6 @@ async def set_description(bot: ExtBot) -> None:
         'Канал в телеграм\n'
         't.me/babytheater')
     utilites_logger.info('Описания для бота установлены')
-
-
-def set_ticket_data(application: Application):
-    application.bot_data['list_of_tickets'] = db_googlesheets.load_base_tickets()
-
-
-def set_show_data(application: Application):
-    application.bot_data['dict_show_data'] = db_googlesheets.load_list_show()
-
-
-def set_special_ticket_price(application: Application):
-    application.bot_data['special_ticket_price'] = db_googlesheets.load_special_ticket_price()
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -232,50 +222,9 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 i += 1
 
 
-async def send_message_to_admin(
-        chat_id: Union[int, str],
-        text: str,
-        message_id: Optional[Union[int, str]],
-        context: ContextTypes.DEFAULT_TYPE,
-        thread_id: Optional[int]
-) -> None:
-    try:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_to_message_id=message_id,
-            message_thread_id=thread_id
-        )
-    except BadRequest as e:
-        utilites_logger.error(e)
-        utilites_logger.info(": ".join(
-            [
-                'Для пользователя',
-                str(context.user_data['user'].id),
-                str(context.user_data['user'].full_name),
-                'сообщение на которое нужно ответить, удалено'
-            ],
-        ))
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            message_thread_id=thread_id
-        )
-
-
 def extract_phone_number_from_text(phone):
     phone = re.sub(r'[-\s)(+]', '', phone)
     return re.sub(r'^[78]{,2}(?=9)', '', phone)
-
-
-def check_email(email: str):
-        return re.fullmatch(r"^[-a-z0-9!#$%&'*+/=?^_`{|}~]+"
-                            r"(?:\.[-a-z0-9!#$%&'*+/=?^_`{|}~]+)*"
-                            r"@(?:[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\.)*"
-                            r"(?:aero|arpa|asia|biz|cat|com|coop|"
-                            r"edu|gov|info|int|jobs|mil|mobi|museum|"
-                            r"name|net|org|pro|tel|travel|[a-z][a-z])$",
-                            email.lower())
 
 
 def yrange(n):
@@ -334,20 +283,6 @@ async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_chat.send_message(
                 f'{context.args[0]} ключа не существует в bot_data'
             )
-
-
-def create_keys_for_sort(item):
-    a, b = item.split()[0].split('.')
-    return b + a
-
-
-def load_and_concat_date_of_shows():
-    list_of_date_show: list = sorted(db_googlesheets.load_base_tickets(),
-                               key=create_keys_for_sort)
-    text_date = '\n'.join(item for item in list_of_date_show)
-    return ('\n__________\nВ следующие даты проводятся спектакли, поэтому их '
-            'не указывайте:'
-            f'\n{text_date}')
 
 
 async def request_contact_location(
@@ -444,34 +379,50 @@ async def create_or_connect_topic(
         return
 
     dict_topics_name = context.bot_data.setdefault('dict_topics_name', {})
-    if context.args:
+    topic_ready = 'Топик готов к работе'
+    if len(context.args) == 2:
         topic_id = int(context.args[0])
         name = ' '.join([item for item in context.args[1:]])
         try:
             await update.effective_chat.send_message(
-                text='Топик готов к работе',
+                text=topic_ready,
                 message_thread_id=topic_id
             )
             context.bot_data['dict_topics_name'][name] = topic_id
         except Exception as e:
             utilites_logger.error(e)
-    elif len(dict_topics_name) == 0:
+    elif context.args[0] == 'create' and len(dict_topics_name) == 0:
         try:
             for name in LIST_TOPICS_NAME:
                 topic = await update.effective_chat.create_forum_topic(
                     name=name
                 )
+                topic_id = topic.message_thread_id
                 context.bot_data[
-                    'dict_topics_name'][name] = topic.message_thread_id
+                    'dict_topics_name'][name] = topic_id
+                await update.effective_chat.send_message(
+                    text=topic_ready,
+                    message_thread_id=topic_id
+                )
         except Exception as e:
             utilites_logger.error(e)
+    elif context.args[0] == 'connect':
+        name = update.effective_message.reply_to_message.forum_topic_created.name
+        topic_id = update.effective_message.message_thread_id
+        if name in LIST_TOPICS_NAME:
+            context.bot_data[
+                'dict_topics_name'][name] = topic_id
+            await update.effective_chat.send_message(
+                text=topic_ready,
+                message_thread_id=topic_id
+            )
     else:
         text = f'Используемые топики:\n{context.bot_data['dict_topics_name']}'
         text_bad_topic = '\n\nНе рабочие топики:'
         for name, topic_id in context.bot_data['dict_topics_name'].items():
             try:
                 await update.effective_chat.send_message(
-                    text='Топик готов к работе',
+                    text=topic_ready,
                     message_thread_id=topic_id
                 )
             except Exception as e:
@@ -516,7 +467,7 @@ def set_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
         text,
-        reply_markup: InlineKeyboardMarkup,
+        reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup,
 ):
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
@@ -546,6 +497,8 @@ def clean_context(context: ContextTypes.DEFAULT_TYPE):
 
 
 def extract_command(text):
+    if not text.startswith('/'):
+        return
     if '@' in text:
         text = text.split('@')[0]
     return text.replace('/', '')
@@ -587,17 +540,6 @@ def get_month_numbers(dict_of_date_show):
         if int(item[3:5]) not in list_of_months:
             list_of_months.append(int(item[3:5]))
     return list_of_months
-
-
-async def write_to_return_seats_for_sale(context):
-    user = context.user_data['user']
-    payment_data = context.user_data['reserve_admin_data']['payment_data']
-    chose_ticket = payment_data['chose_ticket']
-    event_id = payment_data['event_id']
-    ticket_id = payment_data.get('ticket_id')
-    await handlers.write_old_all_seat_info(user, event_id, chose_ticket, context)
-    if ticket_id:
-        await db_postgres.del_ticket(context.session, ticket_id)
 
 
 def create_replay_markup_for_list_of_shows(
@@ -805,8 +747,6 @@ def create_approve_and_reject_replay(
 
 def do_italic(text):
     return f'_{escape_markdown(text, 2)}_'
-# TODO Сделать одну общую функцию для разного форматирования с несколькими
-#  параметрами-флагами
 
 
 def do_bold(text):
@@ -842,3 +782,199 @@ def add_text_of_show_and_numerate(
                             f'{DICT_OF_EMOJI_FOR_BUTTON[filter_show_id[item]]}'
                             f' {show['full_name']}\n')
     return text
+
+
+async def clean_replay_kb_and_send_typing_action(update):
+    message = await send_and_del_message_to_remove_kb(update)
+    thread_id = update.effective_message.message_thread_id
+    await update.effective_chat.send_action(ChatAction.TYPING,
+                                            message_thread_id=thread_id)
+    return message
+
+
+async def render_text_for_choice_time(theater_event, schedule_events):
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
+    event = schedule_events[0]
+    weekday = int(event.datetime_event.strftime('%w'))
+    date_event = (event.datetime_event.strftime('%d.%m ') +
+                  f'({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})')
+    text = (f'Вы выбрали:\n'
+            f'<b>{full_name}\n'
+            f'{date_event}</b>\n\n')
+    return text
+
+
+def convert_sheets_datetime(
+        sheets_date: int,
+        sheets_time: float = 0,
+        utc_offset: int = 0
+) -> datetime.datetime:
+    hours = int(sheets_time * 24) + utc_offset
+    minutes = int(sheets_time * 24 % 1 * 60)
+    return (datetime.datetime(1899, 12, 30)
+            + datetime.timedelta(days=sheets_date,
+                                 hours=hours,
+                                 minutes=minutes))
+
+
+async def send_and_del_message_to_remove_kb(update: Update):
+    return await update.effective_chat.send_message(
+        text='Загружаем данные',
+        reply_markup=ReplyKeyboardRemove(),
+        message_thread_id=update.effective_message.message_thread_id
+    )
+
+
+def get_unique_months(events: Sequence[ScheduleEvent]):
+    return set(event.datetime_event.month for event in events)
+
+
+def get_full_name_event(
+        name,
+        flag_premiere,
+        min_age_child,
+        max_age_child,
+        duration
+):
+    full_name: str = name
+    full_name += '\n'
+    if flag_premiere:
+        full_name += '📍'
+    if min_age_child > 0:
+        full_name += '👶🏼' + str(min_age_child)
+    if max_age_child > 0:
+        full_name += "-" + str(max_age_child)
+    elif min_age_child > 0:
+        full_name += '+'
+    if duration is not None:
+        if isinstance(duration, time):
+            duration = duration.hour * 60 + duration.minute
+        if duration > 0:
+            full_name += '⏳'
+            if duration // 60 > 0:
+                full_name += str(duration // 60) + 'ч'
+            if duration % 60 > 0:
+                full_name += str(duration % 60) + 'мин'
+    return full_name
+
+
+async def get_time_with_timezone(event, tz_name='Europe/Moscow'):
+    text = event.datetime_event.astimezone(
+        pytz.timezone(tz_name)).strftime('%H:%M')
+    return text
+
+
+async def get_formatted_date_and_time_of_event(schedule_event):
+    event = schedule_event
+    weekday = int(event.datetime_event.strftime('%w'))
+    date_event = (event.datetime_event.strftime('%d.%m ') +
+                  f'({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})')
+    time_event = await get_time_with_timezone(event)
+    return date_event, time_event
+
+
+async def filter_schedule_event(
+        schedule_events: Sequence[ScheduleEvent],
+        selected_date,
+        theater_event_id,
+        only_active=True
+) -> Sequence[ScheduleEvent]:
+    schedule_events_tmp = []
+    for event in schedule_events:
+        if (event.datetime_event.date() == selected_date and
+                event.theater_events_id == int(theater_event_id) and
+                event.flag_turn_in_bot == only_active):
+            schedule_events_tmp.append(event)
+    schedule_events = schedule_events_tmp
+    return schedule_events
+
+
+async def filter_schedule_event_by_active(
+        schedule_events: Sequence[ScheduleEvent],
+        only_active=True
+) -> Sequence[ScheduleEvent]:
+    schedule_events_tmp = []
+    for event in schedule_events:
+        if only_active and not event.flag_turn_in_bot:
+            continue
+
+        schedule_events_tmp.append(event)
+
+    return schedule_events_tmp
+
+
+async def create_postfix_for_cancel_btn(context, postfix):
+    if context.user_data.get('command', False) == 'reserve_admin':
+        postfix = 'reserve_admin'
+    postfix += '|'
+    return postfix
+
+
+async def create_event_names_text(enum_theater_events, text):
+    for i, event in enum_theater_events:
+        full_name = get_full_name_event(event.name,
+                                        event.flag_premier,
+                                        event.min_age_child,
+                                        event.max_age_child,
+                                        event.duration)
+        text += f'{DICT_OF_EMOJI_FOR_BUTTON[i]} {full_name}\n\n'
+    return text
+
+
+async def get_events_for_time_hl(update, context):
+    theater_event_id, selected_date = update.callback_query.data.split('|')
+
+    utilites_logger.info(f'Пользователь выбрал дату: {selected_date}')
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    schedule_event_ids = reserve_user_data['schedule_event_ids']
+
+    schedule_events = await db_postgres.get_schedule_events_by_ids(
+        context.session, schedule_event_ids)
+    selected_date = datetime.date.fromisoformat(selected_date)
+    schedule_events = await filter_schedule_event(
+        schedule_events, selected_date, theater_event_id)
+    theater_event: TheaterEvent = await db_postgres.get_theater_event(
+        context.session, theater_event_id)
+    return schedule_events, theater_event
+
+
+async def cancel_common(update, text):
+    query = update.callback_query
+    await query.delete_message()
+    await update.effective_chat.send_message(
+        text=text,
+        message_thread_id=query.message.message_thread_id,
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+
+async def get_type_event_ids_by_command(command):
+    usual = 1
+    new_year = 2
+    studio = 12
+    all_types = [usual, new_year, studio]
+
+    type_event_ids = []
+    if 'reserve' in command:
+        type_event_ids = [usual, new_year]
+    if 'studio' in command:
+        type_event_ids = [studio]
+    if '_admin' in command or 'list' in command:
+        type_event_ids = all_types
+    return type_event_ids
+
+
+async def get_emoji(schedule_event: ScheduleEvent):
+    text_emoji = ''
+    if schedule_event.flag_gift:
+        text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
+    if schedule_event.flag_christmas_tree:
+        text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
+    if schedule_event.flag_santa:
+        text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
+    return text_emoji

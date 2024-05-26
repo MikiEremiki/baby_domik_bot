@@ -14,8 +14,7 @@ from telegram.constants import ParseMode, ChatAction
 from telegram.helpers import escape_markdown
 
 from handlers.sub_hl import (
-    request_phone_number,
-    send_and_del_message_to_remove_kb
+    request_phone_number, send_message_to_admin
 )
 from db.db_googlesheets import load_list_show
 from utilities.schemas.context import birthday_data
@@ -29,13 +28,12 @@ from settings.settings import (
 )
 from utilities.utl_func import (
     extract_phone_number_from_text,
-    send_message_to_admin,
     clean_context, check_phone_number,
     create_approve_and_reject_replay,
     create_replay_markup_for_list_of_shows,
     create_replay_markup_with_number_btn,
     do_italic,
-    do_bold
+    do_bold, send_and_del_message_to_remove_kb
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
@@ -197,7 +195,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 dict_of_shows_for_bd.pop(key)
 
         # Отправка сообщения пользователю
-        text = do_bold('Выберите спектакль') + '\n\n'
+        text = do_bold('Выберите мероприятие') + '\n\n'
         for i, item in enumerate(dict_of_shows_for_bd.values()):
             if item['birthday']['flag']:
                 text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
@@ -391,7 +389,7 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case '1':
             text += f'Спектакль + чаепитие\n {birthday_price[1]} руб'
         case '2':
-            text += (f'Спектакль + чаепитие + дискотека\n {birthday_price[2]} руб')
+            text += f'Спектакль + чаепитие + дискотека\n {birthday_price[2]} руб'
         case '3':
             text += f'Спектакль + игра + фотосессия\n {birthday_price[3]} руб'
     await query.edit_message_text(text)

@@ -1,12 +1,14 @@
 import json
 import pickle
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import SecretStr
 from pydantic_core import MultiHostUrl
 from telegram import User, InlineKeyboardMarkup
 
+from db import BaseTicket, TheaterEvent, ScheduleEvent
 from settings.config_loader import Settings
 from utilities.schemas.ticket import BaseTicketDTO
 
@@ -37,8 +39,16 @@ class CustomEncoder(json.JSONEncoder):
             return obj.model_dump(exclude_defaults=True)
         if isinstance(obj, BaseTicketDTO):
             return {"base_ticket_id": obj.base_ticket_id, "price": obj.price}
+        if isinstance(obj, BaseTicket):
+            return {"base_ticket_id": obj.base_ticket_id, "price": obj.cost_main}
+        if isinstance(obj, TheaterEvent):
+            return {"base_ticket_id": obj.id, "name": obj.name}
+        if isinstance(obj, ScheduleEvent):
+            return {"base_ticket_id": obj.id, "theater_events_id": obj.theater_events_id}
         if isinstance(obj, datetime):
             return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return obj.__str__()
         if isinstance(obj, InlineKeyboardMarkup):
             return obj.to_dict()
         if isinstance(obj, SecretStr):
@@ -52,8 +62,8 @@ class CustomEncoder(json.JSONEncoder):
 
 
 objects = []
-# path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
-path = r'D:\Temp\conversationbot'
+path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
+# path = r'D:\Temp\conversationbot'
 # path = r'D:\Temp\conversationbot2'
 with open(path, "rb") as file:
     while True:

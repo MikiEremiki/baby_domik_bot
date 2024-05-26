@@ -11,19 +11,13 @@ from api.broker_nats import connect_to_nats
 from db import pickle_persistence
 from handlers.set_handlers import set_handlers
 from log.logging_conf import load_log_config
-from utilities.utl_func import (
-    set_menu, set_description, set_ticket_data, set_show_data,
-    set_special_ticket_price,
-)
+from utilities.utl_func import set_menu, set_description
 from settings.config_loader import parse_settings
 
 
 async def post_init(app: Application):
     await set_menu(app.bot)
     await set_description(app.bot)
-    set_ticket_data(app)
-    set_show_data(app)
-    set_special_ticket_price(app)
 
     app.bot_data.setdefault('texts', {})
     app.bot_data['texts']['description'] = (
@@ -42,6 +36,12 @@ async def post_init(app: Application):
     app.bot_data.setdefault('dict_topics_name', {})
     app.bot_data.setdefault('global_on_off', True)
     app.context_types.context.config = config
+
+    # TODO Сделать команду для настройки списков по интенсивам
+    studio = {
+        'Театральный интенсив': [],
+    }
+    app.bot_data['studio'] = studio
 
 
 bot_logger = load_log_config()

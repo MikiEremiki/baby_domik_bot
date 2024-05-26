@@ -7,14 +7,29 @@ from telegram.ext import (
 )
 from telegram.ext.filters import Text
 
-from handlers import reserve_hl, main_hl, offer_hl, ticket_hl
-from conv_hl import handlers_event_selection, handlers_client_data_selection
+from conv_hl import handlers_client_data_selection
+from handlers import studio_hl, main_hl, offer_hl, ticket_hl, reserve_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
 back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 states:  Dict[object, List[BaseHandler]] = {
+    'MONTH': [
+        cancel_callback_handler,
+        CallbackQueryHandler(studio_hl.choice_show_and_date),
+    ],
+    'DATE': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
+        CallbackQueryHandler(reserve_hl.choice_time),
+    ],
+    'TIME': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
+        CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
+    ],
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
@@ -63,24 +78,21 @@ states:  Dict[object, List[BaseHandler]] = {
     ],
 }
 
-for key in handlers_event_selection.keys():
-    states[key] = handlers_event_selection[key]
 for key in handlers_client_data_selection.keys():
     states[key] = handlers_client_data_selection[key]
 
 for key in states.keys():
     states[key].append(CommandHandler('reset', main_hl.reset))
-states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
+states[ConversationHandler.TIMEOUT] = [studio_hl.TIMEOUT_HANDLER]
 
-reserve_conv_hl = ConversationHandler(
+studio_conv_hl = ConversationHandler(
     entry_points=[
-        CommandHandler(COMMAND_DICT['RESERVE'][0], reserve_hl.choice_month),
-        CommandHandler(COMMAND_DICT['LIST'][0], reserve_hl.choice_month),
+        CommandHandler(COMMAND_DICT['STUDIO'][0], reserve_hl.choice_month),
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],
     conversation_timeout=RESERVE_TIMEOUT * 60,
-    name='reserve',
+    name='studio',
     persistent=True,
     allow_reentry=True
 )

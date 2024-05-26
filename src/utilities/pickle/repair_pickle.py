@@ -28,8 +28,9 @@ class _BotPickler(pickle.Pickler):
 
 fix_base_ticket = True
 # path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
-path = r'D:\Temp\conversationbot'
+# path = r'D:\Temp\conversationbot'
 # path = r'src\db\data\conversationbot'
+path = r'/opt/project/src/db/data/conversationbot'
 new_path: Path = Path(r'D:\Temp\conversationbot2')
 with open(path, "rb") as file:
     while True:
@@ -39,7 +40,7 @@ with open(path, "rb") as file:
             break
 
 exclude = []
-flag = False
+flag = True
 if not flag:
     with open('user_ids', 'r', encoding='utf8') as f:
         for item in f.readlines():

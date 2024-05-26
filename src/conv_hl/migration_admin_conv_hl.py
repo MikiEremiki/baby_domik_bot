@@ -6,18 +6,26 @@ from telegram.ext import (
     filters,
 )
 
-
-from handlers import reserve_hl, main_hl, reserve_admin_hl
+from handlers import reserve_hl, main_hl, reserve_admin_hl, migration_admin_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
 from conv_hl import handlers_event_selection, handlers_client_data_selection
 
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
-back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
+cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
+                                               pattern='^Отменить')
+back_callback_handler = CallbackQueryHandler(main_hl.back, pattern='^Назад')
 states:  Dict[object, List[BaseHandler]] = {
+    0: [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command,
+                       migration_admin_hl.get_ticket_by_id),
+    ],
     1: [
         cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(migration_admin_hl.migration_ticket, pattern='migration'),
+        CallbackQueryHandler(migration_admin_hl.update_ticket, pattern='update'),
         CallbackQueryHandler(reserve_hl.choice_month, pattern='params'),
         CallbackQueryHandler(reserve_admin_hl.enter_event_id, pattern='id'),
     ],
@@ -43,15 +51,15 @@ for key in states.keys():
     states[key].append(CommandHandler('reset', main_hl.reset))
 states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
-reserve_admin_conv_hl = ConversationHandler(
+migration_admin_conv_hl = ConversationHandler(
     entry_points=[
-        CommandHandler(COMMAND_DICT['RESERVE_ADMIN'][0],
-                       reserve_admin_hl.event_selection_option),
+        CommandHandler(COMMAND_DICT['MIGRATION_ADMIN'][0],
+                       migration_admin_hl.enter_ticket_id),
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],
     conversation_timeout=RESERVE_TIMEOUT * 60,
-    name='reserve_admin',
+    name='migration_admin',
     persistent=True,
     allow_reentry=True
 )

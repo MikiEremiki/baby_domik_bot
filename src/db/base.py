@@ -42,6 +42,12 @@ class BaseModel(DeclarativeBase):
                 cols.append(f'{col}={getattr(self, col)}')
         return f"({self.__class__.__name__} {', '.join(cols)})"
 
+    def model_dump(self):
+        model_dump = {}
+        for col in self.__table__.columns.keys():
+            model_dump[col] = getattr(self, col)
+        return model_dump
+
 
 class BaseModelTimed(BaseModel):
     """

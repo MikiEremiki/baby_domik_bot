@@ -32,7 +32,7 @@ services:
     env_file:
       - config/.env
     ports:
-      - "5431:5432"
+      - "5432:5432"
     networks:
       - network
     healthcheck:
@@ -113,6 +113,7 @@ services:
       - network
     depends_on:
       - nats
+    command: [ "python3", "-m", "fastapi_nats", "run" ]
 
   nginx:
     profiles: [ "nginx", "1" ]
