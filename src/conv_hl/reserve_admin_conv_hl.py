@@ -10,7 +10,7 @@ from telegram.ext import (
 from handlers import reserve_hl, main_hl, reserve_admin_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
-from conv_hl import base_handlers
+from conv_hl import handlers_event_selection, handlers_client_data_selection
 
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
@@ -32,25 +32,12 @@ states:  Dict[object, List[BaseHandler]] = {
         back_callback_handler,
         CallbackQueryHandler(reserve_admin_hl.start_forma_info),
     ],
-    'FORMA': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_name_adult),
-    ],
-    'PHONE': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_phone),
-    ],
-    'CHILDREN': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_name_children),
-    ],
 }
 
-for key in base_handlers.keys():
-    states[key] = base_handlers[key]
+for key in handlers_event_selection.keys():
+    states[key] = handlers_event_selection[key]
+for key in handlers_client_data_selection.keys():
+    states[key] = handlers_client_data_selection[key]
 
 for key in states.keys():
     states[key].append(CommandHandler('reset', main_hl.reset))

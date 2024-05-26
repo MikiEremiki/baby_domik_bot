@@ -7,8 +7,8 @@ from telegram.ext import (
 )
 from telegram.ext.filters import Text
 
-from handlers import reserve_hl, main_hl
-from conv_hl import base_handlers
+from handlers import reserve_hl, main_hl, offer_hl, ticket_hl
+from conv_hl import handlers_event_selection, handlers_client_data_selection
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
@@ -18,39 +18,20 @@ states:  Dict[object, List[BaseHandler]] = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
-        CallbackQueryHandler(reserve_hl.get_ticket),
+        CallbackQueryHandler(ticket_hl.get_ticket),
     ],
     'OFFER': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
         MessageHandler(Text(('Принимаю',)),
-                       reserve_hl.get_offer),
+                       offer_hl.get_agreement),
     ],
     'EMAIL': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
+        CallbackQueryHandler(reserve_hl.get_email, pattern='email_confirm'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_email),
-    ],
-    'FORMA': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_name_adult),
-    ],
-    'PHONE': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_phone),
-    ],
-    'CHILDREN': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_name_children),
-    ],
-    'ORDER': [
-        cancel_callback_handler,
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.check_and_send_buy_info),
     ],
     'PAID': [
         cancel_callback_handler,
@@ -82,8 +63,10 @@ states:  Dict[object, List[BaseHandler]] = {
     ],
 }
 
-for key in base_handlers.keys():
-    states[key] = base_handlers[key]
+for key in handlers_event_selection.keys():
+    states[key] = handlers_event_selection[key]
+for key in handlers_client_data_selection.keys():
+    states[key] = handlers_client_data_selection[key]
 
 for key in states.keys():
     states[key].append(CommandHandler('reset', main_hl.reset))
