@@ -1,18 +1,24 @@
 import logging
+from datetime import datetime
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ChatAction
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 
-from api.googlesheets import get_quality_of_seats, write_data_for_reserve
+from api.googlesheets import update_ticket_in_gspread, write_client_reserve
 from db import db_postgres
-from db.db_googlesheets import load_show_info, load_list_show
 from db.enum import TicketStatus
+from db.db_googlesheets import decrease_free_seat, increase_free_seat
+from db.db_postgres import get_schedule_theater_base_tickets
 from handlers import init_conv_hl_dialog, check_user_db
-from handlers.sub_hl import (
-    get_chose_ticket_and_price, get_emoji_and_options_for_event)
-from settings.settings import DICT_OF_EMOJI_FOR_BUTTON
-from utilities.utl_func import add_btn_back_and_cancel, set_back_context
+from handlers.sub_hl import processing_successful_payment
+from utilities.utl_func import (
+    add_btn_back_and_cancel, set_back_context,
+    get_formatted_date_and_time_of_event, get_full_name_event, get_emoji
+)
+from utilities.utl_kbd import (
+    create_kbd_and_text_tickets_for_choice, create_replay_markup)
+from utilities.utl_ticket import get_ticket_and_price
 
 reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
 
@@ -21,10 +27,12 @@ async def event_selection_option(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    """
-    """
     init_conv_hl_dialog(update, context)
     await check_user_db(update, context)
+
+    command = context.user_data['command']
+    postfix_for_cancel = command
+    context.user_data['postfix_for_cancel'] = postfix_for_cancel
 
     user = context.user_data.setdefault('user', update.effective_user)
 
@@ -37,7 +45,7 @@ async def event_selection_option(
         [InlineKeyboardButton('по id', callback_data='id'),
          InlineKeyboardButton('по параметрам', callback_data='params')],
         add_btn_back_and_cancel(
-            postfix_for_cancel='res_adm',
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
             add_back_btn=False
         )
     ]
@@ -72,9 +80,10 @@ async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ))
 
     text = 'Введите id события'
+
     reply_markup = InlineKeyboardMarkup([
         add_btn_back_and_cancel(
-            postfix_for_cancel='res_adm',
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
             postfix_for_back=state,
             add_back_btn=True
         )
@@ -99,67 +108,58 @@ async def choice_option_of_reserve(
     await context.bot.delete_message(
         update.effective_chat.id,
         context.user_data['message'])
-    event_id = update.effective_message.text
+    choice_event_id = update.effective_message.text
     message = await update.effective_chat.send_message('Загружаю данные')
 
-    user = context.user_data['user']
-    reserve_admin_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'ввел',
-            event_id,
-        ]
-    ))
+    base_tickets, schedule_event, theater_event = await get_schedule_theater_base_tickets(
+        context, choice_event_id)
 
-    event_info, name_column = load_show_info(int(event_id))
-    list_of_tickets = context.bot_data['list_of_tickets']
-    await message.edit_text('Данные загружены')
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
 
-    text = ''
-    keyboard = []
-    list_btn_of_numbers = []
-    for i, ticket in enumerate(list_of_tickets):
-        text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} | {ticket.price} | '
-                 f'{ticket.name}\n')
-        key = ticket.base_ticket_id
-        button_tmp = InlineKeyboardButton(
-            text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
-            callback_data=str(key)
-        )
-        list_btn_of_numbers.append(button_tmp)
+    text_emoji = await get_emoji(schedule_event)
+    text_select_event = (f'Вы выбрали мероприятие:\n'
+                         f'<b>{full_name}\n'
+                         f'{date_event}\n'
+                         f'{time_event}</b>\n')
+    text_select_event += f'{text_emoji}\n' if text_emoji else ''
 
-        # Позволяет управлять кол-вом кнопок в ряду
-        # Максимальное кол-во кнопок в ряду равно 8
-        if (i + 1) % 5 == 0:
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
+    text = (f'Кол-во свободных мест: '
+            f'<i>'
+            f'{schedule_event.qty_adult_free_seat} взр'
+            f' | '
+            f'{schedule_event.qty_child_free_seat} дет'
+            f'</i>\n')
+    text = text_select_event + text
+    text += '<b>Выберите подходящий вариант бронирования:</b>\n'
 
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
-
-    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='res_adm',
-                                            postfix_for_back=1))
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    date_for_price = datetime.today()
+    keyboard, text = await create_kbd_and_text_tickets_for_choice(
+        context,
+        text,
+        base_tickets,
+        schedule_event,
+        theater_event,
+        date_for_price
+    )
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=1,
+        size_row=5
+    )
     await message.edit_text(text=text,
                             reply_markup=reply_markup)
 
-    option, text_emoji = await get_emoji_and_options_for_event(event_info,
-                                                               name_column)
     reserve_user_data = context.user_data['reserve_user_data']
-    choose_event_info = reserve_user_data['choose_event_info']
-    choose_event_info['option'] = option
-    choose_event_info['text_emoji'] = text_emoji
-    dict_of_shows: dict = load_list_show()
-    show_id = int(event_info[name_column['show_id']])
-    for key, item in dict_of_shows.items():
-        if key == show_id:
-            flag_indiv_cost = item['flag_indiv_cost']
-            choose_event_info['flag_indiv_cost'] = flag_indiv_cost
-
-    payment_data = context.user_data['reserve_admin_data']['payment_data']
-    reserve_admin_hl_logger.info(f'Бронирование: {payment_data}')
-    payment_data['event_id'] = event_id
+    reserve_user_data['choose_schedule_event_id'] = schedule_event.id
+    reserve_user_data['choose_theater_event_id'] = theater_event.id
+    context.user_data['reserve_user_data']['date_for_price'] = date_for_price
 
     state = 'TICKET'
     context.user_data['STATE'] = state
@@ -172,90 +172,82 @@ async def start_forma_info(
 ):
     query = update.callback_query
     await query.answer()
+    await query.edit_message_reply_markup()
 
     thread_id = update.effective_message.message_thread_id
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
-    key_option_for_reserve = int(query.data)
+    base_ticket_id = int(query.data)
 
-    common_data = context.user_data['common_data']
+    chose_base_ticket, price = await get_ticket_and_price(context,
+                                                          base_ticket_id)
+
     reserve_user_data = context.user_data['reserve_user_data']
-    reserve_admin_data = context.user_data['reserve_admin_data']
-
-    choose_event_info = reserve_user_data['choose_event_info']
-    chose_ticket, price = await get_chose_ticket_and_price(
-        choose_event_info,
-        context,
-        key_option_for_reserve,
-        reserve_user_data
-    )
-
-    reserve_user_data['key_option_for_reserve'] = key_option_for_reserve
     reserve_user_data['chose_price'] = price
-    payment_data = reserve_admin_data['payment_data']
-    payment_data['chose_ticket'] = chose_ticket
-    event_id = payment_data['event_id']
+    reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
-    list_of_name_colum = [
-        'qty_child_free_seat',
-        'qty_adult_free_seat',
-    ]
-    (qty_child_free_seat_now,
-     qty_adult_free_seat_now,
-     ) = get_quality_of_seats(event_id,
-                              list_of_name_colum)
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
-    qty_child_free_seat_new = int(
-        qty_child_free_seat_now) - int(
-        chose_ticket.quality_of_children)
-    qty_adult_free_seat_new = int(
-        qty_adult_free_seat_now) - int(
-        chose_ticket.quality_of_adult +
-        chose_ticket.quality_of_add_adult)
+    await decrease_free_seat(context,
+                             schedule_event_id,
+                             base_ticket_id)
 
-    numbers = [
-        qty_child_free_seat_new,
-        qty_adult_free_seat_new,
-    ]
+    if 'migration' in context.user_data['command']:
+        ticket_id = context.user_data['reserve_admin_data']['ticket_id']
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        people_ids = []
+        for person in ticket.people:
+            people_ids.append(person.id)
 
-    write_data_for_reserve(event_id, numbers, 3)
-    await db_postgres.update_schedule_event(
-        context.session,
-        int(event_id),
-        qty_child_free_seat=qty_child_free_seat_new,
-        qty_adult_free_seat=qty_adult_free_seat_new,
-    )
+        ticket_status = TicketStatus.MIGRATED
+        update_ticket_in_gspread(ticket_id, ticket_status.value)
+        await db_postgres.update_ticket(context.session,
+                                        ticket_id,
+                                        status=ticket_status)
+        await increase_free_seat(context,
+                                 ticket.schedule_event_id,
+                                 ticket.base_ticket_id)
 
-    ticket = await db_postgres.create_ticket(
-        context.session,
-        base_ticket_id=chose_ticket.base_ticket_id,
-        price=price,
-        schedule_event_id=event_id,
-        status=TicketStatus.CREATED,
-    )
+        ticket_ids = []
+        ticket = await db_postgres.create_ticket(
+            context.session,
+            base_ticket_id=base_ticket_id,
+            price=price,
+            schedule_event_id=schedule_event_id,
+            promo_id=ticket.promo_id,
+            status=TicketStatus.CREATED,
+            notes=ticket.notes
+        )
+        ticket_ids.append(ticket.id)
 
-    payment_data['ticket_id'] = ticket.id
+        reserve_user_data['ticket_ids'] = ticket_ids
+        reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='res_adm|',
-                                        add_back_btn=False)]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    message= await query.edit_message_text(
-        '<b>Напишите фамилию и имя (взрослого)</b>',
-        reply_markup=reply_markup
-    )
+        await db_postgres.attach_user_and_people_to_ticket(context.session,
+                                                           ticket.id,
+                                                           update.effective_user.id,
+                                                           people_ids)
 
-    if common_data.get('dict_of_shows', False):
-        common_data['dict_of_shows'].clear()
-    if reserve_user_data.get('dict_of_name_show', False):
-        reserve_user_data['dict_of_name_show'].clear()
-    if reserve_user_data.get('dict_of_name_show_flip', False):
-        reserve_user_data['dict_of_name_show_flip'].clear()
-    if reserve_user_data.get('dict_of_date_show', False):
-        reserve_user_data['dict_of_date_show'].clear()
-    if reserve_user_data.get('dict_of_date_show', False):
-        reserve_user_data['back'].clear()
+        write_client_reserve(context,
+                             update.effective_chat.id,
+                             chose_base_ticket,
+                             TicketStatus.APPROVED.value)
 
-    context.user_data['reserve_user_data']['message_id'] = message.message_id
-    state = 'FORMA'
+        await processing_successful_payment(update, context)
+
+        state = ConversationHandler.END
+    else:
+        keyboard = [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+            add_back_btn=False
+        )]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        message = await query.edit_message_text(
+            '<b>Напишите фамилию и имя (взрослого)</b>',
+            reply_markup=reply_markup
+        )
+
+        context.user_data['reserve_user_data']['message_id'] = message.message_id
+        state = 'FORMA'
     context.user_data['STATE'] = state
     return state
