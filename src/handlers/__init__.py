@@ -1,21 +1,21 @@
 import logging
 
-from .sub_hl import write_old_all_seat_info
+from telegram.ext import ContextTypes
+
 from db import db_postgres
-import utilities as utl
+from utilities import clean_context, extract_command
 
 
-def init_conv_hl_dialog(update, context):
-    utl.clean_context(context)
+def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
+    clean_context(context)
     state = 'START'
     context.user_data['STATE'] = state
-    context.user_data['command'] = utl.extract_command(
-        update.effective_message.text)
+    command = extract_command(update.effective_message.text)
+    if command:
+        context.user_data['command'] = command
     context.user_data.setdefault('common_data', {})
 
     context.user_data.setdefault('reserve_admin_data', {})
-    reserve_admin_data = context.user_data['reserve_admin_data']
-    reserve_admin_data.setdefault('payment_data', {})
 
     context.user_data.setdefault('reserve_user_data', {})
     reserve_user_data = context.user_data['reserve_user_data']
