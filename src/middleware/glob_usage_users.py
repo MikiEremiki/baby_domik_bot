@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes, TypeHandler, ApplicationHandlerStop
 from utilities.utl_func import is_admin
 
 
-def add_middleware_glob_on_off(application, config):
+def add_glob_on_off_middleware(application, config):
     async def check_permissions(
             update: Update,
             context: ContextTypes.DEFAULT_TYPE

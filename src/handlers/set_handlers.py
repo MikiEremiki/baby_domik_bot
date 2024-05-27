@@ -15,9 +15,13 @@ from conv_hl import (
     birthday_paid_conv_hl, afisha_conv_hl, support_conv_hl,
     migration_admin_conv_hl, studio_conv_hl,
 )
-from middleware import add_middleware_glob_on_off, add_middleware_db_handlers
+from middleware import (
+    add_glob_on_off_middleware,
+    add_db_handlers_middleware,
+    add_throttling_middleware
+)
 from utilities.utl_func import (
-    echo, send_log,
+    echo, send_log, send_postgres_log,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
     create_or_connect_topic, del_topic, update_config,
@@ -28,8 +32,9 @@ set_handlers_logger = logging.getLogger('bot.set_handlers')
 
 
 def set_handlers(application, config):
-    add_middleware_db_handlers(application, config)
-    add_middleware_glob_on_off(application, config)
+    add_db_handlers_middleware(application, config)
+    add_glob_on_off_middleware(application, config)
+    add_throttling_middleware(application)
 
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
@@ -68,6 +73,7 @@ def set_handlers(application, config):
         CommandHandler('clean_bd', clean_bd, filter_admin),
         CommandHandler('update_config', update_config, filter_admin),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
+        CommandHandler("postgres_log", send_postgres_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC'][0], create_or_connect_topic,

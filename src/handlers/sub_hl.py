@@ -560,7 +560,7 @@ async def send_request_email(update: Update, context):
     keyboard = [
         [InlineKeyboardButton('Да', callback_data='email_confirm')],
         add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
             postfix_for_back='TICKET')
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)

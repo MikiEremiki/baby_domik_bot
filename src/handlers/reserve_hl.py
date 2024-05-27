@@ -314,9 +314,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.callback_query.message.message_thread_id
     )
 
-    schedule_event_ids = [item.id for item in schedule_events]
     reserve_user_data = context.user_data['reserve_user_data']
-    reserve_user_data['schedule_event_ids'] = schedule_event_ids
     reserve_user_data['choose_theater_event_id'] = theater_event.id
 
     if context.user_data.get('command', False) == 'list':
@@ -348,8 +346,6 @@ async def choice_option_of_reserve(
                                             message_thread_id=thread_id)
 
     choice_event_id = int(query.data)
-    reserve_hl_logger.info(
-        f'Пользователь выбрал мероприятие: {choice_event_id}')
 
     base_tickets, schedule_event, theater_event = await get_schedule_theater_base_tickets(
         context, choice_event_id)
