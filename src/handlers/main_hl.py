@@ -409,6 +409,8 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = state.upper()
     text, reply_markup = get_back_context(context, state)
 
+    command = context.user_data['command']
+
     if state == 'MONTH':
         await query.delete_message()
         await update.effective_chat.send_message(
@@ -440,7 +442,11 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 .get('afisha', {})
                 .get(int(number_of_month_str), False)
             )
-            if update.effective_chat.type == ChatType.PRIVATE and photo:
+            if (
+                    update.effective_chat.type == ChatType.PRIVATE and
+                    photo and
+                    'reserve' in command
+            ):
                 await update.effective_chat.send_photo(
                     photo=photo,
                     caption=text,
