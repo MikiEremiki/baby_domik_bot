@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from handlers.sub_hl import send_info_about_individual_ticket
 from utilities.utl_check import check_and_get_agreement
 from utilities.utl_ticket import get_ticket_and_price
-from utilities.utl_func import set_back_context
+from utilities.utl_func import set_back_context, get_back_context
 
 
 async def get_ticket(
@@ -17,7 +17,18 @@ async def get_ticket(
 
     base_ticket_id = int(query.data)
 
-    chose_base_ticket, price = await get_ticket_and_price(context, base_ticket_id)
+    try:
+        chose_base_ticket, price = await get_ticket_and_price(context,
+                                                              base_ticket_id)
+    except AttributeError:
+        state = 'TIME'
+        text, reply_markup = get_back_context(context, state)
+        await query.edit_message_text(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        return state
+
 
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['chose_price'] = price
