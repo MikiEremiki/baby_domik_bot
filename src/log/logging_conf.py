@@ -40,8 +40,8 @@ def load_log_config():
     postgres_log_handler = logging.handlers.RotatingFileHandler(
         POSTGRES_LOG_FILENAME,
         mode='w',
-        maxBytes=1024000,
-        backupCount=5,
+        maxBytes=2048000,
+        backupCount=10,
         encoding='utf-8')
 
     main_log_handler.setFormatter(bf)
