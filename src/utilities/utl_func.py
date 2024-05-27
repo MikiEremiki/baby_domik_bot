@@ -222,6 +222,22 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 i += 1
 
 
+async def send_postgres_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await context.bot.send_document(
+        chat_id=update.effective_chat.id,
+        document='log/archive/postgres_log.txt'
+    )
+    if context.args:
+        if context.args[0] == 'all':
+            i = 1
+            while os.path.exists(f'log/archive/postgres_log.txt.{i}'):
+                await context.bot.send_document(
+                    chat_id=update.effective_chat.id,
+                    document=f'log/archive/postgres_log.txt.{i}'
+                )
+                i += 1
+
+
 def extract_phone_number_from_text(phone):
     phone = re.sub(r'[-\s)(+]', '', phone)
     return re.sub(r'^[78]{,2}(?=9)', '', phone)

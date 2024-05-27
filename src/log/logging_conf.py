@@ -4,11 +4,14 @@ import logging.handlers
 
 log_folder_name = 'archive'
 log_filename = 'log.txt'
+postgres_log_filename = 'postgres_log.txt'
 parent_dir = pathlib.Path(__file__).parent
 absolute_path = pathlib.Path(pathlib.Path.joinpath(parent_dir,
                                                    log_folder_name))
 LOG_FILENAME = pathlib.Path(pathlib.Path.joinpath(absolute_path,
                                                   log_filename))
+POSTGRES_LOG_FILENAME = pathlib.Path(pathlib.Path.joinpath(absolute_path,
+                                                           postgres_log_filename))
 if not absolute_path.exists():
     os.mkdir(log_folder_name)
 
@@ -29,14 +32,22 @@ def load_log_config():
                            datefmt='%y%m%d %H:%M:%S',
                            style='{',
                            )
-    handler = logging.handlers.RotatingFileHandler(LOG_FILENAME,
-                                                   mode='w',
-                                                   maxBytes=1024000,
-                                                   backupCount=5,
-                                                   encoding='utf-8',
-                                                   )
-    handler.setFormatter(bf)
-    root.addHandler(handler)
+    main_log_handler = logging.handlers.RotatingFileHandler(LOG_FILENAME,
+                                                            mode='w',
+                                                            maxBytes=1024000,
+                                                            backupCount=5,
+                                                            encoding='utf-8')
+    postgres_log_handler = logging.handlers.RotatingFileHandler(
+        POSTGRES_LOG_FILENAME,
+        mode='w',
+        maxBytes=1024000,
+        backupCount=5,
+        encoding='utf-8')
+
+    main_log_handler.setFormatter(bf)
+    postgres_log_handler.setFormatter(bf)
+
+    root.addHandler(main_log_handler)
 
     logger = logging.getLogger('bot')
     logger.setLevel(logging.DEBUG)
@@ -44,5 +55,10 @@ def load_log_config():
     logger_ext_bot = logging.getLogger("telegram.ext.ExtBot")
     logger_ext_bot.setLevel(logging.DEBUG)
     logger_ext_bot.addFilter(NoParsingFilter())
+
+    logger_postgres = logging.getLogger('sqlalchemy.engine')
+    logger_postgres.removeHandler(main_log_handler)
+    logger_postgres.addHandler(postgres_log_handler)
+    logger_postgres.setLevel(logging.DEBUG)
 
     return logger
