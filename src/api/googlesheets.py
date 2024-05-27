@@ -446,7 +446,7 @@ def write_client_bd(
         values[0].append(bd_data['address'])
         values[0].append(bd_data['date'])
         values[0].append(bd_data['time'])
-        values[0].append(bd_data['show_id'])
+        values[0].append(bd_data['theater_events_id'])
         values[0].append(bd_data['age'])
         values[0].append(bd_data['qty_child'])
         values[0].append(bd_data['qty_adult'])
