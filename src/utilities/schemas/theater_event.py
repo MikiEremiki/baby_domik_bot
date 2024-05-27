@@ -63,46 +63,12 @@ kv_name_attr_theater_event = {
 }
 
 
-dict_of_shows: Dict
 
-show_id: int = 1  # Начинается с 1
-name_show: str = 'name_show'
-date_show: str = '15.08 (Вт)'
-time_show: str = '17:00'
-
-# Старая версия словаря со спектаклями, используется в reserve
-dict_of_shows = {
-    'event_id': int,
-    'show_id': int,
-    'name_show': name_show,
-    'date_show': date_show,
-    'time_show': time_show,
-    'qty_child': int,
-    'qty_child_free_seat': int,
-    'qty_child_nonconfirm_seat': int,
-    'qty_adult': int,
-    'qty_adult_free_seat': int,
-    'qty_adult_nonconfirm_seat': int,
-    'ticket_price_type': str,
-}
-
-dict_of_date_show: Dict
-
-dict_of_date_show = {
-    date_show: name_show,
-}
-
-dict_of_name_show: Dict
-
-name_show: str = 'name_show'
-
-dict_of_name_show = {
-    'name_show': name_show,
-}
+theater_events_id: int = 1  # Начинается с 1
 
 dict_of_shows_v2: Dict[int: Dict, ...]
 
-# show_id определено ранее
+# theater_events_id определено ранее
 name_show: str = 'name_show'
 flag_premiere: bool = False
 min_age_child: int = 1
@@ -114,7 +80,7 @@ full_name: str = 'full_name_show'
 
 # Новая версия словаря со спектаклями, используется в birthday
 dict_of_shows_v2 = {
-    show_id: {
+    theater_events_id: {
         'name': name_show,
         'flag_premiere': flag_premiere,
         'min_age_child': min_age_child,

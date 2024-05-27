@@ -46,7 +46,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
 
     dict_of_shows = {}
     for item in data:
-        show_id: int = int(item[dict_column_name['show_id']])
+        theater_events_id: int = int(item[dict_column_name['theater_events_id']])
         name: str = item[dict_column_name['name']]
         flag_premiere: bool = True if item[dict_column_name[
             'flag_active_premiere']] == 'TRUE' else False
@@ -70,7 +70,7 @@ def load_list_show() -> dict[int, dict[str, Any]]:
                                         max_age_child,
                                         duration)
 
-        dict_of_shows[show_id] = {
+        dict_of_shows[theater_events_id] = {
             'name': name,
             'flag_premiere': flag_premiere,
             'min_age_child': min_age_child,

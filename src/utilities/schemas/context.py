@@ -3,7 +3,7 @@ birthday_data = {
         'address': 'Адрес',
         'date': 'Дата',
         'time': 'Время',
-        'show_id': 'Спектакль',
+        'theater_events_id': 'Спектакль',
         'age': 'Возраст именинника',
         'qty_child': 'Кол-во детей',
         'qty_adult': 'Кол-во взрослых',
