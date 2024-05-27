@@ -8,11 +8,9 @@ from settings.settings import COMMAND_DICT, ADMIN_ID
 
 afisha_conv_hl = ConversationHandler(
         entry_points=[
-            CommandHandler(
-                COMMAND_DICT['AFISHA'][0],
+            CommandHandler(COMMAND_DICT['AFISHA'][0],
                 afisha_hl.load_afisha,
-                filters=filters.User(ADMIN_ID)
-                ),
+                filters=filters.User(ADMIN_ID)),
         ],
         states={
             1: [
