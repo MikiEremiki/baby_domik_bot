@@ -407,6 +407,25 @@ async def create_or_connect_topic(
             context.bot_data['dict_topics_name'][name] = topic_id
         except Exception as e:
             utilites_logger.error(e)
+    elif len(context.args) == 0:
+        text = f'Используемые топики:\n{context.bot_data['dict_topics_name']}'
+        text_bad_topic = '\n\nНе рабочие топики:'
+        for name, topic_id in context.bot_data['dict_topics_name'].items():
+            try:
+                await update.effective_chat.send_message(
+                    text=topic_ready,
+                    message_thread_id=topic_id
+                )
+            except Exception as e:
+                utilites_logger.error(e)
+                text_bad_topic += f'\n{name}: {topic_id}'
+        if text_bad_topic != '\n\nНе рабочие топики:':
+            text = text + text_bad_topic
+        await update.effective_message.reply_text(
+            text=text,
+            reply_to_message_id=update.message.id,
+            message_thread_id=update.message.message_thread_id
+        )
     elif context.args[0] == 'create' and len(dict_topics_name) == 0:
         try:
             for name in LIST_TOPICS_NAME:
@@ -432,25 +451,6 @@ async def create_or_connect_topic(
                 text=topic_ready,
                 message_thread_id=topic_id
             )
-    else:
-        text = f'Используемые топики:\n{context.bot_data['dict_topics_name']}'
-        text_bad_topic = '\n\nНе рабочие топики:'
-        for name, topic_id in context.bot_data['dict_topics_name'].items():
-            try:
-                await update.effective_chat.send_message(
-                    text=topic_ready,
-                    message_thread_id=topic_id
-                )
-            except Exception as e:
-                utilites_logger.error(e)
-                text_bad_topic += f'\n{name}: {topic_id}'
-        if text_bad_topic != '\n\nНе рабочие топики:':
-            text = text + text_bad_topic
-        await update.effective_message.reply_text(
-            text=text,
-            reply_to_message_id=update.message.id,
-            message_thread_id=update.message.message_thread_id
-        )
 
 
 async def del_topic(

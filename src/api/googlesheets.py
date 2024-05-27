@@ -398,19 +398,18 @@ def get_flags_by_ticket_status(ticket_status):
     flag_exclude = False
     flag_transfer = False
     flag_exclude_place_sum = False
-    if ticket_status == TicketStatus.CANCELED.value:
+    if (
+            ticket_status == TicketStatus.CREATED.value or
+            ticket_status == TicketStatus.CANCELED.value or
+            ticket_status == TicketStatus.REJECTED.value
+    ):
         flag_exclude = True
         flag_transfer = False
         flag_exclude_place_sum = True
-    if ticket_status == TicketStatus.REJECTED.value:
-        flag_exclude = True
-        flag_transfer = False
-        flag_exclude_place_sum = True
-    if ticket_status == TicketStatus.REFUNDED.value:
-        flag_exclude = True
-        flag_transfer = True
-        flag_exclude_place_sum = True
-    if ticket_status == TicketStatus.MIGRATED.value:
+    if (
+            ticket_status == TicketStatus.REFUNDED.value or
+            ticket_status == TicketStatus.MIGRATED.value
+    ):
         flag_exclude = True
         flag_transfer = True
         flag_exclude_place_sum = True
