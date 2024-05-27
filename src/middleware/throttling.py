@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop, TypeHandler
 
 logger_ttl = logging.getLogger('bot.TTL')
-CACHE = TTLCache(maxsize=10_000, ttl=1)
+CACHE = TTLCache(maxsize=10_000, ttl=0.3)
 
 def add_throttling_middleware(application):
     async def check_ttl(update: Update, _: ContextTypes.DEFAULT_TYPE):
