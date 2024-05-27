@@ -26,12 +26,17 @@ class _BotPickler(pickle.Pickler):
         super().__init__(*args, **kwargs)
 
 
-fix_base_ticket = True
+fix_base_ticket = False
+exclude_broke_user_data = False
+flag_exclude_all = True
+
 # path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
 # path = r'D:\Temp\conversationbot'
 # path = r'src\db\data\conversationbot'
 path = r'/opt/project/src/db/data/conversationbot'
-new_path: Path = Path(r'D:\Temp\conversationbot2')
+
+# new_path: Path = Path(r'D:\Temp\conversationbot2')
+new_path: Path = Path('conversationbot')
 with open(path, "rb") as file:
     while True:
         try:
@@ -40,8 +45,7 @@ with open(path, "rb") as file:
             break
 
 exclude = []
-flag = True
-if not flag:
+if exclude_broke_user_data:
     with open('user_ids', 'r', encoding='utf8') as f:
         for item in f.readlines():
             exclude.append(int(item.replace('\n', '')))
@@ -67,6 +71,13 @@ if fix_base_ticket:
                 if isinstance(base_ticket, tic.BaseTicket):
                     ticket = base_ticket.to_dto()
                     item1['list_of_tickets'][i] = tic.BaseTicketDTO(**ticket)
+
+if flag_exclude_all:
+    objects['user_data'] = {}
+    objects['chat_data'] = {}
+    objects['conversations'] = {}
+    objects['bot_data'].pop('list_of_tickets', None)
+    objects['bot_data'].pop('dict_show_data', None)
 
 with new_path.open("wb") as file:
     _BotPickler(file).dump(objects)
