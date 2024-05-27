@@ -15,6 +15,10 @@ POSTGRES_LOG_FILENAME = pathlib.Path(pathlib.Path.joinpath(absolute_path,
 if not absolute_path.exists():
     os.mkdir(log_folder_name)
 
+bf = logging.Formatter('{asctime:16s}|{name:20s}|{levelname:8s}|{message}',
+                       datefmt='%y%m%d %H:%M:%S',
+                       style='{')
+
 
 class NoParsingFilter(logging.Filter):
     def filter(self, record):
@@ -23,29 +27,20 @@ class NoParsingFilter(logging.Filter):
                 record.getMessage().find('No new updates found.') >= 0 or
                 record.getMessage().find('()') >= 0):
             return False
+        if 'sqlalchemy' in record.name:
+            return False
         return True
 
 
 def load_log_config():
     root = logging.getLogger()
-    bf = logging.Formatter('{asctime:16s}|{name:20s}|{levelname:8s}|{message}',
-                           datefmt='%y%m%d %H:%M:%S',
-                           style='{',
-                           )
     main_log_handler = logging.handlers.RotatingFileHandler(LOG_FILENAME,
                                                             mode='w',
                                                             maxBytes=1024000,
                                                             backupCount=5,
                                                             encoding='utf-8')
-    postgres_log_handler = logging.handlers.RotatingFileHandler(
-        POSTGRES_LOG_FILENAME,
-        mode='w',
-        maxBytes=2048000,
-        backupCount=10,
-        encoding='utf-8')
-
     main_log_handler.setFormatter(bf)
-    postgres_log_handler.setFormatter(bf)
+    main_log_handler.addFilter(NoParsingFilter())
 
     root.addHandler(main_log_handler)
 
@@ -54,11 +49,17 @@ def load_log_config():
 
     logger_ext_bot = logging.getLogger("telegram.ext.ExtBot")
     logger_ext_bot.setLevel(logging.DEBUG)
-    logger_ext_bot.addFilter(NoParsingFilter())
+
+    postgres_log_handler = logging.handlers.RotatingFileHandler(
+        POSTGRES_LOG_FILENAME,
+        mode='w',
+        maxBytes=2048000,
+        backupCount=10,
+        encoding='utf-8')
+    postgres_log_handler.setFormatter(bf)
 
     logger_postgres = logging.getLogger('sqlalchemy.engine')
-    logger_postgres.removeHandler(main_log_handler)
-    logger_postgres.addHandler(postgres_log_handler)
     logger_postgres.setLevel(logging.DEBUG)
+    logger_postgres.addHandler(postgres_log_handler)
 
     return logger
