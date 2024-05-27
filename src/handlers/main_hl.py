@@ -131,7 +131,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = user_data['user']
 
     try:
-        reserve_user_data = context.user_data['reserve_user_data']
+        reserve_user_data = user_data['reserve_user_data']
         schedule_event_id = reserve_user_data['choose_schedule_event_id']
         chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
         ticket_ids = reserve_user_data['ticket_ids']
