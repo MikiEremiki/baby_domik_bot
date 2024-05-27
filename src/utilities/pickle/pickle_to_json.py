@@ -44,7 +44,7 @@ class CustomEncoder(json.JSONEncoder):
         if isinstance(obj, TheaterEvent):
             return {"base_ticket_id": obj.id, "name": obj.name}
         if isinstance(obj, ScheduleEvent):
-            return {"base_ticket_id": obj.id, "theater_events_id": obj.theater_events_id}
+            return {"base_ticket_id": obj.id, "theater_event_id": obj.theater_event_id}
         if isinstance(obj, datetime):
             return obj.isoformat()
         if isinstance(obj, Decimal):

@@ -25,7 +25,7 @@ context_user_data: Dict = {
         'address': str,
         'date': str,
         'time': str,
-        'theater_events_id': int,
+        'theater_event_id': int,
         'age': int,
         'qty_child': int,
         'qty_adult': int,
@@ -49,7 +49,7 @@ context_user_data: Dict = {
         'dict_of_name_show_flip': dict,
         'dict_of_date_show': dict,
         'choose_event_info': {
-            'theater_events_id': int,
+            'theater_event_id': int,
             'name_show': str,
             'date_show': str,
             'time_show': str,

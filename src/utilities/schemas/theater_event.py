@@ -64,11 +64,11 @@ kv_name_attr_theater_event = {
 
 
 
-theater_events_id: int = 1  # Начинается с 1
+theater_event_id: int = 1  # Начинается с 1
 
 dict_of_shows_v2: Dict[int: Dict, ...]
 
-# theater_events_id определено ранее
+# theater_event_id определено ранее
 name_show: str = 'name_show'
 flag_premiere: bool = False
 min_age_child: int = 1
@@ -80,7 +80,7 @@ full_name: str = 'full_name_show'
 
 # Новая версия словаря со спектаклями, используется в birthday
 dict_of_shows_v2 = {
-    theater_events_id: {
+    theater_event_id: {
         'name': name_show,
         'flag_premiere': flag_premiere,
         'min_age_child': min_age_child,

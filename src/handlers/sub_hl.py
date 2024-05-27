@@ -190,7 +190,7 @@ async def get_theater_and_schedule_events_by_month(context, schedule_events,
     theatre_event_ids = set()
     for event in schedule_events:
         if event.datetime_event.month == int(number_of_month_str):
-            theatre_event_ids.add(event.theater_events_id)
+            theatre_event_ids.add(event.theater_event_id)
             schedule_events_filter_by_month.append(event)
     theater_events: List[
         TheaterEvent] = await db_postgres.get_theater_events_by_ids(

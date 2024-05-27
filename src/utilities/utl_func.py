@@ -589,13 +589,13 @@ def create_replay_markup_for_list_of_shows(
             case 1:
                 for item in items:
                     if number_of_month:
-                        filter_theater_events_id = enum_current_show_by_month(
+                        filter_theater_event_id = enum_current_show_by_month(
                             dict_of_show, number_of_month)
 
-                        if item in filter_theater_events_id.keys():
+                        if item in filter_theater_event_id.keys():
                             button_tmp = InlineKeyboardButton(
                                 text=DICT_OF_EMOJI_FOR_BUTTON[
-                                         filter_theater_events_id[item]] + ' ' + key,
+                                         filter_theater_event_id[item]] + ' ' + key,
                                 callback_data=str(item) + ' | ' + key
                             )
                     if button_tmp is None:
@@ -630,9 +630,9 @@ def create_replay_markup_for_list_of_shows(
                 # то к тексту добавляются все статусы
                 for item in items:
                     if number_of_month:
-                        filter_theater_events_id = enum_current_show_by_month(
+                        filter_theater_event_id = enum_current_show_by_month(
                             dict_of_show, number_of_month)
-                        if (item in filter_theater_events_id.keys() and
+                        if (item in filter_theater_event_id.keys() and
                                 item == number_of_show):
                             text = key
                             flag_gift = False
@@ -754,32 +754,32 @@ def do_bold(text):
 
 
 def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
-    filter_theater_events_id = {}
+    filter_theater_event_id = {}
     i = 1
     for key, items in dict_of_date_show.items():
         if num is not None and int(key[3:5]) != int(num):
             continue
         for item in items:
-            if item not in filter_theater_events_id.keys():
-                filter_theater_events_id[item] = i
+            if item not in filter_theater_event_id.keys():
+                filter_theater_event_id[item] = i
                 i += 1
 
-    return filter_theater_events_id
+    return filter_theater_event_id
 
 
 def add_text_of_show_and_numerate(
         text,
         dict_of_name_show: dict,
-        filter_theater_events_id: dict,
+        filter_theater_event_id: dict,
         dict_show_data: dict = None,
 ):
-    for key in filter_theater_events_id.keys():
+    for key in filter_theater_event_id.keys():
         for name, item in dict_of_name_show.items():
             if key == item:
                 for show in dict_show_data.values():
                     if show['name'] == name:
                         text += (
-                            f'{DICT_OF_EMOJI_FOR_BUTTON[filter_theater_events_id[item]]}'
+                            f'{DICT_OF_EMOJI_FOR_BUTTON[filter_theater_event_id[item]]}'
                             f' {show['full_name']}\n')
     return text
 
@@ -886,7 +886,7 @@ async def filter_schedule_event(
     schedule_events_tmp = []
     for event in schedule_events:
         if (event.datetime_event.date() == selected_date and
-                event.theater_events_id == int(theater_event_id) and
+                event.theater_event_id == int(theater_event_id) and
                 event.flag_turn_in_bot == only_active):
             schedule_events_tmp.append(event)
     schedule_events = schedule_events_tmp

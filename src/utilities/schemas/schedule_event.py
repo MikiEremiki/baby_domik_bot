@@ -27,7 +27,7 @@ prepare_str_to_int = Annotated[int, BeforeValidator(str_to_int)]
 class ScheduleEventDTO(BaseModel):
     event_id: int
     event_type: int
-    theater_events_id: int
+    theater_event_id: int
     flag_turn_on_off: bool
     date_show: int
     time_show: float
@@ -46,7 +46,7 @@ class ScheduleEventDTO(BaseModel):
         return {
             "id": self.event_id,
             "type_event_id": self.event_type,
-            "theater_events_id": self.theater_events_id,
+            "theater_event_id": self.theater_event_id,
             "flag_turn_in_bot": self.flag_turn_on_off,
             "datetime_event": convert_sheets_datetime(self.date_show,
                                                       self.time_show,
@@ -74,7 +74,7 @@ class ScheduleEventDTO(BaseModel):
 
 kv_name_attr_schedule_event = {
     'type_event_id': 'id типа мероприятия',
-    'theater_events_id': 'id репертуара',
+    'theater_event_id': 'id репертуара',
     'flag_turn_in_bot': 'Вкл/Выкл в боте',
     'datetime_event': 'Дата и время',
     'qty_child': 'Кол-во детских мест',
