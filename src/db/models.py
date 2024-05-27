@@ -251,7 +251,7 @@ class ScheduleEvent(BaseModelTimed):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     type_event_id: Mapped[int] = mapped_column(ForeignKey('type_events.id'))
-    theater_events_id: Mapped[int] = mapped_column(
+    theater_event_id: Mapped[int] = mapped_column(
         ForeignKey('theater_events.id'))
     flag_turn_in_bot: Mapped[bool] = mapped_column(default=False)
     datetime_event: Mapped[datetime]

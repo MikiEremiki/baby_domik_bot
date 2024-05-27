@@ -261,7 +261,7 @@ async def schedule_event_preview(
     await query.answer()
 
     text = (f'{kv_name_attr_schedule_event['type_event_id']}=\n'
-            f'{kv_name_attr_schedule_event['theater_events_id']}=\n'
+            f'{kv_name_attr_schedule_event['theater_event_id']}=\n'
             f'{kv_name_attr_schedule_event['flag_turn_in_bot']}=Нет\n'
             f'{kv_name_attr_schedule_event['datetime_event']}=2024-01-01T00:00 +3\n'
             f'{kv_name_attr_schedule_event['qty_child']}=8\n'
@@ -355,7 +355,7 @@ async def schedule_event_create(
         # Получаю элемент репертуара, так как название есть только в репертуаре
         res = await db_postgres.get_theater_event(
             context.session,
-            schedule_event['theater_events_id'])
+            schedule_event['theater_event_id'])
         await query.edit_message_text(
             text=f'{res.name}\nУспешно добавлено',
             reply_markup=reply_markup

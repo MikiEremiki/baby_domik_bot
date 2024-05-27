@@ -69,7 +69,7 @@ async def get_ticket_by_id(
         schedule_event = await db_postgres.get_schedule_event(
             context.session, ticket.schedule_event_id)
         theater_event = await db_postgres.get_theater_event(
-            context.session, schedule_event.theater_events_id
+            context.session, schedule_event.theater_event_id
         )
         people_str = (
             f'{people[0].name}\n'

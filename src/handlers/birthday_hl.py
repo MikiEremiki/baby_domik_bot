@@ -237,10 +237,10 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    theater_events_id = query.data
+    theater_event_id = query.data
 
     birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'Спектакль', theater_events_id))
+        context.user_data['user'].id, 'Спектакль', theater_event_id))
 
     keyboard_btn = []
     for i in range(2, 7):  # Фиксированно можно выбрать только от 2 до 6 лет
@@ -254,7 +254,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    context.user_data['birthday_user_data']['theater_events_id'] = int(theater_events_id)
+    context.user_data['birthday_user_data']['theater_event_id'] = int(theater_event_id)
 
     state = 'AGE'
     context.user_data['STATE'] = state
@@ -462,7 +462,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         item = 'В «Домике»'
                     elif item == 2:
                         item = 'На выезде'
-                case 'theater_events_id':
+                case 'theater_event_id':
                     dict_of_shows = context.user_data['common_data'][
                         'dict_of_shows']
                     item = dict_of_shows[item]['full_name']

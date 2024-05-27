@@ -309,7 +309,7 @@ async def create_theater_event(
 async def create_schedule_event(
         session: AsyncSession,
         type_event_id,
-        theater_events_id,
+        theater_event_id,
         flag_turn_in_bot,
         datetime_event,
         qty_child=0,
@@ -327,7 +327,7 @@ async def create_schedule_event(
     schedule_event = ScheduleEvent(
         id=schedule_event_id,
         type_event_id=type_event_id,
-        theater_events_id=theater_events_id,
+        theater_event_id=theater_event_id,
         flag_turn_in_bot=flag_turn_in_bot,
         datetime_event=datetime_event,
         qty_child=qty_child,
@@ -545,7 +545,7 @@ async def get_schedule_theater_base_tickets(context, choice_event_id):
     schedule_event = await get_schedule_event(context.session,
                                               choice_event_id)
     theater_event = await get_theater_event(context.session,
-                                            schedule_event.theater_events_id)
+                                            schedule_event.theater_event_id)
     type_event = await get_type_event(context.session,
                                       schedule_event.type_event_id)
     base_tickets = await get_base_tickets_by_event_or_all(schedule_event,
