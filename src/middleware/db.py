@@ -8,8 +8,7 @@ from db import create_sessionmaker_and_engine
 
 logger_postgres = logging.getLogger('sqlalchemy.engine')
 
-
-def add_middleware_db_handlers(application, config):
+def add_db_handlers_middleware(application, config):
     sessionmaker = create_sessionmaker_and_engine(str(config.postgres.db_url))
 
     async def open_session_handler(
