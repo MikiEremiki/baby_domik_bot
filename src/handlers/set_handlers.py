@@ -42,6 +42,7 @@ def set_handlers(application, config):
         CommandHandler('send', main_hl.send_approve_msg),
         CommandHandler('echo', echo),
         CommandHandler('refunded', main_hl.refund),
+        CommandHandler('cancel_created_tickets', main_hl.cancel_created_tickets),
     ])
 
     application.add_handlers([
