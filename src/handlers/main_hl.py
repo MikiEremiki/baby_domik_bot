@@ -600,8 +600,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await cancel_common(update, text)
 
             if '|' in query.data:
-                status = TicketStatus.CANCELED
-                await write_to_return_seats_for_sale(context, status=status)
+                ticket_status = TicketStatus.CANCELED
+                await write_to_return_seats_for_sale(context, status=ticket_status)
         case 'studio':
             text += (use_command_text + studio_text + explanation_text +
                      description)
