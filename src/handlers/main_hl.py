@@ -162,12 +162,19 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         text = (f'\n\nПользователю @{user.username} {user.full_name} '
                 f'Только списаны неподтвержденные места')
-
         message = await update.effective_chat.send_message(
             text=text,
             reply_to_message_id=query.message.message_id,
             message_thread_id=query.message.message_thread_id
         )
+
+        ticket_status = TicketStatus.APPROVED
+        for ticket_id in ticket_ids:
+            update_ticket_in_gspread(ticket_id, ticket_status.value)
+            await db_postgres.update_ticket(context.session,
+                                            ticket_id,
+                                            status=ticket_status)
+
         text = (f'Пользователю @{user.username} {user.full_name} '
                 f'отправляем сообщение о подтверждении бронирования'
                 f'user_id {user.id}')
