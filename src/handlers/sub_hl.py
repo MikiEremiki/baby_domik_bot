@@ -376,13 +376,15 @@ async def processing_successful_payment(
 
         event_id = schedule_event_id
 
-        if not '_admin' in command:
+        if '_admin' in command:
+            ticket_status = TicketStatus.APPROVED
+        else:
             ticket_status = TicketStatus.PAID
-            for ticket_id in ticket_ids:
-                update_ticket_in_gspread(ticket_id, ticket_status.value)
-                await db_postgres.update_ticket(context.session,
-                                                ticket_id,
-                                                status=ticket_status)
+        for ticket_id in ticket_ids:
+            update_ticket_in_gspread(ticket_id, ticket_status.value)
+            await db_postgres.update_ticket(context.session,
+                                            ticket_id,
+                                            status=ticket_status)
 
         text = f'#Бронирование\n'
         text += '\n'.join([
