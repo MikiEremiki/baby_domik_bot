@@ -9,7 +9,11 @@ from db import db_postgres
 from db.enum import TicketStatus
 from handlers import check_user_db
 from handlers.sub_hl import remove_inline_button
-from db.db_googlesheets import decrease_nonconfirm_seat, increase_free_seat
+from db.db_googlesheets import (
+    decrease_nonconfirm_seat,
+    increase_free_seat,
+    increase_free_and_decrease_nonconfirm_seat,
+)
 from settings.settings import (
     COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
 )
@@ -85,33 +89,48 @@ async def refund(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-async def migration(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ticket_id = int(context.args[0])
-    ticket = await db_postgres.get_ticket(context.session, ticket_id)
-    schedule_event_id = ticket.schedule_event_id
-    base_ticket_id = ticket.base_ticket_id
-
-    ticket_status = TicketStatus.MIGRATED
-    update_ticket_in_gspread(ticket_id, ticket_status.value)
-    await db_postgres.update_ticket(context.session,
-                                    ticket_id,
-                                    status=ticket_status)
-    await increase_free_seat(context,
-                             schedule_event_id,
-                             base_ticket_id)
-
-    if bool(update.message.reply_to_message):
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text='Билет возвращен',
-            reply_to_message_id=update.message.reply_to_message.message_id,
-            message_thread_id=update.message.message_thread_id
-        )
+async def cancel_created_tickets(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    if context.args:
+        ticket_id = int(context.args[0])
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        tickets = [ticket]
     else:
-        await update.effective_message.reply_text(
-            text='Билет возвращен',
-            message_thread_id=update.message.message_thread_id
-        )
+        tickets = await db_postgres.get_all_tickets_by_status(
+            context.session, TicketStatus.CREATED)
+    for ticket in tickets:
+        ticket_id = ticket.id
+        schedule_event_id = ticket.schedule_event_id
+        base_ticket_id = ticket.base_ticket_id
+
+        new_ticket_status = TicketStatus.CANCELED
+        update_ticket_in_gspread(ticket_id, new_ticket_status.value)
+        await db_postgres.update_ticket(context.session,
+                                        ticket_id,
+                                        status=new_ticket_status)
+        if ticket.status == TicketStatus.CREATED:
+            await increase_free_and_decrease_nonconfirm_seat(context,
+                                                             schedule_event_id,
+                                                             base_ticket_id)
+        else:
+            await increase_free_seat(context,
+                                     schedule_event_id,
+                                     base_ticket_id)
+
+        if bool(update.message.reply_to_message):
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f'Билет #ticket_id{ticket_id} отменен',
+                reply_to_message_id=update.message.reply_to_message.message_id,
+                message_thread_id=update.message.message_thread_id
+            )
+        else:
+            await update.effective_message.reply_text(
+                text=f'Билет #ticket_id{ticket_id} отменен',
+                message_thread_id=update.message.message_thread_id
+            )
 
 
 async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
