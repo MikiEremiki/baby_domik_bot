@@ -655,21 +655,22 @@ async def send_filtered_schedule_events(update, context, type_event_ids):
 
 
 async def send_message_about_list_waiting(update: Update, context):
-    sub_hl_logger.info('Мест нет')
+    query = update.callback_query
 
     command = context.user_data.get('command', None)
 
-    reserve_user_data = context.user_data['reserve_user_data']
-    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    schedule_event_id = int(query.data)
     schedule_event = await db_postgres.get_schedule_event(
         context.session, schedule_event_id)
+
+    reserve_user_data = context.user_data['reserve_user_data']
     text = reserve_user_data['text_select_event']
     if command == 'reserve':
         text += ('К сожалению места уже забронировали и свободных мест\n'
                  f' Осталось: '
-                 f'<i>{schedule_event.qty_adult_free_seat_now} взр</i>'
+                 f'<i>{schedule_event.qty_adult_free_seat} взр</i>'
                  f' | '
-                 f'<i>{schedule_event.qty_child_free_seat_now} дет</i>'
+                 f'<i>{schedule_event.qty_child_free_seat} дет</i>'
                  f'\n\n')
     text += ('⬇️Нажмите на одну из двух кнопок ниже, '
              'чтобы выбрать другое время '
