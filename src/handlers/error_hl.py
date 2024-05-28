@@ -9,6 +9,7 @@ from telegram import Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
+from db.enum import TicketStatus
 from utilities.utl_db import open_session
 from utilities.utl_func import clean_context, split_message
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
@@ -87,6 +88,7 @@ async def error_handler(update: Update,
                     error_hl_logger.error(
                         'Возможно возникла проблема записи в клиентскую базу')
 
-            await write_to_return_seats_for_sale(context)
+            ticket_status = TicketStatus.CANCELED
+            await write_to_return_seats_for_sale(context, status=ticket_status)
 
     await context.session.close()
