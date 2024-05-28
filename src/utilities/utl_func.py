@@ -66,17 +66,26 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = str(update.effective_chat.id)
     user_id = str(update.effective_user.id)
     is_forum = str(update.effective_chat.is_forum)
-    message_thread_id = str(update.message.message_thread_id)
-    topic_name = str(update.message.reply_to_message.forum_topic_created.name)
-    text = ('chat_id = <code>' + chat_id + '</code>\n' +
-            'user_id = <code>' + user_id + '</code>\n' +
-            'is_forum = <code>' + is_forum + '</code>\n' +
-            'message_thread_id = <code>' + message_thread_id + '</code>\n' +
-            'topic_name = <code>' + topic_name + '</code>\n')
+
+    text = 'chat_id = <code>' + chat_id + '</code>\n'
+    text += 'user_id = <code>' + user_id + '</code>\n'
+    text += 'is_forum = <code>' + is_forum + '</code>\n'
+
+    try:
+        message_thread_id = str(update.message.message_thread_id)
+        topic_name = str(update.message.reply_to_message.forum_topic_created.name)
+
+        text += 'message_thread_id = <code>' + message_thread_id + '</code>\n'
+        text += 'topic_name = <code>' + topic_name + '</code>\n'
+
+        message_thread_id = update.effective_message.message_thread_id
+    except (AttributeError, BadRequest):
+        message_thread_id = None
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
-        message_thread_id=update.effective_message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
 
