@@ -263,11 +263,12 @@ async def create_and_send_payment(
 
     studio = context.bot_data['studio']
     choose_schedule_event_ids = [schedule_event_id]
-    ticket_ids = []
     if command == 'studio' and chose_base_ticket.flag_season_ticket:
         for v in studio['Театральный интенсив']:
             if schedule_event_id in v:
                 choose_schedule_event_ids = v
+
+    ticket_ids = []
     for event_id in choose_schedule_event_ids:
         ticket = await db_postgres.create_ticket(
             context.session,
