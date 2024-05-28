@@ -41,8 +41,6 @@ def set_handlers(application, config):
         CommandHandler('reset', main_hl.reset),
         CommandHandler('send', main_hl.send_approve_msg),
         CommandHandler('echo', echo),
-        CommandHandler('refunded', main_hl.refund),
-        CommandHandler('cancel_created_tickets', main_hl.cancel_created_tickets),
     ])
 
     application.add_handlers([
@@ -73,6 +71,9 @@ def set_handlers(application, config):
         CommandHandler('print_ud', print_ud, filter_admin),
         CommandHandler('clean_bd', clean_bd, filter_admin),
         CommandHandler('update_config', update_config, filter_admin),
+        CommandHandler('update_ticket',
+                       main_hl.update_ticket,
+                       filter_admin),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
         CommandHandler("postgres_log", send_postgres_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
