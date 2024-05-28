@@ -288,25 +288,23 @@ async def increase_free_and_decrease_nonconfirm_seat(
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
 
-    qty_child_free_seat_now = schedule_event.qty_child_free_seat
-    qty_child_nonconfirm_seat_now = schedule_event.qty_child_nonconfirm_seat
-    qty_adult_free_seat_now = schedule_event.qty_adult_free_seat
-    qty_adult_nonconfirm_seat_now = schedule_event.qty_adult_nonconfirm_seat
+    q_child_free_seat = schedule_event.qty_child_free_seat
+    q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
+    q_adult_free_seat = schedule_event.qty_adult_free_seat
+    q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
+
+    q_child = chose_base_ticket.quality_of_children
+    q_adult = chose_base_ticket.quality_of_adult
+    q_add_adult = chose_base_ticket.quality_of_add_adult
 
     qty_child_free_seat_new = (
-            int(qty_child_free_seat_now) +
-            int(chose_base_ticket.quality_of_children))
+            q_child_free_seat + q_child)
     qty_child_nonconfirm_seat_new = (
-            int(qty_child_nonconfirm_seat_now) -
-            int(chose_base_ticket.quality_of_children))
+            q_child_nonconfirm_seat - q_child)
     qty_adult_free_seat_new = (
-            int(qty_adult_free_seat_now) +
-            int(chose_base_ticket.quality_of_adult +
-                chose_base_ticket.quality_of_add_adult))
+            q_adult_free_seat + (q_adult + q_add_adult))
     qty_adult_nonconfirm_seat_new = (
-            int(qty_adult_nonconfirm_seat_now) -
-            int(chose_base_ticket.quality_of_adult +
-                chose_base_ticket.quality_of_add_adult))
+            q_adult_nonconfirm_seat - (q_adult + q_add_adult))
 
     numbers = [
         qty_child_free_seat_new,
@@ -339,25 +337,23 @@ async def decrease_free_and_increase_nonconfirm_seat(
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
 
-    qty_child_free_seat_now = schedule_event.qty_child_free_seat
-    qty_child_nonconfirm_seat_now = schedule_event.qty_child_nonconfirm_seat
-    qty_adult_free_seat_now = schedule_event.qty_adult_free_seat
-    qty_adult_nonconfirm_seat_now = schedule_event.qty_adult_nonconfirm_seat
+    q_child_free_seat = schedule_event.qty_child_free_seat
+    q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
+    q_adult_free_seat = schedule_event.qty_adult_free_seat
+    q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
+
+    q_child = chose_base_ticket.quality_of_children
+    q_adult = chose_base_ticket.quality_of_adult
+    q_add_adult = chose_base_ticket.quality_of_add_adult
 
     qty_child_free_seat_new = (
-            int(qty_child_free_seat_now) -
-            int(chose_base_ticket.quality_of_children))
+            q_child_free_seat - q_child)
     qty_child_nonconfirm_seat_new = (
-            int(qty_child_nonconfirm_seat_now) +
-            int(chose_base_ticket.quality_of_children))
+            q_child_nonconfirm_seat + q_child)
     qty_adult_free_seat_new = (
-            int(qty_adult_free_seat_now) -
-            int(chose_base_ticket.quality_of_adult +
-                chose_base_ticket.quality_of_add_adult))
+            q_adult_free_seat - (q_adult + q_add_adult))
     qty_adult_nonconfirm_seat_new = (
-            int(qty_adult_nonconfirm_seat_now) +
-            int(chose_base_ticket.quality_of_adult +
-                chose_base_ticket.quality_of_add_adult))
+            q_adult_nonconfirm_seat + (q_adult + q_add_adult))
 
     numbers = [
         qty_child_free_seat_new,
@@ -393,16 +389,18 @@ async def increase_free_seat(
         context.session, event_id)
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
-    qty_child_free_seat_now = schedule_event.qty_child_free_seat
-    qty_adult_free_seat_now = schedule_event.qty_adult_free_seat
+
+    q_child_free_seat = schedule_event.qty_child_free_seat
+    q_adult_free_seat = schedule_event.qty_adult_free_seat
+
+    q_child = chose_base_ticket.quality_of_children
+    q_adult = chose_base_ticket.quality_of_adult
+    q_add_adult = chose_base_ticket.quality_of_add_adult
 
     qty_child_free_seat_new = (
-            int(qty_child_free_seat_now) +
-            int(chose_base_ticket.quality_of_children))
+            q_child_free_seat + q_child)
     qty_adult_free_seat_new = (
-            int(qty_adult_free_seat_now) +
-            int(chose_base_ticket.quality_of_adult +
-                chose_base_ticket.quality_of_add_adult))
+            q_adult_free_seat + (q_adult + q_add_adult))
 
     numbers = [
         qty_child_free_seat_new,
@@ -430,16 +428,18 @@ async def decrease_free_seat(
         context.session, event_id)
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
-    qty_child_free_seat_now = schedule_event.qty_child_free_seat
-    qty_adult_free_seat_now = schedule_event.qty_adult_free_seat
+
+    q_child_free_seat = schedule_event.qty_child_free_seat
+    q_adult_free_seat = schedule_event.qty_adult_free_seat
+
+    q_child = chose_base_ticket.quality_of_children
+    q_adult = chose_base_ticket.quality_of_adult
+    q_add_adult = chose_base_ticket.quality_of_add_adult
 
     qty_child_free_seat_new = (
-            int(qty_child_free_seat_now) -
-            int(chose_base_ticket.quality_of_children))
+            q_child_free_seat - q_child)
     qty_adult_free_seat_new = (
-            int(qty_adult_free_seat_now) -
-            int(chose_base_ticket.quality_of_adult +
-                chose_base_ticket.quality_of_add_adult))
+            q_adult_free_seat - (q_adult + q_add_adult))
 
     numbers = [
         qty_child_free_seat_new,
@@ -459,32 +459,27 @@ async def decrease_free_seat(
 
 
 async def decrease_nonconfirm_seat(
-        update: Update,
         context: ContextTypes.DEFAULT_TYPE,
         event_id,
         chose_base_ticket_id
 ):
-    query = update.callback_query
-    chat_id = query.data.split('|')[1].split()[0]
-    user_data = context.application.user_data.get(int(chat_id))
-    user = user_data['user']
-
     try:
         schedule_event = await db_postgres.get_schedule_event(
             context.session, event_id)
         chose_base_ticket = await db_postgres.get_base_ticket(
             context.session, chose_base_ticket_id)
 
-        qty_child_nonconfirm_seat_now = schedule_event.qty_child_nonconfirm_seat
-        qty_adult_nonconfirm_seat_now = schedule_event.qty_adult_nonconfirm_seat
+        q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
+        q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
 
-        qty_child_nonconfirm_seat_new = int(
-            qty_child_nonconfirm_seat_now) - int(
-            chose_base_ticket.quality_of_children)
-        qty_adult_nonconfirm_seat_new = int(
-            qty_adult_nonconfirm_seat_now) - int(
-            chose_base_ticket.quality_of_adult +
-            chose_base_ticket.quality_of_add_adult)
+        q_child = chose_base_ticket.quality_of_children
+        q_adult = chose_base_ticket.quality_of_adult
+        q_add_adult = chose_base_ticket.quality_of_add_adult
+
+        qty_child_nonconfirm_seat_new = (
+                q_child_nonconfirm_seat - q_child)
+        qty_adult_nonconfirm_seat_new = (
+                q_adult_nonconfirm_seat - (q_adult + q_add_adult))
 
         numbers = [
             qty_child_nonconfirm_seat_new,
@@ -497,31 +492,5 @@ async def decrease_nonconfirm_seat(
             qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
             qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
         )
-
-    except TimeoutError:
-        await update.effective_chat.send_message(
-            text=f'Для пользователя @{user.username} {user.full_name} '
-                 f'подтверждение в авто-режиме не сработало\n'
-                 f'Номер строки для обновления:\n{event_id}',
-            reply_to_message_id=query.message.message_id,
-            message_thread_id=query.message.message_thread_id
-        )
-        db_googlesheets_logger.error(TimeoutError)
-        db_googlesheets_logger.error(": ".join(
-            [
-                f'Для пользователя {user} подтверждение в '
-                f'авто-режиме не сработало',
-                'event_id для обновления',
-                f'{event_id}',
-            ]
-        ))
-    except ConnectionError:
-        await update.effective_chat.send_message(
-            text=f'Пользователю @{user.username} {user.full_name} '
-                 f'не списаны неподтвержденные места\n'
-                 f'Номер строки для обновления: {event_id}\n'
-                 f'user_id {user.id}',
-            reply_to_message_id=query.message.message_id,
-            message_thread_id=query.message.message_thread_id
-        )
-    return query, user
+    except TimeoutError as e:
+        db_googlesheets_logger.error(e)

@@ -221,7 +221,6 @@ async def start_forma_info(
         ticket_ids.append(ticket.id)
 
         reserve_user_data['ticket_ids'] = ticket_ids
-        reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
         await db_postgres.attach_user_and_people_to_ticket(context.session,
                                                            ticket.id,
@@ -247,7 +246,8 @@ async def start_forma_info(
             reply_markup=reply_markup
         )
 
-        context.user_data['reserve_user_data']['message_id'] = message.message_id
+        reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
+        reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'
     context.user_data['STATE'] = state
     return state

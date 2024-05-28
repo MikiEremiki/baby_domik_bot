@@ -404,7 +404,7 @@ async def get_ticket(session: AsyncSession,
 
 
 async def get_type_event(session: AsyncSession,
-                            type_event_id: int):
+                         type_event_id: int):
     return await session.get(TypeEvent, type_event_id)
 
 
@@ -470,6 +470,13 @@ async def get_schedule_events_by_ids(session: AsyncSession,
 async def get_promotion(session: AsyncSession,
                         promotion_id: int):
     return await session.get(ScheduleEvent, promotion_id)
+
+
+async def get_all_tickets_by_status(session: AsyncSession,
+                                    status: TicketStatus):
+    query = select(Ticket).where(Ticket.status == status)
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
 async def get_all_base_tickets(session: AsyncSession):
