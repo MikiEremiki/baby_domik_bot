@@ -39,7 +39,6 @@ def set_handlers(application, config):
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
         CommandHandler('reset', main_hl.reset),
-        CommandHandler('send', main_hl.send_approve_msg),
         CommandHandler('echo', echo),
     ])
 
@@ -71,6 +70,9 @@ def set_handlers(application, config):
         CommandHandler('print_ud', print_ud, filter_admin),
         CommandHandler('clean_bd', clean_bd, filter_admin),
         CommandHandler('update_config', update_config, filter_admin),
+        CommandHandler('send_approve_msg',
+                       main_hl.send_approve_msg,
+                       filter_admin),
         CommandHandler('update_ticket',
                        main_hl.update_ticket,
                        filter_admin),
