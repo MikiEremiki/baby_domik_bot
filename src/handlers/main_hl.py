@@ -226,20 +226,35 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ticket_ids = user_data['reserve_user_data']['ticket_ids']
 
     try:
+        reserve_user_data = user_data['reserve_user_data']
+        choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
+        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+
+        for schedule_event_id in choose_schedule_event_ids:
+            await increase_free_and_decrease_nonconfirm_seat(context,
+                                                             schedule_event_id,
+                                                             chose_base_ticket_id)
+
+        text = (f'\n\nПользователю @{user.username} {user.full_name} '
+                f'Только возвращены места в продажу и списаны неподтвержденные '
+                f'места')
+        message = await update.effective_chat.send_message(
+            text=text,
+            reply_to_message_id=query.message.message_id,
+            message_thread_id=query.message.message_thread_id
+        )
+
         ticket_status = TicketStatus.REJECTED
-        await write_to_return_seats_for_sale(context, status=ticket_status)
         for ticket_id in ticket_ids:
             update_ticket_in_gspread(ticket_id, ticket_status.value)
             await db_postgres.update_ticket(context.session,
                                             ticket_id,
                                             status=ticket_status)
 
-        message = await update.effective_chat.send_message(
+        message = await message.edit_text(
             text=f'Пользователю @{user.username} {user.full_name} '
                  f'отправляем сообщение об отклонении бронирования'
                  f'user_id {user.id}',
-            reply_to_message_id=query.message.message_id,
-            message_thread_id=query.message.message_thread_id
         )
 
         chat_id = query.data.split('|')[1].split()[0]
