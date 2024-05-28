@@ -655,15 +655,13 @@ async def send_filtered_schedule_events(update, context, type_event_ids):
 
 
 async def send_message_about_list_waiting(update: Update, context):
-    query = update.callback_query
-
+    reserve_user_data = context.user_data['reserve_user_data']
     command = context.user_data.get('command', None)
 
-    schedule_event_id = int(query.data)
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
     schedule_event = await db_postgres.get_schedule_event(
         context.session, schedule_event_id)
 
-    reserve_user_data = context.user_data['reserve_user_data']
     text = reserve_user_data['text_select_event']
     if command == 'reserve':
         text += ('К сожалению места уже забронировали и свободных мест\n'
