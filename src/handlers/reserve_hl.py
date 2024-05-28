@@ -347,6 +347,9 @@ async def choice_option_of_reserve(
 
     choice_event_id = int(query.data)
 
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data['choose_schedule_event_id'] = choice_event_id
+
     base_tickets, schedule_event, theater_event = await get_schedule_theater_base_tickets(
         context, choice_event_id)
 
@@ -365,7 +368,6 @@ async def choice_option_of_reserve(
                          f'{time_event}</b>\n')
     text_select_event += f'{text_emoji}\n' if text_emoji else ''
 
-    reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['text_select_event'] = text_select_event
 
     check_command_reserve = check_entered_command(context, 'reserve')
@@ -440,7 +442,6 @@ async def choice_option_of_reserve(
         reply_markup=reply_markup
     )
 
-    reserve_user_data['choose_schedule_event_id'] = schedule_event.id
     context.user_data['reserve_user_data']['date_for_price'] = date_for_price
 
     state = 'TICKET'
