@@ -130,18 +130,16 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
 
-    try:
-        reserve_user_data = user_data['reserve_user_data']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
-        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-        ticket_ids = reserve_user_data['ticket_ids']
+    reserve_user_data = user_data['reserve_user_data']
+    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    ticket_ids = reserve_user_data['ticket_ids']
 
-        await decrease_nonconfirm_seat(update,
-                                       context,
-                                       schedule_event_id,
-                                       chose_base_ticket_id)
-        for ticket_id in ticket_ids:
-            update_ticket_in_gspread(ticket_id, TicketStatus.APPROVED.value)
+    try:
+        for schedule_event_id in choose_schedule_event_ids:
+            await decrease_nonconfirm_seat(context,
+                                           schedule_event_id,
+                                           chose_base_ticket_id)
 
         text = (f'\n\nПользователю @{user.username} {user.full_name} '
                 f'Только списаны неподтвержденные места')
