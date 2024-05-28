@@ -463,6 +463,10 @@ async def get_thread_id(context, command, schedule_event):
     ):
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
+        # TODO Переписать ключи словаря с топиками на использование enum
+        if not thread_id:
+            thread_id = (context.bot_data['dict_topics_name']
+                         .get('Бронирование спектаклей', None))
     if (
             command == 'studio' or
             ('_admin' in command and schedule_event.type_event_id in [12])
@@ -510,6 +514,10 @@ async def send_approve_reject_message_to_admin(
     if command == 'reserve':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
+        # TODO Переписать ключи словаря с топиками на использование enum
+        if not thread_id:
+            thread_id = (context.bot_data['dict_topics_name']
+                                     .get('Бронирование спектаклей', None))
     if command == 'studio':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))

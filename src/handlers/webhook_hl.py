@@ -66,6 +66,10 @@ async def webhook_update(update: WebhookNotification,
         if command == 'reserve':
             thread_id = (context.bot_data['dict_topics_name']
                          .get('Бронирования спектаклей', None))
+            # TODO Переписать ключи словаря с топиками на использование enum
+            if not thread_id:
+                thread_id = (context.bot_data['dict_topics_name']
+                             .get('Бронирование спектаклей', None))
             callback_name = 'reserve'
         if command == 'studio':
             thread_id = (context.bot_data['dict_topics_name']
