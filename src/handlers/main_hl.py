@@ -54,7 +54,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.args[0]
+    if not context.args:
+        text = 'Только отправляет подтверждение пользователю по номеру билета\n'
+        text += '<code>/send_approve_msg 0</code>\n\n'
+        await update.message.reply_text(
+            text, reply_to_message_id=update.message.message_id)
+        return
+    ticket_id = context.args[0]
+    ticket = await db_postgres.get_ticket(context.session, ticket_id)
+    if not ticket:
+        text = 'Проверь номер билета'
+        await update.message.reply_text(
+            text, reply_to_message_id=update.message.message_id)
+        return
+    chat_id = ticket.user.chat_id
+
     await send_approve_message(chat_id, context)
     await update.effective_message.reply_text(
         'Подтверждение успешно отправлено')
