@@ -1,15 +1,21 @@
 # BabyDomikBot
 Стек технологий:
 - python
-- pydantic
+- pydantic (по скольку по стольку, по хорошему, стоит его задействовать для DTO, но пока просто использую ORM алхимии)
 - python-telegram-bot
 - googlesheet в качестве базы данных (осуществляется подготовка для переезда на postgresql + sqlalchemy)
 - alembic
 - docker
+- nats (сейчас только как брокер для передачи сообщений от fastapi к боту)
+- nginx
+- fastapi (для обработки уведомлений от юкассы)
+- postgresql (пока данные дублируются в гугле и в базе)
+- sqlalchemy
 
 timeweb в качестве хостинга
+Покрытие тестами отсутствует (в планах их делать на pytest)
 
-___
+---
 Для запуска со сборкой контейнера миграции
 
 `docker compose --profile migration up -d --build`
@@ -36,8 +42,8 @@ ___
 
 `alembic -c 'config/alembic.ini' downgrade base`
 
+запуск из PS
 `.\.venv\Scripts\alembic -c 'config/alembic.ini' upgrade +1`
-- запуск из PS
 
 Альтернативные варианты:
 - можно подключится к контейнеру бота и из под него 
