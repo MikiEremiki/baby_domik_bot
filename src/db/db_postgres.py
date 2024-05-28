@@ -404,7 +404,7 @@ async def get_ticket(session: AsyncSession,
 
 
 async def get_type_event(session: AsyncSession,
-                            type_event_id: int):
+                         type_event_id: int):
     return await session.get(TypeEvent, type_event_id)
 
 
