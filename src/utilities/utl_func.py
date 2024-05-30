@@ -284,9 +284,10 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         user_ids = []
         qty_users = len(context.application.user_data)
-        i = 0
-        for key, item in enumerate(context.application.user_data.items()):
-            await update.effective_chat.send_message(f'{i} из {qty_users}')
+        i = 1
+        for key, item in context.application.user_data.items():
+            await update.effective_chat.send_message(
+                f'{key}:{i} из {qty_users}')
             await clean_context(item)
             user_ids.append(key)
             i += 1
