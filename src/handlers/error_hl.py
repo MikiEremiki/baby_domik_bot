@@ -6,13 +6,11 @@ from pprint import pformat
 
 from requests import HTTPError
 from telegram import Update
-from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from db.enum import TicketStatus
 from utilities.utl_db import open_session
 from utilities.utl_func import clean_context, split_message
-from utilities.utl_googlesheets import write_to_return_seats_for_sale
+from utilities.utl_ticket import cancel_tickets
 
 error_hl_logger = logging.getLogger('bot.error_hl')
 
@@ -31,8 +29,6 @@ async def error_handler(update: Update,
             chat_id=chat_id,
             text=context.error.response.text,
         )
-        if context.user_data['STATE'] == 'ORDER':
-            await write_to_return_seats_for_sale(context)
     else:
         await update.effective_chat.send_message(
             'Произошла не предвиденная ошибка\n'
@@ -71,10 +67,7 @@ async def error_handler(update: Update,
         message = pformat(context.user_data)
         error_hl_logger.info(message)
 
-        states_for_cancel = [
-            'PAID', 'EMAIL', 'FORMA', 'PHONE', 'CHILDREN', 'ORDER']
-        if context.user_data['STATE'] in states_for_cancel:
-            error_hl_logger.info(context.user_data['STATE'])
+    await cancel_tickets(update, context)
 
     await clean_context(context)
 
