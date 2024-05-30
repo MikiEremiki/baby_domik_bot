@@ -8,7 +8,7 @@ from telegram import (
     ReplyKeyboardMarkup, KeyboardButton, Message
 )
 from telegram.error import BadRequest
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ContextTypes
 from yookassa import Payment
 
 from api.yookassa_connect import create_param_payment
@@ -699,9 +699,6 @@ async def send_info_about_individual_ticket(update, context):
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
     context.user_data['reserve_user_data'].clear()
-    state = ConversationHandler.END
-    context.user_data['STATE'] = state
-    return state
 
 
 async def send_message_to_admin(
