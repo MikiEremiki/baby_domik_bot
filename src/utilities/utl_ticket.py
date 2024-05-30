@@ -1,11 +1,13 @@
 import logging
 
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from db import BaseTicket, ScheduleEvent, TheaterEvent, db_postgres
-from db.enum import PriceType
+from db.enum import PriceType, TicketStatus
+from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
-utl_ticket_func_hl_logger = logging.getLogger('bot.utl_ticket_func')
+utl_ticket_logger = logging.getLogger('bot.utl_ticket')
 
 
 async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
@@ -28,9 +30,9 @@ async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
             special_ticket_price = context.bot_data['special_ticket_price']
             price = special_ticket_price[option][type_ticket_price][key]
         except KeyError:
-            utl_ticket_func_hl_logger.error(
+            utl_ticket_logger.error(
                 f'{key=} - данному билету не назначена индив. цена')
-            utl_ticket_func_hl_logger.error(theater_event.model_dump())
+            utl_ticket_logger.error(theater_event.model_dump())
             if key // 100 != 4:
                 text = f'{key=} - данному билету не назначена индив. цена\n'
                 text += f'{type_ticket_price=}\n'
@@ -96,3 +98,30 @@ async def get_ticket_and_price(context, base_ticket_id):
                                                          theater_event,
                                                          date_for_price)
     return ticket, price
+
+
+async def cancel_tickets(update, context):
+    states_for_cancel = ['EMAIL', 'FORMA', 'PHONE', 'CHILDREN', 'PAID']
+    if context.user_data['STATE'] in states_for_cancel:
+        utl_ticket_logger.info(context.user_data['STATE'])
+
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=update.effective_chat.id,
+                message_id=context.user_data['common_data'][
+                    'message_id_buy_info']
+            )
+        except BadRequest as e:
+            if e.message == 'Message to edit not found':
+                utl_ticket_logger.error(
+                    'Возможно возникла проблема записи в клиентскую базу')
+        except KeyError as e:
+            utl_ticket_logger.error(e)
+            utl_ticket_logger.error(
+                f'state={context.user_data['STATE']}, если это CHILDREN, '
+                f'то сообщение с оплатой еще не создалось, '
+                f'так как обычно не создается платеж из-за неверного email'
+            )
+
+        ticket_status = TicketStatus.CANCELED
+        await write_to_return_seats_for_sale(context, status=ticket_status)

@@ -8,11 +8,11 @@ from telegram import (
     ReplyKeyboardMarkup, KeyboardButton, Message
 )
 from telegram.error import BadRequest
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ContextTypes
 from yookassa import Payment
 
 from api.yookassa_connect import create_param_payment
-from api.googlesheets import write_client_reserve, update_ticket_in_gspread
+from api.googlesheets import write_client_reserve
 from db import db_postgres, TheaterEvent
 from db.enum import TicketStatus
 from db.db_googlesheets import (
@@ -27,6 +27,7 @@ from utilities.utl_func import (
     get_formatted_date_and_time_of_event,
     create_approve_and_reject_replay
 )
+from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import adjust_kbd, create_kbd_with_months
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
@@ -377,14 +378,13 @@ async def processing_successful_payment(
         event_id = schedule_event_id
 
         if '_admin' in command:
-            ticket_status = TicketStatus.APPROVED
+            new_ticket_status = TicketStatus.APPROVED
         else:
-            ticket_status = TicketStatus.PAID
+            new_ticket_status = TicketStatus.PAID
         for ticket_id in ticket_ids:
-            update_ticket_in_gspread(ticket_id, ticket_status.value)
-            await db_postgres.update_ticket(context.session,
-                                            ticket_id,
-                                            status=ticket_status)
+            await update_ticket_db_and_gspread(context,
+                                               ticket_id,
+                                               status=new_ticket_status)
 
         text = f'#Бронирование\n'
         text += '\n'.join([
@@ -699,9 +699,6 @@ async def send_info_about_individual_ticket(update, context):
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
     context.user_data['reserve_user_data'].clear()
-    state = ConversationHandler.END
-    context.user_data['STATE'] = state
-    return state
 
 
 async def send_message_to_admin(

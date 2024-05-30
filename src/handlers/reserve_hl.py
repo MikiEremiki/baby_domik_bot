@@ -2,6 +2,7 @@ import logging
 import pprint
 from datetime import datetime
 
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
@@ -24,7 +25,7 @@ from handlers.sub_hl import (
     get_theater_and_schedule_events_by_month,
 )
 from db.db_googlesheets import (
-    load_clients_data, increase_free_and_decrease_nonconfirm_seat,
+    load_clients_data,
     decrease_free_and_increase_nonconfirm_seat,
 )
 from api.googlesheets import write_client_list_waiting, write_client_reserve
@@ -39,7 +40,7 @@ from utilities.utl_func import (
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
-    get_type_event_ids_by_command, get_emoji
+    get_type_event_ids_by_command, get_emoji, clean_context
 )
 from utilities.utl_kbd import (
     adjust_kbd,
@@ -50,6 +51,7 @@ from utilities.utl_kbd import (
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
 )
+from utilities.utl_ticket import cancel_tickets
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
@@ -276,7 +278,12 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
-    await query.delete_message()
+    try:
+        await query.delete_message()
+    except BadRequest as e:
+        if e.message == 'Message to delete not found':
+            reserve_hl_logger.error('Скорее всего нажали несколько раз')
+        return
 
     schedule_events, theater_event = await get_events_for_time_hl(update,
                                                                   context)
@@ -483,17 +490,16 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.session.add(schedule_event)
     await context.session.refresh(schedule_event)
 
-    command_to_check = 'reserve'
-    check_command = check_entered_command(context, command_to_check)
+    check_command = check_entered_command(context, 'reserve')
     if check_command:
-        check_ticket = check_available_ticket_by_free_seat(schedule_event,
-                                                           chose_base_ticket)
-    command_to_check = 'studio'
-    check_command = check_entered_command(context, command_to_check)
+        only_child = False
+    check_command = check_entered_command(context, 'studio')
     if check_command:
-        check_ticket = check_available_ticket_by_free_seat(schedule_event,
-                                                           chose_base_ticket,
-                                                           only_child=True)
+        only_child = True
+
+    check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                       chose_base_ticket,
+                                                       only_child=only_child)
 
     if check_command and not check_ticket:
         await message.delete()
@@ -811,13 +817,7 @@ async def conversation_timeout(
             f'{context.bot_data['admin']['contacts']}'
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
-        reserve_user_data = context.user_data['reserve_user_data']
-        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
-        await increase_free_and_decrease_nonconfirm_seat(context,
-                                                         schedule_event_id,
-                                                         chose_base_ticket_id)
     else:
         # TODO Прописать дополнительную обработку states, для этапов опроса
         await update.effective_chat.send_message(
@@ -834,6 +834,10 @@ async def conversation_timeout(
     ))
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
+
+    await cancel_tickets(update, context)
+
+    await clean_context(context)
 
     return ConversationHandler.END
 

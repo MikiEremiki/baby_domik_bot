@@ -1,11 +1,15 @@
-from telegram import Update
-from telegram.ext import ContextTypes
+import logging
 
-from handlers.sub_hl import send_info_about_individual_ticket
-from utilities.utl_check import check_and_get_agreement
+from telegram import Update
+from telegram.ext import ContextTypes, ConversationHandler
+
+from db import db_postgres
+from handlers.sub_hl import (
+    send_info_about_individual_ticket, send_request_email, send_agreement)
 from utilities.utl_ticket import get_ticket_and_price
 from utilities.utl_func import set_back_context, get_back_context
 
+ticket_hl_logger = logging.getLogger('bot.ticket_hl')
 
 async def get_ticket(
         update: Update,
@@ -20,7 +24,8 @@ async def get_ticket(
     try:
         chose_base_ticket, price = await get_ticket_and_price(context,
                                                               base_ticket_id)
-    except AttributeError:
+    except AttributeError as e:
+        ticket_hl_logger.error(e)
         state = 'TIME'
         text, reply_markup = get_back_context(context, state)
         await query.edit_message_text(
@@ -35,9 +40,18 @@ async def get_ticket(
     reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
     if chose_base_ticket.flag_individual:
-        return await send_info_about_individual_ticket(update, context)
+        await send_info_about_individual_ticket(update, context)
+        state = ConversationHandler.END
+        context.user_data['STATE'] = state
+        return state
 
-    reply_markup, state, text = await check_and_get_agreement(update, context)
+    user = await db_postgres.get_user(context.session, update.effective_chat.id)
+    if user.agreement_received:
+        text, reply_markup = await send_request_email(update, context)
+        state = 'EMAIL'
+    else:
+        text, reply_markup = await send_agreement(update, context)
+        state = 'OFFER'
 
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state

@@ -1,11 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List
-from telegram import (
-    User,
-    Message,
-    InlineKeyboardMarkup
-)
+
+from telegram import User, Message, InlineKeyboardMarkup
 
 from db import ScheduleEvent, TheaterEvent, BaseTicket
 
@@ -58,8 +55,8 @@ context_user_data: Dict = {
             'text_emoji': str,
             'flag_indiv_cost': bool,
         },
-        'text_select_event': str,
         # Инфо о выбранном показе пользователя
+        'text_select_event': str,
         'client_data': {
             'name_adult': str,
             'phone': str,

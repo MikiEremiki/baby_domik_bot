@@ -82,17 +82,6 @@ async def check_input_text(text):
     return True
 
 
-async def check_and_get_agreement(update, context):
-    user = await db_postgres.get_user(context.session, update.effective_chat.id)
-    if user.agreement_received:
-        text, reply_markup = await send_request_email(update, context)
-        state = 'EMAIL'
-    else:
-        text, reply_markup = await send_agreement(update, context)
-        state = 'OFFER'
-    return reply_markup, state, text
-
-
 def is_skip_ticket(ticket_status):
     if ticket_status == 'Создан' or ticket_status == 'Отменен':
         return True

@@ -83,7 +83,7 @@ for key in handlers_client_data_selection.keys():
 
 for key in states.keys():
     states[key].append(CommandHandler('reset', main_hl.reset))
-states[ConversationHandler.TIMEOUT] = [studio_hl.TIMEOUT_HANDLER]
+states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 studio_conv_hl = ConversationHandler(
     entry_points=[

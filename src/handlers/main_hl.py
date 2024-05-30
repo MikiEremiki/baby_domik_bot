@@ -33,7 +33,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     при перезапуске бота или при использовании команды start
     """
     await check_user_db(update, context)
-    clean_context(context)
+    await clean_context(context)
 
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
@@ -95,7 +95,6 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=update.message.message_id)
         return
 
-    ticket_id = int(context.args[0])
     try:
         new_ticket_status = TicketStatus(context.args[1])
     except ValueError:
@@ -104,6 +103,8 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             text, reply_to_message_id=update.message.message_id)
         return
+
+    ticket_id = int(context.args[0])
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
         text = 'Проверь номер билета'
@@ -111,7 +112,6 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=update.message.message_id)
         return
 
-    ticket_id = ticket.id
     schedule_event_id = ticket.schedule_event_id
     base_ticket_id = ticket.base_ticket_id
 
@@ -650,13 +650,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if '|' in query.data:
                 await cancel_payment(context)
         case 'reserve_admin':
-            text += (use_command_text + reserve_text +
-                     reserve_admin_text)
+            text += (use_command_text + reserve_text + reserve_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                ticket_status = TicketStatus.CANCELED
-                await write_to_return_seats_for_sale(context, status=ticket_status)
+                await cancel_payment(context)
         case 'studio':
             text += (use_command_text + studio_text + explanation_text +
                      description)
@@ -699,17 +697,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel_payment(context):
-    reserve_user_data = context.user_data['reserve_user_data']
-    ticket_ids = reserve_user_data.get('ticket_ids', None)
-
-    ticket_status = TicketStatus.CANCELED
-    await write_to_return_seats_for_sale(context, status=ticket_status)
-    if ticket_ids:
-        for ticket_id in ticket_ids:
-            update_ticket_in_gspread(ticket_id, ticket_status.value)
-            await db_postgres.update_ticket(context.session,
-                                            ticket_id,
-                                            status=ticket_status)
+    new_ticket_status = TicketStatus.CANCELED
+    await write_to_return_seats_for_sale(context, status=new_ticket_status)
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:

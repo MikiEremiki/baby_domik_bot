@@ -1,8 +1,9 @@
 from telegram.ext import Application
 
+from api.googlesheets import update_ticket_in_gspread
 from db import db_googlesheets, db_postgres
-from db.db_googlesheets import increase_free_and_decrease_nonconfirm_seat, \
-    increase_free_seat
+from db.db_googlesheets import (
+    increase_free_and_decrease_nonconfirm_seat, increase_free_seat)
 
 
 def set_special_ticket_price(application: Application):
@@ -41,7 +42,10 @@ async def write_to_return_seats_for_sale(context, **kwargs):
                                                              chose_base_ticket_id)
     if ticket_ids and 'status' in kwargs.keys():
         for ticket_id in ticket_ids:
-            await db_postgres.update_ticket(context.session,
-                                            ticket_id,
-                                            **kwargs)
+            await update_ticket_db_and_gspread(context, ticket_id, **kwargs)
+
+
+async def update_ticket_db_and_gspread(context, ticket_id, **kwargs):
+    update_ticket_in_gspread(ticket_id, kwargs['status'].value)
+    await db_postgres.update_ticket(context.session, ticket_id, **kwargs)
 

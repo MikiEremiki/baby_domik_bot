@@ -66,17 +66,26 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = str(update.effective_chat.id)
     user_id = str(update.effective_user.id)
     is_forum = str(update.effective_chat.is_forum)
-    message_thread_id = str(update.message.message_thread_id)
-    topic_name = str(update.message.reply_to_message.forum_topic_created.name)
-    text = ('chat_id = <code>' + chat_id + '</code>\n' +
-            'user_id = <code>' + user_id + '</code>\n' +
-            'is_forum = <code>' + is_forum + '</code>\n' +
-            'message_thread_id = <code>' + message_thread_id + '</code>\n' +
-            'topic_name = <code>' + topic_name + '</code>\n')
+
+    text = 'chat_id = <code>' + chat_id + '</code>\n'
+    text += 'user_id = <code>' + user_id + '</code>\n'
+    text += 'is_forum = <code>' + is_forum + '</code>\n'
+
+    try:
+        message_thread_id = str(update.message.message_thread_id)
+        topic_name = str(update.message.reply_to_message.forum_topic_created.name)
+
+        text += 'message_thread_id = <code>' + message_thread_id + '</code>\n'
+        text += 'topic_name = <code>' + topic_name + '</code>\n'
+
+        message_thread_id = update.effective_message.message_thread_id
+    except (AttributeError, BadRequest):
+        message_thread_id = None
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
-        message_thread_id=update.effective_message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
 
@@ -275,10 +284,13 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         user_ids = []
         qty_users = len(context.application.user_data)
-        for i, key, item in enumerate(context.application.user_data.items()):
-            await update.effective_chat.send_message(f'{i} из {qty_users}')
-            clean_context(item)
+        i = 1
+        for key, item in context.application.user_data.items():
+            await update.effective_chat.send_message(
+                f'{key}:{i} из {qty_users}')
+            await clean_context(item)
             user_ids.append(key)
+            i += 1
         context.application.mark_data_for_update_persistence(user_ids=user_ids)
         await context.application.update_persistence()
 
@@ -499,7 +511,7 @@ def get_back_context(
     return dict_back['text'], dict_back['keyboard']
 
 
-def clean_context(context: ContextTypes.DEFAULT_TYPE):
+async def clean_context(context: ContextTypes.DEFAULT_TYPE):
     if isinstance(context, dict):
         list_keys = list(context.keys())
         tmp_context = context
