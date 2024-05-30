@@ -278,7 +278,12 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     await query.answer()
-    await query.delete_message()
+    try:
+        await query.delete_message()
+    except BadRequest as e:
+        if e.message == 'Message to delete not found':
+            reserve_hl_logger.error('Скорее всего нажали несколько раз')
+        return
 
     schedule_events, theater_event = await get_events_for_time_hl(update,
                                                                   context)
