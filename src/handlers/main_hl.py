@@ -95,7 +95,6 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=update.message.message_id)
         return
 
-    ticket_id = int(context.args[0])
     try:
         new_ticket_status = TicketStatus(context.args[1])
     except ValueError:
@@ -104,6 +103,8 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             text, reply_to_message_id=update.message.message_id)
         return
+
+    ticket_id = int(context.args[0])
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
         text = 'Проверь номер билета'
@@ -111,7 +112,6 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=update.message.message_id)
         return
 
-    ticket_id = ticket.id
     schedule_event_id = ticket.schedule_event_id
     base_ticket_id = ticket.base_ticket_id
 
