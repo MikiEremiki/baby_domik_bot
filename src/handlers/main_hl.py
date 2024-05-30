@@ -654,8 +654,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await cancel_common(update, text)
 
             if '|' in query.data:
-                ticket_status = TicketStatus.CANCELED
-                await write_to_return_seats_for_sale(context, status=ticket_status)
+                await cancel_payment(context)
         case 'studio':
             text += (use_command_text + studio_text + explanation_text +
                      description)
@@ -698,17 +697,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel_payment(context):
-    reserve_user_data = context.user_data['reserve_user_data']
-    ticket_ids = reserve_user_data.get('ticket_ids', None)
-
-    ticket_status = TicketStatus.CANCELED
-    await write_to_return_seats_for_sale(context, status=ticket_status)
-    if ticket_ids:
-        for ticket_id in ticket_ids:
-            update_ticket_in_gspread(ticket_id, ticket_status.value)
-            await db_postgres.update_ticket(context.session,
-                                            ticket_id,
-                                            status=ticket_status)
+    new_ticket_status = TicketStatus.CANCELED
+    await write_to_return_seats_for_sale(context, status=new_ticket_status)
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
