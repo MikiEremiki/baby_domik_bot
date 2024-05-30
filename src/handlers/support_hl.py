@@ -139,17 +139,17 @@ async def get_updates_option(update: Update,
     await query.answer()
 
     btn_update_base_ticket_data = InlineKeyboardButton(
-        COMMAND_DICT['UP_BT_DATA'][0],
+        COMMAND_DICT['UP_BT_DATA'][1],
         callback_data=COMMAND_DICT['UP_BT_DATA'][0])
-    btn_update_theater_event_data = InlineKeyboardButton(
-        COMMAND_DICT['UP_TE_DATA'][0],
-        callback_data=COMMAND_DICT['UP_TE_DATA'][0])
-    btn_update_schedule_event_data = InlineKeyboardButton(
-        COMMAND_DICT['UP_SE_DATA'][0],
-        callback_data=COMMAND_DICT['UP_SE_DATA'][0])
     btn_update_special_ticket_price = InlineKeyboardButton(
-        COMMAND_DICT['UP_SPEC_PRICE'][0],
+        COMMAND_DICT['UP_SPEC_PRICE'][1],
         callback_data=COMMAND_DICT['UP_SPEC_PRICE'][0])
+    btn_update_schedule_event_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_SE_DATA'][1],
+        callback_data=COMMAND_DICT['UP_SE_DATA'][0])
+    btn_update_theater_event_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_TE_DATA'][1],
+        callback_data=COMMAND_DICT['UP_TE_DATA'][0])
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             postfix_for_back='1')
     keyboard = [
@@ -164,9 +164,9 @@ async def get_updates_option(update: Update,
 
     text = 'Выберите что хотите настроить\n\n'
     text += (f'{COMMAND_DICT['UP_BT_DATA'][1]}\n'
-             f'{COMMAND_DICT['UP_TE_DATA'][1]}\n'
+             f'{COMMAND_DICT['UP_SPEC_PRICE'][1]}\n'
              f'{COMMAND_DICT['UP_SE_DATA'][1]}\n'
-             f'{COMMAND_DICT['UP_SPEC_PRICE'][1]}')
+             f'{COMMAND_DICT['UP_TE_DATA'][1]}')
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
