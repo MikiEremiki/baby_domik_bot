@@ -52,7 +52,7 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    clean_context(context)
+    await clean_context(context)
 
     state = 'START'
     context.user_data['STATE'] = state

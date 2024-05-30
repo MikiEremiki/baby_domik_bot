@@ -38,7 +38,6 @@ async def error_handler(update: Update,
             'Произошла не предвиденная ошибка\n'
             'Выполните команду /start и повторите операцию заново')
 
-        clean_context(context)
 
         tb_list = traceback.format_exception(None,
                                              context.error,
@@ -77,18 +76,6 @@ async def error_handler(update: Update,
         if context.user_data['STATE'] in states_for_cancel:
             error_hl_logger.info(context.user_data['STATE'])
 
-            try:
-                await context.bot.edit_message_reply_markup(
-                    chat_id=update.effective_chat.id,
-                    message_id=context.user_data['common_data'][
-                        'message_id_buy_info']
-                )
-            except BadRequest as e:
-                if e.message == 'Message to edit not found':
-                    error_hl_logger.error(
-                        'Возможно возникла проблема записи в клиентскую базу')
-
-            ticket_status = TicketStatus.CANCELED
-            await write_to_return_seats_for_sale(context, status=ticket_status)
+    await clean_context(context)
 
     await context.session.close()

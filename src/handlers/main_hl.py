@@ -33,7 +33,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     при перезапуске бота или при использовании команды start
     """
     await check_user_db(update, context)
-    clean_context(context)
+    await clean_context(context)
 
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}

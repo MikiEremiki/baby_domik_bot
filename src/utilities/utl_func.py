@@ -508,7 +508,7 @@ def get_back_context(
     return dict_back['text'], dict_back['keyboard']
 
 
-def clean_context(context: ContextTypes.DEFAULT_TYPE):
+async def clean_context(context: ContextTypes.DEFAULT_TYPE):
     if isinstance(context, dict):
         list_keys = list(context.keys())
         tmp_context = context
