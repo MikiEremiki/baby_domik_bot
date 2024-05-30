@@ -7,7 +7,7 @@ from db import BaseTicket, ScheduleEvent, TheaterEvent, db_postgres
 from db.enum import PriceType, TicketStatus
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
-utl_ticket_func_hl_logger = logging.getLogger('bot.utl_ticket_func')
+utl_ticket_logger = logging.getLogger('bot.utl_ticket')
 
 
 async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
@@ -30,9 +30,9 @@ async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
             special_ticket_price = context.bot_data['special_ticket_price']
             price = special_ticket_price[option][type_ticket_price][key]
         except KeyError:
-            utl_ticket_func_hl_logger.error(
+            utl_ticket_logger.error(
                 f'{key=} - данному билету не назначена индив. цена')
-            utl_ticket_func_hl_logger.error(theater_event.model_dump())
+            utl_ticket_logger.error(theater_event.model_dump())
             if key // 100 != 4:
                 text = f'{key=} - данному билету не назначена индив. цена\n'
                 text += f'{type_ticket_price=}\n'
