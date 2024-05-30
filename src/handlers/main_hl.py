@@ -650,8 +650,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if '|' in query.data:
                 await cancel_payment(context)
         case 'reserve_admin':
-            text += (use_command_text + reserve_text +
-                     reserve_admin_text)
+            text += (use_command_text + reserve_text + reserve_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
