@@ -1,7 +1,7 @@
 import logging
 
 from telegram import Update
-from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
+from telegram.ext import ContextTypes
 
 from db import db_postgres
 from handlers.sub_hl import get_theater_and_schedule_events_by_month
@@ -62,33 +62,3 @@ async def choice_show_and_date(update: Update,
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
-
-
-async def conversation_timeout(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-) -> int:
-    """Informs the user that the operation has timed out,
-    calls :meth:`remove_reply_markup` and ends the conversation.
-    :return:
-        int: :attr:`telegram.ext.ConversationHandler.END`.
-    """
-    user = context.user_data['user']
-
-    await update.effective_chat.send_message(
-        'От Вас долго не было ответа, пожалуйста выполните новый запрос',
-        message_thread_id=update.effective_message.message_thread_id
-    )
-
-    studio_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            f'AFK уже {20} мин'
-        ]
-    ))
-
-    return ConversationHandler.END
-
-
-TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)
