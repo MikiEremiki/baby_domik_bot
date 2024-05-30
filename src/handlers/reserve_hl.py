@@ -490,17 +490,16 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.session.add(schedule_event)
     await context.session.refresh(schedule_event)
 
-    command_to_check = 'reserve'
-    check_command = check_entered_command(context, command_to_check)
+    check_command = check_entered_command(context, 'reserve')
     if check_command:
-        check_ticket = check_available_ticket_by_free_seat(schedule_event,
-                                                           chose_base_ticket)
-    command_to_check = 'studio'
-    check_command = check_entered_command(context, command_to_check)
+        only_child = False
+    check_command = check_entered_command(context, 'studio')
     if check_command:
-        check_ticket = check_available_ticket_by_free_seat(schedule_event,
-                                                           chose_base_ticket,
-                                                           only_child=True)
+        only_child = True
+
+    check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                       chose_base_ticket,
+                                                       only_child=only_child)
 
     if check_command and not check_ticket:
         await message.delete()
