@@ -1,7 +1,7 @@
 import re
+import logging
 
-from db import db_postgres
-from handlers.sub_hl import sub_hl_logger, send_request_email, send_agreement
+utl_check_logger = logging.getLogger('bot.utl_check')
 
 
 def check_available_seats(schedule_event, only_child=False):
@@ -77,7 +77,7 @@ async def check_input_text(text):
         flags=re.U | re.M
     )
     if len(result) <= count:
-        sub_hl_logger.info('Не верный формат текста')
+        utl_check_logger.info('Не верный формат текста')
         return False
     return True
 
