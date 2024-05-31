@@ -28,7 +28,8 @@ from utilities.utl_func import (
     create_approve_and_reject_replay, set_back_context
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
-from utilities.utl_kbd import adjust_kbd, create_kbd_with_months
+from utilities.utl_kbd import (
+    adjust_kbd, create_kbd_with_months, create_email_confirm_btn)
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -581,15 +582,17 @@ async def send_request_email(update: Update, context):
     text = 'Напишите email, на него вам будет направлен чек после оплаты\n\n'
     email = await db_postgres.get_email(context.session,
                                         update.effective_user.id)
-    if email:
-        text += f'Последний введенный email:\n<code>{email}</code>\n\n'
-        text += 'Использовать последнюю введенную почту?'
-    keyboard = [
-        [InlineKeyboardButton('Да', callback_data='email_confirm')],
-        add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'],
-            postfix_for_back='TICKET')
-    ]
+    back_and_cancel_btn = add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back='TICKET')
+
+    email_confirm_btn, text = await create_email_confirm_btn(text, email)
+
+    if email_confirm_btn:
+        keyboard = [email_confirm_btn, back_and_cancel_btn]
+    else:
+        keyboard = [back_and_cancel_btn]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     try:
         message = await update.callback_query.edit_message_text(
