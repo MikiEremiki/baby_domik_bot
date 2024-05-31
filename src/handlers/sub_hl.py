@@ -25,7 +25,7 @@ from utilities.utl_func import (
     get_unique_months, get_full_name_event,
     filter_schedule_event_by_active, clean_replay_kb_and_send_typing_action,
     get_formatted_date_and_time_of_event,
-    create_approve_and_reject_replay
+    create_approve_and_reject_replay, set_back_context
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import adjust_kbd, create_kbd_with_months
@@ -292,21 +292,37 @@ async def create_and_send_payment(
     write_client_reserve(context, chat_id, chose_base_ticket)
 
     idempotency_id = uuid.uuid4()
-    payment = Payment.create(
-        create_param_payment(
-            chose_price,
-            f'Билет на мероприятие {full_name} {date_event} в {time_event}'
-            f' {chose_base_ticket.name}',
-            email,
-            payment_method_type=context.config.yookassa.payment_method_type,
-            chat_id=update.effective_chat.id,
-            message_id=message.message_id,
-            ticket_ids='|'.join(str(v) for v in ticket_ids),
-            choose_schedule_event_ids='|'.join(
-                str(v) for v in choose_schedule_event_ids),
-            command=command
-        ),
-        idempotency_id)
+    try:
+        payment = Payment.create(
+            create_param_payment(
+                chose_price,
+                f'Билет на мероприятие {full_name} {date_event} в {time_event}'
+                f' {chose_base_ticket.name}',
+                email,
+                payment_method_type=context.config.yookassa.payment_method_type,
+                chat_id=update.effective_chat.id,
+                message_id=message.message_id,
+                ticket_ids='|'.join(str(v) for v in ticket_ids),
+                choose_schedule_event_ids='|'.join(
+                    str(v) for v in choose_schedule_event_ids),
+                command=command
+            ),
+            idempotency_id)
+    except ValueError as e:
+        sub_hl_logger.error(e)
+        if e == 'Invalid email value type':
+            sub_hl_logger.error(email)
+            await update.effective_chat.send_message(
+                f'Платежная система не приняла почту: {email}\n\n'
+                f'Попробуйте еще раз и/или укажите другую почту.'
+            )
+            text, reply_markup = await send_request_email(update, context)
+            state = 'EMAIL'
+
+            set_back_context(context, state, text, reply_markup)
+            context.user_data['STATE'] = state
+            return state
+
 
     await db_postgres.update_ticket(
         context.session,
