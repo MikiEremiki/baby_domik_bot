@@ -31,7 +31,7 @@ from db.db_googlesheets import (
 from api.googlesheets import write_client_list_waiting, write_client_reserve
 from utilities.utl_check import (
     check_available_seats, check_available_ticket_by_free_seat,
-    check_entered_command, check_topic, check_input_text, is_skip_ticket
+    check_entered_command, check_topic, check_input_text
 )
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
@@ -40,7 +40,8 @@ from utilities.utl_func import (
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
-    get_type_event_ids_by_command, get_emoji, clean_context
+    get_type_event_ids_by_command, get_emoji, clean_context,
+    add_clients_data_to_text, add_qty_visitors_to_text
 )
 from utilities.utl_kbd import (
     adjust_kbd,
@@ -875,49 +876,14 @@ async def send_clients_data(
     text += (f'Список людей на\n'
              f'{full_name}\n'
              f'{date_event}\n'
-             f'{time_event}\n'
-             f'Кол-во посетителей: ')
-    qty_child = 0
-    qty_adult = 0
-    for item in clients_data:
-        if item[name_column['flag_exclude_place_sum']] == 'FALSE':
-            qty_child += int(item[name_column['qty_child']])
-            qty_adult += int(item[name_column['qty_adult']])
-    text += f"д={qty_child}|в={qty_adult}"
-    for i, item in enumerate(clients_data):
-        ticket_status = item[name_column['ticket_status']]
-        if is_skip_ticket(ticket_status):
-            continue
+             f'{time_event}\n')
 
-        text += '\n__________\n'
-        text += str(i + 1) + '| '
-        text += '<b>' + item[name_column['callback_name']] + '</b>'
-        text += '\n+7' + item[name_column['callback_phone']]
-        child_name = item[name_column['child_name']]
-        if child_name != '':
-            text += '\nИмя ребенка: '
-            text += child_name
-        age = item[name_column['child_age']]
-        if age != '':
-            text += '\nВозраст: '
-            text += age
-        name = item[name_column['name']]
-        if name != '':
-            text += '\nСпособ брони: '
-            text += name
-        if ticket_status != '':
-            text += '\nСтатус билета: '
-            text += ticket_status
-        try:
-            notes = item[name_column['notes']]
-            if notes != '':
-                text += '\nПримечание: '
-                text += notes
-        except IndexError:
-            reserve_hl_logger.info('Примечание не задано')
-    await query.edit_message_text(
-        text=text,
-    )
+    text = await add_qty_visitors_to_text(text, name_column, clients_data)
+
+    text += await add_clients_data_to_text(text, clients_data, name_column)
+
+    await query.edit_message_text(text)
+
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state
