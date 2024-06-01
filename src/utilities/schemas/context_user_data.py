@@ -70,9 +70,10 @@ context_user_data: Dict = {
         'chose_base_ticket_id': BaseTicket.base_ticket_id,
         'type_ticket_price': str,
         'key_option_for_reserve': int,
-        'original_input_text': str,
+        'original_child_text': str,
         'date_for_price': datetime,
         'ticket_ids': List[int],
+        'flag_send_ticket_info': bool,
     },
     'reserve_admin_data': {
         'ticket_id': int,

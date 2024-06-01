@@ -6,8 +6,8 @@ from db import db_postgres
 from utilities import clean_context, extract_command
 
 
-def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
-    clean_context(context)
+async def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
+    await clean_context(context)
     state = 'START'
     context.user_data['STATE'] = state
     command = extract_command(update.effective_message.text)

@@ -27,7 +27,7 @@ async def event_selection_option(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    init_conv_hl_dialog(update, context)
+    await init_conv_hl_dialog(update, context)
     await check_user_db(update, context)
 
     command = context.user_data['command']

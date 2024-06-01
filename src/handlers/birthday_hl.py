@@ -600,7 +600,7 @@ async def forward_photo_or_file(
 
         set_approve_order(context.user_data['birthday_user_data'], 1)
 
-        text = f'Квитанция пользователя @{user.username} {user.full_name}\n'
+        text = f'Квитанция покупателя @{user.username} {user.full_name}\n'
         message_id_for_admin = context.user_data['common_data'][
             'message_id_for_admin']
         thread_id = (context.bot_data['dict_topics_name']

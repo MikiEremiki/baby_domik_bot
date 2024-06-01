@@ -15,7 +15,7 @@ async def enter_ticket_id(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    init_conv_hl_dialog(update, context)
+    await init_conv_hl_dialog(update, context)
 
     command = context.user_data['command']
     postfix_for_cancel = command

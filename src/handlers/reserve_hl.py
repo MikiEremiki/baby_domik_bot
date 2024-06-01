@@ -70,7 +70,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         await query.delete_message()
     else:
-        state = init_conv_hl_dialog(update, context)
+        state = await init_conv_hl_dialog(update, context)
         await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
@@ -704,7 +704,7 @@ async def get_name_children(
     reserve_user_data = context.user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']
     client_data['data_children'] = processed_data_on_children
-    reserve_user_data['original_input_text'] = update.effective_message.text
+    reserve_user_data['original_child_text'] = update.effective_message.text
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
@@ -781,10 +781,6 @@ async def processing_successful_notification(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text('Платеж успешно обработан')
-
     await processing_successful_payment(update, context)
 
     state = ConversationHandler.END
@@ -862,25 +858,18 @@ async def send_clients_data(
         context.session, event_id)
     theater_event = await db_postgres.get_theater_event(
         context.session, schedule_event.theater_event_id)
-
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
 
     clients_data, name_column = load_clients_data(event_id)
-    text = f'#Показ #event_id_{event_id}\n'
+    text = f'#Мероприятие <code>{event_id}</code>\n'
     text += (f'Список людей на\n'
-             f'{full_name}\n'
-             f'{date_event}\n'
-             f'{time_event}\n')
+             f'<b>{theater_event.name}\n'
+             f'{date_event} в '
+             f'{time_event}</b>\n')
 
-    text = await add_qty_visitors_to_text(text, name_column, clients_data)
-
-    text += await add_clients_data_to_text(text, clients_data, name_column)
+    text += await add_qty_visitors_to_text(name_column, clients_data)
+    text += await add_clients_data_to_text(name_column, clients_data)
 
     await query.edit_message_text(text)
 

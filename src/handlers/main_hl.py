@@ -200,6 +200,12 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     query = await remove_inline_button(update)
 
+    message = await update.effective_chat.send_message(
+        text='Начат процесс подтверждения...',
+        reply_to_message_id=query.message.message_id,
+        message_thread_id=query.message.message_thread_id
+    )
+
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
@@ -216,12 +222,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                            chose_base_ticket_id)
 
         text = (f'\n\nПользователю @{user.username} {user.full_name} '
-                f'Только списаны неподтвержденные места')
-        message = await update.effective_chat.send_message(
-            text=text,
-            reply_to_message_id=query.message.message_id,
-            message_thread_id=query.message.message_thread_id
-        )
+                f'Списаны неподтвержденные места...')
+        await message.edit_text(text)
 
         ticket_status = TicketStatus.APPROVED
         for ticket_id in ticket_ids:
@@ -230,9 +232,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             ticket_id,
                                             status=ticket_status)
 
-        text = (f'Пользователю @{user.username} {user.full_name} '
-                f'отправляем сообщение о подтверждении бронирования'
-                f'user_id {user.id}')
+        text = f'Обновлен статус билета...'
         await message.edit_text(text)
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -240,10 +240,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await send_approve_message(chat_id, context)
 
-        await message.edit_text(
-            text=f'Пользователю @{user.username} {user.full_name} '
-                 f'подтверждена бронь'
-        )
+        text = f'Бронь подтверждена'
+        await message.edit_text(text)
 
         # Сообщение уже было удалено самим пользователем
         try:
@@ -284,10 +282,17 @@ async def send_approve_message(chat_id, context):
         'Для продолжения работы используйте команды:\n'
         f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
     )
-    await context.bot.send_message(
-        text=text,
-        chat_id=chat_id,
+    await context.bot.send_message(text=text, chat_id=chat_id)
+
+
+async def send_reject_message(chat_id, context):
+    text = (
+        'Ваша бронь отклонена.\n\n'
+        'Если это произошло по ошибке, пожалуйста, '
+        'напишите в ЛС или позвоните Администратору:\n'
+        f'{context.bot_data['admin']['contacts']}'
     )
+    await context.bot.send_message(text=text, chat_id=chat_id)
 
 
 async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -300,6 +305,12 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Не разрешенное действие: отклонить бронь')
         return
     query = await remove_inline_button(update)
+
+    message = await update.effective_chat.send_message(
+        text='Начат процесс отклонения...',
+        reply_to_message_id=query.message.message_id,
+        message_thread_id=query.message.message_thread_id
+    )
 
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
@@ -316,14 +327,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                              schedule_event_id,
                                                              chose_base_ticket_id)
 
-        text = (f'\n\nПользователю @{user.username} {user.full_name} '
-                f'Только возвращены места в продажу и списаны неподтвержденные '
-                f'места')
-        message = await update.effective_chat.send_message(
-            text=text,
-            reply_to_message_id=query.message.message_id,
-            message_thread_id=query.message.message_thread_id
-        )
+        text = f'Возвращены места в продажу...'
+        await message.edit_text(text)
 
         ticket_status = TicketStatus.REJECTED
         for ticket_id in ticket_ids:
@@ -331,6 +336,9 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await db_postgres.update_ticket(context.session,
                                             ticket_id,
                                             status=ticket_status)
+
+        text = f'Обновлен статус билета...'
+        await message.edit_text(text)
 
         message = await message.edit_text(
             text=f'Пользователю @{user.username} {user.full_name} '
@@ -341,18 +349,10 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = query.data.split('|')[1].split()[0]
         message_id = query.data.split('|')[1].split()[1]
 
-        await context.bot.send_message(
-            text='Ваша бронь отклонена.\n'
-                 'Для решения данного вопроса, пожалуйста, '
-                 'напишите в ЛС или позвоните Администратору:\n'
-                 f'{context.bot_data['admin']['contacts']}',
-            chat_id=chat_id,
-        )
+        await send_reject_message(chat_id, context)
 
-        await message.edit_text(
-            text=f'Пользователю @{user.username} {user.full_name} '
-                 f'отклонена бронь'
-        )
+        text = f'Бронь отклонена'
+        await message.edit_text(text)
 
         # Сообщение уже было удалено самим пользователем
         try:
