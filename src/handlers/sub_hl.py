@@ -324,7 +324,6 @@ async def create_and_send_payment(
             context.user_data['STATE'] = state
             return state
 
-
     await db_postgres.update_ticket(
         context.session,
         ticket_ids[0],
