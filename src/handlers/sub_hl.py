@@ -372,6 +372,11 @@ async def processing_successful_payment(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE,
 ):
+    query = update.callback_query
+    if query:
+        await query.answer()
+        await query.edit_message_text('Платеж успешно обработан')
+
     reserve_user_data = context.user_data['reserve_user_data']
     command = context.user_data['command']
     ticket_ids = reserve_user_data['ticket_ids']

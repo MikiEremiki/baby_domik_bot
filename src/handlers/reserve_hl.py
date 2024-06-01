@@ -781,10 +781,6 @@ async def processing_successful_notification(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text('Платеж успешно обработан')
-
     await processing_successful_payment(update, context)
 
     state = ConversationHandler.END
