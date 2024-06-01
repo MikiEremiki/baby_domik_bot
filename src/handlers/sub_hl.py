@@ -383,7 +383,7 @@ async def processing_successful_payment(
     if ticket.status == TicketStatus.CREATED:
         user = context.user_data['user']
         client_data = reserve_user_data['client_data']
-        original_input_text = reserve_user_data['original_input_text']
+        original_child_text = reserve_user_data['original_child_text']
         chose_price = reserve_user_data['chose_price']
         chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
         schedule_event_id = reserve_user_data['choose_schedule_event_id']
