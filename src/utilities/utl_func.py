@@ -1017,7 +1017,7 @@ async def add_clients_data_to_text(name_column, clients_data):
         if is_skip_ticket(ticket_status):
             continue
         i += 1
-        
+        text += '\n__________\n'
         text += '<code>' + item[name_column['ticket_id']] + '</code> | '
         name = item[name_column['name']]
         if name != '':
