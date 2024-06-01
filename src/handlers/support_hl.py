@@ -58,7 +58,7 @@ def validate_value(value, option):
 
 
 async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    init_conv_hl_dialog(update, context)
+    await init_conv_hl_dialog(update, context)
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
     button_updates = InlineKeyboardButton(text='Обновление данных',
                                           callback_data='update_data')
