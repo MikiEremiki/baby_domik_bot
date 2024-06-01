@@ -869,6 +869,9 @@ async def send_clients_data(
              f'{time_event}</b>\n')
 
     text += await add_qty_visitors_to_text(name_column, clients_data)
+
+    text += '\n__________\n'
+
     text += await add_clients_data_to_text(name_column, clients_data)
 
     await query.edit_message_text(text)
