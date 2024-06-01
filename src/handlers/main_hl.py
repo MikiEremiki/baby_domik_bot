@@ -200,6 +200,12 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     query = await remove_inline_button(update)
 
+    message = await update.effective_chat.send_message(
+        text='Начат процесс подтверждения...',
+        reply_to_message_id=query.message.message_id,
+        message_thread_id=query.message.message_thread_id
+    )
+
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
@@ -216,12 +222,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                            chose_base_ticket_id)
 
         text = (f'\n\nПользователю @{user.username} {user.full_name} '
-                f'Только списаны неподтвержденные места')
-        message = await update.effective_chat.send_message(
-            text=text,
-            reply_to_message_id=query.message.message_id,
-            message_thread_id=query.message.message_thread_id
-        )
+                f'Списаны неподтвержденные места...')
+        await message.edit_text(text)
 
         ticket_status = TicketStatus.APPROVED
         for ticket_id in ticket_ids:
@@ -230,9 +232,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             ticket_id,
                                             status=ticket_status)
 
-        text = (f'Пользователю @{user.username} {user.full_name} '
-                f'отправляем сообщение о подтверждении бронирования'
-                f'user_id {user.id}')
+        text = f'Обновлен статус билета...'
         await message.edit_text(text)
 
         chat_id = query.data.split('|')[1].split()[0]
@@ -240,10 +240,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await send_approve_message(chat_id, context)
 
-        await message.edit_text(
-            text=f'Пользователю @{user.username} {user.full_name} '
-                 f'подтверждена бронь'
-        )
+        text = f'Бронь подтверждена'
+        await message.edit_text(text)
 
         # Сообщение уже было удалено самим пользователем
         try:
