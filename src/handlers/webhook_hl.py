@@ -34,7 +34,8 @@ async def webhook_update(update: WebhookNotification,
         chat_id = update.object.metadata['chat_id']
         ticket_ids = update.object.metadata['ticket_ids'].split('|')
         ticket_ids = [int(ticket_id) for ticket_id in ticket_ids]
-        choose_schedule_event_ids = update.object.metadata['choose_schedule_event_ids'].split('|')
+        choose_schedule_event_ids = update.object.metadata[
+            'choose_schedule_event_ids'].split('|')
         command = update.object.metadata['command']
 
         webhook_hl_logger.info(
@@ -45,17 +46,21 @@ async def webhook_update(update: WebhookNotification,
 
         await context.bot.edit_message_reply_markup(chat_id, message_id)
 
+        text = f'<b>Номер вашего билета '
         ticket_status = TicketStatus.PAID
         for ticket_id in ticket_ids:
             update_ticket_in_gspread(ticket_id, ticket_status.value)
             await db_postgres.update_ticket(context.session,
                                             ticket_id,
                                             status=ticket_status)
+            text += f'<code>{ticket_id}</code> '
+        text += '</b>\n\n'
 
-        text = ('Платеж успешно обработан\n\n'
-                'Нажмите <b>«ДАЛЕЕ»</b> под сообщением\n\n'
-                '<i>Или отправьте квитанцию/чек об оплате</i>\n\n'
-                'Вам так же поступит сообщение с <b>номером билета</b>')
+        text += (
+            'Платеж успешно обработан\n\n'
+            'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
+            'подробной информации\n\n'
+            '<i>Или отправьте квитанцию/чек об оплате</i>')
         reply_markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
         await context.bot.send_message(chat_id=chat_id,
