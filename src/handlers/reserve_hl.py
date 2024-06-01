@@ -70,7 +70,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         await query.delete_message()
     else:
-        state = init_conv_hl_dialog(update, context)
+        state = await init_conv_hl_dialog(update, context)
         await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
