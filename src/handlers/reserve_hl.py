@@ -862,21 +862,15 @@ async def send_clients_data(
         context.session, event_id)
     theater_event = await db_postgres.get_theater_event(
         context.session, schedule_event.theater_event_id)
-
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
 
     clients_data, name_column = load_clients_data(event_id)
-    text = f'#Показ #event_id_{event_id}\n'
+    text = f'#Мероприятие <code>{event_id}</code>\n'
     text += (f'Список людей на\n'
-             f'{full_name}\n'
-             f'{date_event}\n'
-             f'{time_event}\n')
+             f'<b>{theater_event.name}\n'
+             f'{date_event} в '
+             f'{time_event}</b>\n')
 
     text += await add_qty_visitors_to_text(name_column, clients_data)
     text += await add_clients_data_to_text(name_column, clients_data)
