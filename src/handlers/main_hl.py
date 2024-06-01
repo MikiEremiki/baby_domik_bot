@@ -282,10 +282,7 @@ async def send_approve_message(chat_id, context):
         'Для продолжения работы используйте команды:\n'
         f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
     )
-    await context.bot.send_message(
-        text=text,
-        chat_id=chat_id,
-    )
+    await context.bot.send_message(text=text, chat_id=chat_id)
 
 
 async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
