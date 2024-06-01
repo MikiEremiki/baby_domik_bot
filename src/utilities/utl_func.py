@@ -1009,29 +1009,29 @@ async def get_emoji(schedule_event: ScheduleEvent):
     return text_emoji
 
 
-async def add_clients_data_to_text(text, clients_data, name_column):
+async def add_clients_data_to_text(name_column, clients_data):
+    text = ''
     i = 0
     for item in clients_data:
         ticket_status = item[name_column['ticket_status']]
         if is_skip_ticket(ticket_status):
             continue
         i += 1
-        text += '\n__________\n'
-        text += str(i) + '| '
-        text += '<b>' + item[name_column['callback_name']] + '</b>'
+        text = '\n__________\n'
+        text += '<code>' + item[name_column['ticket_id']] + '</code> | '
+        name = item[name_column['name']]
+        if name != '':
+            text += name
+        text += '\n<b>' + item[name_column['callback_name']] + '</b>'
         text += '\n+7' + item[name_column['callback_phone']]
         child_name = item[name_column['child_name']]
         if child_name != '':
-            text += '\nИмя ребенка: '
+            text += '\nДети: '
             text += child_name
         age = item[name_column['child_age']]
         if age != '':
             text += '\nВозраст: '
             text += age
-        name = item[name_column['name']]
-        if name != '':
-            text += '\nСпособ брони: '
-            text += name
         if ticket_status != '':
             text += '\nСтатус билета: '
             text += ticket_status
@@ -1045,7 +1045,8 @@ async def add_clients_data_to_text(text, clients_data, name_column):
     return text
 
 
-async def add_qty_visitors_to_text(text, name_column, clients_data):
+async def add_qty_visitors_to_text(name_column, clients_data):
+    text = ''
     qty_child = 0
     qty_adult = 0
     for item in clients_data:
@@ -1053,6 +1054,6 @@ async def add_qty_visitors_to_text(text, name_column, clients_data):
             qty_child += int(item[name_column['qty_child']])
             qty_adult += int(item[name_column['qty_adult']])
 
-    text += 'Кол-во посетителей: '
-    text += f"д={qty_child}|в={qty_adult}"
+    text += '<i>Кол-во посетителей: '
+    text += f"д={qty_child}|в={qty_adult}</i>"
     return text
