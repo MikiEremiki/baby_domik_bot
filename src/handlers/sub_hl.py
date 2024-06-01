@@ -365,6 +365,7 @@ __________
     )
     common_data = context.user_data['common_data']
     common_data['message_id_buy_info'] = message.message_id
+    reserve_user_data['flag_send_ticket_info'] = True
 
 
 async def processing_successful_payment(
@@ -408,34 +409,38 @@ async def processing_successful_payment(
                                                status=new_ticket_status)
 
         text = f'#Бронирование\n'
-        text += '\n'.join([
-            client_data['name_adult'],
-            '+7' + client_data['phone'],
-            original_input_text,
-        ])
+        text += f'Платеж успешно обработан\n'
+        text += f'Покупатель: @{user.username} {user.full_name}'
         text += '\n\n'
-        text += f'event_id: {event_id}\n'
+
+        text += f'#event_id <code>{event_id}</code>\n'
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
         text += theater_event.name
         text += '\n' + date_event
-        text += '\n' + time_event
+        text += ' в ' + time_event
         text += '\n' + chose_base_ticket.name + ' ' + str(chose_price) + 'руб'
+        text += '\n'
+
+        text += '\n'.join([
+            client_data['name_adult'],
+            '+7' + client_data['phone'],
+            original_child_text,
+            ])
         text += '\n\n'
 
-        message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
-            update, context)
-
         if '_admin' in command:
-            text += f'Добавлено: {update.effective_chat.full_name}\n'
+            text += f'Добавлено: {update.effective_chat.full_name}\n\n'
 
-        text += '\n'
         for ticket_id in ticket_ids:
-            text += f' #ticket_id{ticket_id}'
+            text += f'#ticket_id <code>{ticket_id}</code>'
 
         if 'migration' in command:
             ticket_id = context.user_data['reserve_admin_data']['ticket_id']
-            text += f'\nПеренесено с #ticket_id{ticket_id}'
+            text += f'\nПеренесен с #ticket_id <code>{ticket_id}</code>'
+
+        message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
+            update, context)
 
         thread_id = await get_thread_id(context, command, schedule_event)
         await send_message_to_admin(
@@ -454,7 +459,8 @@ async def processing_successful_payment(
         sub_hl_logger.info(
             f'Проверь, что по билету {ticket_ids=} прикреплены люди')
 
-    if command == 'reserve' or command == 'studio':
+    check_send = reserve_user_data.get('flag_send_ticket_info', False)
+    if (command == 'reserve' or command == 'studio') and check_send:
         await send_by_ticket_info(update, context)
 
 
@@ -463,8 +469,7 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     reply_markup = None
     message_id_for_admin = None
     if command == 'reserve' or command == 'studio':
-        message = await send_approve_reject_message_to_admin(update,
-                                                             context)
+        message = await forward_message_to_admin(update, context)
 
         message_id = context.user_data['common_data']['message_id_buy_info']
 
@@ -527,12 +532,12 @@ async def send_breaf_message(update: Update,
     context.user_data['reserve_user_data']['message_id'] = message.message_id
 
 
-async def send_approve_reject_message_to_admin(
+async def forward_message_to_admin(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ) -> Message:
-    user = update.effective_user
-
+    ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
+    ticket_id = ticket_ids[0]
     command = context.user_data['command']
     thread_id = None
     if command == 'reserve':
@@ -541,14 +546,14 @@ async def send_approve_reject_message_to_admin(
         # TODO Переписать ключи словаря с топиками на использование enum
         if not thread_id:
             thread_id = (context.bot_data['dict_topics_name']
-                                     .get('Бронирование спектаклей', None))
+                         .get('Бронирование спектаклей', None))
     if command == 'studio':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))
     message = await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=f'#Бронирование\n'
-             f'Квитанция пользователя @{user.username} {user.full_name}\n',
+             f'Квитанция по билету: <code>{ticket_id}</code>\n',
         message_thread_id=thread_id
     )
     await update.effective_message.forward(
@@ -563,11 +568,14 @@ async def send_by_ticket_info(update, context):
     await update.effective_chat.send_message(
         'Благодарим за ответы.\n\n'
         'Ожидайте подтверждение брони в течении 24 часов.\n'
-        'Вам придет сообщение: "Ваша бронь подтверждена"\n'
+        'Вам придет сообщение: "<b>Ваша бронь подтверждена</b>"\n\n'
         '<i>Если сообщение не поступит, напишите боту:</i>\n'
         '<code>Подтверждение не поступило</code>',
     )
-    text = context.user_data['common_data']['text_for_notification_massage']
+    ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
+    ticket_id = ticket_ids[0]
+    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
+    text += context.user_data['common_data']['text_for_notification_massage']
     text += (f'__________\n'
              'Задать вопросы можно в сообщениях группы\n'
              'https://vk.com/baby_theater_domik')
@@ -580,6 +588,8 @@ async def send_by_ticket_info(update, context):
     if command == 'reserve':
         await update.effective_chat.send_photo(photo=FILE_ID_RULES,
                                                caption='Правила театра')
+
+    context.user_data['reserve_user_data']['flag_send_ticket_info'] = False
 
 
 async def send_request_email(update: Update, context):
@@ -771,23 +781,26 @@ async def send_approve_reject_message_to_admin_in_webhook(
     user = user_data['user']
     reserve_user_data = user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']
-    original_child_text = reserve_user_data['original_input_text']
-    text = (
-        f'#Бронирование\n\n'
-        f'Платеж успешно обработан\n'
-        f'Покупатель: @{user.username} {user.full_name}\n\n'
-    )
+    original_child_text = reserve_user_data['original_child_text']
+    event_id = reserve_user_data['choose_schedule_event_id']
+
+    text = f'#Бронирование\n'
+    text += f'Платеж успешно обработан\n'
+    text += f'Покупатель: @{user.username} {user.full_name}'
+    text += '\n\n'
+
+    text += f'#event_id <code>{event_id}</code>\n'
     text += user_data['common_data']['text_for_notification_massage']
     text += '\n'
+
     text += '\n'.join([
         client_data['name_adult'],
         '+7' + client_data['phone'],
         original_child_text,
-    ])
+        ])
     text += '\n\n'
-
     for ticket_id in ticket_ids:
-        text += f' #ticket_id{ticket_id}'
+        text += f'#ticket_id <code>{ticket_id}</code>'
 
     reply_markup = create_approve_and_reject_replay(
         callback_name,
