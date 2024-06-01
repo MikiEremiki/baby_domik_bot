@@ -704,7 +704,7 @@ async def get_name_children(
     reserve_user_data = context.user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']
     client_data['data_children'] = processed_data_on_children
-    reserve_user_data['original_input_text'] = update.effective_message.text
+    reserve_user_data['original_child_text'] = update.effective_message.text
 
     user = context.user_data['user']
     reserve_hl_logger.info(": ".join(
