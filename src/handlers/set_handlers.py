@@ -5,7 +5,7 @@ from telegram.ext import (
 )
 
 import custom_filters
-from handlers import main_hl
+from handlers import main_hl, reserve_hl
 from handlers.sub_hl import update_admin_info, update_bd_price
 from handlers.webhook_hl import WebhookHandler
 from handlers.error_hl import error_handler
@@ -63,6 +63,10 @@ def set_handlers(application, config):
         studio_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
+
+    application.add_handler(
+        CallbackQueryHandler(reserve_hl.processing_successful_notification,
+                             pattern='Next'))
 
     filter_admin = custom_filters.filter_admin
     application.add_handlers([
