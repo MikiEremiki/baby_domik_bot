@@ -54,7 +54,8 @@ async def webhook_update(update: WebhookNotification,
 
         text = ('Платеж успешно обработан\n\n'
                 'Нажмите <b>«ДАЛЕЕ»</b> под сообщением\n\n'
-                '<i>Или отправьте квитанцию/чек об оплате</i>')
+                '<i>Или отправьте квитанцию/чек об оплате</i>\n\n'
+                'Вам так же поступит сообщение с <b>номером билета</b>')
         reply_markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
         await context.bot.send_message(chat_id=chat_id,
