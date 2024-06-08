@@ -15,7 +15,7 @@ from db.db_googlesheets import (
     increase_free_and_decrease_nonconfirm_seat,
 )
 from settings.settings import (
-    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
+    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN, ADDRESS_OFFICE
 )
 from api.googlesheets import set_approve_order, update_ticket_in_gspread
 from utilities.utl_func import (
@@ -268,7 +268,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_approve_message(chat_id, context):
     text = (
         'Ваша бронь подтверждена, ждем вас на мероприятии.\n'
-        'Адрес: Малая Покровская, д18, 2 этаж\n\n'
+        f'Адрес: {ADDRESS_OFFICE}\n\n'
         '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
         '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
         'В ней более подробно описаны:\n'
