@@ -31,10 +31,10 @@ from utilities.utl_func import (
     clean_context, check_phone_number,
     create_approve_and_reject_replay,
     create_replay_markup_for_list_of_shows,
-    create_replay_markup_with_number_btn,
     do_italic,
     do_bold, send_and_del_message_to_remove_kb
 )
+from utilities.utl_kbd import create_kbd_with_number_btn
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
 
@@ -272,7 +272,8 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = 'Выберите сколько будет гостей-детей?\n\n' \
            'Праздник рассчитан от 1 до 10 детей.'
-    reply_markup = create_replay_markup_with_number_btn(10, 5)
+    keyboard = create_kbd_with_number_btn(10, 5)
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
@@ -295,7 +296,8 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['user'].id, 'кол-во детей', qty_child))
 
     text = 'Выберите сколько будет гостей-взрослых\n\nНе более 10 взрослых.'
-    reply_markup = create_replay_markup_with_number_btn(10, 5)
+    keyboard = create_kbd_with_number_btn(10, 5)
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup

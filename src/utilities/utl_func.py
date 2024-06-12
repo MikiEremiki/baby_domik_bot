@@ -712,39 +712,6 @@ def create_replay_markup_for_list_of_shows(
     return InlineKeyboardMarkup(keyboard)
 
 
-def create_replay_markup_with_number_btn(
-        qty_btn,
-        num_colum=8,
-):
-    """
-    Создает inline клавиатуру
-    :param qty_btn: диапазон кнопок
-    :param num_colum: Кол-во кнопок в строке, по умолчанию 8
-    :return: InlineKeyboardMarkup
-    """
-    # Определение кнопок для inline клавиатуры
-    keyboard = []
-    list_btn_of_numbers = []
-
-    i = 0
-    for num in range(qty_btn):
-        button_tmp = InlineKeyboardButton(str(num + 1),
-                                          callback_data=str(num + 1))
-        list_btn_of_numbers.append(button_tmp)
-
-        i += 1
-        # Две кнопки в строке так как для узких экранов телефонов дни недели
-        # обрезаются
-        if i % num_colum == 0:
-            i = 0
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
-
-    return InlineKeyboardMarkup(keyboard)
-
-
 def check_phone_number(phone):
     if len(phone) != 10 or phone[0] != '9':
         return True

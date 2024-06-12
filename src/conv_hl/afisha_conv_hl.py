@@ -4,6 +4,7 @@ from telegram.ext import (
 )
 
 from handlers import afisha_hl, main_hl
+from conv_hl import cancel_callback_handler
 from settings.settings import COMMAND_DICT, ADMIN_ID
 
 afisha_conv_hl = ConversationHandler(
@@ -14,9 +15,13 @@ afisha_conv_hl = ConversationHandler(
         ],
         states={
             1: [
+                cancel_callback_handler,
+                CallbackQueryHandler(afisha_hl.show_data, pattern='show_data'),
                 CallbackQueryHandler(afisha_hl.set_month),
             ],
             2: [
+                cancel_callback_handler,
+                CallbackQueryHandler(afisha_hl.skip, pattern='skip'),
                 MessageHandler(filters.PHOTO, afisha_hl.check),
             ],
         },

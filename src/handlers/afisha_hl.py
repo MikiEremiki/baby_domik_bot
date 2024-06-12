@@ -1,9 +1,10 @@
 import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 
-from utilities.utl_func import create_replay_markup_with_number_btn
+from utilities.utl_func import add_btn_back_and_cancel
+from utilities.utl_kbd import create_kbd_with_number_btn
 
 afisha_hl_logger = logging.getLogger('bot.afisha_hl')
 
@@ -17,11 +18,16 @@ async def load_afisha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.bot_data.get('afisha', False):
         context.bot_data['afisha'] = {}
 
-    reply_markup = create_replay_markup_with_number_btn(12, 6)
+    keyboard = create_kbd_with_number_btn(12, 6)
+    reply_markup = InlineKeyboardMarkup(keyboard +
+        [[InlineKeyboardButton(text='Просмотр',
+                               callback_data='show_data')] +
+         add_btn_back_and_cancel(postfix_for_cancel='afisha',
+                                 add_back_btn=False)]
+    )
 
     await update.effective_chat.send_message(
-        text='Укажите месяц с которым будет связана афиша\n'
-             'Для отмены нажми /help',
+        text='Выберите месяц для настройки афиши\n',
         reply_markup=reply_markup
     )
 
@@ -40,9 +46,50 @@ async def set_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['month_afisha'] = month
 
-    await update.effective_chat.send_message('Отправьте картинку')
+    text = 'Отправьте картинку или нажмите "Пропустить" для удаления афиши'
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(text='Пропустить', callback_data='skip')],
+        add_btn_back_and_cancel(
+            postfix_for_cancel='afisha', add_back_btn=False)
+    ])
+    await query.edit_message_text(text, reply_markup=reply_markup)
 
     state = 2
+    context.user_data['STATE'] = state
+    return state
+
+
+async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    month = context.user_data['month_afisha']
+
+    afisha_hl_logger.info(f'Пользователь удаляет картинку из месяца: {month}')
+
+    try:
+        context.bot_data['afisha'].pop(month)
+        await query.edit_message_text(text='Афиша успешно сброшена')
+    except KeyError:
+        await query.edit_message_text(text='Афиша для данного месяца не задана')
+
+    context.user_data.pop('month_afisha')
+
+    state = ConversationHandler.END
+    context.user_data['STATE'] = state
+    return state
+
+
+async def show_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    await update.effective_chat.send_message(
+        text='Технические данные по афишам:\n' +
+             context.bot_data['afisha'].__str__(),
+    )
+
+    state = 1
     context.user_data['STATE'] = state
     return state
 
@@ -52,7 +99,7 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_id = update.message.photo[0].file_id
 
     afisha_hl_logger.info(f'Пользователь прислал картинку: {file_id}')
-    
+
     context.bot_data['afisha'][month] = file_id
 
     context.user_data.pop('month_afisha')
