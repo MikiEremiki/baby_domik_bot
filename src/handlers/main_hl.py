@@ -685,6 +685,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await cancel_common(update, text)
         case 'list_wait':
             await cancel_common(update, text)
+        case 'afisha':
+            await cancel_common(update, text)
 
     try:
         main_handlers_logger.info(f'Для пользователя {user}')

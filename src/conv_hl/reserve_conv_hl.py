@@ -8,13 +8,14 @@ from telegram.ext import (
 from telegram.ext.filters import Text
 
 from handlers import reserve_hl, main_hl, offer_hl, ticket_hl
-from conv_hl import handlers_event_selection, handlers_client_data_selection
+from conv_hl import (
+    handlers_event_selection, handlers_client_data_selection,
+    cancel_callback_handler, back_callback_handler,
+    F_text_and_no_command
+)
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
-F_text_and_no_command = filters.TEXT & ~filters.COMMAND
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
-back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
-states:  Dict[object, List[BaseHandler]] = {
+states: Dict[object, List[BaseHandler]] = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
