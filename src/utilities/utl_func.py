@@ -826,7 +826,7 @@ async def send_and_del_message_to_remove_kb(update: Update):
 
 
 def get_unique_months(events: Sequence[ScheduleEvent]):
-    return set(event.datetime_event.month for event in events)
+    return sorted(set(event.datetime_event.month for event in events))
 
 
 def get_full_name_event(
