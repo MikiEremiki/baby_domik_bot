@@ -1,7 +1,7 @@
 import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, LinkPreviewOptions
 from telegram.constants import ChatType
 from telegram.error import BadRequest
 
@@ -40,16 +40,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     start_text = '<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
     description = context.bot_data['texts']['description']
+    address = context.bot_data['texts']['address']
+    ask_question = context.bot_data['texts']['ask_question']
     command = (
         'Для продолжения работы используйте команды:\n'
         f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
-        f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
+        f'\n'
+        # f'(<a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">инструкция</a>)\n'
         f'/{COMMAND_DICT['BD_ORDER'][0]} - оформить заявку на проведение дня рождения '
-        f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)'
+        # f'(<a href="https://vk.com/wall-202744340_2469">инструкция</a>)
+        '\n\n'
     )
     await update.effective_chat.send_message(
-        text=start_text + description + command,
-        reply_markup=ReplyKeyboardRemove()
+        text=start_text + description + command + address + ask_question,
+        reply_markup=ReplyKeyboardRemove(),
+        link_preview_options=LinkPreviewOptions(url='https://t.me/theater_domik')
     )
 
 
@@ -612,7 +617,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = context.user_data['user']
     data = query.data.split('|')[0].split('-')[-1]
 
-    first_text = 'Вы выбрали отмену\n'
+    first_text = '<b>Вы выбрали отмену</b>\n\n'
     use_command_text = 'Используйте команды:\n'
     reserve_text = (f'/{COMMAND_DICT['RESERVE'][0]} - для повторного '
                     f'резервирования свободных мест на мероприятие\n')
@@ -633,12 +638,14 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     explanation_text = ('\nОзнакомится более подробно с театром можно по '
                         'ссылкам:\n')
     description = context.bot_data['texts']['description']
+    address = context.bot_data['texts']['address']
+    ask_question = context.bot_data['texts']['ask_question']
 
     text = first_text
     match data:
         case 'reserve':
-            text += (use_command_text + reserve_text + explanation_text +
-                     description)
+            text += (use_command_text + reserve_text + '\n' +
+                     description + address + ask_question)
             await cancel_common(update, text)
 
             if context.user_data['STATE'] == 'OFFER':
@@ -656,8 +663,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if '|' in query.data:
                 await cancel_payment(context)
         case 'studio':
-            text += (use_command_text + studio_text + explanation_text +
-                     description)
+            text += (use_command_text + studio_text + '\n' +
+                     description + address + ask_question)
             await cancel_common(update, text)
 
             if context.user_data['STATE'] == 'OFFER':
