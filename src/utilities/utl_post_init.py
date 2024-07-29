@@ -11,7 +11,8 @@ async def post_init(app: Application, config):
     app.bot_data.setdefault('texts', {})
     app.bot_data['texts']['description'] = (
         '<a href="https://t.me/theater_domik">Канал театра</a> в телеграмм'
-        ' с удобным делением по темам\n\n'
+        ' с удобным делением по темам\n'
+        'ПОДПИСЫВАЙТЕСЬ, чтобы не пропустить новости театра\n\n'
     )
     app.bot_data['texts']['address'] = (
         f'Адрес:\n{ADDRESS_OFFICE}\n\n'
