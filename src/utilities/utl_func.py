@@ -955,11 +955,12 @@ async def get_type_event_ids_by_command(command):
     new_year = 2
     studio = 12
     invited = 14
-    all_types = [usual, new_year, invited, studio]
+    mk = 15
+    all_types = [usual, new_year, invited, studio, mk]
 
     type_event_ids = []
     if 'reserve' in command:
-        type_event_ids = [usual, new_year, invited]
+        type_event_ids = [usual, new_year, invited, mk]
     if 'studio' in command:
         type_event_ids = [studio]
     if '_admin' in command or 'list' in command:
