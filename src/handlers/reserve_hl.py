@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
     InlineKeyboardMarkup,
-    ReplyKeyboardRemove,
+    ReplyKeyboardRemove, InlineKeyboardButton,
 )
 from telegram.constants import ChatType, ChatAction
 
@@ -603,12 +603,16 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
 
-    keyboard = [add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    message = await update.effective_chat.send_message(
-        text="""<b>Напишите, имя и сколько полных лет ребенку</b>
+    base_ticket_id = context.user_data['reserve_user_data'][
+        'chose_base_ticket_id']
+    base_ticket = await db_postgres.get_base_ticket(context.session,
+                                                    base_ticket_id)
+    if base_ticket.quality_of_children > 0:
+        keyboard = [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+            add_back_btn=False)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        text = """<b>Напишите, имя и сколько полных лет ребенку</b>
 __________
 Например:
 Сергей 2
@@ -616,7 +620,18 @@ __________
 __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
- - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>""",
+ - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>"""
+    else:
+        text = 'Нажмите <b>Далее</b>'
+        btn = InlineKeyboardButton(
+            'Далее',
+            callback_data='Далее'
+        )
+        keyboard = [[btn]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+    message = await update.effective_chat.send_message(
+        text=text,
         reply_markup=reply_markup
     )
 
@@ -639,49 +654,6 @@ async def get_name_children(
     )
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    text = update.effective_message.text
-    wrong_input_data_text = (
-        'Проверьте, что указали дату или возраст правильно\n'
-        'Например:\n'
-        'Сергей 2\n'
-        'Юля 3\n'
-        '__________\n'
-        '<i> - Если детей несколько, напишите всех в одном сообщении\n'
-        ' - Один ребенок = одна строка\n'
-        ' - Не используйте дополнительные слова и пунктуацию, '
-        'кроме тех, что указаны в примерах</i>'
-    )
-    keyboard = [add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    result = await check_input_text(update.effective_message.text)
-    if not result:
-        keyboard = [add_btn_back_and_cancel(
-            context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False)]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        message = await update.effective_chat.send_message(
-            text=wrong_input_data_text,
-            reply_markup=reply_markup,
-        )
-        reserve_user_data['message_id'] = message.message_id
-        return context.user_data['STATE']
-    reserve_hl_logger.info('Проверка пройдена успешно')
-
-    processed_data_on_children = [item.split() for item in text.split('\n')]
-
-    if not isinstance(processed_data_on_children[0], list):
-        message = await update.effective_chat.send_message(
-            text=f'Вы ввели:\n{text}' + wrong_input_data_text,
-            reply_markup=reply_markup
-        )
-        reserve_user_data['message_id'] = message.message_id
-        state = 'CHILDREN'
-        context.user_data['STATE'] = state
-        return state
-
     try:
         chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
         chose_base_ticket = await db_postgres.get_base_ticket(
@@ -698,20 +670,66 @@ async def get_name_children(
         context.user_data['STATE'] = state
         return state
 
-    if len(processed_data_on_children) != chose_base_ticket.quality_of_children:
-        message = await update.effective_chat.send_message(
-            text=f'Кол-во детей, которое определено: '
-                 f'{len(processed_data_on_children)}\n'
-                 f'Кол-во детей, согласно выбранному билету: '
-                 f'{chose_base_ticket.quality_of_children}\n'
-                 f'Повторите ввод еще раз, проверьте что каждый ребенок на '
-                 f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3',
-            reply_markup=reply_markup
+    if chose_base_ticket.quality_of_children > 0:
+        text = update.effective_message.text
+        wrong_input_data_text = (
+            'Проверьте, что указали дату или возраст правильно\n'
+            'Например:\n'
+            'Сергей 2\n'
+            'Юля 3\n'
+            '__________\n'
+            '<i> - Если детей несколько, напишите всех в одном сообщении\n'
+            ' - Один ребенок = одна строка\n'
+            ' - Не используйте дополнительные слова и пунктуацию, '
+            'кроме тех, что указаны в примерах</i>'
         )
-        reserve_user_data['message_id'] = message.message_id
-        state = 'CHILDREN'
-        context.user_data['STATE'] = state
-        return state
+        keyboard = [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+            add_back_btn=False)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        result = await check_input_text(update.effective_message.text)
+        if not result:
+            keyboard = [add_btn_back_and_cancel(
+                context.user_data['postfix_for_cancel'] + '|',
+                add_back_btn=False)]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            message = await update.effective_chat.send_message(
+                text=wrong_input_data_text,
+                reply_markup=reply_markup,
+            )
+            reserve_user_data['message_id'] = message.message_id
+            return context.user_data['STATE']
+        reserve_hl_logger.info('Проверка пройдена успешно')
+
+        processed_data_on_children = [item.split() for item in text.split('\n')]
+
+        if not isinstance(processed_data_on_children[0], list):
+            message = await update.effective_chat.send_message(
+                text=f'Вы ввели:\n{text}' + wrong_input_data_text,
+                reply_markup=reply_markup
+            )
+            reserve_user_data['message_id'] = message.message_id
+            state = 'CHILDREN'
+            context.user_data['STATE'] = state
+            return state
+
+        if len(processed_data_on_children) != chose_base_ticket.quality_of_children:
+            message = await update.effective_chat.send_message(
+                text=f'Кол-во детей, которое определено: '
+                     f'{len(processed_data_on_children)}\n'
+                     f'Кол-во детей, согласно выбранному билету: '
+                     f'{chose_base_ticket.quality_of_children}\n'
+                     f'Повторите ввод еще раз, проверьте что каждый ребенок на '
+                     f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3',
+                reply_markup=reply_markup
+            )
+            reserve_user_data['message_id'] = message.message_id
+            state = 'CHILDREN'
+            context.user_data['STATE'] = state
+            return state
+    else:
+        processed_data_on_children = [['0', '0']]
 
     reserve_user_data = context.user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']

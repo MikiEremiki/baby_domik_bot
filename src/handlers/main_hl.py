@@ -271,22 +271,16 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_approve_message(chat_id, context):
-    text = (
-        'Ваша бронь подтверждена, ждем вас на мероприятии.\n'
-        f'Адрес: {ADDRESS_OFFICE}\n\n'
-        '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n'
-        '<a href="https://vk.com/baby_theater_domik">Ссылка ВКонтакте</a> на нашу группу\n'
-        'В ней более подробно описаны:\n'
-        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2446">Бронь билетов</a>\n'
-        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2495">Репертуар</a>\n'
-        '- Фотографии\n'
-        '- Команда и жизнь театра\n'
-        '- <a href="https://vk.com/wall-202744340_1239">Ответы на часто задаваемые вопросы</a>\n'
-        '- <a href="https://vk.com/baby_theater_domik?w=wall-202744340_2003">Как нас найти</a>\n\n'
-        '<i>Задать любые интересующие вас вопросы вы можете через сообщения группы</i>\n\n'
+    description = context.bot_data['texts']['description']
+    address = context.bot_data['texts']['address']
+    ask_question = context.bot_data['texts']['ask_question']
+    command = (
         'Для продолжения работы используйте команды:\n'
-        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль '
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль\n'
     )
+    approve_text = '<b>Ваша бронь подтверждена, ждем вас на мероприятии.</b>\n\n'
+    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
+    text = approve_text + address + refund + description + ask_question + command
     await context.bot.send_message(text=text, chat_id=chat_id)
 
 

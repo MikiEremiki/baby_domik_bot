@@ -47,6 +47,7 @@ handlers_client_data_selection = {
         cancel_callback_handler,
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_name_children),
+        CallbackQueryHandler(reserve_hl.get_name_children, pattern='^Далее'),
     ],
 }
 
