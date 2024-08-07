@@ -559,7 +559,7 @@ async def get_schedule_theater_base_tickets(context, choice_event_id):
                                                           theater_event,
                                                           type_event,
                                                           context.session)
-    return base_tickets, schedule_event, theater_event
+    return base_tickets, schedule_event, theater_event, type_event
 
 
 async def update_user(

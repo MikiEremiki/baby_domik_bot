@@ -17,6 +17,8 @@ def check_available_seats(schedule_event, only_child=False):
 
 
 def check_available_ticket_by_free_seat(schedule_event,
+                                        theater_event,
+                                        type_event,
                                         ticket,
                                         only_child=False):
     quality_child = ticket.quality_of_children
@@ -30,7 +32,8 @@ def check_available_ticket_by_free_seat(schedule_event,
         check_adult = True
 
     check_ratio_child_and_adult = True
-    if quality_adults > 0:
+    mk_type_event = 15
+    if quality_adults > 0 and type_event.id != mk_type_event:
         delta_ticket = quality_adults - quality_child
         delta_free = quality_adults_free - quality_child_free
 

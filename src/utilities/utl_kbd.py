@@ -45,7 +45,7 @@ async def create_kbd_and_text_tickets_for_choice(
                                                              theater_event,
                                                              date_for_price)
 
-        if ticket_id // 100 >= 3 and not flag_indiv_cost_sep:
+        if 8 > ticket_id // 100 >= 3 and not flag_indiv_cost_sep:
             text += "__________\n    Варианты со скидками:\n"
             flag_indiv_cost_sep = True
 

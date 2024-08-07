@@ -111,8 +111,12 @@ async def choice_option_of_reserve(
     choice_event_id = update.effective_message.text
     message = await update.effective_chat.send_message('Загружаю данные')
 
-    base_tickets, schedule_event, theater_event = await get_schedule_theater_base_tickets(
-        context, choice_event_id)
+    (
+        base_tickets,
+        schedule_event,
+        theater_event,
+        type_event
+    ) = await get_schedule_theater_base_tickets(context, choice_event_id)
 
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)

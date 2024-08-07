@@ -358,8 +358,12 @@ async def choice_option_of_reserve(
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['choose_schedule_event_id'] = choice_event_id
 
-    base_tickets, schedule_event, theater_event = await get_schedule_theater_base_tickets(
-        context, choice_event_id)
+    (
+        base_tickets,
+        schedule_event,
+        theater_event,
+        type_event
+    ) = await get_schedule_theater_base_tickets(context, choice_event_id)
 
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
@@ -414,6 +418,8 @@ async def choice_option_of_reserve(
     base_tickets_filtered = []
     for i, ticket in enumerate(base_tickets):
         check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                           theater_event,
+                                                           type_event,
                                                            ticket,
                                                            only_child=only_child)
         if not ticket.flag_active or (check_command and not check_ticket):
