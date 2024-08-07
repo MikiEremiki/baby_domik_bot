@@ -496,6 +496,10 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.session, schedule_event_id)
     context.session.add(schedule_event)
     await context.session.refresh(schedule_event)
+    theater_event = await db_postgres.get_theater_event(context.session,
+                                                        schedule_event.theater_event_id)
+    type_event = await db_postgres.get_type_event(context.session,
+                                                  schedule_event.type_event_id)
 
     check_command = check_entered_command(context, 'reserve')
     if check_command:
@@ -505,6 +509,8 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         only_child = True
 
     check_ticket = check_available_ticket_by_free_seat(schedule_event,
+                                                       theater_event,
+                                                       type_event,
                                                        chose_base_ticket,
                                                        only_child=only_child)
 
