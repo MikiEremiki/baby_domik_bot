@@ -292,14 +292,19 @@ async def create_and_send_payment(
     # TODO Заменить на запись в другой лист
     write_client_reserve(context, chat_id, chose_base_ticket)
 
-    idempotency_id = uuid.uuid4()
-    try:
-        payment = Payment.create(
-            create_param_payment(
-                chose_price,
-                f'Билет на мероприятие {full_name} {date_event} в {time_event}'
-                f' {chose_base_ticket.name}',
-                email,
+    ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
+    max_len_decs = 128
+    len_desc_without_name = len(
+        f'Билет на мероприятие  {date_event} в {time_event}' +
+        ticket_name_for_desc
+    )
+    len_for_name = max_len_decs - len_desc_without_name
+    full_name_for_desc = full_name[:len_for_name]
+    description = f'Билет на мероприятие {full_name_for_desc} {date_event} в {time_event}'
+    param = create_param_payment(
+                price=chose_price,
+                description=' '.join([description, ticket_name_for_desc]),
+                email=email,
                 payment_method_type=context.config.yookassa.payment_method_type,
                 chat_id=update.effective_chat.id,
                 message_id=message.message_id,
@@ -307,10 +312,13 @@ async def create_and_send_payment(
                 choose_schedule_event_ids='|'.join(
                     str(v) for v in choose_schedule_event_ids),
                 command=command
-            ),
-            idempotency_id)
+            )
+    idempotency_id = uuid.uuid4()
+    try:
+        payment = Payment.create(param, idempotency_id)
     except ValueError as e:
         sub_hl_logger.error(e)
+        sub_hl_logger.error(param)
         if e == 'Invalid email value type':
             sub_hl_logger.error(email)
             await update.effective_chat.send_message(
@@ -323,6 +331,7 @@ async def create_and_send_payment(
             set_back_context(context, state, text, reply_markup)
             context.user_data['STATE'] = state
             return state
+        raise ValueError('Проблема с созданием платежа')
 
     await db_postgres.update_ticket(
         context.session,
