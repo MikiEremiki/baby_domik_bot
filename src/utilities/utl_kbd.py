@@ -62,14 +62,16 @@ async def create_kbd_and_text_tickets_for_choice(
 
 async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
                                        enum_theater_events):
-    date_added_tmp = []
-    theater_events_tmp = []
+    checked_event = {}
 
     keyboard = []
     for event in schedule_events_filter_by_month:
         event: ScheduleEvent
-        if (event.datetime_event.date() in date_added_tmp and
-            event.theater_event_id) in theater_events_tmp:
+        tmp_checked_event_by_type = checked_event.setdefault(
+            event.theater_event_id, [])
+        if (
+                event.datetime_event.date() in tmp_checked_event_by_type
+        ):
             continue
         index = 1
         for i, enum_event in enum_theater_events:
@@ -85,8 +87,7 @@ async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
         )
         keyboard.append(button_tmp)
 
-        date_added_tmp.append(event.datetime_event.date())
-        theater_events_tmp.append(event.theater_event_id)
+        tmp_checked_event_by_type.append(event.datetime_event.date())
     return keyboard
 
 
