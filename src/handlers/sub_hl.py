@@ -189,15 +189,20 @@ async def get_schedule_events_and_month_by_type_event(context, type_event_ids):
 async def get_theater_and_schedule_events_by_month(context, schedule_events,
                                                    number_of_month_str):
     schedule_events_filter_by_month = []
-    theatre_event_ids = set()
+    theatre_event_ids = []
     for event in schedule_events:
         if event.datetime_event.month == int(number_of_month_str):
-            theatre_event_ids.add(event.theater_event_id)
+            if event.theater_event_id not in theatre_event_ids:
+                theatre_event_ids.append(event.theater_event_id)
             schedule_events_filter_by_month.append(event)
     theater_events: List[
         TheaterEvent] = await db_postgres.get_theater_events_by_ids(
         context.session,
         theatre_event_ids)
+    theater_events = sorted(
+        theater_events,
+        key=lambda e: theatre_event_ids.index(e.id)
+    )
     try:
         enum_theater_events = enumerate(theater_events, start=1)
     except TypeError:
