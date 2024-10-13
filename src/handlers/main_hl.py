@@ -788,6 +788,13 @@ async def feedback_reply_msg(
                 caption=update.message.caption,
                 reply_to_message_id=int(message_id),
             )
+        if bool(update.message.video):
+            await context.bot.send_video(
+                chat_id=chat_id,
+                video=update.message.video,
+                caption=update.message.caption,
+                reply_to_message_id=int(message_id),
+            )
     except (IndexError, ValueError) as e:
         main_handlers_logger.error(e)
         await update.effective_message.reply_text(
