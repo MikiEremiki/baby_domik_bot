@@ -1,3 +1,5 @@
+from typing import Optional
+
 from yookassa.domain import models
 from settings.settings import URL_BOT
 
@@ -10,7 +12,7 @@ def create_param_payment(
         *,
         quantity: str = "1",
         payment_method_type: str = "sbp",  # "yoo_money"
-        payment_mode: str = "full_payment",
+        payment_mode: Optional[str] = "full_payment",
         payment_subject: str = "service",
         **kwargs,
 ) -> dict:
