@@ -70,9 +70,7 @@ async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
         event: ScheduleEvent
         tmp_checked_event_by_type = checked_event.setdefault(
             event.theater_event_id, [])
-        if (
-                event.datetime_event.date() in tmp_checked_event_by_type
-        ):
+        if event.datetime_event.date() in tmp_checked_event_by_type:
             continue
         index = 1
         for i, theater_event in enum_theater_events:
