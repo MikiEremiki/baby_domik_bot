@@ -21,7 +21,6 @@ async def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data.setdefault('back', {})
     reserve_user_data.setdefault('client_data', {})
-    reserve_user_data.setdefault('choose_event_info', {})
 
     return state
 

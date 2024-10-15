@@ -36,7 +36,6 @@ from utilities.utl_check import (
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
     set_back_context, check_phone_number,
-    create_replay_markup_for_list_of_shows,
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
@@ -44,10 +43,10 @@ from utilities.utl_func import (
     add_clients_data_to_text, add_qty_visitors_to_text
 )
 from utilities.utl_kbd import (
-    adjust_kbd,
     create_kbd_schedule_and_date, create_kbd_schedule,
     create_kbd_for_time_in_reserve, create_replay_markup,
-    create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio
+    create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio,
+    create_kbd_for_date_in_reserve
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
@@ -131,36 +130,27 @@ async def choice_show_or_date(
         text = '<b>Выберите мероприятие\n</b>' + text_legend
         text = await create_event_names_text(enum_theater_events, text)
 
-        # TODO Сделать клавиатуру без дат, только название
         keyboard = await create_kbd_schedule(enum_theater_events)
-        keyboard = adjust_kbd(keyboard, 5)
-        keyboard.append(add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'],
-            postfix_for_back='MONTH'
-        ))
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         state = 'SHOW'
-        set_back_context(context, state, text, reply_markup)
     else:
         text = '<b>Выберите мероприятие и дату\n</b>' + text_legend
         text = await create_event_names_text(enum_theater_events, text)
 
         keyboard = await create_kbd_schedule_and_date(
             schedule_events_filter_by_month, enum_theater_events)
-        reply_markup = await create_replay_markup(
-            keyboard,
-            postfix_for_cancel=context.user_data['postfix_for_cancel'],
-            postfix_for_back='MONTH',
-            size_row=2
-        )
 
         if context.user_data['command'] == 'list_wait':
             state = 'LIST_WAIT'
         else:
             state = 'DATE'
-        set_back_context(context, state, text, reply_markup)
 
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back='MONTH',
+        size_row=2
+    )
     photo = (
         context.bot_data
         .get('afisha', {})
@@ -181,6 +171,7 @@ async def choice_show_or_date(
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
 
+    set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -193,44 +184,43 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state TIME
     """
-    # TODO Переписать большую часть функции, содержит устаревший код
     query = update.callback_query
     await query.answer()
 
-    number_of_show = int(query.data)
+    theater_event_id = int(query.data)
     reserve_user_data = context.user_data['reserve_user_data']
-    dict_of_date_show = reserve_user_data['dict_of_date_show']
-    dict_of_name_show_flip = reserve_user_data['dict_of_name_show_flip']
     number_of_month_str = reserve_user_data['number_of_month_str']
-    dict_of_shows = context.user_data['common_data']['dict_of_shows']
-    name_of_show = dict_of_name_show_flip[number_of_show]
+    theater_event = await db_postgres.get_theater_event(
+        context.session, theater_event_id)
+    schedule_events = await db_postgres.get_schedule_events_by_theater_ids_actual(
+        context.session, [theater_event_id])
 
-    reply_markup = create_replay_markup_for_list_of_shows(
-        dict_of_date_show,
-        ver=3,
-        add_cancel_btn=True,
+    keyboard = await create_kbd_for_date_in_reserve(schedule_events)
+    reply_markup = await create_replay_markup(
+        keyboard,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back='SHOW',
-        number_of_month=number_of_month_str,
-        number_of_show=number_of_show,
-        dict_of_events_show=dict_of_shows
+        size_row=2
     )
 
     flag_gift = False
     flag_christmas_tree = False
     flag_santa = False
 
-    for event in dict_of_shows.values():
-        if name_of_show == event['name_show']:
-            if event['flag_gift']:
-                flag_gift = True
-            if event['flag_christmas_tree']:
-                flag_christmas_tree = True
-            if event['flag_santa']:
-                flag_santa = True
-
+    for event in schedule_events:
+        if event.flag_gift:
+            flag_gift = True
+        if event.flag_christmas_tree:
+            flag_christmas_tree = True
+        if event.flag_santa:
+            flag_santa = True
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
     text = (f'Вы выбрали мероприятие:\n'
-            f'<b>{name_of_show}</b>\n'
+            f'<b>{full_name}</b>\n'
             f'<i>Выберите удобную дату</i>\n\n')
     if flag_gift:
         text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
