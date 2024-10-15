@@ -74,8 +74,8 @@ async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
         ):
             continue
         index = 1
-        for i, enum_event in enum_theater_events:
-            if event.theater_event_id == enum_event.id:
+        for i, theater_event in enum_theater_events:
+            if event.theater_event_id == theater_event.id:
                 index = i
         weekday = int(event.datetime_event.strftime('%w'))
         button_tmp = InlineKeyboardButton(
@@ -93,10 +93,10 @@ async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
 
 async def create_kbd_schedule(enum_theater_events):
     keyboard = []
-    for i, event in enum_theater_events:
+    for i, theater_event in enum_theater_events:
         button_tmp = InlineKeyboardButton(
             text=DICT_OF_EMOJI_FOR_BUTTON[i],
-            callback_data=str(event.theater_event_id)
+            callback_data=str(theater_event.theater_event_id)
         )
         keyboard.append(button_tmp)
     return keyboard
