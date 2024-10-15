@@ -96,7 +96,7 @@ async def create_kbd_schedule(enum_theater_events):
     for i, theater_event in enum_theater_events:
         button_tmp = InlineKeyboardButton(
             text=DICT_OF_EMOJI_FOR_BUTTON[i],
-            callback_data=str(theater_event.theater_event_id)
+            callback_data=str(theater_event.id)
         )
         keyboard.append(button_tmp)
     return keyboard
