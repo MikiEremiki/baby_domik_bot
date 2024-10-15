@@ -124,12 +124,7 @@ async def choice_show_or_date(
                                                  number_of_month_str)
     )
 
-    text_legend = (
-        '📍 - Премьера\n'
-        '👶🏼 - Рекомендованный возраст\n'
-        '⏳ - Продолжительность\n'
-        '\n'
-    )
+    text_legend = context.bot_data['texts']['text_legend']
 
     december = '12'
     if number_of_month_str == december:
