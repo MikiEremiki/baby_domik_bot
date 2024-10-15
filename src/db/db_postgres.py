@@ -522,6 +522,14 @@ async def get_base_tickets_by_event_or_all(
     return base_tickets
 
 
+async def get_schedule_events_by_theater_event_ids(
+        session: AsyncSession, theater_event_ids: List[int]):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.theater_event_id.in_(theater_event_ids))
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 async def get_schedule_events_by_type(
         session: AsyncSession, type_event_id: List[int]):
     query = select(ScheduleEvent).where(
@@ -534,6 +542,16 @@ async def get_schedule_events_by_type_actual(
         session: AsyncSession, type_event_id: List[int]):
     query = select(ScheduleEvent).where(
         ScheduleEvent.type_event_id.in_(type_event_id),
+        ScheduleEvent.datetime_event >= datetime.now()
+    ).order_by(ScheduleEvent.datetime_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_schedule_events_by_theater_ids_actual(
+        session: AsyncSession, theater_event_ids: List[int]):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.theater_event_id.in_(theater_event_ids),
         ScheduleEvent.datetime_event >= datetime.now()
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)

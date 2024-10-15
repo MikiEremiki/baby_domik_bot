@@ -42,9 +42,6 @@ context_user_data: Dict = {
             },
         },
         'number_of_month_str': str,
-        'dict_of_name_show': dict,
-        'dict_of_name_show_flip': dict,
-        'dict_of_date_show': dict,
         'choose_event_info': {
             'theater_event_id': int,
             'name_show': str,

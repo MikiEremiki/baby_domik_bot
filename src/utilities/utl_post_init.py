@@ -21,6 +21,13 @@ async def post_init(app: Application, config):
         '<i>Задать любой вопрос можно здесь, написав сообщение боту '
         '(можно прикреплять файлы/медиа)</i>\n\n'
     )
+    app.bot_data['texts']['text_legend'] = (
+        '📍 - Премьера\n'
+        '👶🏼 - Рекомендованный возраст\n'
+        '⏳ - Продолжительность\n'
+        '\n'
+    )
+
     app.bot_data.setdefault('admin', {})
     app.bot_data['admin'].setdefault('contacts', {})
     app.bot_data.setdefault('dict_topics_name', {})

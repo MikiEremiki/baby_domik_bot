@@ -31,12 +31,7 @@ async def choice_show_and_date(update: Update,
                                                  number_of_month_str)
     )
 
-    text_legend = (
-        '📍 - Премьера\n'
-        '👶🏼 - Рекомендованный возраст\n'
-        '⏳ - Продолжительность\n'
-        '\n'
-    )
+    text_legend = context.bot_data['texts']['text_legend']
 
     text = '<b>Выберите мероприятие и дату\n</b>' + text_legend
     text = await create_event_names_text(enum_theater_events, text)

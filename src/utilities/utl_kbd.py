@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -7,7 +7,8 @@ from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
     SUPPORT_DATA, DICT_CONVERT_MONTH_NUMBER_TO_STR)
 from utilities import add_btn_back_and_cancel
-from utilities.utl_func import get_time_with_timezone
+from utilities.utl_func import (
+    get_time_with_timezone, get_formatted_date_and_time_of_event)
 from utilities.utl_ticket import get_spec_ticket_price
 
 
@@ -69,13 +70,11 @@ async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
         event: ScheduleEvent
         tmp_checked_event_by_type = checked_event.setdefault(
             event.theater_event_id, [])
-        if (
-                event.datetime_event.date() in tmp_checked_event_by_type
-        ):
+        if event.datetime_event.date() in tmp_checked_event_by_type:
             continue
         index = 1
-        for i, enum_event in enum_theater_events:
-            if event.theater_event_id == enum_event.id:
+        for i, theater_event in enum_theater_events:
+            if event.theater_event_id == theater_event.id:
                 index = i
         weekday = int(event.datetime_event.strftime('%w'))
         button_tmp = InlineKeyboardButton(
@@ -93,10 +92,41 @@ async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
 
 async def create_kbd_schedule(enum_theater_events):
     keyboard = []
-    for i, event in enum_theater_events:
+    for i, theater_event in enum_theater_events:
         button_tmp = InlineKeyboardButton(
             text=DICT_OF_EMOJI_FOR_BUTTON[i],
-            callback_data=str(event.theater_event_id)
+            callback_data=str(theater_event.id)
+        )
+        keyboard.append(button_tmp)
+    return keyboard
+
+
+async def create_kbd_for_date_in_reserve(schedule_events: List[ScheduleEvent]):
+    keyboard = []
+    checked_event = []
+    for i, event in enumerate(schedule_events, start=1):
+        date = event.datetime_event.date()
+        if event.datetime_event.date() in checked_event:
+            continue
+        checked_event.append(date)
+
+        text_emoji = ''
+        if event.flag_gift:
+            text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
+        if event.flag_christmas_tree:
+            text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
+        if event.flag_santa:
+            text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
+
+        date_event, time_event = await get_formatted_date_and_time_of_event(
+            event)
+        text = f'{date_event}'
+        text += text_emoji
+
+        button_tmp = InlineKeyboardButton(
+            text=text,
+            callback_data=str(event.theater_event_id) + '|' +
+                          event.datetime_event.date().isoformat()
         )
         keyboard.append(button_tmp)
     return keyboard

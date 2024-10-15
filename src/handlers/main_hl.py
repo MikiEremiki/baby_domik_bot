@@ -675,8 +675,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if '|' in query.data:
                 await cancel_payment(context)
-        case 'bd':
-            text += (use_command_text + bd_order_text + bd_paid_text)
+        case 'birthday':
+            text += (use_command_text + bd_order_text + '\n' +
+                     description + address + ask_question)
             await cancel_common(update, text)
         case 'settings':
             await cancel_common(update, text)
