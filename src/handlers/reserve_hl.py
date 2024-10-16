@@ -22,7 +22,7 @@ from handlers.sub_hl import (
     send_message_about_list_waiting,
     remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment,
-    get_theater_and_schedule_events_by_month,
+    get_theater_and_schedule_events_by_month, get_schedule_events_by_month,
 )
 from db.db_googlesheets import (
     load_clients_data,
@@ -188,12 +188,19 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     theater_event_id = int(query.data)
+
     reserve_user_data = context.user_data['reserve_user_data']
     number_of_month_str = reserve_user_data['number_of_month_str']
-    theater_event = await db_postgres.get_theater_event(
-        context.session, theater_event_id)
-    schedule_events = await db_postgres.get_schedule_events_by_theater_ids_actual(
-        context.session, [theater_event_id])
+    command = context.user_data['command']
+    type_event_ids = await get_type_event_ids_by_command(command)
+    schedule_events = await (
+        db_postgres.get_schedule_events_by_theater_and_month_and_types_actual(
+            context.session,
+            [theater_event_id],
+            type_event_ids
+        ))
+    schedule_events = await get_schedule_events_by_month(schedule_events,
+                                                         number_of_month_str)
 
     keyboard = await create_kbd_for_date_in_reserve(schedule_events)
     reply_markup = await create_replay_markup(
@@ -214,6 +221,9 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             flag_christmas_tree = True
         if event.flag_santa:
             flag_santa = True
+
+    theater_event = await db_postgres.get_theater_event(
+        context.session, theater_event_id)
     full_name = get_full_name_event(theater_event.name,
                                     theater_event.flag_premier,
                                     theater_event.min_age_child,
