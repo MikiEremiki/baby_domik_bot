@@ -210,6 +210,15 @@ async def get_theater_and_schedule_events_by_month(context, schedule_events,
     return tuple(enum_theater_events), schedule_events_filter_by_month
 
 
+async def get_schedule_events_by_month(schedule_events,
+                                       number_of_month_str):
+    schedule_events_filter_by_month = []
+    for event in schedule_events:
+        if event.datetime_event.month == int(number_of_month_str):
+            schedule_events_filter_by_month.append(event)
+    return schedule_events_filter_by_month
+
+
 async def remove_button_from_last_message(update, context):
     message_id = context.user_data['common_data']['message_id_buy_info']
     try:
@@ -307,17 +316,17 @@ async def create_and_send_payment(
     full_name_for_desc = full_name[:len_for_name]
     description = f'Билет на мероприятие {full_name_for_desc} {date_event} в {time_event}'
     param = create_param_payment(
-                price=chose_price,
-                description=' '.join([description, ticket_name_for_desc]),
-                email=email,
-                payment_method_type=context.config.yookassa.payment_method_type,
-                chat_id=update.effective_chat.id,
-                message_id=message.message_id,
-                ticket_ids='|'.join(str(v) for v in ticket_ids),
-                choose_schedule_event_ids='|'.join(
-                    str(v) for v in choose_schedule_event_ids),
-                command=command
-            )
+        price=chose_price,
+        description=' '.join([description, ticket_name_for_desc]),
+        email=email,
+        payment_method_type=context.config.yookassa.payment_method_type,
+        chat_id=update.effective_chat.id,
+        message_id=message.message_id,
+        ticket_ids='|'.join(str(v) for v in ticket_ids),
+        choose_schedule_event_ids='|'.join(
+            str(v) for v in choose_schedule_event_ids),
+        command=command
+    )
     idempotency_id = uuid.uuid4()
     try:
         payment = Payment.create(param, idempotency_id)
@@ -440,7 +449,7 @@ async def processing_successful_payment(
             client_data['name_adult'],
             '+7' + client_data['phone'],
             original_child_text,
-            ])
+        ])
         text += '\n\n'
 
         if '_admin' in command:
@@ -811,7 +820,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
         client_data['name_adult'],
         '+7' + client_data['phone'],
         original_child_text,
-        ])
+    ])
     text += '\n\n'
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'

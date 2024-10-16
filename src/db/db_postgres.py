@@ -558,6 +558,20 @@ async def get_schedule_events_by_theater_ids_actual(
     return result.scalars().all()
 
 
+async def get_schedule_events_by_theater_and_month_and_types_actual(
+        session: AsyncSession,
+        theater_event_ids: List[int],
+        type_event_ids: List[int]
+):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.theater_event_id.in_(theater_event_ids),
+        ScheduleEvent.type_event_id.in_(type_event_ids),
+        ScheduleEvent.datetime_event >= datetime.now()
+    ).order_by(ScheduleEvent.datetime_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 async def get_actual_schedule_events_by_date(
         session: AsyncSession, date_event: date):
     query = select(ScheduleEvent).where(
