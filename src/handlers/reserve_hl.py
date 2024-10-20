@@ -64,11 +64,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state MONTH
     """
     query = update.callback_query
-    if context.user_data.get('command', False) and query:
-        state = context.user_data['STATE']
-        await query.answer()
-        await query.delete_message()
-    else:
+    if not (context.user_data.get('command', False) and query):
         state = await init_conv_hl_dialog(update, context)
         await check_user_db(update, context)
 
@@ -92,6 +88,9 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = 'MONTH'
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    if context.user_data.get('command', False) and query:
+        await query.answer('Месяц выбран')
+        await query.delete_message()
     return state
 
 
@@ -106,8 +105,6 @@ async def choice_show_or_date(
     :return: возвращает state DATE
     """
     query = update.callback_query
-    await query.answer()
-    await query.delete_message()
 
     number_of_month_str = query.data
 
@@ -173,6 +170,8 @@ async def choice_show_or_date(
 
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer('Месяц выбрали')
+    await query.delete_message()
     return state
 
 
@@ -185,7 +184,6 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state TIME
     """
     query = update.callback_query
-    await query.answer()
 
     theater_event_id = int(query.data)
     reserve_user_data = context.user_data['reserve_user_data']
@@ -251,6 +249,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'DATE'
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer('Дату выбрали')
     return state
 
 
@@ -263,13 +262,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state TIME
     """
     query = update.callback_query
-    await query.answer()
-    try:
-        await query.delete_message()
-    except BadRequest as e:
-        if e.message == 'Message to delete not found':
-            reserve_hl_logger.error('Скорее всего нажали несколько раз')
-        return
 
     schedule_events, theater_event = await get_events_for_time_hl(update,
                                                                   context)
@@ -316,6 +308,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'TIME'
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
+    await query.delete_message()
     return state
 
 
@@ -331,7 +325,6 @@ async def choice_option_of_reserve(
     :return: возвращает state ORDER
     """
     query = update.callback_query
-    await query.answer()
     await query.edit_message_text('Загружаю данные по билетам...')
 
     thread_id = update.effective_message.message_thread_id
@@ -446,6 +439,7 @@ async def choice_option_of_reserve(
     state = 'TICKET'
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
@@ -453,9 +447,6 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not query:
         await check_email_and_update_user(update, context)
-    else:
-        await query.answer()
-        await query.delete_message()
 
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -543,6 +534,9 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 'FORMA'
     context.user_data['STATE'] = state
+    if query:
+        await query.answer()
+        await query.delete_message()
     return state
 
 
@@ -862,7 +856,6 @@ async def send_clients_data(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     thread_id = update.effective_message.message_thread_id
     await update.effective_chat.send_action(ChatAction.TYPING,
@@ -891,6 +884,7 @@ async def send_clients_data(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 

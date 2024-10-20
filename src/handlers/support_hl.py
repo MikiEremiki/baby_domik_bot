@@ -89,7 +89,6 @@ async def choice_db_settings(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     button_base_ticket = InlineKeyboardButton(text='Базовые билеты',
                                               callback_data='base_ticket')
@@ -130,13 +129,13 @@ async def choice_db_settings(
     state = 2
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def get_updates_option(update: Update,
                              _: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
 
     btn_update_base_ticket_data = InlineKeyboardButton(
         COMMAND_DICT['UP_BT_DATA'][1],
@@ -172,6 +171,7 @@ async def get_updates_option(update: Update,
         reply_markup=reply_markup
     )
 
+    await query.answer()
     return 'updates'
 
 
@@ -180,7 +180,6 @@ async def get_settings(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     reply_markup = create_kbd_crud(query.data)
 
@@ -191,6 +190,7 @@ async def get_settings(
     )
 
     context.user_data['reply_markup'] = reply_markup
+    await query.answer()
     return 3
 
 
@@ -199,7 +199,6 @@ async def theater_event_select(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     res = await db_postgres.get_all_theater_events(context.session)
     text = ''
@@ -207,8 +206,8 @@ async def theater_event_select(
         text += str(row[0]) + '\n'
 
     reply_markup = context.user_data['reply_markup']
-    await query.edit_message_text(text,
-                                  reply_markup=reply_markup)
+    await query.edit_message_text(text, reply_markup=reply_markup)
+    await query.answer()
     return 3
 
 
@@ -217,7 +216,6 @@ async def schedule_event_select(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     res = await db_postgres.get_all_schedule_events(context.session)
     text = ''
@@ -225,8 +223,8 @@ async def schedule_event_select(
         text += str(row[0]) + '\n'
 
     reply_markup = context.user_data['reply_markup']
-    await query.edit_message_text(text,
-                                  reply_markup=reply_markup)
+    await query.edit_message_text(text, reply_markup=reply_markup)
+    await query.answer()
     return 3
 
 
@@ -235,7 +233,6 @@ async def theater_event_preview(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     text = (f'{kv_name_attr_theater_event['name']}=Название\n'
             f'{kv_name_attr_theater_event['min_age_child']}=1\n'
@@ -249,6 +246,7 @@ async def theater_event_preview(
             f'{kv_name_attr_theater_event['flag_indiv_cost']}=Нет\n'
             f'{kv_name_attr_theater_event['price_type']}=По умолчанию/Базовая стоимость/Опции/Индивидуальная\n')
     await query.edit_message_text(text)
+    await query.answer()
 
     return 41
 
@@ -258,7 +256,6 @@ async def schedule_event_preview(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     text = (f'{kv_name_attr_schedule_event['type_event_id']}=\n'
             f'{kv_name_attr_schedule_event['theater_event_id']}=\n'
@@ -271,6 +268,7 @@ async def schedule_event_preview(
             f'{kv_name_attr_schedule_event['flag_santa']}=Нет\n'
             f'{kv_name_attr_schedule_event['ticket_price_type']}=По умолчанию/будни/выходные\n')
     await query.edit_message_text(text)
+    await query.answer()
 
     return 42
 
@@ -312,7 +310,6 @@ async def theater_event_create(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     theater_event = context.user_data['theater_event']
     reply_markup = context.user_data['reply_markup']
@@ -323,6 +320,7 @@ async def theater_event_create(
     )
 
     context.user_data.pop('theater_event')
+    await query.answer()
     if res:
         await query.edit_message_text(
             text=f'{theater_event['name']}\nУспешно добавлено',
@@ -340,7 +338,6 @@ async def schedule_event_create(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     schedule_event = context.user_data['schedule_event']
     reply_markup = context.user_data['reply_markup']
@@ -351,6 +348,7 @@ async def schedule_event_create(
     )
 
     context.user_data.pop('schedule_event')
+    await query.answer()
     if res:
         # Получаю элемент репертуара, так как название есть только в репертуаре
         res = await db_postgres.get_theater_event(

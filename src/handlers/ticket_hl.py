@@ -16,7 +16,6 @@ async def get_ticket(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
     await query.edit_message_reply_markup()
 
     base_ticket_id = int(query.data)
@@ -55,4 +54,5 @@ async def get_ticket(
 
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
     return state

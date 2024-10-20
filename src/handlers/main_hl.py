@@ -199,11 +199,11 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     используемое в ConversationHandler и возвращает свободные места для
     доступа к бронированию
     """
+    query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить бронь')
         return
-    query = await remove_inline_button(update)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
@@ -269,6 +269,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ))
 
+    await remove_inline_button(update)
+
 
 async def send_approve_message(chat_id, context):
     description = context.bot_data['texts']['description']
@@ -299,11 +301,11 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Отправляет оповещение об отказе в бронировании, удаляет сообщение
     используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
     """
+    query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить бронь')
         return
-    query = await remove_inline_button(update)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
@@ -373,13 +375,15 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ))
 
+    await remove_inline_button(update)
+
 
 async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
         return
-    query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
@@ -429,14 +433,15 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text,
         chat_id=chat_id,
     )
+    await remove_inline_button(update)
 
 
 async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
         return
-    query = await remove_inline_button(update)
 
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
@@ -483,6 +488,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=text,
         chat_id=chat_id,
     )
+    await remove_inline_button(update)
 
 
 async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -493,7 +499,6 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return:
     """
     query = update.callback_query
-    await query.answer()
 
     state = query.data.split('-')[1]
     if state.isdigit():
@@ -501,6 +506,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         state = state.upper()
     text, reply_markup = get_back_context(context, state)
+    await del_messages(update, context, del_message_ids)
 
     command = context.user_data['command']
 
@@ -597,6 +603,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_thread_id=query.message.message_thread_id
             )
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
@@ -606,7 +613,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     для отмены действий и выхода из ConversationHandler
     """
     query = update.callback_query
-    await query.answer()
 
     user = context.user_data['user']
     data = query.data.split('|')[0].split('-')[-1]
@@ -697,6 +703,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
     await clean_context_on_end_handler(main_handlers_logger, context)
+    await query.answer()
     return ConversationHandler.END
 
 

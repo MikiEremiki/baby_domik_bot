@@ -16,7 +16,6 @@ async def send_clients_wait_data(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     schedule_events, theater_event = await get_events_for_time_hl(update,
                                                                   context)
@@ -61,4 +60,5 @@ async def send_clients_wait_data(
         )
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    await query.answer()
     return state

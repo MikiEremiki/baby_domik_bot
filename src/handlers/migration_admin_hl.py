@@ -119,7 +119,6 @@ async def migration_ticket(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     text = 'Выбор показа по id или по параметрам?'
 
@@ -142,6 +141,7 @@ async def migration_ticket(
     state = 1
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 

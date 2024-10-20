@@ -115,8 +115,6 @@ async def update_base_ticket_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await update.callback_query.answer()
-
     ticket_list = load_base_tickets(True)
     await db_postgres.update_base_tickets_from_googlesheets(
         context.session, ticket_list)
@@ -124,6 +122,7 @@ async def update_base_ticket_data(
     text = 'Билеты обновлены'
     await update.effective_chat.send_message(text)
 
+    await update.callback_query.answer()
     return 'updates'
 
 
@@ -131,8 +130,6 @@ async def update_special_ticket_price(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await update.callback_query.answer()
-
     context.bot_data['special_ticket_price'] = load_special_ticket_price()
     text = 'Индивидуальные стоимости обновлены'
     await update.effective_chat.send_message(text)
@@ -141,6 +138,7 @@ async def update_special_ticket_price(
     for item in context.bot_data['special_ticket_price']:
         sub_hl_logger.info(f'{str(item)}')
 
+    await update.callback_query.answer()
     return 'updates'
 
 
@@ -148,8 +146,6 @@ async def update_theater_event_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await update.callback_query.answer()
-
     theater_event_list = load_theater_events()
     await db_postgres.update_theater_events_from_googlesheets(
         context.session, theater_event_list)
@@ -159,13 +155,12 @@ async def update_theater_event_data(
 
     sub_hl_logger.info(text)
 
+    await update.callback_query.answer()
     return 'updates'
 
 
 async def update_schedule_event_data(update: Update,
                                      context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-
     schedule_event_list = load_schedule_events(False)
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
@@ -175,6 +170,7 @@ async def update_schedule_event_data(update: Update,
 
     sub_hl_logger.info(text)
 
+    await update.callback_query.answer()
     return 'updates'
 
 
@@ -388,7 +384,6 @@ async def processing_successful_payment(
 ):
     query = update.callback_query
     if query:
-        await query.answer()
         await query.edit_message_text('Платеж успешно обработан')
 
     reserve_user_data = context.user_data['reserve_user_data']
@@ -476,6 +471,8 @@ async def processing_successful_payment(
     check_send = reserve_user_data.get('flag_send_ticket_info', False)
     if (command == 'reserve' or command == 'studio') and check_send:
         await send_by_ticket_info(update, context)
+    if query:
+        await query.answer()
 
 
 async def create_reply_markup_and_msg_id_for_admin(update, context):

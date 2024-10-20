@@ -66,7 +66,6 @@ async def event_selection_option(
 
 async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     state = context.user_data['STATE']
 
     user = context.user_data['user']
@@ -98,6 +97,7 @@ async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = 2
     set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
@@ -175,7 +175,6 @@ async def start_forma_info(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
     await query.edit_message_reply_markup()
 
     thread_id = update.effective_message.message_thread_id
@@ -254,4 +253,5 @@ async def start_forma_info(
         reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'
     context.user_data['STATE'] = state
+    await query.answer()
     return state

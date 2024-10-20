@@ -38,7 +38,6 @@ async def load_afisha(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def set_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
 
     month = int(query.data)
 
@@ -56,12 +55,12 @@ async def set_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 2
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
 
     month = context.user_data['month_afisha']
 
@@ -77,12 +76,12 @@ async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def show_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
 
     await update.effective_chat.send_message(
         text='Технические данные по афишам:\n' +
@@ -91,6 +90,7 @@ async def show_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 1
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 

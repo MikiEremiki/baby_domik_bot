@@ -2,7 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from telegram.constants import ParseMode
-from telegram.ext import Application, Defaults
+from telegram.ext import Application, Defaults, AIORateLimiter
 from yookassa import Configuration
 from faststream import FastStream
 from yookassa.domain.notification import WebhookNotificationFactory
@@ -27,6 +27,7 @@ application = (
     .get_updates_pool_timeout(3)
     .get_updates_write_timeout(7)
     .get_updates_connection_pool_size(2)
+    .rate_limiter(AIORateLimiter())
 
     .build()
 )
