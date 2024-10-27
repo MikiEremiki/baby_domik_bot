@@ -5,8 +5,12 @@ from telegram import Update
 from telegram.constants import ChatAction
 
 from db.db_googlesheets import load_clients_wait_data
-from utilities.utl_func import get_events_for_time_hl, \
-    get_formatted_date_and_time_of_event, get_full_name_event
+from utilities.utl_func import (
+    get_events_for_time_hl,
+    get_full_name_event,
+    get_formatted_date_and_time_of_event,
+)
+from utilities.utl_kbd import remove_intent_id
 
 list_wait_hl_logger = logging.getLogger('bot.list_wait_hl')
 
@@ -16,9 +20,11 @@ async def send_clients_wait_data(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
+    _, callback_data = remove_intent_id(query.data)
+    theater_event_id, selected_date = callback_data.split('|')
 
-    schedule_events, theater_event = await get_events_for_time_hl(update,
-                                                                  context)
+    schedule_events, theater_event = await get_events_for_time_hl(
+        theater_event_id, selected_date, context)
     event_ids = []
     for schedule_event in schedule_events:
         event_ids.append(schedule_event.id)
