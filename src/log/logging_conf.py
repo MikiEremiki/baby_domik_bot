@@ -32,7 +32,7 @@ class NoParsingFilter(logging.Filter):
         return True
 
 
-def load_log_config():
+def setup_logs():
     root = logging.getLogger()
     main_log_handler = logging.handlers.RotatingFileHandler(LOG_FILENAME,
                                                             mode='w',
