@@ -2,13 +2,12 @@ import logging
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, ReplyKeyboardRemove, LinkPreviewOptions
-from telegram.constants import ChatType
+from telegram.constants import ChatType, ChatAction
 from telegram.error import BadRequest
 
 from db import db_postgres
 from db.enum import TicketStatus
 from handlers import check_user_db
-from handlers.sub_hl import remove_inline_button
 from db.db_googlesheets import (
     decrease_nonconfirm_seat,
     increase_free_seat,
@@ -206,6 +205,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить бронь')
         return
+    await update.effective_chat.send_action(
+        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
@@ -222,6 +223,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     ticket_ids = reserve_user_data['ticket_ids']
 
+    await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
         await decrease_nonconfirm_seat(context,
                                        schedule_event_id,
@@ -237,6 +239,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
+
+    await query.edit_message_reply_markup()
 
     text = f'Обновлен статус билета...'
     await message.edit_text(text)
@@ -259,8 +263,6 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except BadRequest as e:
         main_handlers_logger.error(e)
         main_handlers_logger.info('Cообщение уже удалено')
-
-    await remove_inline_button(update)
 
 
 async def send_approve_message(chat_id, context):
@@ -297,6 +299,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить бронь')
         return
+    await update.effective_chat.send_action(
+        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
@@ -314,6 +318,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'choose_schedule_event_ids']
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
 
+    await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
         await increase_free_and_decrease_nonconfirm_seat(context,
                                                          schedule_event_id,
@@ -328,6 +333,8 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
+
+    await query.edit_message_reply_markup()
 
     text = f'Обновлен статус билета...'
     await message.edit_text(text)
@@ -357,8 +364,6 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except BadRequest as e:
         main_handlers_logger.error(e)
         main_handlers_logger.info('Cообщение уже удалено')
-
-    await remove_inline_button(update)
 
 
 async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):

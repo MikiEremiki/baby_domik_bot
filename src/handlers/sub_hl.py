@@ -234,14 +234,6 @@ async def remove_button_from_last_message(update, context):
         sub_hl_logger.error(e)
 
 
-async def remove_inline_button(update: Update):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
-
-    return query
-
-
 async def create_and_send_payment(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
