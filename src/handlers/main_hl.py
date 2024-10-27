@@ -242,7 +242,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_reply_markup()
 
-    text = f'Обновлен статус билета...'
+    text = f'Обновлен статус билета: {ticket_status}...'
     await message.edit_text(text)
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -336,7 +336,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_reply_markup()
 
-    text = f'Обновлен статус билета...'
+    text = f'Обновлен статус билета: {ticket_status}...'
     await message.edit_text(text)
 
     message = await message.edit_text(
@@ -375,6 +375,12 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_action(
         ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
 
+    message = await update.effective_chat.send_message(
+        text='Начат процесс подтверждения...',
+        reply_to_message_id=query.message.message_id,
+        message_thread_id=query.message.message_thread_id
+    )
+
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
@@ -392,10 +398,19 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     match data:
         case '1':
             cme_status = CustomMadeStatus.APPROVED
-
-            await query.edit_message_text(
-                query.message.text + '\n\n Заявка подтверждена, ждём предоплату'
-            )
+        case '2':
+            cme_status = CustomMadeStatus.PREPAID
+    await query.answer()
+    update_cme_in_gspread(custom_made_event_id, cme_status.value)
+    await message.edit_text(f'Обновил статус в гугл-таблице {cme_status.value}')
+    await db_postgres.update_custom_made_event(context.session,
+                                               custom_made_event_id,
+                                               status=cme_status)
+    await query.edit_message_reply_markup()
+    match data:
+        case '1':
+            await message.edit_text(
+                f'Заявка {custom_made_event_id} подтверждена, ждём предоплату')
 
             text = (f'<b>У нас отличные новости'
                     f' по вашей заявке: {custom_made_event_id}!</b>\n')
@@ -405,8 +420,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += '<i>Вам будет отправлено сообщение с информацией об оплате</i>'
 
         case '2':
-            cme_status = CustomMadeStatus.PREPAID
-            await query.edit_message_text(
+            await message.edit_text(
                 f'Пользователю @{user.username} {user.full_name}\n'
                 f'подтверждена бронь по заявке {custom_made_event_id}'
             )
@@ -425,13 +439,6 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = (f'Ваша бронь по заявке {custom_made_event_id} подтверждена\n'
                     'До встречи в Домике')
 
-    await query.answer()
-    update_cme_in_gspread(custom_made_event_id, cme_status.value)
-    await db_postgres.update_custom_made_event(context.session,
-                                               custom_made_event_id,
-                                               status=cme_status)
-    await query.edit_message_reply_markup()
-
     await context.bot.send_message(
         text=text,
         chat_id=chat_id,
@@ -447,6 +454,11 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.effective_chat.send_action(
         ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+    message = await update.effective_chat.send_message(
+        text='Начат процесс отклонения...',
+        reply_to_message_id=query.message.message_id,
+        message_thread_id=query.message.message_thread_id
+    )
 
     chat_id = query.data.split('|')[1].split()[0]
     user_data = context.application.user_data.get(int(chat_id))
@@ -461,20 +473,26 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
             f'{context.bot_data['admin']['contacts']}')
+
+    cme_status = CustomMadeStatus.REJECTED
+    await query.answer()
+    update_cme_in_gspread(custom_made_event_id, cme_status.value)
+    await message.edit_text(f'Обновил статус в гугл-таблице {cme_status.value}')
+    await db_postgres.update_custom_made_event(context.session,
+                                               custom_made_event_id,
+                                               status=cme_status)
+    await query.edit_message_reply_markup()
     match data:
         case '1':
+            await message.edit_text('Заявка отклонена')
             text = ('Мы рассмотрели Вашу заявку.\n'
                     'К сожалению, мы не сможем провести день рождения вашего '
                     'малыша\n\n'
                     'Для решения данного вопроса, пожалуйста, '
                     'свяжитесь с Администратором:\n'
                     f'{context.bot_data['admin']['contacts']}')
-
-            await query.edit_message_text(
-                query.message.text + '\n\n Заявка отклонена'
-            )
         case '2':
-            await query.edit_message_text(
+            await message.edit_text(
                 f'Пользователю @{user.username} {user.full_name}\n'
                 f'отклонена бронь'
             )
@@ -484,22 +502,13 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=chat_id,
                     message_id=message_id
                 )
-            except BadRequest:
-                main_handlers_logger.info(
-                    f'Cообщение уже удалено'
-                )
+            except BadRequest as e:
+                main_handlers_logger.error(e)
+                main_handlers_logger.info(f'Cообщение уже удалено')
             text = ('Ваша бронь отклонена.\n'
                     'Для решения данного вопроса, пожалуйста, '
                     'свяжитесь с Администратором:\n'
                     f'{context.bot_data['admin']['contacts']}')
-
-    cme_status = CustomMadeStatus.REJECTED
-    await query.answer()
-    update_cme_in_gspread(custom_made_event_id, cme_status.value)
-    await db_postgres.update_custom_made_event(context.session,
-                                               custom_made_event_id,
-                                               status=cme_status)
-    await query.edit_message_reply_markup()
 
     await context.bot.send_message(
         text=text,
@@ -509,12 +518,6 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-
-    :param update:
-    :param context:
-    :return:
-    """
     query = update.callback_query
 
     state = query.data.split('-')[1]
