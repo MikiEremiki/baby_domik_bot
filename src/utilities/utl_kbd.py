@@ -1,4 +1,7 @@
-from typing import Any, List
+import random
+import string
+import time
+from typing import Any, List, Optional, Tuple
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -10,6 +13,61 @@ from utilities import add_btn_back_and_cancel
 from utilities.utl_func import (
     get_time_with_timezone, get_formatted_date_and_time_of_event)
 from utilities.utl_ticket import get_spec_ticket_price
+
+_ID_SYMS = string.digits + string.ascii_letters
+CB_SEP = '|'
+
+
+def new_int_id() -> int:
+    return int(time.time()) % 100000000 + random.randint(0, 99) * 100000000
+
+
+def id_to_str(int_id: int) -> str:
+    if not int_id:
+        return _ID_SYMS[0]
+    base = len(_ID_SYMS)
+    res = ""
+    while int_id:
+        int_id, mod = divmod(int_id, base)
+        res += _ID_SYMS[mod]
+    return res
+
+
+def new_id():
+    return id_to_str(new_int_id())
+
+
+def intent_callback_data(
+        intent_id: str, callback_data: Optional[str],
+) -> Optional[str]:
+    if callback_data is None:
+        return None
+    prefix = intent_id + CB_SEP
+    if callback_data.startswith(prefix):
+        return callback_data
+    return prefix + callback_data
+
+
+def add_intent_id(keyboard: [[InlineKeyboardButton]], intent_id: str):
+    new_keyboard = []
+    for row in keyboard:
+        new_row = []
+        for button in row:
+            if isinstance(button, InlineKeyboardButton):
+                new_callback_data = intent_callback_data(
+                    intent_id, str(button.callback_data))
+                new_row.append(
+                    InlineKeyboardButton(
+                        button.text, callback_data=new_callback_data))
+        new_keyboard.append(new_row)
+    return new_keyboard
+
+
+def remove_intent_id(callback_data: str) -> Tuple[Optional[str], str]:
+    if CB_SEP in callback_data:
+        intent_id, new_data = callback_data.split(CB_SEP, maxsplit=1)
+        return intent_id, new_data
+    return None, callback_data
 
 
 def adjust_kbd(keyboard: list, size: int = 8):
@@ -240,6 +298,7 @@ async def create_replay_markup(
         size_row: int = 8
 ):
     keyboard = adjust_kbd(keyboard, size_row)
+    keyboard = add_intent_id(keyboard, new_id())
     keyboard.append(
         add_btn_back_and_cancel(add_cancel_btn=add_cancel_btn,
                                 postfix_for_cancel=postfix_for_cancel,
@@ -260,34 +319,11 @@ async def create_email_confirm_btn(text, email):
     return email_confirm_btn, text
 
 
-def create_kbd_with_number_btn(
-        qty_btn,
-        num_colum=8,
-):
-    """
-    Создает inline клавиатуру
-    :param qty_btn: диапазон кнопок
-    :param num_colum: Кол-во кнопок в строке, по умолчанию 8
-    :return: InlineKeyboardMarkup
-    """
-    # Определение кнопок для inline клавиатуры
+def create_kbd_with_number_btn(qty_btn):
     keyboard = []
-    list_btn_of_numbers = []
 
-    i = 0
     for num in range(qty_btn):
-        button_tmp = InlineKeyboardButton(str(num + 1),
-                                          callback_data=str(num + 1))
-        list_btn_of_numbers.append(button_tmp)
-
-        i += 1
-        # Две кнопки в строке так как для узких экранов телефонов дни недели
-        # обрезаются
-        if i % num_colum == 0:
-            i = 0
-            keyboard.append(list_btn_of_numbers)
-            list_btn_of_numbers = []
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
+        keyboard.append(
+            InlineKeyboardButton(str(num + 1), callback_data=str(num + 1)))
 
     return keyboard
