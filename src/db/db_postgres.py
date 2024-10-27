@@ -5,9 +5,12 @@ from sqlalchemy import select, func, DATE
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
-                ScheduleEvent, BaseTicket, Promotion, TypeEvent)
-from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
+from db import (
+    User, Person, Adult, TheaterEvent, Ticket, Child,
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent)
+from db.enum import (
+    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus)
+from db.models import CustomMadeFormat, CustomMadeEvent
 
 
 async def attach_user_and_people_to_ticket(
@@ -44,6 +47,14 @@ async def update_theater_events_from_googlesheets(
     for _event in theater_events:
         dto_model = _event.to_dto()
         await session.merge(TheaterEvent(**dto_model))
+    await session.commit()
+
+
+async def update_custom_made_format_from_googlesheets(
+        session: AsyncSession, custom_made_formats):
+    for _format in custom_made_formats:
+        dto_model = _format.to_dto()
+        await session.merge(CustomMadeFormat(**dto_model))
     await session.commit()
 
 
@@ -383,6 +394,49 @@ async def create_promotion(
     return promo
 
 
+async def create_custom_made_event(
+        session: AsyncSession,
+        place,
+        address,
+        date,
+        time,
+        age,
+        qty_child,
+        qty_adult,
+        name_child,
+        name,
+        phone,
+        user_id,
+        custom_made_format_id,
+        theater_event_id,
+        *,
+        note=None,
+        status=CustomMadeStatus.CREATED,
+        ticket_id=None,
+):
+    custom_made_event = CustomMadeEvent(
+        place=place,
+        address=address,
+        date=date,
+        time=time,
+        age=age,
+        qty_child=qty_child,
+        qty_adult=qty_adult,
+        name_child=name_child,
+        name=name,
+        phone=phone,
+        note=note,
+        status=status,
+        user_id=user_id,
+        custom_made_format_id=custom_made_format_id,
+        theater_event_id=theater_event_id,
+        ticket_id=ticket_id,
+    )
+    session.add(custom_made_event)
+    await session.commit()
+    return custom_made_event
+
+
 async def get_user(session: AsyncSession,
                    user_id: int):
     return await session.get(User, user_id)
@@ -472,6 +526,11 @@ async def get_promotion(session: AsyncSession,
     return await session.get(ScheduleEvent, promotion_id)
 
 
+async def get_custom_made_format(session: AsyncSession,
+                                 custom_made_format_id: int):
+    return await session.get(CustomMadeFormat, custom_made_format_id)
+
+
 async def get_all_tickets_by_status(session: AsyncSession,
                                     status: TicketStatus):
     query = select(Ticket).where(Ticket.status == status)
@@ -499,6 +558,12 @@ async def get_all_schedule_events(session: AsyncSession):
 
 async def get_all_promotions(session: AsyncSession):
     query = select(Promotion)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_all_custom_made_format(session: AsyncSession):
+    query = select(CustomMadeFormat)
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -578,6 +643,12 @@ async def get_schedule_theater_base_tickets(context, choice_event_id):
                                                           type_event,
                                                           context.session)
     return base_tickets, schedule_event, theater_event, type_event
+
+
+async def get_theater_events_on_cme(session: AsyncSession):
+    query = select(TheaterEvent).where(TheaterEvent.flag_active_bd)
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
 async def update_user(
@@ -662,6 +733,18 @@ async def update_promotion(
         setattr(promotion, key, value)
     await session.commit()
     return promotion
+
+
+async def update_custom_made_event(
+        session: AsyncSession,
+        custom_made_event_id,
+        **kwargs
+):
+    cme = await session.get(CustomMadeEvent, custom_made_event_id)
+    for key, value in kwargs.items():
+        setattr(cme, key, value)
+    await session.commit()
+    return cme
 
 
 async def del_ticket(
