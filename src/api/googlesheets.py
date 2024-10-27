@@ -534,10 +534,9 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         }
 
         range_sheet = (RANGE_NAME['Лист ожидания_'] +
-                       f'R{first_row_for_write + 1}C1:'
-                       f'R{last_row_for_write + 1}C{end_column_index}')
+                       f'R1C1:R1C{end_column_index}')
 
-        execute_update_googlesheet(sheet,
+        execute_append_googlesheet(sheet,
                                    range_sheet,
                                    value_input_option,
                                    response_value_render_option,
