@@ -1,5 +1,5 @@
 from faststream import Logger
-from faststream.nats import JStream, NatsMessage, NatsBroker
+from faststream.nats import JStream, NatsBroker
 from telegram.ext import Application
 from yookassa.domain.notification import WebhookNotificationFactory
 
@@ -15,11 +15,9 @@ def connect_to_nats(app: Application,
     async def nats_handler(
             data: dict,
             logger: Logger,
-            nats_message: NatsMessage,
     ):
         logger.info(f'{data=}')
         notification = webhook_notification_factory.create(data)
-        # print(f'{nats_message=}')
         await app.update_queue.put(notification)
 
     return broker
