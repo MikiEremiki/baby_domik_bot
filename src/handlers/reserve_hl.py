@@ -65,7 +65,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
     if not (context.user_data.get('command', False) and query):
-        state = await init_conv_hl_dialog(update, context)
+        await init_conv_hl_dialog(update, context)
         await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
@@ -231,6 +231,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if flag_santa:
         text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
 
+    await query.answer()
     photo = (
         context.bot_data
         .get('afisha', {})
@@ -253,7 +254,6 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'DATE'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
     return state
 
 
@@ -331,7 +331,8 @@ async def choice_option_of_reserve(
     :return: возвращает state ORDER
     """
     query = update.callback_query
-    await query.edit_message_text('Загружаю данные по билетам...')
+    message = await update.effective_chat.send_message(
+        'Загружаю данные по билетам...')
 
     thread_id = update.effective_message.message_thread_id
     await update.effective_chat.send_action(ChatAction.TYPING,
@@ -388,7 +389,7 @@ async def choice_option_of_reserve(
     check_seats = check_available_seats(schedule_event, only_child=only_child)
     if check_command and not check_seats:
         await query.answer()
-        await query.edit_message_text(
+        await message.edit_text(
             'Готовлю информацию для записи в лист ожидания...')
         await send_message_about_list_waiting(update, context)
 
@@ -396,7 +397,7 @@ async def choice_option_of_reserve(
         context.user_data['STATE'] = state
         return state
 
-    await query.edit_message_text('Формирую список доступных билетов...')
+    await message.edit_text('Формирую список доступных билетов...')
 
     text = text_select_event + text
     text += '<b>Выберите подходящий вариант бронирования:</b>\n'
@@ -437,6 +438,8 @@ async def choice_option_of_reserve(
              '2. Дождитесь ответа\n'
              '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
+    await message.delete()
+    await query.answer()
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
@@ -447,7 +450,6 @@ async def choice_option_of_reserve(
     state = 'TICKET'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
     return state
 
 
@@ -497,11 +499,10 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                        type_event,
                                                        chose_base_ticket,
                                                        only_child=only_child)
-
+    if query:
+        await query.answer()
+        await query.delete_message()
     if check_command and not check_ticket:
-        if query:
-            await query.answer()
-            await query.delete_message()
         await message.delete()
         await send_message_about_list_waiting(update, context)
 
@@ -510,9 +511,7 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return state
 
     reserve_hl_logger.info('Получено разрешение на бронирование')
-    if query:
-        await query.answer()
-        await query.delete_message()
+
     message = await message.edit_text(
         'Проверка пройдена, готовлю дальнейшие шаги...')
     await update.effective_chat.send_action(ChatAction.TYPING)
@@ -765,6 +764,7 @@ async def get_name_children(
         reserve_user_data['ticket_ids'] = ticket_ids
         reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
 
+        #TODO Исправить ошибку при вводе одинаковых имен
         people_ids = await db_postgres.create_people(context.session,
                                                      update.effective_user.id,
                                                      client_data)
