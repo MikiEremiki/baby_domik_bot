@@ -302,8 +302,7 @@ def write_client_reserve(
         }
 
         range_sheet = (RANGE_NAME['База клиентов_'] +
-                       f'R1C1:'
-                       f'R1C{end_column_index}')
+                       f'R1C1:R1C{end_column_index}')
 
         execute_append_googlesheet(sheet,
                                    range_sheet,
