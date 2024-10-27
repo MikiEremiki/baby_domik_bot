@@ -10,22 +10,22 @@ from handlers import birthday_hl, main_hl
 from settings.settings import COMMAND_DICT
 
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
+cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
+back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
+
 states:  Dict[object, List[BaseHandler]] = {
     'PLACE': [
-        CallbackQueryHandler(birthday_hl.ask_date, pattern='^1$'),
-        CallbackQueryHandler(birthday_hl.ask_address, pattern='^2$'),
+        CallbackQueryHandler(birthday_hl.ask_date, pattern='^0$'),
+        CallbackQueryHandler(birthday_hl.ask_address, pattern='^1$'),
     ],
     'ADDRESS': [
-        MessageHandler(F_text_and_no_command,
-                       birthday_hl.get_address),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_address),
     ],
     'DATE': [
-        MessageHandler(F_text_and_no_command,
-                       birthday_hl.get_date),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_date),
     ],
     'TIME': [
-        MessageHandler(F_text_and_no_command,
-                       birthday_hl.get_time),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_time),
     ],
     'CHOOSE': [
         CallbackQueryHandler(birthday_hl.get_show),
@@ -33,31 +33,38 @@ states:  Dict[object, List[BaseHandler]] = {
     'AGE': [
         CallbackQueryHandler(birthday_hl.get_age),
     ],
+    'FORMAT_BD': [
+        CallbackQueryHandler(birthday_hl.get_format_bd),
+    ],
     'QTY_CHILD': [
         CallbackQueryHandler(birthday_hl.get_qty_child),
     ],
     'QTY_ADULT': [
         CallbackQueryHandler(birthday_hl.get_qty_adult),
     ],
-    'FORMAT_BD': [
-        CallbackQueryHandler(birthday_hl.get_format_bd),
-    ],
     'NAME_CHILD': [
-        MessageHandler(F_text_and_no_command,
-                       birthday_hl.get_name_child),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_name_child),
     ],
     'NAME': [
-        MessageHandler(F_text_and_no_command,
-                       birthday_hl.get_name),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_name),
     ],
     'PHONE': [
-        MessageHandler(F_text_and_no_command,
-                       birthday_hl.get_phone),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_phone),
+    ],
+    'NOTE': [
+        CallbackQueryHandler(birthday_hl.get_note),
+        MessageHandler(F_text_and_no_command, birthday_hl.get_note),
+    ],
+    'CONFIRM': [
+        CallbackQueryHandler(birthday_hl.get_confirm),
     ],
 }
 
 for key in states.keys():
     states[key].append(CommandHandler('reset', main_hl.reset))
+    states[key].insert(0, cancel_callback_handler)
+    if key != 'PLACE':
+        states[key].insert(1, back_callback_handler)
 states[ConversationHandler.TIMEOUT] = [birthday_hl.TIMEOUT_HANDLER]
 
 birthday_conv_hl = ConversationHandler(
