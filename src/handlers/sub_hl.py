@@ -17,7 +17,7 @@ from db import db_postgres, TheaterEvent
 from db.enum import TicketStatus
 from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
-    load_schedule_events, load_theater_events
+    load_schedule_events, load_theater_events, load_custom_made_format
 )
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities import add_btn_back_and_cancel
@@ -137,6 +137,23 @@ async def update_special_ticket_price(
     sub_hl_logger.info(text)
     for item in context.bot_data['special_ticket_price']:
         sub_hl_logger.info(f'{str(item)}')
+
+    await update.callback_query.answer()
+    return 'updates'
+
+
+async def update_custom_made_format_data(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    custom_made_format_list = load_custom_made_format()
+    await db_postgres.update_custom_made_format_from_googlesheets(
+        context.session, custom_made_format_list)
+
+    text = 'Форматы заказных мероприятий обновлены'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
 
     await update.callback_query.answer()
     return 'updates'
