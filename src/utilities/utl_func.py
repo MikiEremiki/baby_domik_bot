@@ -938,7 +938,8 @@ async def get_events_for_time_hl(theater_event_id, selected_date, context):
     utilites_logger.info(f'Пользователь выбрал дату: {selected_date}')
 
     reserve_user_data = context.user_data['reserve_user_data']
-    schedule_event_ids = reserve_user_data['schedule_event_ids']
+    state = context.user_data['STATE']
+    schedule_event_ids = reserve_user_data[state]['schedule_event_ids']
 
     schedule_events = await db_postgres.get_schedule_events_by_ids(
         context.session, schedule_event_ids)

@@ -2,8 +2,6 @@ import logging
 import pprint
 from datetime import datetime
 
-from telegram.error import BadRequest
-from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
     InlineKeyboardMarkup,
@@ -20,7 +18,7 @@ from handlers import init_conv_hl_dialog, check_user_db
 from handlers.email_hl import check_email_and_update_user
 from handlers.sub_hl import (
     request_phone_number,
-    send_breaf_message, send_filtered_schedule_events,
+    send_breaf_message,
     send_message_about_list_waiting,
     remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment,
@@ -42,13 +40,16 @@ from utilities.utl_func import (
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
     get_type_event_ids_by_command, get_emoji, clean_context,
-    add_clients_data_to_text, add_qty_visitors_to_text
+    add_clients_data_to_text, add_qty_visitors_to_text,
+    filter_schedule_event_by_active, get_unique_months,
+    clean_replay_kb_and_send_typing_action
 )
 from utilities.utl_kbd import (
     create_kbd_schedule_and_date, create_kbd_schedule,
     create_kbd_for_time_in_reserve, create_replay_markup,
     create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio,
-    create_kbd_for_date_in_reserve, remove_intent_id
+    create_kbd_for_date_in_reserve, remove_intent_id, create_kbd_with_months,
+    adjust_kbd
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
@@ -86,11 +87,33 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
     type_event_ids = await get_type_event_ids_by_command(command)
-    reply_markup, text = await send_filtered_schedule_events(update,
-                                                             context,
-                                                             type_event_ids)
+    schedule_events = await db_postgres.get_schedule_events_by_type_actual(
+        context.session, type_event_ids)
+    schedule_events = await filter_schedule_event_by_active(schedule_events)
+    months = get_unique_months(schedule_events)
+    message = await clean_replay_kb_and_send_typing_action(update)
+    text = 'Выберите месяц'
+    keyboard = await create_kbd_with_months(months)
+    keyboard = adjust_kbd(keyboard, 1)
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        add_back_btn=False
+    ))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=message.message_id
+    )
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+        message_thread_id=update.effective_message.message_thread_id
+    )
 
     state = 'MONTH'
+    schedule_event_ids = [item.id for item in schedule_events]
+    state_data = context.user_data['reserve_user_data'][state] = {}
+    state_data['schedule_event_ids'] = schedule_event_ids
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     if context.user_data.get('command', False) and query:
@@ -115,7 +138,8 @@ async def choice_show_or_date(
 
     reserve_hl_logger.info(f'Пользователь выбрал месяц: {number_of_month_str}')
     reserve_user_data = context.user_data['reserve_user_data']
-    schedule_event_ids = reserve_user_data['schedule_event_ids']
+    state = context.user_data['STATE']
+    schedule_event_ids = reserve_user_data[state]['schedule_event_ids']
     schedule_events = await db_postgres.get_schedule_events_by_ids(
         context.session, schedule_event_ids)
 
@@ -172,6 +196,9 @@ async def choice_show_or_date(
         )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
+    schedule_event_ids = [item.id for item in schedule_events_filter_by_month]
+    state_data = context.user_data['reserve_user_data'][state] = {}
+    state_data['schedule_event_ids'] = schedule_event_ids
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -194,10 +221,13 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     theater_event_id = int(callback_data)
     reserve_user_data = context.user_data['reserve_user_data']
     number_of_month_str = reserve_user_data['number_of_month_str']
+
+    state = context.user_data['STATE']
+    schedule_event_ids = reserve_user_data[state]['schedule_event_ids']
     theater_event = await db_postgres.get_theater_event(
         context.session, theater_event_id)
-    schedule_events = await db_postgres.get_schedule_events_by_theater_ids_actual(
-        context.session, [theater_event_id])
+    schedule_events = await db_postgres.get_schedule_events_by_ids_and_theater(
+        context.session, schedule_event_ids, [theater_event_id])
 
     keyboard = await create_kbd_for_date_in_reserve(schedule_events)
     reply_markup = await create_replay_markup(
@@ -254,6 +284,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'LIST_WAIT'
     else:
         state = 'DATE'
+
+    schedule_event_ids = [item.id for item in schedule_events]
+    state_data = context.user_data['reserve_user_data'][state] = {}
+    state_data['schedule_event_ids'] = schedule_event_ids
+
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state

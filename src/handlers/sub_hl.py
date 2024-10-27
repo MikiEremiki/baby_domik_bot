@@ -23,13 +23,12 @@ from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities import add_btn_back_and_cancel
 from utilities.utl_func import (
     get_unique_months, get_full_name_event,
-    filter_schedule_event_by_active, clean_replay_kb_and_send_typing_action,
+    filter_schedule_event_by_active,
     get_formatted_date_and_time_of_event,
     create_approve_and_reject_replay, set_back_context
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
-from utilities.utl_kbd import (
-    adjust_kbd, create_kbd_with_months, create_email_confirm_btn)
+from utilities.utl_kbd import create_email_confirm_btn
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -221,15 +220,6 @@ async def get_theater_and_schedule_events_by_month(context, schedule_events,
     except TypeError:
         enum_theater_events = (1, theater_events),
     return tuple(enum_theater_events), schedule_events_filter_by_month
-
-
-async def get_schedule_events_by_month(schedule_events,
-                                       number_of_month_str):
-    schedule_events_filter_by_month = []
-    for event in schedule_events:
-        if event.datetime_event.month == int(number_of_month_str):
-            schedule_events_filter_by_month.append(event)
-    return schedule_events_filter_by_month
 
 
 async def remove_button_from_last_message(update, context):
@@ -686,33 +676,6 @@ async def send_agreement(update, context):
     reserve_user_data['accept_message_id'] = reply_message.message_id
 
     return text, inline_markup
-
-
-async def send_filtered_schedule_events(update, context, type_event_ids):
-    months, schedule_events = await get_schedule_events_and_month_by_type_event(
-        context, type_event_ids)
-    message = await clean_replay_kb_and_send_typing_action(update)
-    text = 'Выберите месяц'
-    keyboard = await create_kbd_with_months(months)
-    keyboard = adjust_kbd(keyboard, 1)
-    keyboard.append(add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'],
-        add_back_btn=False
-    ))
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=message.message_id
-    )
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id
-    )
-    schedule_event_ids = [item.id for item in schedule_events]
-    reserve_user_data = context.user_data['reserve_user_data']
-    reserve_user_data['schedule_event_ids'] = schedule_event_ids
-    return reply_markup, text
 
 
 async def send_message_about_list_waiting(update: Update, context):

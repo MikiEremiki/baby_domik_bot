@@ -38,6 +38,9 @@ context_user_data: Dict = {
         'custom_made_event_id': CustomMadeEvent.id,
     },
     'reserve_user_data': {
+        str | int: {
+                'schedule_event_ids': List[ScheduleEvent.id],
+            },
         'back': {
             str | int: {
                 'text': str,  # текст для возврата назад в State str
@@ -46,17 +49,6 @@ context_user_data: Dict = {
             },
         },
         'number_of_month_str': str,
-        'choose_event_info': {
-            'theater_event_id': int,
-            'name_show': str,
-            'date_show': str,
-            'time_show': str,
-            'event_id': int,
-            'option': str,
-            'text_emoji': str,
-            'flag_indiv_cost': bool,
-        },
-        # Инфо о выбранном показе пользователя
         'text_select_event': str,
         'client_data': {
             'name_adult': str,
@@ -70,7 +62,6 @@ context_user_data: Dict = {
         'choose_theater_event_id': TheaterEvent.id,
         'chose_base_ticket_id': BaseTicket.base_ticket_id,
         'type_ticket_price': str,
-        'key_option_for_reserve': int,
         'original_child_text': str,
         'date_for_price': datetime,
         'ticket_ids': List[int],
