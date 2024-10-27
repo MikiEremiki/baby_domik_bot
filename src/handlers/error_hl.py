@@ -6,7 +6,7 @@ from pprint import pformat
 
 from requests import HTTPError
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from utilities.utl_db import open_session
 from utilities.utl_func import clean_context, split_message
@@ -24,16 +24,21 @@ async def error_handler(update: Update,
     context.session = await open_session(context.config)
 
     chat_id = context.config.bot.developer_chat_id
+    outdated_err_msg = (
+        'Query is too old and response timeout expired or query id is invalid')
     if isinstance(context.error, HTTPError):
         await context.bot.send_message(
             chat_id=chat_id,
             text=context.error.response.text,
         )
+    elif (hasattr(context.error, 'message') and
+          (context.error.message == outdated_err_msg)):
+        error_hl_logger.error(context.error.message)
+        raise ApplicationHandlerStop
     else:
         await update.effective_chat.send_message(
             'Произошла не предвиденная ошибка\n'
             'Выполните команду /start и повторите операцию заново')
-
 
         tb_list = traceback.format_exception(None,
                                              context.error,
