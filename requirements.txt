@@ -1,5 +1,6 @@
 alembic
 black
+cachetools
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
@@ -15,7 +16,7 @@ PyYAML
 requests
 sqlalchemy
 typing_extensions
-yookassa~=3.0.1
+yookassa
 uvicorn
 fastapi
 faststream[cli]
