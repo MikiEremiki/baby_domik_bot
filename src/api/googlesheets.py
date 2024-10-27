@@ -228,7 +228,7 @@ def write_client_reserve(
         context: ContextTypes.DEFAULT_TYPE,
         chat_id: int,
         base_ticket: BaseTicket,
-        ticket_status = TicketStatus.CREATED.value,
+        ticket_status=TicketStatus.CREATED.value,
 ) -> Optional[List[int]]:
     reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
