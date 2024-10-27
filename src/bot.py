@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
+from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, Defaults, AIORateLimiter
 from yookassa import Configuration
@@ -46,7 +47,7 @@ async def lifespan():
     await post_init(application, config)
     bot_logger.info('=====Setup Бота произведен, переходим к запуску =====')
     await application.start()
-    await application.updater.start_polling()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
 
     yield
 
