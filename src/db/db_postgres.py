@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Collection, List
 
-from sqlalchemy import select, func, DATE
+from sqlalchemy import select, func, DATE, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -26,7 +26,7 @@ async def attach_user_and_people_to_ticket(
     ))
     ticket = result.scalar_one()
     for person_id in people_ids:
-        person = await session.get(Person, person_id)
+        person: Person = await session.get(Person, person_id)
         if person:
             ticket.people.append(person)
 
@@ -85,7 +85,7 @@ async def create_people(
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    user = await session.get(User, user_id)
+    user: User = await session.get(User, user_id)
     query = (
         select(Person)
         .where(
@@ -165,7 +165,7 @@ async def create_user(
 
 
 async def create_person(session: AsyncSession, user_id, name, age_type):
-    user = await session.get(User, user_id)
+    user: User = await session.get(User, user_id)
     person = Person(name=name, age_type=age_type)
     user.people.append(person)
 
@@ -505,17 +505,17 @@ async def get_tickets_by_ids(session: AsyncSession,
 
 
 async def get_theater_events_by_ids(session: AsyncSession,
-                                    theater_event_id: Collection[int]):
+                                    theater_event_ids: Collection[int]):
     query = select(TheaterEvent).where(
-        TheaterEvent.id.in_(theater_event_id))
+        TheaterEvent.id.in_(theater_event_ids))
     result = await session.execute(query)
     return result.scalars().all()
 
 
 async def get_schedule_events_by_ids(session: AsyncSession,
-                                     schedule_event_id: Collection[int]):
+                                     schedule_event_ids: Collection[int]):
     query = select(ScheduleEvent).where(
-        ScheduleEvent.id.in_(schedule_event_id)
+        ScheduleEvent.id.in_(schedule_event_ids)
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     return result.scalars().all()
@@ -626,7 +626,7 @@ async def get_schedule_events_by_theater_ids_actual(
 async def get_actual_schedule_events_by_date(
         session: AsyncSession, date_event: date):
     query = select(ScheduleEvent).where(
-        func.cast(ScheduleEvent.datetime_event, DATE) == date_event)
+        and_(func.cast(ScheduleEvent.datetime_event, DATE) == date_event))
     result = await session.execute(query)
     return result.scalars().all()
 
