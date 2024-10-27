@@ -629,10 +629,6 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Хэндлер отмены, может использоваться на этапе бронирования и оплаты,
-    для отмены действий и выхода из ConversationHandler
-    """
     query = update.callback_query
 
     user = context.user_data['user']
