@@ -5,6 +5,7 @@ from typing import Dict, List
 from telegram import User, Message, InlineKeyboardMarkup
 
 from db import ScheduleEvent, TheaterEvent, BaseTicket
+from db.models import CustomMadeEvent
 
 context_user_data: Dict = {
     'STATE': str,
@@ -16,29 +17,32 @@ context_user_data: Dict = {
         'message_id_buy_info': Message.message_id,
         'message_id_for_admin': Message.message_id,
         'text_for_notification_massage': str,
+        'message_id_for_reply': int,
+        'del_keyboard_message_ids': List[int],
     },
     'birthday_user_data': {
         'place': 1 | 2,
         'address': str,
         'date': str,
         'time': str,
-        'theater_event_id': int,
         'age': int,
         'qty_child': int,
         'qty_adult': int,
-        'format_bd': 1 | 2,
         'name_child': str,
         'name': str,
         'phone': str,
-        # 'flag_approve_order': bool,
-        # 'flag_prepayment': bool,
-        # 'flag_approve_prepayment': bool,
+        'custom_made_format_id': CustomMadeEvent.id,
+        'theater_event_id': TheaterEvent.id,
+        'note': str,
+        'theater_events': List[TheaterEvent.id],
+        'custom_made_event_id': CustomMadeEvent.id,
     },
     'reserve_user_data': {
         'back': {
             str | int: {
                 'text': str,  # текст для возврата назад в State str
-                'keyboard': InlineKeyboardMarkup
+                'keyboard': InlineKeyboardMarkup,
+                'del_message_ids': List[int],
             },
         },
         'number_of_month_str': str,
@@ -77,4 +81,6 @@ context_user_data: Dict = {
         'message_id': Message.message_id,
     },
     'month_afisha': int,
+    'theater_event': dict,
+    'schedule_event': dict,
 }
