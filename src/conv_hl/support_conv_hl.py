@@ -9,7 +9,8 @@ import custom_filters
 from handlers import support_hl, main_hl
 from handlers.sub_hl import (
     update_base_ticket_data, update_theater_event_data,
-    update_special_ticket_price, update_schedule_event_data
+    update_special_ticket_price, update_schedule_event_data,
+    update_custom_made_format_data
 )
 from conv_hl import (
     F_text_and_no_command, cancel_callback_handler, back_callback_handler)
@@ -31,6 +32,7 @@ states:  Dict[object, List[BaseHandler]] = {
         CallbackQueryHandler(update_theater_event_data, COMMAND_DICT['UP_TE_DATA'][0]),
         CallbackQueryHandler(update_schedule_event_data, COMMAND_DICT['UP_SE_DATA'][0]),
         CallbackQueryHandler(update_special_ticket_price, COMMAND_DICT['UP_SPEC_PRICE'][0]),
+        CallbackQueryHandler(update_custom_made_format_data, COMMAND_DICT['UP_CMF_DATA'][0]),
     ],
     2: [
         back_callback_handler,
