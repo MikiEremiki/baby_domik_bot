@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 
 from utilities.utl_func import add_btn_back_and_cancel
-from utilities.utl_kbd import create_kbd_with_number_btn
+from utilities.utl_kbd import create_kbd_with_number_btn, adjust_kbd
 
 afisha_hl_logger = logging.getLogger('bot.afisha_hl')
 
@@ -18,12 +18,11 @@ async def load_afisha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.bot_data.get('afisha', False):
         context.bot_data['afisha'] = {}
 
-    keyboard = create_kbd_with_number_btn(12, 6)
+    keyboard = create_kbd_with_number_btn(12)
+    keyboard = adjust_kbd(keyboard, 6)
     reply_markup = InlineKeyboardMarkup(keyboard +
         [[InlineKeyboardButton(text='Просмотр',
-                               callback_data='show_data')] +
-         add_btn_back_and_cancel(postfix_for_cancel='afisha',
-                                 add_back_btn=False)]
+                               callback_data='show_data')]]
     )
 
     await update.effective_chat.send_message(
