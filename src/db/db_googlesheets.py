@@ -4,13 +4,12 @@ import datetime
 from typing import Any, List, Tuple, Dict
 
 from pydantic import ValidationError
-from telegram import Update
 from telegram.ext import ContextTypes
 
 from api.googlesheets import (
     get_data_from_spreadsheet,
     get_column_info,
-    write_data_reserve
+    write_data_reserve,
 )
 from db import db_postgres
 from settings.settings import RANGE_NAME
@@ -160,6 +159,9 @@ def load_schedule_events(
                 if e.args[0] != 'date_show_tmp':
                     db_googlesheets_logger.error(item)
                     db_googlesheets_logger.error(e)
+            except IndexError as e:
+                db_googlesheets_logger.error(item)
+                db_googlesheets_logger.error(e)
         try:
             event = ScheduleEventDTO(**tmp_dict)
             if only_active and not event.flag_turn_on_off:
