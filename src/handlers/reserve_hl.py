@@ -86,7 +86,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                              type_event_ids)
 
     state = 'MONTH'
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     if context.user_data.get('command', False) and query:
         await query.answer('Месяц выбран')
@@ -168,7 +168,7 @@ async def choice_show_or_date(
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
 
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer('Месяц выбрали')
     await query.delete_message()
@@ -247,7 +247,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'LIST_WAIT'
     else:
         state = 'DATE'
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer('Дату выбрали')
     return state
@@ -306,7 +306,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'LIST'
     else:
         state = 'TIME'
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     await query.delete_message()
@@ -437,7 +437,7 @@ async def choice_option_of_reserve(
     context.user_data['reserve_user_data']['date_for_price'] = date_for_price
 
     state = 'TICKET'
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     return state

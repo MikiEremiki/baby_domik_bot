@@ -26,7 +26,7 @@ async def get_ticket(
     except AttributeError as e:
         ticket_hl_logger.error(e)
         state = 'TIME'
-        text, reply_markup = get_back_context(context, state)
+        text, reply_markup, _ = await get_back_context(context, state)
         await query.edit_message_text(
             text=text,
             reply_markup=reply_markup,
@@ -52,7 +52,7 @@ async def get_ticket(
         text, reply_markup = await send_agreement(update, context)
         state = 'OFFER'
 
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     return state

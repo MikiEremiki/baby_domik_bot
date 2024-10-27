@@ -329,7 +329,7 @@ async def create_and_send_payment(
             text, reply_markup = await send_request_email(update, context)
             state = 'EMAIL'
 
-            set_back_context(context, state, text, reply_markup)
+            await set_back_context(context, state, text, reply_markup)
             context.user_data['STATE'] = state
             return state
         raise ValueError('Проблема с созданием платежа')

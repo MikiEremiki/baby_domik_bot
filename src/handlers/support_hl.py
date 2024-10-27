@@ -79,7 +79,7 @@ async def start_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     state = 1
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -127,7 +127,7 @@ async def choice_db_settings(
     )
 
     state = 2
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     return state

@@ -17,7 +17,6 @@ from telegram import (
 )
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ExtBot
-from telegram.helpers import escape_markdown
 from telegram.error import BadRequest
 
 from db import ScheduleEvent, db_postgres, TheaterEvent
@@ -497,24 +496,40 @@ async def del_topic(
         )
 
 
-def set_back_context(
+async def set_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
         text,
         reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup,
+        del_message_ids: List[int] = None
 ):
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
     dict_back['keyboard'] = reply_markup
+    dict_back['del_message_ids'] = del_message_ids if del_message_ids else []
 
 
-def get_back_context(
+async def get_back_context(
         context: ContextTypes.DEFAULT_TYPE,
         state,
 ):
     dict_back = context.user_data['reserve_user_data']['back'][state]
-    return dict_back['text'], dict_back['keyboard']
+    return (
+        dict_back['text'],
+        dict_back['keyboard'],
+        dict_back['del_message_ids']
+    )
+
+
+async def append_message_ids_back_context(
+        context: ContextTypes.DEFAULT_TYPE,
+        del_message_ids: List[int] = None
+):
+    state = context.user_data['STATE']
+    dict_back = context.user_data['reserve_user_data']['back'][state]
+    if del_message_ids:
+        dict_back['del_message_ids'].extend(del_message_ids)
 
 
 async def clean_context(context: ContextTypes.DEFAULT_TYPE):
@@ -746,14 +761,6 @@ def create_approve_and_reject_replay(
     return InlineKeyboardMarkup(keyboard)
 
 
-def do_italic(text):
-    return f'_{escape_markdown(text, 2)}_'
-
-
-def do_bold(text):
-    return f'*{escape_markdown(text, 2)}*'
-
-
 def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
     filter_theater_event_id = {}
     i = 1
@@ -869,7 +876,7 @@ async def get_time_with_timezone(event, tz_name='Europe/Moscow'):
     return text
 
 
-async def get_formatted_date_and_time_of_event(schedule_event):
+async def get_formatted_date_and_time_of_event(schedule_event) -> (str, str):
     event = schedule_event
     weekday = int(event.datetime_event.strftime('%w'))
     date_event = (event.datetime_event.strftime('%d.%m ') +
@@ -926,8 +933,7 @@ async def create_event_names_text(enum_theater_events, text):
     return text
 
 
-async def get_events_for_time_hl(update, context):
-    theater_event_id, selected_date = update.callback_query.data.split('|')
+async def get_events_for_time_hl(theater_event_id, selected_date, context):
 
     utilites_logger.info(f'Пользователь выбрал дату: {selected_date}')
 
@@ -952,6 +958,43 @@ async def cancel_common(update, text):
         message_thread_id=query.message.message_thread_id,
         reply_markup=ReplyKeyboardRemove()
     )
+
+
+async def del_messages(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        del_message_ids=None,
+):
+    if not del_message_ids:
+        del_message_ids = context.user_data['common_data']['del_message_ids']
+    ok_del_message_ids = del_message_ids.copy()
+    for message_id in ok_del_message_ids:
+        try:
+            await context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=message_id
+            )
+        except BadRequest as e:
+            utilites_logger.error(e)
+            utilites_logger.info('Сообщение уже удалено')
+        del_message_ids.remove(message_id)
+
+
+async def del_keyboard_messages(update: Update,
+                                context: ContextTypes.DEFAULT_TYPE):
+    del_keyboard_message_ids = context.user_data['common_data'][
+        'del_keyboard_message_ids']
+    ok_del_message_ids = del_keyboard_message_ids.copy()
+    for message_id in ok_del_message_ids:
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=update.effective_chat.id,
+                message_id=message_id
+            )
+        except BadRequest as e:
+            utilites_logger.error(e)
+            utilites_logger.info('Сообщение уже удалено')
+        del_keyboard_message_ids.remove(message_id)
 
 
 async def get_type_event_ids_by_command(command):

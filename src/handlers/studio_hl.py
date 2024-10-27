@@ -52,7 +52,7 @@ async def choice_show_and_date(update: Update,
     reserve_user_data['number_of_month_str'] = number_of_month_str
 
     state = 'DATE'
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     await query.delete_message()

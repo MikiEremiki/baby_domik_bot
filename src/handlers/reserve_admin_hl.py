@@ -59,7 +59,7 @@ async def event_selection_option(
     )
 
     state = 1
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -95,7 +95,7 @@ async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['message'] = message.id
 
     state = 2
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     return state
