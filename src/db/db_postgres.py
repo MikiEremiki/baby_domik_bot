@@ -1,13 +1,16 @@
 from datetime import date, datetime
 from typing import Collection, List
 
-from sqlalchemy import select, func, DATE
+from sqlalchemy import select, func, DATE, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from db import (User, Person, Adult, TheaterEvent, Ticket, Child,
-                ScheduleEvent, BaseTicket, Promotion, TypeEvent)
-from db.enum import PriceType, TicketStatus, TicketPriceType, AgeType
+from db import (
+    User, Person, Adult, TheaterEvent, Ticket, Child,
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent)
+from db.enum import (
+    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus)
+from db.models import CustomMadeFormat, CustomMadeEvent
 
 
 async def attach_user_and_people_to_ticket(
@@ -23,7 +26,7 @@ async def attach_user_and_people_to_ticket(
     ))
     ticket = result.scalar_one()
     for person_id in people_ids:
-        person = await session.get(Person, person_id)
+        person: Person = await session.get(Person, person_id)
         if person:
             ticket.people.append(person)
 
@@ -44,6 +47,14 @@ async def update_theater_events_from_googlesheets(
     for _event in theater_events:
         dto_model = _event.to_dto()
         await session.merge(TheaterEvent(**dto_model))
+    await session.commit()
+
+
+async def update_custom_made_format_from_googlesheets(
+        session: AsyncSession, custom_made_formats):
+    for _format in custom_made_formats:
+        dto_model = _format.to_dto()
+        await session.merge(CustomMadeFormat(**dto_model))
     await session.commit()
 
 
@@ -74,7 +85,7 @@ async def create_people(
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    user = await session.get(User, user_id)
+    user: User = await session.get(User, user_id)
     query = (
         select(Person)
         .where(
@@ -154,7 +165,7 @@ async def create_user(
 
 
 async def create_person(session: AsyncSession, user_id, name, age_type):
-    user = await session.get(User, user_id)
+    user: User = await session.get(User, user_id)
     person = Person(name=name, age_type=age_type)
     user.people.append(person)
 
@@ -383,6 +394,49 @@ async def create_promotion(
     return promo
 
 
+async def create_custom_made_event(
+        session: AsyncSession,
+        place,
+        address,
+        date,
+        time,
+        age,
+        qty_child,
+        qty_adult,
+        name_child,
+        name,
+        phone,
+        user_id,
+        custom_made_format_id,
+        theater_event_id,
+        *,
+        note=None,
+        status=CustomMadeStatus.CREATED,
+        ticket_id=None,
+):
+    custom_made_event = CustomMadeEvent(
+        place=place,
+        address=address,
+        date=date,
+        time=time,
+        age=age,
+        qty_child=qty_child,
+        qty_adult=qty_adult,
+        name_child=name_child,
+        name=name,
+        phone=phone,
+        note=note,
+        status=status,
+        user_id=user_id,
+        custom_made_format_id=custom_made_format_id,
+        theater_event_id=theater_event_id,
+        ticket_id=ticket_id,
+    )
+    session.add(custom_made_event)
+    await session.commit()
+    return custom_made_event
+
+
 async def get_user(session: AsyncSession,
                    user_id: int):
     return await session.get(User, user_id)
@@ -451,17 +505,17 @@ async def get_tickets_by_ids(session: AsyncSession,
 
 
 async def get_theater_events_by_ids(session: AsyncSession,
-                                    theater_event_id: Collection[int]):
+                                    theater_event_ids: Collection[int]):
     query = select(TheaterEvent).where(
-        TheaterEvent.id.in_(theater_event_id))
+        TheaterEvent.id.in_(theater_event_ids))
     result = await session.execute(query)
     return result.scalars().all()
 
 
 async def get_schedule_events_by_ids(session: AsyncSession,
-                                     schedule_event_id: Collection[int]):
+                                     schedule_event_ids: Collection[int]):
     query = select(ScheduleEvent).where(
-        ScheduleEvent.id.in_(schedule_event_id)
+        ScheduleEvent.id.in_(schedule_event_ids)
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     return result.scalars().all()
@@ -470,6 +524,11 @@ async def get_schedule_events_by_ids(session: AsyncSession,
 async def get_promotion(session: AsyncSession,
                         promotion_id: int):
     return await session.get(ScheduleEvent, promotion_id)
+
+
+async def get_custom_made_format(session: AsyncSession,
+                                 custom_made_format_id: int):
+    return await session.get(CustomMadeFormat, custom_made_format_id)
 
 
 async def get_all_tickets_by_status(session: AsyncSession,
@@ -499,6 +558,12 @@ async def get_all_schedule_events(session: AsyncSession):
 
 async def get_all_promotions(session: AsyncSession):
     query = select(Promotion)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_all_custom_made_format(session: AsyncSession):
+    query = select(CustomMadeFormat)
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -575,7 +640,7 @@ async def get_schedule_events_by_theater_and_month_and_types_actual(
 async def get_actual_schedule_events_by_date(
         session: AsyncSession, date_event: date):
     query = select(ScheduleEvent).where(
-        func.cast(ScheduleEvent.datetime_event, DATE) == date_event)
+        and_(func.cast(ScheduleEvent.datetime_event, DATE) == date_event))
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -592,6 +657,12 @@ async def get_schedule_theater_base_tickets(context, choice_event_id):
                                                           type_event,
                                                           context.session)
     return base_tickets, schedule_event, theater_event, type_event
+
+
+async def get_theater_events_on_cme(session: AsyncSession):
+    query = select(TheaterEvent).where(TheaterEvent.flag_active_bd)
+    result = await session.execute(query)
+    return result.scalars().all()
 
 
 async def update_user(
@@ -676,6 +747,18 @@ async def update_promotion(
         setattr(promotion, key, value)
     await session.commit()
     return promotion
+
+
+async def update_custom_made_event(
+        session: AsyncSession,
+        custom_made_event_id,
+        **kwargs
+):
+    cme = await session.get(CustomMadeEvent, custom_made_event_id)
+    for key, value in kwargs.items():
+        setattr(cme, key, value)
+    await session.commit()
+    return cme
 
 
 async def del_ticket(

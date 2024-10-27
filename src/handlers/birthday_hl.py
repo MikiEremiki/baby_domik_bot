@@ -3,38 +3,36 @@ import logging
 from telegram.ext import (
     ContextTypes,
     ConversationHandler,
-    TypeHandler
+    TypeHandler,
 )
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-from telegram.constants import ParseMode, ChatAction
-from telegram.helpers import escape_markdown
+from telegram.constants import ChatAction
 
-from handlers.sub_hl import (
-    request_phone_number, send_message_to_admin
-)
-from db.db_googlesheets import load_list_show
-from utilities.schemas.context import birthday_data
-from utilities.log_func import join_for_log_info
-from api.googlesheets import write_client_bd, set_approve_order
+from db import db_postgres
+from handlers import init_conv_hl_dialog
+from handlers.sub_hl import request_phone_number, send_message_to_admin
+from api.googlesheets import write_client_cme
 from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
     ADMIN_GROUP,
     ADDRESS_OFFICE,
-    COMMAND_DICT, FILE_ID_QR
+    COMMAND_DICT,
 )
+from utilities.schemas.context import birthday_data
 from utilities.utl_func import (
     extract_phone_number_from_text,
-    clean_context, check_phone_number,
+    check_phone_number,
     create_approve_and_reject_replay,
-    create_replay_markup_for_list_of_shows,
-    do_italic,
-    do_bold, send_and_del_message_to_remove_kb
+    send_and_del_message_to_remove_kb, add_btn_back_and_cancel,
+    set_back_context, del_keyboard_messages, append_message_ids_back_context,
+    get_full_name_event,
 )
-from utilities.utl_kbd import create_kbd_with_number_btn
+from utilities.utl_kbd import (
+    create_kbd_with_number_btn, create_replay_markup, remove_intent_id)
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
 
@@ -52,7 +50,11 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    await clean_context(context)
+    await init_conv_hl_dialog(update, context)
+
+    command = context.user_data['command']
+    postfix_for_cancel = command
+    context.user_data['postfix_for_cancel'] = postfix_for_cancel
 
     state = 'START'
     context.user_data['STATE'] = state
@@ -63,16 +65,21 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
 
     # Отправка сообщения пользователю
-    text = do_bold('Выберите место проведения Дня рождения\n\n')
-    text += f'{one_option}\n'
-    text += do_italic(f'В театре, {ADDRESS_OFFICE}\n\n')
-    text += f'{two_option}\n'
-    text += do_italic('Ваше место (дом, квартира или другая площадка)')
+    text = (f'<b>Выберите место проведения Дня рождения</b>\n\n'
+            f'{one_option}\n'
+            f'<i>В театре, {ADDRESS_OFFICE}</i>\n\n'
+            f'{two_option}\n'
+            f'<i>Ваше место (дом, квартира или другая площадка)</i>')
     # Определение кнопок для inline клавиатуры
-    reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(one_option, callback_data=1)],
-        [InlineKeyboardButton(two_option, callback_data=2)],
-    ])
+    keyboard = [
+        [InlineKeyboardButton(one_option, callback_data=0)],
+        [InlineKeyboardButton(two_option, callback_data=1)],
+        add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            add_back_btn=False
+        )
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     await context.bot.delete_message(
         chat_id=update.effective_chat.id,
@@ -81,83 +88,120 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN_V2
     )
 
     state = 'PLACE'
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
 
 async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    del_message_ids = []
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
-    text = f'Вы выбрали\n\n'
+    text = f'<b>Вы выбрали</b>\n\n'
     text += f'{one_option}\n'
-    text += do_italic(f'День рождения в {ADDRESS_OFFICE}')
-    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN_V2)
+    text += f'<i>День рождения в {ADDRESS_OFFICE}</i>'
+    message = await query.edit_message_text(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
     place = query.data
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'Домик', place))
-
     text = 'Напишите желаемую дату проведения праздника'
-    await update.effective_chat.send_message(
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
         text=text,
+        reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['place'] = int(place)
     context.user_data['birthday_user_data']['address'] = ADDRESS_OFFICE
 
     state = 'DATE'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    del_message_ids = []
 
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
-    text = f'Вы выбрали\n\n'
+    text = f'<b>Вы выбрали</b>\n\n'
     text += f'{two_option}\n'
-    text += do_italic('День рождения в предложенном вами месте\n\n')
-    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN_V2)
+    text += '<i>День рождения в предложенном вами месте\n\n</i>'
+    message = await query.edit_message_text(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
     place = query.data
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'Выезд', place))
-
-    text = 'Напишите адрес проведения дня рождения\n'
-    await update.effective_chat.send_message(
+    text = 'Напишите адрес проведения дня рождения'
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
         text=text,
+        reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['place'] = int(place)
 
     state = 'ADDRESS'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     address = update.effective_message.text
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'адрес', address))
+    text = f'<b>Адрес:</b> {address}'
+    message = await update.effective_chat.send_message(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
     text = 'Напишите желаемую дату проведения праздника'
-    await update.effective_chat.send_message(
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
         text=text,
+        reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['address'] = address
 
     state = 'DATE'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
 
     return state
@@ -165,17 +209,35 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     date = update.effective_message.text
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'дату', date))
+    text = f'<b>Дата:</b> {date}'
+    message = await update.effective_chat.send_message(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
-    await update.effective_chat.send_message(
-        text='Напишите желаемое время начала'
+    text = f'Напишите желаемое время начала'
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['date'] = date
 
     state = 'TIME'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     return state
 
@@ -183,360 +245,523 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_action(ChatAction.TYPING)
     time = update.effective_message.text
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'время', time))
-    try:
-        dict_of_shows: dict = load_list_show()
+    theater_events = await db_postgres.get_theater_events_on_cme(
+        context.session)
 
-        dict_of_shows_for_bd: dict = dict_of_shows.copy()
-        for key, item in dict_of_shows.items():
-            if not item['birthday']['flag']:
-                dict_of_shows_for_bd.pop(key)
+    text = f'<b>Время:</b> {time}'
+    message = await update.effective_chat.send_message(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
-        # Отправка сообщения пользователю
-        text = do_bold('Выберите мероприятие') + '\n\n'
-        for i, item in enumerate(dict_of_shows_for_bd.values()):
-            if item['birthday']['flag']:
-                text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
-                text += escape_markdown(f'{item['full_name']}\n', 2)
+    keyboard = []
+    text = (
+        f'<b>Выберите мероприятие</b>\n'
+        f'{context.bot_data['texts']['text_legend']}'
+    )
+    for i, theater_event in enumerate(theater_events):
+        full_name = get_full_name_event(theater_event.name,
+                                        theater_event.flag_premier,
+                                        theater_event.min_age_child,
+                                        theater_event.max_age_child,
+                                        theater_event.duration)
+        text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
+        text += f'{full_name}\n'
+        keyboard.append(InlineKeyboardButton(
+            text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
+            callback_data=theater_event.id
+        ))
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE'],
+        size_row=4
+    )
 
-        reply_markup = create_replay_markup_for_list_of_shows(
-            dict_of_shows_for_bd,
-            3,
-            2,
-            add_cancel_btn=False,
-            add_back_btn=False,
-        )
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+    )
+    del_message_ids.append(message.message_id)
 
-        await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN_V2
-        )
-
-        context.user_data['common_data']['dict_of_shows'] = dict_of_shows
-    except TimeoutError as err:
-        birthday_hl_logger.error(err)
-        await update.effective_chat.send_message(
-            'Произошел разрыв соединения, попробуйте еще раз\n'
-            'Если проблема повторится вы можете оформить заявку напрямую у '
-            'Администратора:\n'
-            f'{context.bot_data['admin']['contacts']}'
-        )
-        return ConversationHandler.END
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['time'] = time
 
     state = 'CHOOSE'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     return state
 
 
 async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    del_message_ids = []
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
 
-    theater_event_id = query.data
-
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'Спектакль', theater_event_id))
-
-    keyboard_btn = []
-    for i in range(2, 7):  # Фиксированно можно выбрать только от 2 до 6 лет
-        keyboard_btn.append(InlineKeyboardButton(str(i), callback_data=str(i)))
-
-    reply_markup = InlineKeyboardMarkup([
-        keyboard_btn,
-    ])
+    _, callback_data = remove_intent_id(query.data)
+    theater_event_id = int(callback_data)
+    theater_event = await db_postgres.get_theater_event(context.session,
+                                                        theater_event_id)
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
     await query.edit_message_text(
-        text='Выберите сколько исполняется лет имениннику?',
+        f'<b>Вы выбрали мероприятие:</b>\n{full_name}')
+
+    keyboard = []
+    for i in range(2, 7):  # Фиксированно можно выбрать только от 2 до 6 лет
+        keyboard.append(InlineKeyboardButton(str(i), callback_data=str(i)))
+
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE'],
+    )
+    text = 'Выберите сколько исполняется лет имениннику?'
+    message = await update.effective_chat.send_message(
+        text=text,
         reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
 
-    context.user_data['birthday_user_data']['theater_event_id'] = int(theater_event_id)
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
+
+    context.user_data['birthday_user_data'][
+        'theater_event_id'] = theater_event_id
 
     state = 'AGE'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    del_message_ids = []
 
-    age = query.data
+    _, callback_data = remove_intent_id(query.data)
+    age = callback_data
+    await query.edit_message_text(f'<b>Возраст именника:</b> {age}')
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'возраст', age))
+    custom_made_formats = await db_postgres.get_all_custom_made_format(
+        context.session)
+    birthday_place = context.user_data['birthday_user_data']['place']
+    custom_made_formats = [item for item in custom_made_formats
+                           if item.flag_outside == birthday_place]
 
-    text = 'Выберите сколько будет гостей-детей?\n\n' \
-           'Праздник рассчитан от 1 до 10 детей.'
-    keyboard = create_kbd_with_number_btn(10, 5)
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
+    text = '<b>Выберите формат проведения Дня рождения</b>\n\n'
+    keyboard = []
+    for i, item in enumerate(custom_made_formats):
+        text += (
+            f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {item.name}\n'
+            f' {item.price} руб\n\n'
+        )
+        keyboard.append(InlineKeyboardButton(
+            f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
+            callback_data=item.id
+        ))
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE'],
     )
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+    )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['age'] = int(age)
 
-    state = 'QTY_CHILD'
-    context.user_data['STATE'] = state
-    return state
-
-
-async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    qty_child = query.data
-
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'кол-во детей', qty_child))
-
-    text = 'Выберите сколько будет гостей-взрослых\n\nНе более 10 взрослых.'
-    keyboard = create_kbd_with_number_btn(10, 5)
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
-
-    context.user_data['birthday_user_data']['qty_child'] = int(qty_child)
-
-    state = 'QTY_ADULT'
-    context.user_data['STATE'] = state
-    return state
-
-
-async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    qty_adult = query.data
-
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'кол-во взрослых', qty_adult))
-
-    text = 'Следующий вопрос'
-    reply_markup = None
-
-    birthday_place = context.user_data['birthday_user_data']['place']
-    birthday_price = context.bot_data.get(
-        'birthday_price',
-        {1: 0, 2: 0, 3: 0}
-    )
-    if birthday_place == 1:
-        one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]}'
-        two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]}'
-
-        text = do_bold('Выберите формат проведения Дня рождения\n\n')
-        text += escape_markdown(
-            f'{one_option} Спектакль (40 минут) + '
-            'аренда комнаты под чаепитие (1 час)\n'
-            f' {birthday_price[1]} руб\n\n'
-            f'{two_option} Спектакль (40 минут) + '
-            'аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
-            f' {birthday_price[2]} руб',
-            2
-        )
-
-        reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton(one_option, callback_data=1),
-             InlineKeyboardButton(two_option, callback_data=2)],
-        ])
-    elif birthday_place == 2:
-        text = escape_markdown(
-            'Формат «На выезде»:\n\n'
-            'Спектакль (40 минут) + Свободная игра с персонажами и '
-            'фотосессия (20 минут)\n'
-            f' {birthday_price[3]} руб\n\n',
-            2
-        )
-        text += do_italic('Нажмите Далее')
-
-        reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton('Далее', callback_data=3)]
-        ])
-
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN_V2
-    )
-
-    context.user_data['birthday_user_data']['qty_adult'] = int(qty_adult)
-
     state = 'FORMAT_BD'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    del_message_ids = []
 
-    format_bd = query.data
+    _, callback_data = remove_intent_id(query.data)
+    custom_made_format_id = int(callback_data)
+    custom_made_format = await db_postgres.get_custom_made_format(
+        context.session, custom_made_format_id)
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'формат праздника', format_bd))
-    birthday_price = context.bot_data.get(
-        'birthday_price',
-        {1: 0, 2: 0, 3: 0}
-    )
-
-    text = 'Формат проведения Дня рождения\n\n'
-    match format_bd:
-        case '1':
-            text += f'Спектакль + чаепитие\n {birthday_price[1]} руб'
-        case '2':
-            text += f'Спектакль + чаепитие + дискотека\n {birthday_price[2]} руб'
-        case '3':
-            text += f'Спектакль + игра + фотосессия\n {birthday_price[3]} руб'
+    text = '<b>Выбранный формат проведения Дня рождения:</b>\n'
+    text += f'{custom_made_format.name}\n {custom_made_format.price} руб'
     await query.edit_message_text(text)
 
-    await update.effective_chat.send_message(
-        text='Напишите как зовут именинника',
+    if custom_made_format.flag_outside:
+        max_qty_child = 15
+    else:
+        max_qty_child = 10
+    text = ('Выберите сколько будет гостей-детей\n\n'
+            f'Праздник рассчитан до {max_qty_child} детей.')
+    keyboard = create_kbd_with_number_btn(max_qty_child)
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE'],
+        size_row=5
     )
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+    del_message_ids.append(message.message_id)
 
-    context.user_data['birthday_user_data']['format_bd'] = int(format_bd)
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
+
+    context.user_data['birthday_user_data']['custom_made_format_id'] = int(
+        custom_made_format_id)
+
+    state = 'QTY_CHILD'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
+    context.user_data['STATE'] = state
+    await query.answer()
+    return state
+
+
+async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    del_message_ids = []
+
+    _, callback_data = remove_intent_id(query.data)
+    qty_child = callback_data
+    text = f'<b>Выбранное кол-во детей:</b> {qty_child}'
+    await query.edit_message_text(text)
+
+    text = ('Выберите сколько будет гостей-взрослых\n\n'
+            'Праздник рассчитан до 10 взрослых.')
+    keyboard = create_kbd_with_number_btn(10)
+    reply_markup = await create_replay_markup(
+        keyboard,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE'],
+        size_row=5
+    )
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
+
+    context.user_data['birthday_user_data']['qty_child'] = int(qty_child)
+
+    state = 'QTY_ADULT'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
+    context.user_data['STATE'] = state
+    await query.answer()
+    return state
+
+
+async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    del_message_ids = []
+
+    _, callback_data = remove_intent_id(query.data)
+    qty_adult = callback_data
+    text = f'<b>Выбранное кол-во взрослых:</b> {qty_adult}'
+    await query.edit_message_text(text)
+
+    text = 'Напишите как зовут именинника'
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
+
+    context.user_data['birthday_user_data']['qty_adult'] = int(qty_adult)
 
     state = 'NAME_CHILD'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
 async def get_name_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name_child = update.effective_message.text
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'имя ребенка', name_child))
+    text = f'<b>Имя именинника:</b> {name_child}'
+    message = await update.effective_chat.send_message(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
-    await update.effective_chat.send_message(
-        text='Напишите как вас зовут',
+    text = 'Напишите как вас зовут'
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['name_child'] = name_child
 
     state = 'NAME'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     return state
 
 
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_message.text
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'имя для связи', name))
+    text = f'<b>Ваше имя для связи:</b> {name}'
+    message = await update.effective_chat.send_message(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
 
-    await update.effective_chat.send_message(
-        text='Напишите контактный телефон для связи с вами',
+    text = 'Напишите контактный телефон для связи с вами'
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=context.user_data['STATE']
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
     )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
 
     context.user_data['birthday_user_data']['name'] = name
 
     state = 'PHONE'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     return state
 
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone = update.effective_message.text
-
-    birthday_hl_logger.info(join_for_log_info(
-        context.user_data['user'].id, 'телефон для связи', phone))
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    context.user_data['common_data']['del_keyboard_message_ids'].append(
+        update.effective_message.message_id)
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
     phone = extract_phone_number_from_text(phone)
     if check_phone_number(phone):
-        await request_phone_number(update, phone)
+        message = await request_phone_number(update, context)
+        await append_message_ids_back_context(
+            context, [message.message_id])
         return 'PHONE'
 
-    user_id = update.effective_user.id
+    text = f'<b>Телефон для связи:</b> {phone}'
+    message = await update.effective_chat.send_message(text)
+    await append_message_ids_back_context(
+        context, [message.message_id])
+
+    text = 'Напишите прочую дополнительную информацию или нажмите Далее'
+    keyboard = [
+        [InlineKeyboardButton('Далее', callback_data='Next')],
+        add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            postfix_for_back=context.user_data['STATE']
+        )
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup
+    )
+    del_message_ids.append(message.message_id)
+
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message.message_id)
+
     context.user_data['birthday_user_data']['phone'] = phone
 
-    try:
-        text = do_bold('Ваша заявка: ')
-        for key, item in context.user_data['birthday_user_data'].items():
-            match key:
-                case 'place':
-                    if item == 1:
-                        item = 'В «Домике»'
-                    elif item == 2:
-                        item = 'На выезде'
-                case 'theater_event_id':
-                    dict_of_shows = context.user_data['common_data'][
-                        'dict_of_shows']
-                    item = dict_of_shows[item]['full_name']
-                case 'format_bd':
-                    birthday_price = context.bot_data.get(
-                        'birthday_price',
-                        {1: 0, 2: 0, 3: 0}
-                    )
-                    if item == 1:
-                        item = ('Спектакль (40 минут) + '
-                                'аренда комнаты под чаепитие (1 час) '
-                                f'-> {birthday_price[1]} руб')
-                    elif item == 2:
-                        item = ('Спектакль (40 минут) + '
-                                'аренда комнаты под чаепитие + '
-                                'серебряная дискотека (1 час) '
-                                f'-> {birthday_price[2]} руб')
-                    elif item == 3:
-                        item = ('Спектакль (40 минут) + '
-                                'Свободная игра с персонажами и '
-                                'фотосессия (20 минут)'
-                                f'-> {birthday_price[3]} руб')
-                case 'phone':
-                    item = '+7' + item
+    state = 'NOTE'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
+    context.user_data['STATE'] = state
+    return state
 
-            text += '\n' + do_italic(birthday_data[key])
-            text += ': ' + escape_markdown(str(item), 2)
 
-        context.user_data['common_data']['text_for_notification_massage'] = text
+async def get_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        note = update.effective_message.text
+        text = f'<b>Прочая информация:</b> {note}'
+        message = await update.effective_chat.send_message(text)
+        await append_message_ids_back_context(
+            context, [message.message_id])
 
-        text += ('\n\nПринята, '
-                 'после ее рассмотрения администратор свяжется с вами')
-        message = await update.effective_chat.send_message(
-            text,
-            parse_mode=ParseMode.MARKDOWN_V2
-        )
-        message_id = message.message_id
+        context.user_data['birthday_user_data']['note'] = note
+    await append_message_ids_back_context(
+        context, [update.effective_message.message_id])
+    await del_keyboard_messages(update, context)
+    del_message_ids = []
 
-        reply_markup = create_approve_and_reject_replay(
-            'birthday-1',
-            user_id,
-            message_id
-        )
+    text_header = '<b>Заявка:</b>\n'
+    text = ''
+    for key, item in context.user_data['birthday_user_data'].items():
+        match key:
+            case 'place':
+                item = 'На выезде' if item else 'В «Домике»'
+            case 'theater_event_id':
+                theater_event = await db_postgres.get_theater_event(
+                    context.session, item)
+                item = get_full_name_event(theater_event.name,
+                                           theater_event.flag_premier,
+                                           theater_event.min_age_child,
+                                           theater_event.max_age_child,
+                                           theater_event.duration)
+            case 'custom_made_format_id':
+                custom_made_format = await db_postgres.get_custom_made_format(
+                    context.session, item)
+                item = (f'{custom_made_format.name}\n'
+                        f'<i>Стоимость:</i> {custom_made_format.price} руб')
+            case 'phone':
+                item = '+7' + item
+        try:
+            text += f'\n<i>{birthday_data[key]}:</i> {item}'
+        except KeyError as e:
+            birthday_hl_logger.error(e)
 
-        user = context.user_data['user']
-        text = escape_markdown(
-            '#День_рождения\n'
-            f'Запрос пользователя @{user.username} {user.full_name}\n',
-            2
-        )
-        text += context.user_data['common_data'][
-            'text_for_notification_massage']
-        thread_id = (context.bot_data['dict_topics_name']
-                     .get('Выездные мероприятия', None))
-        message = await context.bot.send_message(
-            text=text,
-            chat_id=ADMIN_GROUP,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN_V2,
-            message_thread_id=thread_id
-        )
+    if query:
+        await query.answer()
+    message_1 = await update.effective_chat.send_message(
+        text=text_header + text,
+    )
+    await append_message_ids_back_context(
+        context, [message_1.message_id])
+    context.user_data['common_data']['text_for_notification_massage'] = text
 
-        context.user_data['common_data'][
-            'message_id_for_admin'] = message.message_id
+    text = ('Проверьте и нажмите подтвердить\n'
+             'или вернитесь и исправьте необходимые данные')
+    keyboard = [
+        [InlineKeyboardButton('Подтвердить', callback_data='confirm')],
+        add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            postfix_for_back=context.user_data['STATE'])
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message_2 = await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+    )
+    del_message_ids.append(message_2.message_id)
 
-        write_client_bd(context.user_data)
+    common_data = context.user_data['common_data']
+    common_data['del_keyboard_message_ids'].append(message_2.message_id)
+    common_data['message_id_for_reply'] = message_1.message_id
 
-    except Exception as e:
-        birthday_hl_logger.error(e)
+    state = 'CONFIRM'
+    await set_back_context(context, state, text, reply_markup, del_message_ids)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.delete_message()
+    await del_keyboard_messages(update, context)
+    user_id = update.effective_user.id
+
+    context.user_data['birthday_user_data']['user_id'] = user_id
+    custom_made_event_data = context.user_data['birthday_user_data']
+    custom_made_event = await db_postgres.create_custom_made_event(
+        context.session,
+        **custom_made_event_data
+    )
+
+    common_data = context.user_data['common_data']
+    message_id_for_reply = common_data['message_id_for_reply']
+
+    text = (f'\n\nВаша заявка: {custom_made_event.id}\n\n'
+            f'Заявка находится на рассмотрении.\n'
+            'После вам придет подтверждение '
+            'или администратор свяжется с вами для уточнения деталей.')
+    await update.effective_chat.send_message(
+        text, reply_to_message_id=message_id_for_reply)
+
+    reply_markup = create_approve_and_reject_replay(
+        'birthday-1',
+        user_id,
+        message_id_for_reply
+    )
+
+    user = context.user_data['user']
+    text = ('#День_рождения\n'
+            f'Запрос пользователя @{user.username} {user.full_name}\n')
+    text += f'Номер заявки: {custom_made_event.id}\n\n'
+    text += context.user_data['common_data'][
+        'text_for_notification_massage']
+    thread_id = (context.bot_data['dict_topics_name']
+                 .get('Выездные мероприятия', None))
+    message = await context.bot.send_message(
+        text=text,
+        chat_id=ADMIN_GROUP,
+        reply_markup=reply_markup,
+        message_thread_id=thread_id
+    )
+
+    context.user_data['common_data'][
+        'message_id_for_admin'] = message.message_id
+    context.user_data['birthday_user_data'][
+            'custom_made_event_id'] = custom_made_event.id
+
+    write_client_cme(custom_made_event)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 
@@ -547,7 +772,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     button_cancel = InlineKeyboardButton(
         "Отменить",
-        callback_data=f'Отменить-bd'
+        callback_data=f'Отменить-{context.user_data['postfix_for_cancel']}'
     )
     keyboard.append([button_cancel])
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -558,7 +783,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             '+79159383529 Татьяна Александровна Б.\n\n'
             'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)\n'
             'Пожалуйста внесите оплату в течении 30 минут или нажмите '
-            'отмена\n\n'
+            'отмена и повторите в другое удобное для вас время\n\n'
             '__________\n'
             'В случае переноса или отмены свяжитесь с Администратором:\n'
             f'{context.bot_data['admin']['contacts']}')
@@ -583,7 +808,8 @@ async def forward_photo_or_file(
     Пересылает картинку или файл.
     """
     user = context.user_data['user']
-    message_id = context.user_data['common_data']['message_id_buy_info']
+    common_data = context.user_data['common_data']
+    message_id = common_data['message_id_buy_info']
     chat_id = update.effective_chat.id
 
     # Убираем у старого сообщения кнопку отмены
@@ -593,14 +819,16 @@ async def forward_photo_or_file(
     )
 
     try:
-        text = context.user_data['common_data']['text_for_notification_massage']
-        message = await update.effective_chat.send_message(
-            text,
-            parse_mode=ParseMode.MARKDOWN_V2
+        message_id_for_reply = common_data['message_id_for_reply']
+        cme_id = context.user_data['birthday_user_data']['custom_made_event_id']
+        text = (f'Предоплата по заявке {cme_id} принята\n'
+                f'В ближайшее время вам так же поступит подтверждение о '
+                f'забронированном мероприятии')
+        await update.effective_chat.send_message(
+            text=text,
+            reply_to_message_id=message_id_for_reply
         )
-        await message.pin()
-
-        set_approve_order(context.user_data['birthday_user_data'], 1)
+        await update.effective_chat.pin_message(message_id_for_reply)
 
         text = f'Квитанция покупателя @{user.username} {user.full_name}\n'
         message_id_for_admin = context.user_data['common_data'][
@@ -636,7 +864,8 @@ async def forward_photo_or_file(
         birthday_hl_logger.error(err)
 
         await update.effective_chat.send_message(
-            'Сначала необходимо оформить запрос'
+            'Сначала необходимо оформить запрос\n'
+            f'Это можно сделать по команде /{COMMAND_DICT['BD_ORDER'][0]}'
         )
         birthday_hl_logger.error(
             f'Пользователь {user}: '

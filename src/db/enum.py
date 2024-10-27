@@ -34,3 +34,13 @@ class GroupOfPeopleByDiscountType(enum.Enum):
     all = 0
     privilege = 1
     non_privilege = 2
+
+
+class CustomMadeStatus(enum.Enum):
+    CREATED = 'Создан'
+    APPROVED = 'Подтвержден'
+    PREPAID = 'Предоплачен'
+    PAID = 'Оплачен'
+    REJECTED = 'Отклонен'
+    REFUNDED = 'Возвращен'
+    CANCELED = 'Отменен'

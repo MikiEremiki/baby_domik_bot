@@ -4,16 +4,16 @@ import datetime
 from typing import Any, List, Tuple, Dict
 
 from pydantic import ValidationError
-from telegram import Update
 from telegram.ext import ContextTypes
 
 from api.googlesheets import (
     get_data_from_spreadsheet,
     get_column_info,
-    write_data_reserve
+    write_data_reserve,
 )
 from db import db_postgres
 from settings.settings import RANGE_NAME
+from utilities.schemas.custom_made_format import CustomMadeFormatDTO
 from utilities.schemas.schedule_event import ScheduleEventDTO
 from utilities.schemas.theater_event import TheaterEventDTO
 from utilities.schemas.ticket import BaseTicketDTO
@@ -160,6 +160,9 @@ def load_schedule_events(
                 if e.args[0] != 'date_show_tmp':
                     db_googlesheets_logger.error(item)
                     db_googlesheets_logger.error(e)
+            except IndexError as e:
+                db_googlesheets_logger.error(item)
+                db_googlesheets_logger.error(e)
         try:
             event = ScheduleEventDTO(**tmp_dict)
             if only_active and not event.flag_turn_on_off:
@@ -210,6 +213,43 @@ def load_theater_events() -> List[TheaterEventDTO]:
 
     db_googlesheets_logger.info('Список репертуара загружен')
     return events
+
+
+def load_custom_made_format() -> List[CustomMadeFormatDTO]:
+    formats = []
+
+    dict_column_name, len_column = get_column_info('База ФЗМ_')
+
+    qty_tickets = len(get_data_from_spreadsheet(
+        RANGE_NAME['База ФЗМ_'] + f'A:A'
+    ))
+
+    data = get_data_from_spreadsheet(
+        RANGE_NAME['База ФЗМ_'] +
+        f'R2C1:R{qty_tickets}C{len_column}',
+        value_render_option='UNFORMATTED_VALUE'
+    )
+    db_googlesheets_logger.info('Данные форматов заказных мероприятий загружены')
+
+    fields_ticket = [*CustomMadeFormatDTO.model_fields.keys()]
+    for item in data[1:]:
+        tmp_dict = {}
+        for value in fields_ticket:
+            try:
+                tmp_dict[value] = item[dict_column_name[value]]
+            except KeyError as e:
+                if e.args[0] != 'date_show_tmp':
+                    db_googlesheets_logger.error(item)
+                    db_googlesheets_logger.error(e)
+        try:
+            custom_made_format = CustomMadeFormatDTO(**tmp_dict)
+            formats.append(custom_made_format)
+        except ValidationError as exc:
+            db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
+            db_googlesheets_logger.error(tmp_dict)
+
+    db_googlesheets_logger.info('Список репертуара загружен')
+    return formats
 
 
 def load_special_ticket_price() -> Dict:

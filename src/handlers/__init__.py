@@ -14,6 +14,9 @@ async def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
     if command:
         context.user_data['command'] = command
     context.user_data.setdefault('common_data', {})
+    common_data = context.user_data['common_data']
+    common_data.setdefault('del_message_ids', [])
+    common_data.setdefault('del_keyboard_message_ids', [])
 
     context.user_data.setdefault('reserve_admin_data', {})
 

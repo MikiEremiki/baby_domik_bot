@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
-    GroupOfPeopleByDiscountType)
+    GroupOfPeopleByDiscountType, CustomMadeStatus)
 
 
 class User(BaseModelTimed):
@@ -25,6 +25,8 @@ class User(BaseModelTimed):
     people: Mapped[List['Person']] = relationship(lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='user', secondary='users_tickets', lazy='selectin')
+    custom_made_events: Mapped[List['CustomMadeEvent']] = relationship(
+        lazy='selectin')
 
 
 class Person(BaseModelTimed):
@@ -183,6 +185,8 @@ class Ticket(BaseModelTimed):
         secondary='users_tickets', back_populates='tickets', lazy='selectin')
     people: Mapped[List['Person']] = relationship(
         secondary='people_tickets', back_populates='tickets', lazy='selectin')
+    custom_made_event: Mapped[Optional['CustomMadeEvent']] = relationship(
+        lazy='selectin')
 
 
 class TypeEvent(BaseModel):
@@ -313,3 +317,42 @@ class Promotion(BaseModelTimed):
     max_count_of_usage: Mapped[int] = mapped_column(default=0)
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
+
+
+class CustomMadeFormat(BaseModelTimed):
+    __tablename__ = 'custom_made_formats'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    name: Mapped[str]
+    price: Mapped[int]
+    flag_outside: Mapped[bool]
+
+
+class CustomMadeEvent(BaseModelTimed):
+    __tablename__ = 'custom_made_events'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    place: Mapped[int]
+    address: Mapped[str]
+    date: Mapped[str]
+    time: Mapped[str]
+    age: Mapped[Optional[float]]
+    qty_child: Mapped[int]
+    qty_adult: Mapped[int]
+    name_child: Mapped[str]
+    name: Mapped[str]
+    phone: Mapped[str]
+    note: Mapped[Optional[str]]
+
+    status: Mapped[CustomMadeStatus]
+
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('users.user_id', ondelete='CASCADE'))
+    custom_made_format_id: Mapped[int] = mapped_column(
+        ForeignKey('custom_made_formats.id'))
+    theater_event_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('theater_events.id'))
+    ticket_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('tickets.id'))

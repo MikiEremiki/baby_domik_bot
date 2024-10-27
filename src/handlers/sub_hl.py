@@ -17,7 +17,7 @@ from db import db_postgres, TheaterEvent
 from db.enum import TicketStatus
 from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
-    load_schedule_events, load_theater_events
+    load_schedule_events, load_theater_events, load_custom_made_format
 )
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities import add_btn_back_and_cancel
@@ -115,8 +115,6 @@ async def update_base_ticket_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await update.callback_query.answer()
-
     ticket_list = load_base_tickets(True)
     await db_postgres.update_base_tickets_from_googlesheets(
         context.session, ticket_list)
@@ -124,6 +122,7 @@ async def update_base_ticket_data(
     text = 'Билеты обновлены'
     await update.effective_chat.send_message(text)
 
+    await update.callback_query.answer()
     return 'updates'
 
 
@@ -131,8 +130,6 @@ async def update_special_ticket_price(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await update.callback_query.answer()
-
     context.bot_data['special_ticket_price'] = load_special_ticket_price()
     text = 'Индивидуальные стоимости обновлены'
     await update.effective_chat.send_message(text)
@@ -141,6 +138,24 @@ async def update_special_ticket_price(
     for item in context.bot_data['special_ticket_price']:
         sub_hl_logger.info(f'{str(item)}')
 
+    await update.callback_query.answer()
+    return 'updates'
+
+
+async def update_custom_made_format_data(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
+    custom_made_format_list = load_custom_made_format()
+    await db_postgres.update_custom_made_format_from_googlesheets(
+        context.session, custom_made_format_list)
+
+    text = 'Форматы заказных мероприятий обновлены'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+
+    await update.callback_query.answer()
     return 'updates'
 
 
@@ -148,8 +163,6 @@ async def update_theater_event_data(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await update.callback_query.answer()
-
     theater_event_list = load_theater_events()
     await db_postgres.update_theater_events_from_googlesheets(
         context.session, theater_event_list)
@@ -159,13 +172,12 @@ async def update_theater_event_data(
 
     sub_hl_logger.info(text)
 
+    await update.callback_query.answer()
     return 'updates'
 
 
 async def update_schedule_event_data(update: Update,
                                      context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-
     schedule_event_list = load_schedule_events(False)
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
@@ -175,6 +187,7 @@ async def update_schedule_event_data(update: Update,
 
     sub_hl_logger.info(text)
 
+    await update.callback_query.answer()
     return 'updates'
 
 
@@ -228,14 +241,6 @@ async def remove_button_from_last_message(update, context):
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
-
-
-async def remove_inline_button(update: Update):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup()
-
-    return query
 
 
 async def create_and_send_payment(
@@ -342,7 +347,7 @@ async def create_and_send_payment(
             text, reply_markup = await send_request_email(update, context)
             state = 'EMAIL'
 
-            set_back_context(context, state, text, reply_markup)
+            await set_back_context(context, state, text, reply_markup)
             context.user_data['STATE'] = state
             return state
         raise ValueError('Проблема с созданием платежа')

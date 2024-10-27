@@ -45,7 +45,7 @@ async def enter_ticket_id(
 
     context.user_data['reserve_admin_data']['message_id'] = message.message_id
     state = 0
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -103,12 +103,12 @@ async def get_ticket_by_id(
 
         context.user_data['reserve_admin_data']['ticket_id'] = ticket_id
         state = 1
-        set_back_context(context, state, text, reply_markup)
+        await set_back_context(context, state, text, reply_markup)
         return state
     else:
         state = 0
         text = 'Такого билета нет\n\n'
-        text_back, reply_markup = get_back_context(context, state)
+        text_back, reply_markup, _ = await get_back_context(context, state)
         await update.effective_chat.send_message(text=text + text_back,
                                                  reply_markup=reply_markup)
         return state
@@ -119,7 +119,6 @@ async def migration_ticket(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
-    await query.answer()
 
     text = 'Выбор показа по id или по параметрам?'
 
@@ -140,8 +139,9 @@ async def migration_ticket(
     )
 
     state = 1
-    set_back_context(context, state, text, reply_markup)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
+    await query.answer()
     return state
 
 

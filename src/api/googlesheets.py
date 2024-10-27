@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 from db import BaseTicket
 from db.enum import TicketStatus
+from db.models import CustomMadeEvent
 from settings.config_loader import parse_settings
 from settings.settings import RANGE_NAME
 
@@ -228,7 +229,7 @@ def write_client_reserve(
         context: ContextTypes.DEFAULT_TYPE,
         chat_id: int,
         base_ticket: BaseTicket,
-        ticket_status = TicketStatus.CREATED.value,
+        ticket_status=TicketStatus.CREATED.value,
 ) -> Optional[List[int]]:
     reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
@@ -302,8 +303,7 @@ def write_client_reserve(
         }
 
         range_sheet = (RANGE_NAME['База клиентов_'] +
-                       f'R1C1:'
-                       f'R1C{end_column_index}')
+                       f'R1C1:R1C{end_column_index}')
 
         execute_append_googlesheet(sheet,
                                    range_sheet,
@@ -416,66 +416,65 @@ def get_flags_by_ticket_status(ticket_status):
     return flag_exclude, flag_exclude_place_sum, flag_transfer
 
 
-def write_client_bd(
-        context_data: dict,
+def write_client_cme(
+        custom_made_event: CustomMadeEvent,
 ) -> None:
-    try:
-        values_column = get_values(
-            SPREADSHEET_ID['Домик'],
-            RANGE_NAME['База ДР']
-        )
+    dict_column_name, len_column = get_column_info('База ДР_')
 
-        if not values_column:
-            googlesheets_logger.info('No data found.')
-            return
+    values_column = get_values(
+        SPREADSHEET_ID['Домик'],
+        RANGE_NAME['База ДР']
+    )
 
-        first_row_for_write = len(values_column)
-        last_row_for_write = first_row_for_write
+    if not values_column:
+        googlesheets_logger.info('No data found.')
+        return
 
-        sheet = get_service_sacc(SCOPES).spreadsheets()
-        value_input_option = 'USER_ENTERED'
-        response_value_render_option = 'FORMATTED_VALUE'
-        values = [[]]
+    sheet = get_service_sacc(SCOPES).spreadsheets()
+    value_input_option = 'USER_ENTERED'
+    response_value_render_option = 'FORMATTED_VALUE'
+    values = [[]]
 
-        date = datetime.now().strftime('%y%m%d %H:%M:%S')
+    created_at = custom_made_event.created_at.strftime('%y%m%d %H:%M:%S')
+    cme = custom_made_event.model_dump()
+    for key, name in dict_column_name.items():
+        if key in cme:
+            match key:
+                case 'created_at':
+                    values[0].append(created_at)
+                case 'status':
+                    values[0].append(custom_made_event.status.value)
+                case _:
+                    values[0].append(cme[key])
+        elif key == 'name_theater':
+            values[0].append(
+                '=VLOOKUP('
+                'INDEX($1:$66;ROW();MATCH("theater_event_id";$2:$2;0));'
+                '\'Репертуар\'!$A$3:$F;'
+                'MATCH("name";\'Репертуар\'!$2:$2;0)'
+                ')'
+            )
+        else:
+            values[0].append('')
 
-        bd_data = context_data['birthday_user_data']
-        values[0].append(bd_data['phone'])  # 0
-        values[0].append(bd_data['place'])
-        values[0].append(bd_data['address'])
-        values[0].append(bd_data['date'])
-        values[0].append(bd_data['time'])
-        values[0].append(bd_data['theater_event_id'])
-        values[0].append(bd_data['age'])
-        values[0].append(bd_data['qty_child'])
-        values[0].append(bd_data['qty_adult'])
-        values[0].append(bd_data['format_bd'])
-        values[0].append(bd_data['name_child'])
-        values[0].append(bd_data['name'])
-        values[0].append(date)  # 12
-        values[0].extend(['FALSE', 'FALSE', 'FALSE'])
-        values[0].append(context_data['user'].id)  # 16
+    values[0][dict_column_name['created_at']] = created_at
 
-        googlesheets_logger.info(values)
+    googlesheets_logger.info(values)
 
-        end_column_index = len(values[0])
+    end_column_index = len(values[0])
 
-        value_range_body = {
-            'values': values,
-        }
+    value_range_body = {
+        'values': values,
+    }
 
-        range_sheet = (RANGE_NAME['База ДР_'] +
-                       f'R{first_row_for_write + 1}C1:' +
-                       f'R{last_row_for_write + 1}C{end_column_index}')
+    range_sheet = (RANGE_NAME['База ДР_'] +
+                   f'R1C1:R1C{end_column_index}')
 
-        execute_update_googlesheet(sheet,
-                                   range_sheet,
-                                   value_input_option,
-                                   response_value_render_option,
-                                   value_range_body)
-
-    except HttpError as err:
-        googlesheets_logger.error(err)
+    execute_append_googlesheet(sheet,
+                               range_sheet,
+                               value_input_option,
+                               response_value_render_option,
+                               value_range_body)
 
 
 def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
@@ -534,10 +533,9 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         }
 
         range_sheet = (RANGE_NAME['Лист ожидания_'] +
-                       f'R{first_row_for_write + 1}C1:'
-                       f'R{last_row_for_write + 1}C{end_column_index}')
+                       f'R1C1:R1C{end_column_index}')
 
-        execute_update_googlesheet(sheet,
+        execute_append_googlesheet(sheet,
                                    range_sheet,
                                    value_input_option,
                                    response_value_render_option,
@@ -547,65 +545,45 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         googlesheets_logger.error(err)
 
 
-def set_approve_order(bd_data, step=0) -> None:
-    """
+def update_cme_in_gspread(cme_id, status) -> None:
+    dict_column_name, len_column = get_column_info('База ДР_')
+    values = get_values(
+        SPREADSHEET_ID['Домик'],
+        f'{RANGE_NAME['База ДР']}',
+        value_render_option='UNFORMATTED_VALUE'
+    )
 
-    :param bd_data:
-    :type step: 0 - Заявка подтверждена
-    1 - Предоплата
-    2 - Предоплата подтверждена
-    """
-    try:
-        values = get_values(
-            SPREADSHEET_ID['Домик'],
-            RANGE_NAME['База ДР_'] + 'A:E'
-        )
-        values_header = get_values(
-            SPREADSHEET_ID['Домик'],
-            RANGE_NAME['База ДР_'] + '1:1'
-        )
+    if not values:
+        googlesheets_logger.info('No data found')
+        raise ValueError
 
-        if not values:
-            googlesheets_logger.info('No data found')
-            return
-        if not values_header:
-            googlesheets_logger.info('No data found')
-            return
+    row_cme = 0
+    for i, row in enumerate(values):
+        if cme_id == row[dict_column_name['id']]:
+            row_cme = i + 1
+    if row_cme == 0:
+        raise ValueError('Билет удален из гугл-таблицы')
 
-        colum = 1
-        for i, item in enumerate(values_header[0]):
-            if item == 'Заявка подтверждена':
-                colum += i
+    sheet = get_service_sacc(SCOPES).spreadsheets()
+    value_input_option = 'USER_ENTERED'
+    response_value_render_option = 'FORMATTED_VALUE'
 
-        for i, item in enumerate(values):
-            if (item[0] == bd_data['phone'] and
-                    item[2] == bd_data['address'] and
-                    item[3] == bd_data['date'] and
-                    item[4] == bd_data['time']):
-                sheet = get_service_sacc(SCOPES).spreadsheets()
-                value_input_option = 'USER_ENTERED'
-                response_value_render_option = 'FORMATTED_VALUE'
+    values = [[]]
+    values[0].append(status)
+    googlesheets_logger.info(values)
 
-                values = [[]]
-                values[0].append(True)
-                googlesheets_logger.info(values)
+    value_range_body = {'values': values}
 
-                value_range_body = {
-                    'values': values,
-                }
+    col1 = dict_column_name['status'] + 1
+    col2 = col1 + 1
+    range_sheet = (f'{RANGE_NAME['База ДР_']}'
+                   f'R{row_cme}C{col1}:R{row_cme}C{col2}')
 
-                range_sheet = (RANGE_NAME['База ДР_'] +
-                               f'R{i + 1}C{colum + step}:' +
-                               f'R{i + 2}C{colum + step}')
-
-                execute_update_googlesheet(sheet,
-                                           range_sheet,
-                                           value_input_option,
-                                           response_value_render_option,
-                                           value_range_body)
-
-    except HttpError as err:
-        googlesheets_logger.error(err)
+    execute_update_googlesheet(sheet,
+                               range_sheet,
+                               value_input_option,
+                               response_value_render_option,
+                               value_range_body)
 
 
 def execute_update_googlesheet(
