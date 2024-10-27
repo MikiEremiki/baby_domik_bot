@@ -17,7 +17,10 @@ from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_full_name_event, get_emoji
 )
 from utilities.utl_kbd import (
-    create_kbd_and_text_tickets_for_choice, create_replay_markup)
+    create_kbd_and_text_tickets_for_choice,
+    create_replay_markup,
+    remove_intent_id,
+)
 from utilities.utl_ticket import get_ticket_and_price
 
 reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
@@ -175,12 +178,15 @@ async def start_forma_info(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
+    await query.answer()
     await query.edit_message_reply_markup()
 
     thread_id = update.effective_message.message_thread_id
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
-    base_ticket_id = int(query.data)
+
+    _, callback_data = remove_intent_id(query.data)
+    base_ticket_id = int(callback_data)
 
     chose_base_ticket, price = await get_ticket_and_price(context,
                                                           base_ticket_id)
@@ -191,6 +197,7 @@ async def start_forma_info(
 
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
+    await query.edit_message_text('Уменьшаю места на выбранное мероприятие...')
     await decrease_free_seat(context,
                              schedule_event_id,
                              base_ticket_id)
@@ -207,6 +214,8 @@ async def start_forma_info(
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
+        await query.edit_message_text(
+            'Возвращаю места с перенесенного мероприятия...')
         await increase_free_seat(context,
                                  ticket.schedule_event_id,
                                  ticket.base_ticket_id)
@@ -230,6 +239,8 @@ async def start_forma_info(
                                                            update.effective_user.id,
                                                            people_ids)
 
+        await query.edit_message_text(
+            'Записываю новый билет в клиентскую базу...')
         write_client_reserve(context,
                              update.effective_chat.id,
                              chose_base_ticket,
@@ -252,6 +263,6 @@ async def start_forma_info(
         reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
         reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'
+
     context.user_data['STATE'] = state
-    await query.answer()
     return state

@@ -401,6 +401,7 @@ async def processing_successful_payment(
 ):
     query = update.callback_query
     if query:
+        await query.answer()
         await query.edit_message_text('Платеж успешно обработан')
 
     reserve_user_data = context.user_data['reserve_user_data']
@@ -488,8 +489,6 @@ async def processing_successful_payment(
     check_send = reserve_user_data.get('flag_send_ticket_info', False)
     if (command == 'reserve' or command == 'studio') and check_send:
         await send_by_ticket_info(update, context)
-    if query:
-        await query.answer()
 
 
 async def create_reply_markup_and_msg_id_for_admin(update, context):

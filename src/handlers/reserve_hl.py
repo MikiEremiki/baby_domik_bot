@@ -2,13 +2,13 @@ import logging
 import pprint
 from datetime import datetime
 
-from telegram.error import BadRequest
-from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram import (
     Update,
     InlineKeyboardMarkup,
-    ReplyKeyboardRemove, InlineKeyboardButton,
+    InlineKeyboardButton,
+    ReplyKeyboardRemove,
 )
+from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram.constants import ChatType, ChatAction
 
 from db import db_postgres
@@ -46,7 +46,7 @@ from utilities.utl_kbd import (
     create_kbd_schedule_and_date, create_kbd_schedule,
     create_kbd_for_time_in_reserve, create_replay_markup,
     create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio,
-    create_kbd_for_date_in_reserve
+    create_kbd_for_date_in_reserve, remove_intent_id
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
@@ -69,6 +69,9 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
+        if context.user_data.get('command', False) and query:
+            await query.answer()
+            await query.delete_message()
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
             return ConversationHandler.END
@@ -89,7 +92,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     if context.user_data.get('command', False) and query:
-        await query.answer('Месяц выбран')
+        await query.answer()
         await query.delete_message()
     return state
 
@@ -170,7 +173,7 @@ async def choice_show_or_date(
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer('Месяц выбрали')
+    await query.answer()
     await query.delete_message()
     return state
 
@@ -185,7 +188,8 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     query = update.callback_query
 
-    theater_event_id = int(query.data)
+    _, callback_data = remove_intent_id(query.data)
+    theater_event_id = int(callback_data)
     reserve_user_data = context.user_data['reserve_user_data']
     number_of_month_str = reserve_user_data['number_of_month_str']
     theater_event = await db_postgres.get_theater_event(
@@ -249,7 +253,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'DATE'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer('Дату выбрали')
+    await query.answer()
     return state
 
 
@@ -262,9 +266,11 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     :return: возвращает state TIME
     """
     query = update.callback_query
+    _, callback_data = remove_intent_id(query.data)
+    theater_event_id, selected_date = callback_data.split('|')
 
-    schedule_events, theater_event = await get_events_for_time_hl(update,
-                                                                  context)
+    schedule_events, theater_event = await get_events_for_time_hl(
+            theater_event_id, selected_date, context)
 
     check_command_studio = check_entered_command(context, 'studio')
 
@@ -331,7 +337,8 @@ async def choice_option_of_reserve(
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
 
-    choice_event_id = int(query.data)
+    _, callback_data = remove_intent_id(query.data)
+    choice_event_id = int(callback_data)
 
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['choose_schedule_event_id'] = choice_event_id
@@ -380,6 +387,7 @@ async def choice_option_of_reserve(
     check_command = check_command_reserve or check_command_studio
     check_seats = check_available_seats(schedule_event, only_child=only_child)
     if check_command and not check_seats:
+        await query.answer()
         await query.edit_message_text(
             'Готовлю информацию для записи в лист ожидания...')
         await send_message_about_list_waiting(update, context)
@@ -491,6 +499,9 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                        only_child=only_child)
 
     if check_command and not check_ticket:
+        if query:
+            await query.answer()
+            await query.delete_message()
         await message.delete()
         await send_message_about_list_waiting(update, context)
 
@@ -499,7 +510,14 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return state
 
     reserve_hl_logger.info('Получено разрешение на бронирование')
+    if query:
+        await query.answer()
+        await query.delete_message()
+    message = await message.edit_text(
+        'Проверка пройдена, готовлю дальнейшие шаги...')
+    await update.effective_chat.send_action(ChatAction.TYPING)
 
+    # TODO Рассмотреть вариант убрать к созданию билета
     result = await decrease_free_and_increase_nonconfirm_seat(context,
                                                               schedule_event_id,
                                                               chose_base_ticket_id)
@@ -534,9 +552,6 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state = 'FORMA'
     context.user_data['STATE'] = state
-    if query:
-        await query.answer()
-        await query.delete_message()
     return state
 
 
@@ -861,7 +876,8 @@ async def send_clients_data(
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
 
-    event_id = int(query.data)
+    _, callback_data = remove_intent_id(query.data)
+    event_id = int(callback_data)
     schedule_event = await db_postgres.get_schedule_event(
         context.session, event_id)
     theater_event = await db_postgres.get_theater_event(
@@ -869,6 +885,10 @@ async def send_clients_data(
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
 
+    await query.edit_message_text('Загружаю данные покупателей')
+    #TODO Заменить на чтение из бд, но для этого так же надо сделать обновление
+    # изменений после внесения изменения в гугл-таблицу или сделать изменение
+    # только через бота
     clients_data, name_column = load_clients_data(event_id)
     text = f'#Мероприятие <code>{event_id}</code>\n'
     text += (f'Список людей на\n'
