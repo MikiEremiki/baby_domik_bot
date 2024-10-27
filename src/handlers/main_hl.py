@@ -768,23 +768,30 @@ async def feedback_send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = context.user_data['user']
 
-    text = 'Ваше сообщение принято.\n\n'
-    await update.effective_chat.send_message(text)
-
     chat_id = ADMIN_GROUP
-    message = await update.message.forward(
-        chat_id,
-        message_thread_id=FEEDBACK_THREAD_ID_GROUP_ADMIN
-    )
-    await context.bot.send_message(
-        chat_id,
-        f'Сообщение от пользователя @{user.username} '
-        f'<a href="tg://user?id={user.id}">{user.full_name}</a>\n'
-        f'{update.effective_message.message_id}\n'
-        f'{update.effective_chat.id}',
-        reply_to_message_id=message.message_id,
-        message_thread_id=message.message_thread_id
-    )
+    if update.edited_message:
+        await update.effective_message.reply_text(
+            'Пожалуйста не редактируйте сообщение, отправьте новое')
+    elif hasattr(update.message, 'forward'):
+        message = await update.message.forward(
+            chat_id,
+            message_thread_id=FEEDBACK_THREAD_ID_GROUP_ADMIN
+        )
+        await context.bot.send_message(
+            chat_id,
+            f'Сообщение от пользователя @{user.username} '
+            f'<a href="tg://user?id={user.id}">{user.full_name}</a>\n'
+            f'{update.effective_message.message_id}\n'
+            f'{update.effective_chat.id}',
+            reply_to_message_id=message.message_id,
+            message_thread_id=message.message_thread_id
+        )
+        text = 'Ваше сообщение принято.\n\n'
+        await update.effective_chat.send_message(text)
+    else:
+        await update.effective_message.reply_text(
+            'К сожалению я не могу работать с данным сообщением, попробуйте '
+            'повторить или отправить другой текст')
 
 
 async def feedback_reply_msg(
