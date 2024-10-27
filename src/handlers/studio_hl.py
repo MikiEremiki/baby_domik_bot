@@ -19,7 +19,8 @@ async def choice_show_and_date(update: Update,
 
     studio_hl_logger.info(f'Пользователь выбрал месяц: {number_of_month_str}')
     reserve_user_data = context.user_data['reserve_user_data']
-    schedule_event_ids = reserve_user_data['schedule_event_ids']
+    state = context.user_data['STATE']
+    schedule_event_ids = reserve_user_data[state]['schedule_event_ids']
     schedule_events = await db_postgres.get_schedule_events_by_ids(
         context.session, schedule_event_ids)
 

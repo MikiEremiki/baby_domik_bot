@@ -85,7 +85,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
-            ["custom_made_format"],
+            ["custom_made_format_id"],
             ["custom_made_formats.id"],
             name=op.f(
                 "fk__custom_made_events__custom_made_format_id__custom_made_formats"
