@@ -252,7 +252,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = f'Бронь подтверждена\n'
     for ticket_id in ticket_ids:
-        text += 'Билет ' + ticket_id + '\n'
+        text += 'Билет ' + str(ticket_id) + '\n'
     await message.edit_text(text)
 
     try:
@@ -352,7 +352,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = f'Бронь отклонена\n'
     for ticket_id in ticket_ids:
-        text += 'Билет ' + ticket_id + '\n'
+        text += 'Билет ' + str(ticket_id) + '\n'
     await message.edit_text(text)
 
     # Сообщение уже было удалено самим пользователем
