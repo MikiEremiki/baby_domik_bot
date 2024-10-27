@@ -242,7 +242,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_reply_markup()
 
-    text = f'Обновлен статус билета: {ticket_status}...'
+    text = f'Обновлен статус билета: {ticket_status.value}...'
     await message.edit_text(text)
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -252,7 +252,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = f'Бронь подтверждена\n'
     for ticket_id in ticket_ids:
-        text += 'Билет ' + ticket_id + '\n'
+        text += 'Билет ' + str(ticket_id) + '\n'
     await message.edit_text(text)
 
     try:
@@ -336,7 +336,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_reply_markup()
 
-    text = f'Обновлен статус билета: {ticket_status}...'
+    text = f'Обновлен статус билета: {ticket_status.value}...'
     await message.edit_text(text)
 
     message = await message.edit_text(
@@ -352,10 +352,9 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = f'Бронь отклонена\n'
     for ticket_id in ticket_ids:
-        text += 'Билет ' + ticket_id + '\n'
+        text += 'Билет ' + str(ticket_id) + '\n'
     await message.edit_text(text)
 
-    # Сообщение уже было удалено самим пользователем
     try:
         await context.bot.delete_message(
             chat_id=chat_id,
