@@ -6,28 +6,22 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop, TypeHandler
 
 logger_ttl = logging.getLogger('bot.TTL')
 CACHE = TTLCache(maxsize=10_000, ttl=0.3)
+CACHE_QUERY = TTLCache(maxsize=10_000, ttl=5)
 
 def add_throttling_middleware(application):
-    async def check_ttl(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def check_ttl(update: Update, _: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id in CACHE:
-            logger_ttl.warning(
-                f'От пользователя приходит слишком много update: {update}')
+            logger_ttl.warning(f'Update пришел быстрее чем 0.3сек: {update}')
             raise ApplicationHandlerStop
 
         query = update.callback_query
         if query:
-            last_data = context.user_data.get('last_callback_query', None)
-            if last_data == query.data:
-                logger_ttl.warning(
-                    f'Update уже обработан: callback_data: {query.data}')
-
+            query_data = query.data
+            cache_query_data = CACHE_QUERY.get(update.effective_user.id, None)
+            if cache_query_data == query_data:
+                logger_ttl.warning(f'Update уже обработан: {update}')
                 raise ApplicationHandlerStop
-            else:
-                context.user_data['last_callback_query'] = query.data
-                logger_ttl.info(
-                    f'save last_callback_data: {query.data}: '
-                    f'{update.effective_user}')
-
+            CACHE_QUERY[update.effective_user.id] = query_data
         CACHE[update.effective_user.id] = True
 
     application.add_handler(TypeHandler(Update, check_ttl), group=-150)
