@@ -306,7 +306,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     theater_event_id, selected_date = callback_data.split('|')
 
     schedule_events, theater_event = await get_events_for_time_hl(
-            theater_event_id, selected_date, context)
+        theater_event_id, selected_date, context)
 
     check_command_studio = check_entered_command(context, 'studio')
 
@@ -335,6 +335,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
 
+    await query.answer()
+    await query.delete_message()
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
@@ -350,8 +352,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'TIME'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
-    await query.delete_message()
     return state
 
 
