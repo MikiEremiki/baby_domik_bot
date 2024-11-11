@@ -236,7 +236,8 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 i += 1
 
 
-async def send_postgres_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def send_postgres_log(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
         document='log/archive/postgres_log.txt'
@@ -931,7 +932,6 @@ async def create_event_names_text(enum_theater_events, text):
 
 
 async def get_events_for_time_hl(theater_event_id, selected_date, context):
-
     utilites_logger.info(f'Пользователь выбрал дату: {selected_date}')
 
     reserve_user_data = context.user_data['reserve_user_data']
