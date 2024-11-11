@@ -5,6 +5,7 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, CallbackQueryHandler,
 )
 
+from custom_filters import filter_admin
 from handlers import reserve_hl, main_hl, list_wait_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
@@ -33,7 +34,9 @@ states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 list_wait_conv_hl = ConversationHandler(
     entry_points=[
-        CommandHandler(COMMAND_DICT['LIST_WAIT'][0], reserve_hl.choice_month),
+        CommandHandler(COMMAND_DICT['LIST_WAIT'][0],
+                       reserve_hl.choice_month,
+                       filter_admin),
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],
