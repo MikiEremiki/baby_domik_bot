@@ -5,7 +5,7 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler,
 )
 
-import custom_filters
+from custom_filters import filter_admin
 from handlers import support_hl, main_hl
 from handlers.sub_hl import (
     update_base_ticket_data, update_theater_event_data,
@@ -15,8 +15,6 @@ from handlers.sub_hl import (
 from conv_hl import (
     F_text_and_no_command, cancel_callback_handler, back_callback_handler)
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
-
-filter_admin = custom_filters.filter_admin
 
 states:  Dict[object, List[BaseHandler]] = {
     1: [

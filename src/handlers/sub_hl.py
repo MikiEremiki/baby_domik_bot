@@ -493,8 +493,7 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
 
         reply_markup = create_approve_and_reject_replay(
             'reserve',
-            update.effective_user.id,
-            message_id,
+            f'{update.effective_user.id} {message_id}'
         )
         context.user_data['common_data'][
             'message_id_for_admin'] = message.message_id
@@ -795,8 +794,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
 
     reply_markup = create_approve_and_reject_replay(
         callback_name,
-        chat_id,
-        message_id,
+        f'{chat_id} {message_id}'
     )
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,

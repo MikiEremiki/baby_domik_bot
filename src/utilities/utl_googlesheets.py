@@ -31,6 +31,13 @@ async def write_to_return_seats_for_sale(context, **kwargs):
     ticket_ids = reserve_user_data.get('ticket_ids', None)
     command = context.user_data['command']
 
+    if ticket_ids and 'status' in kwargs.keys():
+        text = 'Проверь билеты:'
+        for ticket_id in ticket_ids:
+            ticket = await db_postgres.get_ticket(context.session, ticket_id)
+            text += f'\n{ticket.id}| {ticket.status.value}'
+        await context.bot.send_message(context.config.bot.developer_chat_id, 'a')
+
     for schedule_event_id in choose_schedule_event_ids:
         if '_admin' in command:
             await increase_free_seat(context,

@@ -4,7 +4,7 @@ import os
 import re
 from datetime import time
 from pprint import pformat
-from typing import List, Sequence
+from typing import List, Sequence, Tuple
 
 import pytz
 from telegram import (
@@ -19,7 +19,8 @@ from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ExtBot
 from telegram.error import BadRequest
 
-from db import ScheduleEvent, db_postgres, TheaterEvent
+from db import ScheduleEvent, db_postgres, TheaterEvent, Ticket, BaseTicket
+from db.enum import TicketStatus
 from settings import parse_settings
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
@@ -236,7 +237,8 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 i += 1
 
 
-async def send_postgres_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def send_postgres_log(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
         document='log/archive/postgres_log.txt'
@@ -741,21 +743,18 @@ def check_phone_number(phone):
 
 def create_approve_and_reject_replay(
         callback_name,
-        chat_id,
-        message_id
+        data: str
 ):
     keyboard = []
 
     button_approve = InlineKeyboardButton(
         "Подтвердить",
-        callback_data=f'confirm-{callback_name}|'
-                      f'{chat_id} {message_id}'
+        callback_data=f'confirm-{callback_name}|{data}'
     )
 
     button_cancel = InlineKeyboardButton(
         "Отклонить",
-        callback_data=f'reject-{callback_name}|'
-                      f'{chat_id} {message_id}'
+        callback_data=f'reject-{callback_name}|{data}'
     )
     keyboard.append([button_approve, button_cancel])
     return InlineKeyboardMarkup(keyboard)
@@ -934,7 +933,6 @@ async def create_event_names_text(enum_theater_events, text):
 
 
 async def get_events_for_time_hl(theater_event_id, selected_date, context):
-
     utilites_logger.info(f'Пользователь выбрал дату: {selected_date}')
 
     reserve_user_data = context.user_data['reserve_user_data']
@@ -1027,51 +1025,61 @@ async def get_emoji(schedule_event: ScheduleEvent):
     return text_emoji
 
 
-async def add_clients_data_to_text(name_column, clients_data):
+async def add_clients_data_to_text(
+        tickets_info: List[Tuple[BaseTicket, Ticket]]):
     text = ''
-    i = 0
-    for item in clients_data:
-        ticket_status = item[name_column['ticket_status']]
-        if is_skip_ticket(ticket_status):
-            continue
-        i += 1
+    for base_ticket, ticket in tickets_info:
+        people = ticket.people
+        adult_str = ''
+        child_str = ''
+        for person in people:
+            if hasattr(person.adult, 'phone'):
+                adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+            elif hasattr(person.child, 'age'):
+                child_str += f'{person.name} {person.child.age}\n'
+
         text += '\n__________\n'
-        text += '<code>' + item[name_column['ticket_id']] + '</code> | '
-        name = item[name_column['name']]
-        if name != '':
-            text += name
-        text += '\n<b>' + item[name_column['callback_name']] + '</b>'
-        text += '\n+7' + item[name_column['callback_phone']]
-        child_name = item[name_column['child_name']]
-        if child_name != '':
-            text += '\nДети: '
-            text += child_name
-        age = item[name_column['child_age']]
-        if age != '':
-            text += '\nВозраст: '
-            text += age
-        if ticket_status != '':
-            text += '\nСтатус билета: '
-            text += ticket_status
-        try:
-            notes = item[name_column['notes']]
-            if notes != '':
-                text += '\nПримечание: '
-                text += notes
-        except IndexError:
-            utilites_logger.info('Примечание не задано')
+        text += f'<code>{ticket.id}</code> | {base_ticket.name}'
+        text += f'\n<b>{adult_str}</b>'
+        text += f'Дети: {child_str}'
+        text += f'Статус билета: {ticket.status.value}'
+        if ticket.notes:
+            text += f'\nПримечание: {ticket.notes}'
     return text
 
 
-async def add_qty_visitors_to_text(name_column, clients_data):
+async def add_qty_visitors_to_text(
+        tickets_info: List[Tuple[BaseTicket, Ticket]]):
     text = ''
     qty_child = 0
     qty_adult = 0
-    for item in clients_data:
-        if item[name_column['flag_exclude_place_sum']] == 'FALSE':
-            qty_child += int(item[name_column['qty_child']])
-            qty_adult += int(item[name_column['qty_adult']])
+    for base_ticket, ticket in tickets_info:
+        if ticket.status in [TicketStatus.PAID, TicketStatus.APPROVED]:
+            qty_child += base_ticket.quality_of_children
+            qty_adult += (base_ticket.quality_of_adult +
+                          base_ticket.quality_of_add_adult)
 
     text += '<i>Кол-во посетителей: '
     text += f"д={qty_child}|в={qty_adult}</i>"
     return text
+
+
+async def create_str_info_by_schedule_event_id(context, choice_event_id):
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, choice_event_id)
+    theater_event = await db_postgres.get_theater_event(
+        context.session, schedule_event.theater_event_id)
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
+    text_emoji = await get_emoji(schedule_event)
+    text_select_event = (f'Мероприятие:\n'
+                         f'<b>{full_name}\n'
+                         f'{date_event}\n'
+                         f'{time_event}</b>\n')
+    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+    return text_select_event

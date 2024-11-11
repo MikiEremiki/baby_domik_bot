@@ -6,6 +6,7 @@ from telegram.ext import (
     filters,
 )
 
+from custom_filters import filter_admin
 from handlers import reserve_hl, main_hl, reserve_admin_hl, migration_admin_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
@@ -15,7 +16,7 @@ F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
                                                pattern='^Отменить')
 back_callback_handler = CallbackQueryHandler(main_hl.back, pattern='^Назад')
-states:  Dict[object, List[BaseHandler]] = {
+states: Dict[object, List[BaseHandler]] = {
     0: [
         cancel_callback_handler,
         MessageHandler(F_text_and_no_command,
@@ -54,7 +55,8 @@ states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 migration_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['MIGRATION_ADMIN'][0],
-                       migration_admin_hl.enter_ticket_id),
+                       migration_admin_hl.enter_ticket_id,
+                       filter_admin),
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],

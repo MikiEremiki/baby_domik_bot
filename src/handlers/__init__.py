@@ -13,17 +13,18 @@ async def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
     command = extract_command(update.effective_message.text)
     if command:
         context.user_data['command'] = command
-    context.user_data.setdefault('common_data', {})
+    context.user_data['common_data'] = {}
+    context.user_data['reserve_admin_data'] = {}
+    context.user_data['birthday_user_data'] = {}
+    context.user_data['reserve_user_data'] = {}
+
     common_data = context.user_data['common_data']
     common_data.setdefault('del_message_ids', [])
-    common_data.setdefault('del_keyboard_message_ids', [])
+    common_data['del_keyboard_message_ids'] = []
 
-    context.user_data.setdefault('reserve_admin_data', {})
-
-    context.user_data.setdefault('reserve_user_data', {})
     reserve_user_data = context.user_data['reserve_user_data']
-    reserve_user_data.setdefault('back', {})
-    reserve_user_data.setdefault('client_data', {})
+    reserve_user_data['back'] = {}
+    reserve_user_data['client_data'] = {}
 
     return state
 

@@ -1,6 +1,7 @@
 import logging
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from db import db_postgres
@@ -54,10 +55,20 @@ async def get_ticket_by_id(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    await context.bot.edit_message_reply_markup(
-        update.effective_chat.id,
-        context.user_data['reserve_admin_data']['message_id']
-    )
+    try:
+        await context.bot.edit_message_reply_markup(
+            update.effective_chat.id,
+            context.user_data['reserve_admin_data']['message_id']
+        )
+    except BadRequest as e:
+        state = context.user_data['STATE']
+        dict_back = context.user_data['reserve_user_data']['back'][state]
+        del_message_ids = dict_back['del_message_ids']
+        if del_message_ids:
+            await context.bot.edit_message_reply_markup(
+                update.effective_chat.id,
+                del_message_ids[0]
+            )
 
     ticket_id = update.message.text
     ticket = await db_postgres.get_ticket(context.session, int(ticket_id))
@@ -71,12 +82,14 @@ async def get_ticket_by_id(
         theater_event = await db_postgres.get_theater_event(
             context.session, schedule_event.theater_event_id
         )
-        people_str = (
-            f'{people[0].name}\n'
-            f'+7{people[0].adult.phone}\n'
-        )
-        for person in people[1:]:
-            people_str += f'{person.name} {person.child.age}\n'
+        adult_str = ''
+        child_str = ''
+        for person in people:
+            if hasattr(person.adult, 'phone'):
+                adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+            elif hasattr(person.child, 'age'):
+                child_str += f'{person.name} {person.child.age}\n'
+        people_str = adult_str + child_str
         text = (
             f'Событие: {theater_event.name}\n'
             f'{schedule_event.datetime_event.strftime("%d.%m %H:%M")}\n\n'
@@ -109,8 +122,9 @@ async def get_ticket_by_id(
         state = 0
         text = 'Такого билета нет\n\n'
         text_back, reply_markup, _ = await get_back_context(context, state)
-        await update.effective_chat.send_message(text=text + text_back,
-                                                 reply_markup=reply_markup)
+        message = await update.effective_chat.send_message(
+            text=text + text_back, reply_markup=reply_markup)
+        context.user_data['reserve_admin_data']['message_id'] = message.message_id
         return state
 
 

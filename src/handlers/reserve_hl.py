@@ -25,13 +25,12 @@ from handlers.sub_hl import (
     get_theater_and_schedule_events_by_month,
 )
 from db.db_googlesheets import (
-    load_clients_data,
     decrease_free_and_increase_nonconfirm_seat,
 )
 from api.googlesheets import write_client_list_waiting, write_client_reserve
 from utilities.utl_check import (
     check_available_seats, check_available_ticket_by_free_seat,
-    check_entered_command, check_topic, check_input_text
+    check_entered_command, check_topic, check_input_text, is_skip_ticket
 )
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
@@ -39,10 +38,10 @@ from utilities.utl_func import (
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
-    get_type_event_ids_by_command, get_emoji, clean_context,
+    get_type_event_ids_by_command, clean_context,
     add_clients_data_to_text, add_qty_visitors_to_text,
     filter_schedule_event_by_active, get_unique_months,
-    clean_replay_kb_and_send_typing_action
+    clean_replay_kb_and_send_typing_action, create_str_info_by_schedule_event_id
 )
 from utilities.utl_kbd import (
     create_kbd_schedule_and_date, create_kbd_schedule,
@@ -307,7 +306,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     theater_event_id, selected_date = callback_data.split('|')
 
     schedule_events, theater_event = await get_events_for_time_hl(
-            theater_event_id, selected_date, context)
+        theater_event_id, selected_date, context)
 
     check_command_studio = check_entered_command(context, 'studio')
 
@@ -336,6 +335,8 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
 
+    await query.answer()
+    await query.delete_message()
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
@@ -351,8 +352,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = 'TIME'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
-    await query.delete_message()
     return state
 
 
@@ -388,20 +387,8 @@ async def choice_option_of_reserve(
         type_event
     ) = await get_schedule_theater_base_tickets(context, choice_event_id)
 
-    date_event, time_event = await get_formatted_date_and_time_of_event(
-        schedule_event)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
-
-    text_emoji = await get_emoji(schedule_event)
-    text_select_event = (f'Вы выбрали мероприятие:\n'
-                         f'<b>{full_name}\n'
-                         f'{date_event}\n'
-                         f'{time_event}</b>\n')
-    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+    text_select_event = await create_str_info_by_schedule_event_id(
+        context, choice_event_id)
 
     reserve_user_data['text_select_event'] = text_select_event
 
@@ -921,21 +908,25 @@ async def send_clients_data(
         context.session, schedule_event.theater_event_id)
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
+    tickets = schedule_event.tickets
+    base_ticket_and_tickets = []
+    for ticket in tickets:
+        base_ticket = await db_postgres.get_base_ticket(context.session,
+                                                        ticket.base_ticket_id)
+        if not is_skip_ticket(ticket.status):
+            base_ticket_and_tickets.append((base_ticket, ticket))
 
     await query.edit_message_text('Загружаю данные покупателей')
-    #TODO Заменить на чтение из бд, но для этого так же надо сделать обновление
-    # изменений после внесения изменения в гугл-таблицу или сделать изменение
-    # только через бота
-    clients_data, name_column = load_clients_data(event_id)
+
     text = f'#Мероприятие <code>{event_id}</code>\n'
     text += (f'Список людей на\n'
              f'<b>{theater_event.name}\n'
              f'{date_event} в '
              f'{time_event}</b>\n')
 
-    text += await add_qty_visitors_to_text(name_column, clients_data)
+    text += await add_qty_visitors_to_text(base_ticket_and_tickets)
 
-    text += await add_clients_data_to_text(name_column, clients_data)
+    text += await add_clients_data_to_text(base_ticket_and_tickets)
 
     await query.edit_message_text(text)
 

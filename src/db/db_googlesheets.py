@@ -17,80 +17,8 @@ from utilities.schemas.custom_made_format import CustomMadeFormatDTO
 from utilities.schemas.schedule_event import ScheduleEventDTO
 from utilities.schemas.theater_event import TheaterEventDTO
 from utilities.schemas.ticket import BaseTicketDTO
-from utilities.utl_func import get_full_name_event
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
-
-
-def load_list_show() -> dict[int, dict[str, Any]]:
-    """
-    Возвращает 1 словарь из гугл-таблицы с листа "Список спектаклей"
-    Проводит фильтрацию по дате, все прошедшие даты исключаются из выборки
-
-    dict_of_name_show -> key: str, item: Any
-
-    :return: dict
-    """
-    # TODO Выделить загрузку спектаклей в отдельную задачу и хранить ее сразу в
-    #  bot_data
-    dict_column_name, len_column = get_column_info('Список спектаклей_')
-
-    qty_shows = len(get_data_from_spreadsheet(
-        RANGE_NAME['Список спектаклей_'] + f'A:A'
-    ))
-    data = get_data_from_spreadsheet(
-        RANGE_NAME['Список спектаклей_'] +
-        f'R3C1:R{qty_shows}C{len_column}'
-    )
-    db_googlesheets_logger.info('Данные загружены')
-
-    dict_of_shows = {}
-    for item in data:
-        theater_event_id: int = int(item[dict_column_name['theater_event_id']])
-        name: str = item[dict_column_name['name']]
-        flag_premiere: bool = True if item[dict_column_name[
-            'flag_active_premiere']] == 'TRUE' else False
-        min_age_child: int = int(item[dict_column_name['min_age_child']])
-        max_age_child: int = int(item[dict_column_name['max_age_child']])
-        show_emoji: str = item[dict_column_name['show_emoji']]
-        duration: int = int(item[dict_column_name['duration']])
-        flag_birthday: bool = True if item[dict_column_name[
-            'flag_active_bd']] == 'TRUE' else False
-        max_num_child: int = int(item[dict_column_name['max_num_child_bd']])
-        max_num_adult: int = int(item[dict_column_name['max_num_adult_bd']])
-        flag_repertoire: bool = True if item[dict_column_name[
-            'flag_active_repertoire']] == 'TRUE' else False
-        flag_indiv_cost: bool = True if item[dict_column_name[
-            'flag_indiv_cost']] == 'TRUE' else False
-        price_type: str = item[dict_column_name['price_type']]
-
-        full_name = get_full_name_event(name,
-                                        flag_premiere,
-                                        min_age_child,
-                                        max_age_child,
-                                        duration)
-
-        dict_of_shows[theater_event_id] = {
-            'name': name,
-            'flag_premiere': flag_premiere,
-            'min_age_child': min_age_child,
-            'max_age_child': max_age_child,
-            'show_emoji': show_emoji,
-            'duration': duration,
-            'birthday': {
-                'flag': flag_birthday,
-                'max_num_child': max_num_child,
-                'max_num_adult': max_num_adult,
-            },
-            'flag_repertoire': flag_repertoire,
-            'flag_indiv_cost': flag_indiv_cost,
-            'full_name': full_name,
-            'price_type': price_type,
-        }
-
-    return (
-        dict_of_shows
-    )
 
 
 def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:

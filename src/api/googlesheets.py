@@ -345,12 +345,12 @@ def update_ticket_in_gspread(
         major_dimension = 'ROWS'
         data = []
 
-        (flag_exclude,
-         flag_exclude_place_sum,
-         flag_transfer) = get_flags_by_ticket_status(ticket_status)
-
         match option:
             case 1:
+                (flag_exclude,
+                 flag_exclude_place_sum,
+                 flag_transfer) = get_flags_by_ticket_status(ticket_status)
+
                 col1 = dict_column_name['flag_exclude'] + 1
                 col2 = dict_column_name['ticket_status'] + 1
                 range_sheet = (f'{RANGE_NAME['База клиентов_']}'

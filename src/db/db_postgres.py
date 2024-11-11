@@ -531,6 +531,11 @@ async def get_custom_made_format(session: AsyncSession,
     return await session.get(CustomMadeFormat, custom_made_format_id)
 
 
+async def get_custom_made_event(session: AsyncSession,
+                                 custom_made_event_id: int):
+    return await session.get(CustomMadeEvent, custom_made_event_id)
+
+
 async def get_all_tickets_by_status(session: AsyncSession,
                                     status: TicketStatus):
     query = select(Ticket).where(Ticket.status == status)

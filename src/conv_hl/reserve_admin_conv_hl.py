@@ -6,7 +6,7 @@ from telegram.ext import (
     filters,
 )
 
-
+from custom_filters import filter_admin
 from handlers import reserve_hl, main_hl, reserve_admin_hl
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
@@ -46,7 +46,8 @@ states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 reserve_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE_ADMIN'][0],
-                       reserve_admin_hl.event_selection_option),
+                       reserve_admin_hl.event_selection_option,
+                       filter_admin),
     ],
     states=states,
     fallbacks=[CommandHandler('help', main_hl.help_command)],
