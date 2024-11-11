@@ -606,6 +606,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_admin_text = (
         f'/{COMMAND_DICT['RESERVE_ADMIN'][0]} - для повторной '
         f'записи без подтверждения\n')
+    migration_admin_text = (
+        f'/{COMMAND_DICT['MIGRATION_ADMIN'][0]} - для повторного '
+        f'переноса без подтверждения\n')
     studio_text = (f'/{COMMAND_DICT['STUDIO'][0]} - для повторного '
                    f'резервирования свободных мест на мероприятие\n')
     studio_admin_text = (
@@ -670,6 +673,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case 'settings':
             await cancel_common(update, text)
         case 'migration_admin':
+            text += (use_command_text + migration_admin_text)
             await cancel_common(update, text)
         case 'list':
             await cancel_common(update, text)
