@@ -559,7 +559,7 @@ def update_cme_in_gspread(cme_id, status) -> None:
 
     row_cme = 0
     for i, row in enumerate(values):
-        if cme_id == row[dict_column_name['id']]:
+        if int(cme_id) == row[dict_column_name['id']]:
             row_cme = i + 1
     if row_cme == 0:
         raise ValueError('Билет удален из гугл-таблицы')
