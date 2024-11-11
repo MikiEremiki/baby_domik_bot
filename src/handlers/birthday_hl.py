@@ -13,7 +13,7 @@ from telegram import (
 from telegram.constants import ChatAction
 
 from db import db_postgres
-from handlers import init_conv_hl_dialog
+from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import request_phone_number, send_message_to_admin
 from api.googlesheets import write_client_cme
 from settings.settings import (
@@ -44,22 +44,18 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     С сообщением передается inline клавиатура для выбора подходящего варианта
     :return: возвращает state PLACE
     """
+    await init_conv_hl_dialog(update, context)
+    await check_user_db(update, context)
+
     birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
                             f' {update.message.from_user}')
 
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    await init_conv_hl_dialog(update, context)
-
     command = context.user_data['command']
     postfix_for_cancel = command
     context.user_data['postfix_for_cancel'] = postfix_for_cancel
-
-    state = 'START'
-    context.user_data['STATE'] = state
-    context.user_data['birthday_user_data'] = {}
-    context.user_data.setdefault('common_data', {})
 
     one_option = f'{DICT_OF_EMOJI_FOR_BUTTON[1]} В «Домике»'
     two_option = f'{DICT_OF_EMOJI_FOR_BUTTON[2]} На «Выезде»'
