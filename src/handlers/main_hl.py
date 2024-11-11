@@ -143,9 +143,9 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
         child_str = ''
         for person in people:
             if hasattr(person.adult, 'phone'):
-                adult_str = f'{person.name}\n+7{person.adult.phone}'
+                adult_str = f'{person.name}\n+7{person.adult.phone}\n'
             elif hasattr(person.child, 'age'):
-                child_str += f'{person.name} {person.child.age}'
+                child_str += f'{person.name} {person.child.age}\n'
         people_str = adult_str + child_str
         text = (
             f'Техническая информация по билету {ticket_id}\n\n'
