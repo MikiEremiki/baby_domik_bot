@@ -20,7 +20,7 @@ from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, utilites_logger, cancel_common, del_messages,
-    append_message_ids_back_context
+    append_message_ids_back_context, create_str_info_by_schedule_event_id
 )
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
@@ -81,104 +81,221 @@ async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = 'Справка по команде\n'
+    text += '<code>/update_ticket 0 Слово Текст</code>\n\n'
+    text += '0 - это номер билета\n'
+    text += ('<i>Если написать только номер, то будет отправлена информация по '
+             'билету</i>\n')
+    help_id_number = text
+    text += 'Слово - может быть:\n'
+    text += ('<code>Статус</code>\n'
+             '<code>Примечание</code>\n'
+             '<code>Покупатель</code>\n\n')
+    help_key_word_text = text
+    text += 'Для <code>Примечание</code> просто пишем Текст примечания \n\n'
+    text += 'Для <code>Статус</code> Текст может быть:\n'
+    text += get_ticket_status_name()
+    text += '\nПовлияют на расписание\n'
+    text += '<i>Сейчас -> Станет:</i>\n'
+    text += 'Создан -> Подтвержден|Отклонен|Отменен\n'
+    text += 'Оплачен -> Подтвержден|Отклонен|Возвращен\n'
+    text += ('Подтвержден -> '
+             'Отклонен|Возвращен|Передан|Перенесен|Отменен\n\n')
+    text += 'Остальные направления не повлияют на расписание\n'
+    text += 'если билет Сейчас:\n'
+    text += 'Отклонен|Передан|Возвращен|Перенесен|Отменен\n'
+    text += ('Это финальные статусы, если нужно сменить, '
+             'то используем новый билет\n')
+    help_text = text
+    reply_to_msg_id = update.message.message_id
+
     if not context.args:
-        text = 'Нужно написать\n'
-        text += '<code>/update_ticket 0 слово</code>\n\n'
-        text += '0 - это номер билета\n'
-        text += 'слово - может быть:\n'
-        text = get_ticket_status_name(text)
-        text += 'Повлияют на расписание\n'
-        text += 'Сейчас -> Станет:\n'
-        text += 'Создан -> Подтвержден|Отклонен|Отменен\n'
-        text += 'Оплачен -> Подтвержден|Отклонен|Возвращен\n'
-        text += 'Подтвержден -> Отклонен|Возвращен|Передан|Перенесен|Отменен\n'
-        text += 'Остальные направления не повлияют на расписание\n'
-        text += 'если билет Сейчас:\n'
-        text += 'Отклонен|Передан|Возвращен|Перенесен|Отменен\n'
-        text += ('Это финальные статусы, если нужно сменить, '
-                 'то используем новый билет\n')
         await update.message.reply_text(
-            text, reply_to_message_id=update.message.message_id)
+            help_text, reply_to_message_id=reply_to_msg_id)
         return
 
     try:
-        new_ticket_status = TicketStatus(context.args[1])
+        ticket_id = int(context.args[0])
     except ValueError:
-        text = 'Неверный статус билета\n'
-        text = get_ticket_status_name(text)
+        text = 'Задан не номер' + help_id_number
         await update.message.reply_text(
-            text, reply_to_message_id=update.message.message_id)
+            text, reply_to_message_id=reply_to_msg_id)
         return
 
-    ticket_id = int(context.args[0])
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
         text = 'Проверь номер билета'
         await update.message.reply_text(
-            text, reply_to_message_id=update.message.message_id)
+            text, reply_to_message_id=reply_to_msg_id)
         return
 
-    schedule_event_id = ticket.schedule_event_id
-    base_ticket_id = ticket.base_ticket_id
+    if len(context.args) == 1:
+        user = ticket.user
+        people = ticket.people
+        base_ticket = await db_postgres.get_base_ticket(
+            context.session, ticket.base_ticket_id)
+        schedule_event = await db_postgres.get_schedule_event(
+            context.session, ticket.schedule_event_id)
+        theater_event = await db_postgres.get_theater_event(
+            context.session, schedule_event.theater_event_id
+        )
+        adult_str = ''
+        child_str = ''
+        for person in people:
+            if hasattr(person.adult, 'phone'):
+                adult_str = f'{person.name}\n+7{person.adult.phone}'
+            elif hasattr(person.child, 'age'):
+                child_str += f'{person.name} {person.child.age}'
+        people_str = adult_str + child_str
+        text = (
+            f'Техническая информация по билету {ticket_id}\n\n'
+            f'Событие {schedule_event.id}: {theater_event.name}\n'
+            f'{schedule_event.datetime_event.strftime("%d.%m %H:%M")}\n\n'
+            f'Привязан к профилю: {user.user_id}\n'
+            f'Билет: {base_ticket.name}\n'
+            f'Стоимость: {ticket.price}\n'
+            f'Статус: {ticket.status.value}\n'
+            f'{people_str}'
+            f'Примечание: {ticket.notes}\n'
+        )
+        await update.message.reply_text(
+            text, reply_to_message_id=reply_to_msg_id)
+        return
+    else:
+        data = {}
+        match context.args[1]:
+            case 'Примечание':
+                if context.args[2:]:
+                    new_ticket_notes = ' '.join(context.args[2:])
+                    data['notes'] = new_ticket_notes
+                else:
+                    text = 'Не задан текст примечания'
+                    await update.message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
+                    return
+            case 'Статус':
+                try:
+                    new_ticket_status = TicketStatus(context.args[2])
+                except ValueError:
+                    text = 'Неверный статус билета\n'
+                    text += 'Возможные статусы:\n'
+                    text += get_ticket_status_name()
+                    text += '\n\n Для подробной справки нажми /update_ticket'
+                    await update.message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
+                    return
+                except IndexError:
+                    text = '<b>>>>Не задано новое значение статуса</b>\n\n'
+                    text += help_text
+                    await update.message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
+                    return
 
-    if ticket.status == TicketStatus.CREATED:
-        if new_ticket_status == TicketStatus.CANCELED:
-            await increase_free_and_decrease_nonconfirm_seat(
-                context, schedule_event_id, base_ticket_id)
-        if new_ticket_status == TicketStatus.APPROVED:
-            await decrease_nonconfirm_seat(
-                context, schedule_event_id, base_ticket_id)
-        if new_ticket_status == TicketStatus.REJECTED:
-            await increase_free_and_decrease_nonconfirm_seat(
-                context, schedule_event_id, base_ticket_id)
+                schedule_event_id = ticket.schedule_event_id
+                base_ticket_id = ticket.base_ticket_id
 
-    if ticket.status == TicketStatus.PAID:
-        if new_ticket_status == TicketStatus.APPROVED:
-            await decrease_nonconfirm_seat(
-                context, schedule_event_id, base_ticket_id)
-        if new_ticket_status == TicketStatus.REJECTED:
-            await increase_free_and_decrease_nonconfirm_seat(
-                context, schedule_event_id, base_ticket_id)
-        if new_ticket_status == TicketStatus.REFUNDED:
-            await increase_free_and_decrease_nonconfirm_seat(
-                context, schedule_event_id, base_ticket_id)
+                if ticket.status == TicketStatus.CREATED:
+                    if new_ticket_status == TicketStatus.CANCELED:
+                        await increase_free_and_decrease_nonconfirm_seat(
+                            context, schedule_event_id, base_ticket_id)
+                    if new_ticket_status == TicketStatus.APPROVED:
+                        await decrease_nonconfirm_seat(
+                            context, schedule_event_id, base_ticket_id)
+                    if new_ticket_status == TicketStatus.REJECTED:
+                        await increase_free_and_decrease_nonconfirm_seat(
+                            context, schedule_event_id, base_ticket_id)
 
-    if ticket.status == TicketStatus.APPROVED:
-        if (
-                new_ticket_status == TicketStatus.REJECTED or
-                new_ticket_status == TicketStatus.REFUNDED or
-                new_ticket_status == TicketStatus.TRANSFERRED or
-                new_ticket_status == TicketStatus.MIGRATED or
-                new_ticket_status == TicketStatus.CANCELED
-        ):
-            await increase_free_seat(
-                context, schedule_event_id, base_ticket_id)
+                if ticket.status == TicketStatus.PAID:
+                    if new_ticket_status == TicketStatus.APPROVED:
+                        await decrease_nonconfirm_seat(
+                            context, schedule_event_id, base_ticket_id)
+                    if new_ticket_status == TicketStatus.REJECTED:
+                        await increase_free_and_decrease_nonconfirm_seat(
+                            context, schedule_event_id, base_ticket_id)
+                    if new_ticket_status == TicketStatus.REFUNDED:
+                        await increase_free_and_decrease_nonconfirm_seat(
+                            context, schedule_event_id, base_ticket_id)
 
-    if (
-            ticket.status == TicketStatus.REJECTED or
-            ticket.status == TicketStatus.REFUNDED or
-            ticket.status == TicketStatus.TRANSFERRED or
-            ticket.status == TicketStatus.MIGRATED or
-            ticket.status == TicketStatus.CANCELED
-    ):
-        pass
+                if ticket.status == TicketStatus.APPROVED:
+                    if (
+                            new_ticket_status == TicketStatus.REJECTED or
+                            new_ticket_status == TicketStatus.REFUNDED or
+                            new_ticket_status == TicketStatus.TRANSFERRED or
+                            new_ticket_status == TicketStatus.MIGRATED or
+                            new_ticket_status == TicketStatus.CANCELED
+                    ):
+                        await increase_free_seat(
+                            context, schedule_event_id, base_ticket_id)
 
-    update_ticket_in_gspread(ticket_id, new_ticket_status.value)
-    await db_postgres.update_ticket(
-        context.session, ticket_id, status=new_ticket_status)
+                if (
+                        ticket.status == TicketStatus.REJECTED or
+                        ticket.status == TicketStatus.REFUNDED or
+                        ticket.status == TicketStatus.TRANSFERRED or
+                        ticket.status == TicketStatus.MIGRATED or
+                        ticket.status == TicketStatus.CANCELED
+                ):
+                    pass
 
-    await send_result_update_ticket(
-        update, context, new_ticket_status.value)
+                update_ticket_in_gspread(ticket_id, new_ticket_status.value)
+                data['status'] = new_ticket_status
+            case 'Покупатель':
+                people = ticket.people
+                adult_str = ''
+                child_str = ''
+                for person in people:
+                    if hasattr(person.adult, 'phone'):
+                        adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+                    elif hasattr(person.child, 'age'):
+                        child_str += f'{person.name} {person.child.age}\n'
+                people_str = adult_str + child_str
+                schedule_event_id = ticket.schedule_event_id
+                price = ticket.price
+                base_ticket = await db_postgres.get_base_ticket(
+                    context.session, ticket.base_ticket_id)
+
+                text_select_event = await create_str_info_by_schedule_event_id(
+                    context, schedule_event_id)
+
+                text = f'<b>Номер билета <code>{ticket_id}</code></b>\n\n'
+                text += text_select_event + (f'\nВариант бронирования:\n'
+                                             f'{base_ticket.name} '
+                                             f'{int(price)}руб\n\n')
+                text += 'На кого оформлен:\n'
+                text += people_str
+
+                await update.message.reply_text(
+                    text, reply_to_message_id=reply_to_msg_id)
+                return
+            case _:
+                text = 'Не задано ключевое слово или оно написано с ошибкой\n\n'
+                text += help_key_word_text
+                await update.message.reply_text(
+                    text, reply_to_message_id=reply_to_msg_id)
+                return
+
+    await db_postgres.update_ticket(context.session, ticket_id, **data)
+
+    await send_result_update_ticket(update, context, ticket_id, data)
 
 
-def get_ticket_status_name(text):
+def get_ticket_status_name():
+    text = ''
     for status in TicketStatus:
         text += f'<code>{status.value}</code>\n'
     return text
 
 
-async def send_result_update_ticket(update, context, new_ticket_status):
-    text = f'Билет {new_ticket_status}'
+async def send_result_update_ticket(
+        update,
+        context,
+        ticket_id,
+        data
+):
+    text = f'Билет <code>{ticket_id}</code> обновлен\n'
+    status = data.get('status', None)
+    text += 'Статус: ' + status.value if status else ''
+    notes = data.get('notes', None)
+    text += 'Примечание: ' + notes if notes else ''
     if bool(update.message.reply_to_message):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
