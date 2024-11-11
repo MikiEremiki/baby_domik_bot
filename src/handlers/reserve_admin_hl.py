@@ -14,7 +14,7 @@ from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import processing_successful_payment
 from utilities.utl_func import (
     add_btn_back_and_cancel, set_back_context,
-    get_formatted_date_and_time_of_event, get_full_name_event, get_emoji
+    create_str_info_by_schedule_event_id
 )
 from utilities.utl_kbd import (
     create_kbd_and_text_tickets_for_choice,
@@ -121,20 +121,8 @@ async def choice_option_of_reserve(
         type_event
     ) = await get_schedule_theater_base_tickets(context, choice_event_id)
 
-    date_event, time_event = await get_formatted_date_and_time_of_event(
-        schedule_event)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
-
-    text_emoji = await get_emoji(schedule_event)
-    text_select_event = (f'Вы выбрали мероприятие:\n'
-                         f'<b>{full_name}\n'
-                         f'{date_event}\n'
-                         f'{time_event}</b>\n')
-    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+    text_select_event = await create_str_info_by_schedule_event_id(
+        context, choice_event_id)
 
     text = (f'Кол-во свободных мест: '
             f'<i>'
@@ -197,7 +185,8 @@ async def start_forma_info(
 
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
-    await query.edit_message_text('Уменьшаю места на выбранное мероприятие...')
+    text = 'Уменьшаю места на выбранное мероприятие...'
+    await query.edit_message_text(text)
     await decrease_free_seat(context,
                              schedule_event_id,
                              base_ticket_id)
@@ -210,16 +199,20 @@ async def start_forma_info(
             people_ids.append(person.id)
 
         ticket_status = TicketStatus.MIGRATED
+        text += text + '\nОбновляю билет который надо перенести...'
+        await query.edit_message_text(text)
         update_ticket_in_gspread(ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
-        await query.edit_message_text(
-            'Возвращаю места с перенесенного мероприятия...')
+        text += text + '\nВозвращаю места с перенесенного мероприятия...'
+        await query.edit_message_text(text)
         await increase_free_seat(context,
                                  ticket.schedule_event_id,
                                  ticket.base_ticket_id)
 
+        text += text + '\nСоздаю новые билеты в бд...'
+        await query.edit_message_text(text)
         ticket_ids = []
         ticket = await db_postgres.create_ticket(
             context.session,
@@ -238,9 +231,8 @@ async def start_forma_info(
                                                            ticket.id,
                                                            update.effective_user.id,
                                                            people_ids)
-
-        await query.edit_message_text(
-            'Записываю новый билет в клиентскую базу...')
+        text += text + '\nЗаписываю новый билет в клиентскую базу...'
+        await query.edit_message_text(text)
         write_client_reserve(context,
                              update.effective_chat.id,
                              chose_base_ticket,

@@ -25,7 +25,6 @@ from handlers.sub_hl import (
     get_theater_and_schedule_events_by_month,
 )
 from db.db_googlesheets import (
-    load_clients_data,
     decrease_free_and_increase_nonconfirm_seat,
 )
 from api.googlesheets import write_client_list_waiting, write_client_reserve
@@ -39,10 +38,10 @@ from utilities.utl_func import (
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
-    get_type_event_ids_by_command, get_emoji, clean_context,
+    get_type_event_ids_by_command, clean_context,
     add_clients_data_to_text, add_qty_visitors_to_text,
     filter_schedule_event_by_active, get_unique_months,
-    clean_replay_kb_and_send_typing_action
+    clean_replay_kb_and_send_typing_action, create_str_info_by_schedule_event_id
 )
 from utilities.utl_kbd import (
     create_kbd_schedule_and_date, create_kbd_schedule,
@@ -388,20 +387,8 @@ async def choice_option_of_reserve(
         type_event
     ) = await get_schedule_theater_base_tickets(context, choice_event_id)
 
-    date_event, time_event = await get_formatted_date_and_time_of_event(
-        schedule_event)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
-
-    text_emoji = await get_emoji(schedule_event)
-    text_select_event = (f'Вы выбрали мероприятие:\n'
-                         f'<b>{full_name}\n'
-                         f'{date_event}\n'
-                         f'{time_event}</b>\n')
-    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+    text_select_event = await create_str_info_by_schedule_event_id(
+        context, choice_event_id)
 
     reserve_user_data['text_select_event'] = text_select_event
 

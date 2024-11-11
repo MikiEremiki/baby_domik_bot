@@ -1062,3 +1062,24 @@ async def add_qty_visitors_to_text(
     text += '<i>Кол-во посетителей: '
     text += f"д={qty_child}|в={qty_adult}</i>"
     return text
+
+
+async def create_str_info_by_schedule_event_id(context, choice_event_id):
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, choice_event_id)
+    theater_event = await db_postgres.get_theater_event(
+        context.session, schedule_event.theater_event_id)
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
+    full_name = get_full_name_event(theater_event.name,
+                                    theater_event.flag_premier,
+                                    theater_event.min_age_child,
+                                    theater_event.max_age_child,
+                                    theater_event.duration)
+    text_emoji = await get_emoji(schedule_event)
+    text_select_event = (f'Мероприятие:\n'
+                         f'<b>{full_name}\n'
+                         f'{date_event}\n'
+                         f'{time_event}</b>\n')
+    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+    return text_select_event
