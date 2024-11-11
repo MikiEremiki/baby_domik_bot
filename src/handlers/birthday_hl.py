@@ -729,8 +729,7 @@ async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = create_approve_and_reject_replay(
         'birthday-1',
-        user_id,
-        message_id_for_reply
+        f'{user_id} {message_id_for_reply} {custom_made_event.id}'
     )
 
     user = context.user_data['user']
@@ -844,8 +843,7 @@ async def forward_photo_or_file(
 
         reply_markup = create_approve_and_reject_replay(
             'birthday-2',
-            update.effective_user.id,
-            message_id
+            f'{update.effective_user.id} {message_id}'
         )
 
         await context.bot.send_message(

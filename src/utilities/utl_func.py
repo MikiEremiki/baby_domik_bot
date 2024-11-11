@@ -741,21 +741,18 @@ def check_phone_number(phone):
 
 def create_approve_and_reject_replay(
         callback_name,
-        chat_id,
-        message_id
+        data: str
 ):
     keyboard = []
 
     button_approve = InlineKeyboardButton(
         "Подтвердить",
-        callback_data=f'confirm-{callback_name}|'
-                      f'{chat_id} {message_id}'
+        callback_data=f'confirm-{callback_name}|{data}'
     )
 
     button_cancel = InlineKeyboardButton(
         "Отклонить",
-        callback_data=f'reject-{callback_name}|'
-                      f'{chat_id} {message_id}'
+        callback_data=f'reject-{callback_name}|{data}'
     )
     keyboard.append([button_approve, button_cancel])
     return InlineKeyboardMarkup(keyboard)
