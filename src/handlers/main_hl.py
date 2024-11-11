@@ -20,7 +20,8 @@ from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, utilites_logger, cancel_common, del_messages,
-    append_message_ids_back_context, create_str_info_by_schedule_event_id
+    append_message_ids_back_context, create_str_info_by_schedule_event_id,
+    get_formatted_date_and_time_of_event
 )
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
@@ -147,10 +148,12 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}\n'
         people_str = adult_str + child_str
+        date_event, time_event = await get_formatted_date_and_time_of_event(
+            schedule_event)
         text = (
             f'Техническая информация по билету {ticket_id}\n\n'
             f'Событие {schedule_event.id}: {theater_event.name}\n'
-            f'{schedule_event.datetime_event.strftime("%d.%m %H:%M")}\n\n'
+            f'{date_event} в {time_event}\n\n'
             f'Привязан к профилю: {user.user_id}\n'
             f'Билет: {base_ticket.name}\n'
             f'Стоимость: {ticket.price}\n'
