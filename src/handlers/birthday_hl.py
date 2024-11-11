@@ -843,7 +843,7 @@ async def forward_photo_or_file(
 
         reply_markup = create_approve_and_reject_replay(
             'birthday-2',
-            f'{update.effective_user.id} {message_id}'
+            f'{update.effective_user.id} {message_id} {cme_id}'
         )
 
         await context.bot.send_message(
