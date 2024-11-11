@@ -86,6 +86,6 @@ async def check_input_text(text):
 
 
 def is_skip_ticket(ticket_status):
-    if ticket_status == 'Создан' or ticket_status == 'Отменен':
+    if ticket_status.value == 'Создан' or ticket_status.value == 'Отменен':
         return True
     return False

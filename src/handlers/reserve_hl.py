@@ -31,7 +31,7 @@ from db.db_googlesheets import (
 from api.googlesheets import write_client_list_waiting, write_client_reserve
 from utilities.utl_check import (
     check_available_seats, check_available_ticket_by_free_seat,
-    check_entered_command, check_topic, check_input_text
+    check_entered_command, check_topic, check_input_text, is_skip_ticket
 )
 from utilities.utl_func import (
     extract_phone_number_from_text, add_btn_back_and_cancel,
@@ -921,21 +921,25 @@ async def send_clients_data(
         context.session, schedule_event.theater_event_id)
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
+    tickets = schedule_event.tickets
+    base_ticket_and_tickets = []
+    for ticket in tickets:
+        base_ticket = await db_postgres.get_base_ticket(context.session,
+                                                        ticket.base_ticket_id)
+        if not is_skip_ticket(ticket.status):
+            base_ticket_and_tickets.append((base_ticket, ticket))
 
     await query.edit_message_text('Загружаю данные покупателей')
-    #TODO Заменить на чтение из бд, но для этого так же надо сделать обновление
-    # изменений после внесения изменения в гугл-таблицу или сделать изменение
-    # только через бота
-    clients_data, name_column = load_clients_data(event_id)
+
     text = f'#Мероприятие <code>{event_id}</code>\n'
     text += (f'Список людей на\n'
              f'<b>{theater_event.name}\n'
              f'{date_event} в '
              f'{time_event}</b>\n')
 
-    text += await add_qty_visitors_to_text(name_column, clients_data)
+    text += await add_qty_visitors_to_text(base_ticket_and_tickets)
 
-    text += await add_clients_data_to_text(name_column, clients_data)
+    text += await add_clients_data_to_text(base_ticket_and_tickets)
 
     await query.edit_message_text(text)
 

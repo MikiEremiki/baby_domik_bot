@@ -195,15 +195,9 @@ async def send_result_update_ticket(update, context, new_ticket_status):
 
 
 async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Отправляет оповещение о подтверждении в бронировании, удаляет сообщение
-    используемое в ConversationHandler и возвращает свободные места для
-    доступа к бронированию
-    """
     query = update.callback_query
     if not is_admin(update):
-        main_handlers_logger.warning(
-            'Не разрешенное действие: подтвердить бронь')
+        main_handlers_logger.warning('Не разрешенное действие: подтвердить бронь')
         return
     await update.effective_chat.send_action(
         ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
@@ -215,8 +209,8 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     chat_id = query.data.split('|')[1].split()[0]
+    message_id_buy_info = query.data.split('|')[1].split()[1]
     user_data = context.application.user_data.get(int(chat_id))
-    user = user_data['user']
 
     reserve_user_data = user_data['reserve_user_data']
     choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
@@ -229,8 +223,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        schedule_event_id,
                                        chose_base_ticket_id)
 
-    text = (f'\n\nПользователю @{user.username} {user.full_name} '
-            f'Списаны неподтвержденные места...')
+    text = message.text + f'\nСписаны неподтвержденные места...'
     await message.edit_text(text)
 
     ticket_status = TicketStatus.APPROVED
@@ -241,14 +234,12 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         status=ticket_status)
 
     await query.edit_message_reply_markup()
-
-    text = f'Обновлен статус билета: {ticket_status.value}...'
+    text = message.text + f'\nОбновлен статус билета: {ticket_status.value}...'
     await message.edit_text(text)
 
-    chat_id = query.data.split('|')[1].split()[0]
-    message_id = query.data.split('|')[1].split()[1]
-
     await send_approve_message(chat_id, context)
+    text = message.text + f'\nОтправлено сообщение о подтверждении бронирования...'
+    await message.edit_text(text)
 
     text = f'Бронь подтверждена\n'
     for ticket_id in ticket_ids:
@@ -258,7 +249,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.delete_message(
             chat_id=chat_id,
-            message_id=message_id
+            message_id=message_id_buy_info
         )
     except BadRequest as e:
         main_handlers_logger.error(e)
@@ -290,14 +281,9 @@ async def send_reject_message(chat_id, context):
 
 
 async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Отправляет оповещение об отказе в бронировании, удаляет сообщение
-    используемое в ConversationHandler и уменьшает кол-во неподтвержденных мест
-    """
     query = update.callback_query
     if not is_admin(update):
-        main_handlers_logger.warning(
-            'Не разрешенное действие: отклонить бронь')
+        main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
     await update.effective_chat.send_action(
         ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
@@ -309,14 +295,13 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     chat_id = query.data.split('|')[1].split()[0]
+    message_id_buy_info = query.data.split('|')[1].split()[1]
     user_data = context.application.user_data.get(int(chat_id))
-    user = user_data['user']
-    ticket_ids = user_data['reserve_user_data']['ticket_ids']
 
     reserve_user_data = user_data['reserve_user_data']
-    choose_schedule_event_ids = reserve_user_data[
-        'choose_schedule_event_ids']
+    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    ticket_ids = reserve_user_data['ticket_ids']
 
     await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
@@ -324,7 +309,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                          schedule_event_id,
                                                          chose_base_ticket_id)
 
-    text = f'Возвращены места в продажу...'
+    text = message.text + f'\nВозвращены места в продажу...'
     await message.edit_text(text)
 
     ticket_status = TicketStatus.REJECTED
@@ -335,20 +320,12 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         status=ticket_status)
 
     await query.edit_message_reply_markup()
-
-    text = f'Обновлен статус билета: {ticket_status.value}...'
+    text = message.text + f'\nОбновлен статус билета: {ticket_status.value}...'
     await message.edit_text(text)
 
-    message = await message.edit_text(
-        text=f'Пользователю @{user.username} {user.full_name} '
-             f'отправляем сообщение об отклонении бронирования'
-             f'user_id {user.id}',
-    )
-
-    chat_id = query.data.split('|')[1].split()[0]
-    message_id = query.data.split('|')[1].split()[1]
-
     await send_reject_message(chat_id, context)
+    text = message.text + f'\nОтправлено сообщение об отклонении бронирования...'
+    await message.edit_text(text)
 
     text = f'Бронь отклонена\n'
     for ticket_id in ticket_ids:
@@ -358,7 +335,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.delete_message(
             chat_id=chat_id,
-            message_id=message_id
+            message_id=message_id_buy_info
         )
     except BadRequest as e:
         main_handlers_logger.error(e)
@@ -381,68 +358,60 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     chat_id = query.data.split('|')[1].split()[0]
-    user_data = context.application.user_data.get(int(chat_id))
-    user = user_data['user']
-    context_bd = user_data['birthday_user_data']
-    custom_made_event_id = context_bd['custom_made_event_id']
-    common_data = context.user_data['common_data']
-    message_id_for_reply = common_data['message_id_for_reply']
+    message_id_for_reply = query.data.split('|')[1].split()[1]
+    cme_id = query.data.split('|')[1].split()[2]
 
-    data = query.data.split('|')[0][-1]
-    message_id = query.data.split('|')[1].split()[1]
+    step = query.data.split('|')[0][-1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
             f'{context.bot_data['admin']['contacts']}')
 
-    match data:
+    match step:
         case '1':
             cme_status = CustomMadeStatus.APPROVED
         case '2':
             cme_status = CustomMadeStatus.PREPAID
+
     await query.answer()
-    update_cme_in_gspread(custom_made_event_id, cme_status.value)
-    await message.edit_text(f'Обновил статус в гугл-таблице {cme_status.value}')
-    await db_postgres.update_custom_made_event(context.session,
-                                               custom_made_event_id,
-                                               status=cme_status)
+    update_cme_in_gspread(cme_id, cme_status.value)
+    await message.edit_text(
+        message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
+
+    await db_postgres.update_custom_made_event(
+        context.session, cme_id, status=cme_status)
+    await message.edit_text(message.text + f'и бд {cme_status.value}')
+
     await query.edit_message_reply_markup()
-    match data:
+    match step:
         case '1':
             await message.edit_text(
-                f'Заявка {custom_made_event_id} подтверждена, ждём предоплату')
+                f'Заявка {cme_id} подтверждена, ждём предоплату')
 
             text = (f'<b>У нас отличные новости'
-                    f' по вашей заявке: {custom_made_event_id}!</b>\n')
+                    f' по вашей заявке: {cme_id}!</b>\n')
             text += 'Мы с радостью проведем день рождения вашего малыша\n\n'
             text += ('Если вы готовы внести предоплату, то нажмите на команду\n'
                      f'/{COMMAND_DICT['BD_PAID'][0]}\n\n')
             text += '<i>Вам будет отправлено сообщение с информацией об оплате</i>'
 
         case '2':
-            await message.edit_text(
-                f'Пользователю @{user.username} {user.full_name}\n'
-                f'подтверждена бронь по заявке {custom_made_event_id}'
-            )
+            await message.edit_text(f'Подтверждена бронь по заявке {cme_id}')
 
-            try:
-                await context.bot.delete_message(
-                    chat_id=chat_id,
-                    message_id=message_id,
-                )
+            text = f'Ваша бронь по заявке {cme_id} подтверждена\n'
+            text += 'До встречи в Домике'
 
-            except BadRequest:
-                main_handlers_logger.info(
-                    f'Cообщение уже удалено'
-                )
-
-            text = (f'Ваша бронь по заявке {custom_made_event_id} подтверждена\n'
-                    'До встречи в Домике')
-
-    await context.bot.send_message(
-        text=text,
-        chat_id=chat_id,
-        reply_to_message_id=message_id_for_reply,
-    )
+    try:
+        await context.bot.send_message(
+            text=text,
+            chat_id=chat_id,
+            reply_to_message_id=message_id_for_reply,
+        )
+    except BadRequest as e:
+        main_handlers_logger.error(e)
+        await context.bot.send_message(
+            text=text,
+            chat_id=chat_id,
+        )
 
 
 async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -453,6 +422,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.effective_chat.send_action(
         ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
         reply_to_message_id=query.message.message_id,
@@ -460,60 +430,53 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     chat_id = query.data.split('|')[1].split()[0]
-    user_data = context.application.user_data.get(int(chat_id))
-    user = user_data['user']
-    context_bd = user_data['birthday_user_data']
-    custom_made_event_id = context_bd['custom_made_event_id']
-    common_data = context.user_data['common_data']
-    message_id_for_reply = common_data['message_id_for_reply']
+    message_id_for_reply = query.data.split('|')[1].split()[1]
+    cme_id = query.data.split('|')[1].split()[2]
 
-    data = query.data.split('|')[0][-1]
-    message_id = query.data.split('|')[1].split()[1]
+    step = query.data.split('|')[0][-1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
             f'{context.bot_data['admin']['contacts']}')
 
     cme_status = CustomMadeStatus.REJECTED
+
     await query.answer()
-    update_cme_in_gspread(custom_made_event_id, cme_status.value)
-    await message.edit_text(f'Обновил статус в гугл-таблице {cme_status.value}')
-    await db_postgres.update_custom_made_event(context.session,
-                                               custom_made_event_id,
-                                               status=cme_status)
+    update_cme_in_gspread(cme_id, cme_status.value)
+    await message.edit_text(
+        message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
+
+    await db_postgres.update_custom_made_event(
+        context.session, cme_id, status=cme_status)
+    await message.edit_text(message.text + f'и бд {cme_status.value}')
+
     await query.edit_message_reply_markup()
-    match data:
+    match step:
         case '1':
-            await message.edit_text('Заявка отклонена')
-            text = ('Мы рассмотрели Вашу заявку.\n'
-                    'К сожалению, мы не сможем провести день рождения вашего '
-                    'малыша\n\n'
-                    'Для решения данного вопроса, пожалуйста, '
-                    'свяжитесь с Администратором:\n'
-                    f'{context.bot_data['admin']['contacts']}')
+            await message.edit_text(f'Заявка {cme_id} отклонена')
+
+            text = f'Мы рассмотрели Вашу заявку: {cme_id}.\n'
+            text += 'К сожалению, мы не сможем провести день рождения вашего малыша\n\n'
+
         case '2':
-            await message.edit_text(
-                f'Пользователю @{user.username} {user.full_name}\n'
-                f'отклонена бронь'
-            )
+            await message.edit_text(f'Отклонена бронь по заявке {cme_id}')
 
-            try:
-                await context.bot.delete_message(
-                    chat_id=chat_id,
-                    message_id=message_id
-                )
-            except BadRequest as e:
-                main_handlers_logger.error(e)
-                main_handlers_logger.info(f'Cообщение уже удалено')
-            text = ('Ваша бронь отклонена.\n'
-                    'Для решения данного вопроса, пожалуйста, '
-                    'свяжитесь с Администратором:\n'
-                    f'{context.bot_data['admin']['contacts']}')
+            text = f'Ваша бронь по заявке: {cme_id} отклонена.\n'
 
-    await context.bot.send_message(
-        text=text,
-        chat_id=chat_id,
-        reply_to_message_id=message_id_for_reply,
-    )
+    text += ('Для решения данного вопроса, пожалуйста, '
+             'свяжитесь с Администратором:\n'
+             f'{context.bot_data['admin']['contacts']}')
+    try:
+        await context.bot.send_message(
+            text=text,
+            chat_id=chat_id,
+            reply_to_message_id=message_id_for_reply,
+        )
+    except BadRequest as e:
+        main_handlers_logger.error(e)
+        await context.bot.send_message(
+            text=text,
+            chat_id=chat_id,
+        )
 
 
 async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
