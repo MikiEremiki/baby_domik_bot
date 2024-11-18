@@ -58,7 +58,7 @@ common_fallbacks=[
         CommandHandler('start', main_hl.start),
         CommandHandler('help', main_hl.help_command),
         CommandHandler('reset', main_hl.reset),
-    ],
+    ]
 
 filterwarnings(action="ignore",
                message=r".*CallbackQueryHandler",
