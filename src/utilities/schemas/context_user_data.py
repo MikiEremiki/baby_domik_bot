@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List
 
-from telegram import User, Message, InlineKeyboardMarkup
+from telegram import User, Message, InlineKeyboardMarkup, Update
 
 from db import ScheduleEvent, TheaterEvent, BaseTicket
 from db.models import CustomMadeEvent
@@ -76,4 +76,5 @@ context_user_data: Dict = {
     'reply_markup' : InlineKeyboardMarkup,
     'theater_event': dict,
     'schedule_event': dict,
+    'last_update': Update,
 }
