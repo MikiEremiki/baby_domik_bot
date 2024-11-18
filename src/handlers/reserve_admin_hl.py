@@ -241,6 +241,7 @@ async def start_forma_info(
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
+        context.user_data['conv_hl_run'] = False
     else:
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',

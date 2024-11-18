@@ -67,4 +67,5 @@ async def send_clients_wait_data(
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     await query.answer()
+    context.user_data['conv_hl_run'] = False
     return state

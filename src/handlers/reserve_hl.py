@@ -76,6 +76,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.delete_message()
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
+            context.user_data['conv_hl_run'] = False
             return ConversationHandler.END
 
     command = context.user_data['command']
@@ -685,6 +686,7 @@ async def get_name_children(
         )
         state = ConversationHandler.END
         context.user_data['STATE'] = state
+        context.user_data['conv_hl_run'] = False
         return state
 
     if chose_base_ticket.quality_of_children > 0:
@@ -805,6 +807,7 @@ async def get_name_children(
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
+        context.user_data['conv_hl_run'] = False
     else:
         await create_and_send_payment(update, context)
         state = 'PAID'
@@ -822,6 +825,7 @@ async def forward_photo_or_file(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -833,6 +837,7 @@ async def processing_successful_notification(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -883,7 +888,7 @@ async def conversation_timeout(
     await cancel_tickets(update, context)
 
     await clean_context(context)
-
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -933,6 +938,7 @@ async def send_clients_data(
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     await query.answer()
+    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -987,4 +993,5 @@ async def get_phone_for_waiting(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
+    context.user_data['conv_hl_run'] = False
     return state

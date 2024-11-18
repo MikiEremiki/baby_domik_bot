@@ -55,6 +55,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             url='https://t.me/theater_domik')
     )
 
+    context.user_data['conv_hl_run'] = False
+    return ConversationHandler.END
+
 
 async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -813,6 +816,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
     await query.answer()
     await clean_context_on_end_handler(main_handlers_logger, context)
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -832,10 +836,11 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         text='Попробуйте выполнить новый запрос'
     )
     await clean_context_on_end_handler(utilites_logger, context)
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
-async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     main_handlers_logger.info(": ".join(
         [
             'Пользователь',
@@ -848,6 +853,7 @@ async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         'Текущая операция сброшена.\nМожете выполните новую команду',
         message_thread_id=update.message.message_thread_id
     )
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 

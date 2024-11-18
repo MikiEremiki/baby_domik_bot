@@ -8,6 +8,7 @@ from db import ScheduleEvent, TheaterEvent, BaseTicket
 from db.models import CustomMadeEvent
 
 context_user_data: Dict = {
+    'conv_hl_run': bool,
     'STATE': str,
     'command': str,
     'postfix_for_cancel': str,
