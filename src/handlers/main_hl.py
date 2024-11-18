@@ -614,7 +614,8 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         state = state.upper()
     text, reply_markup, del_message_ids = await get_back_context(context, state)
-    await del_messages(update, context, del_message_ids)
+    if del_message_ids:
+        await del_messages(update, context, del_message_ids)
 
     command = context.user_data['command']
     message = None
