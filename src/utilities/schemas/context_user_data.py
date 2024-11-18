@@ -73,6 +73,7 @@ context_user_data: Dict = {
         'message_id': Message.message_id,
     },
     'month_afisha': int,
+    'reply_markup' : InlineKeyboardMarkup,
     'theater_event': dict,
     'schedule_event': dict,
 }
