@@ -488,9 +488,6 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
             googlesheets_logger.info('No data found')
             return
 
-        first_row_for_write = len(values_column)
-        last_row_for_write = first_row_for_write + 1
-
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'

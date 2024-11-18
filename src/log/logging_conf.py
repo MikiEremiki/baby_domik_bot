@@ -25,6 +25,8 @@ class NoParsingFilter(logging.Filter):
         if (record.getMessage().find('Entering: get_updates') >= 0 or
                 record.getMessage().find('Exiting: get_updates') >= 0 or
                 record.getMessage().find('No new updates found.') >= 0 or
+                record.getMessage().find("'allowed_updates'") >= 0 or
+                record.getMessage().find('finished with return value `[]`') >= 0 or
                 record.getMessage().find('()') >= 0):
             return False
         if 'sqlalchemy' in record.name:
@@ -36,8 +38,8 @@ def setup_logs():
     root = logging.getLogger()
     main_log_handler = logging.handlers.RotatingFileHandler(LOG_FILENAME,
                                                             mode='w',
-                                                            maxBytes=1024000,
-                                                            backupCount=5,
+                                                            maxBytes=10000000,
+                                                            backupCount=20,
                                                             encoding='utf-8')
     main_log_handler.setFormatter(bf)
     main_log_handler.addFilter(NoParsingFilter())

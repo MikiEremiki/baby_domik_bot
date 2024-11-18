@@ -7,7 +7,8 @@ from telegram.ext import ContextTypes
 from db import db_postgres
 from handlers import init_conv_hl_dialog
 from utilities.utl_func import (
-    add_btn_back_and_cancel, set_back_context, get_back_context)
+    add_btn_back_and_cancel, set_back_context, get_back_context,
+    get_formatted_date_and_time_of_event)
 
 transfer_admin_hl_logger = logging.getLogger('bot.transfer_admin_hl')
 
@@ -90,9 +91,11 @@ async def get_ticket_by_id(
             elif hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}\n'
         people_str = adult_str + child_str
+        date_event, time_event = await get_formatted_date_and_time_of_event(
+            schedule_event)
         text = (
             f'Событие: {theater_event.name}\n'
-            f'{schedule_event.datetime_event.strftime("%d.%m %H:%M")}\n\n'
+            f'{date_event} в {time_event}\n\n'
             f'Привязан к профилю: {user.user_id}\n'
             f'Билет: {base_ticket.name}\n'
             f'Стоимость: {ticket.price}\n'

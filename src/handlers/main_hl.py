@@ -20,20 +20,18 @@ from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, utilites_logger, cancel_common, del_messages,
-    append_message_ids_back_context, create_str_info_by_schedule_event_id
+    append_message_ids_back_context, create_str_info_by_schedule_event_id,
+    get_formatted_date_and_time_of_event
 )
-from utilities.utl_googlesheets import write_to_return_seats_for_sale
+from utilities.utl_ticket import cancel_tickets
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Приветственная команда при первом запуске бота,
-    при перезапуске бота или при использовании команды start
-    """
     await check_user_db(update, context)
     await clean_context(context)
+    await clean_context_on_end_handler(main_handlers_logger, context)
 
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
@@ -57,6 +55,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         link_preview_options=LinkPreviewOptions(
             url='https://t.me/theater_domik')
     )
+
+    context.user_data['conv_hl_run'] = False
+    return ConversationHandler.END
 
 
 async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -147,10 +148,12 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}\n'
         people_str = adult_str + child_str
+        date_event, time_event = await get_formatted_date_and_time_of_event(
+            schedule_event)
         text = (
             f'Техническая информация по билету {ticket_id}\n\n'
             f'Событие {schedule_event.id}: {theater_event.name}\n'
-            f'{schedule_event.datetime_event.strftime("%d.%m %H:%M")}\n\n'
+            f'{date_event} в {time_event}\n\n'
             f'Привязан к профилю: {user.user_id}\n'
             f'Билет: {base_ticket.name}\n'
             f'Стоимость: {ticket.price}\n'
@@ -316,29 +319,31 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: подтвердить бронь')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
-    user_data = context.application.user_data.get(int(chat_id))
 
-    reserve_user_data = user_data['reserve_user_data']
-    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
-    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    ticket_ids = reserve_user_data['ticket_ids']
+    ticket_ids = [int(update.message.text.split('#ticket_id ')[1])]
+    choose_schedule_event_ids = []
+    for ticket_id in ticket_ids:
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        choose_base_ticket_id = ticket.base_ticket_id
+        choose_schedule_event_ids.append(ticket.schedule_event_id)
 
     await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
         await decrease_nonconfirm_seat(context,
                                        schedule_event_id,
-                                       chose_base_ticket_id)
+                                       choose_base_ticket_id)
 
     text = message.text + f'\nСписаны неподтвержденные места...'
     await message.edit_text(text)
@@ -402,29 +407,31 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
-    user_data = context.application.user_data.get(int(chat_id))
 
-    reserve_user_data = user_data['reserve_user_data']
-    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
-    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    ticket_ids = reserve_user_data['ticket_ids']
+    ticket_ids = [int(update.message.text.split('#ticket_id ')[1])]
+    choose_schedule_event_ids = []
+    for ticket_id in ticket_ids:
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        choose_base_ticket_id = ticket.base_ticket_id
+        choose_schedule_event_ids.append(ticket.schedule_event_id)
 
     await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
         await increase_free_and_decrease_nonconfirm_seat(context,
                                                          schedule_event_id,
-                                                         chose_base_ticket_id)
+                                                         choose_base_ticket_id)
 
     text = message.text + f'\nВозвращены места в продажу...'
     await message.edit_text(text)
@@ -465,13 +472,14 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -537,13 +545,14 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -605,17 +614,19 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         state = state.upper()
     text, reply_markup, del_message_ids = await get_back_context(context, state)
-    await del_messages(update, context, del_message_ids)
+    if del_message_ids:
+        await del_messages(update, context, del_message_ids)
 
     command = context.user_data['command']
     message = None
+    message_thread_id = query.message.message_thread_id
 
     if state == 'MONTH':
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=query.message.message_thread_id
+            message_thread_id=message_thread_id
         )
     elif state == 'SHOW':
         try:
@@ -629,7 +640,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                message_thread_id=query.message.message_thread_id
+                message_thread_id=message_thread_id
             )
     elif state == 'DATE' and command != 'birthday':
         try:
@@ -650,13 +661,13 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     photo=photo,
                     caption=text,
                     reply_markup=reply_markup,
-                    message_thread_id=query.message.message_thread_id
+                    message_thread_id=message_thread_id
                 )
             else:
                 await update.effective_chat.send_message(
                     text=text,
                     reply_markup=reply_markup,
-                    message_thread_id=query.message.message_thread_id
+                    message_thread_id=message_thread_id
                 )
         except BadRequest as e:
             main_handlers_logger.error(e)
@@ -700,7 +711,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                message_thread_id=query.message.message_thread_id
+                message_thread_id=message_thread_id
             )
     context.user_data['STATE'] = state
     if message:
@@ -714,6 +725,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     user = context.user_data['user']
+    state = context.user_data.get('STATE')
     data = query.data.split('|')[0].split('-')[-1]
 
     first_text = '<b>Вы выбрали отмену</b>\n\n'
@@ -750,39 +762,39 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      description + address + ask_question)
             await cancel_common(update, text)
 
-            if context.user_data['STATE'] == 'OFFER':
+            if state == 'OFFER':
                 await context.bot.delete_message(
                     update.effective_chat.id,
                     context.user_data['reserve_user_data']['accept_message_id']
                 )
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'reserve_admin':
             text += (use_command_text + reserve_text + reserve_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'studio':
             text += (use_command_text + studio_text + '\n' +
                      description + address + ask_question)
             await cancel_common(update, text)
 
-            if context.user_data['STATE'] == 'OFFER':
+            if state == 'OFFER':
                 await context.bot.delete_message(
                     update.effective_chat.id,
                     context.user_data['reserve_user_data']['accept_message_id']
                 )
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'studio_admin':
             text += (use_command_text + studio_text + studio_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'birthday':
             text += (use_command_text + bd_order_text + '\n' +
                      description + address + ask_question)
@@ -809,12 +821,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
     await query.answer()
     await clean_context_on_end_handler(main_handlers_logger, context)
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
-
-
-async def cancel_payment(context):
-    new_ticket_status = TicketStatus.CANCELED
-    await write_to_return_seats_for_sale(context, status=new_ticket_status)
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
@@ -828,10 +836,11 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         text='Попробуйте выполнить новый запрос'
     )
     await clean_context_on_end_handler(utilites_logger, context)
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
-async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     main_handlers_logger.info(": ".join(
         [
             'Пользователь',
@@ -844,6 +853,8 @@ async def help_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
         'Текущая операция сброшена.\nМожете выполните новую команду',
         message_thread_id=update.message.message_thread_id
     )
+    await clean_context_on_end_handler(main_handlers_logger, context)
+    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 

@@ -1,22 +1,17 @@
-from typing import Dict, List
-
 from telegram.ext import (
-    BaseHandler,
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
-    filters,
 )
 
 from custom_filters import filter_admin
-from handlers import reserve_hl, main_hl, reserve_admin_hl, migration_admin_hl
+from handlers import reserve_hl, reserve_admin_hl, migration_admin_hl
+from conv_hl import (
+    handlers_event_selection, handlers_client_data_selection,
+    cancel_callback_handler, back_callback_handler,
+    F_text_and_no_command, common_fallbacks
+)
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
-from conv_hl import handlers_event_selection, handlers_client_data_selection
-
-F_text_and_no_command = filters.TEXT & ~filters.COMMAND
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
-                                               pattern='^Отменить')
-back_callback_handler = CallbackQueryHandler(main_hl.back, pattern='^Назад')
-states: Dict[object, List[BaseHandler]] = {
+states = {
     0: [
         cancel_callback_handler,
         MessageHandler(F_text_and_no_command,
@@ -48,8 +43,6 @@ for key in handlers_event_selection.keys():
 for key in handlers_client_data_selection.keys():
     states[key] = handlers_client_data_selection[key]
 
-for key in states.keys():
-    states[key].append(CommandHandler('reset', main_hl.reset))
 states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 migration_admin_conv_hl = ConversationHandler(
@@ -59,7 +52,7 @@ migration_admin_conv_hl = ConversationHandler(
                        filter_admin),
     ],
     states=states,
-    fallbacks=[CommandHandler('help', main_hl.help_command)],
+    fallbacks=common_fallbacks,
     conversation_timeout=RESERVE_TIMEOUT * 60,
     name='migration_admin',
     persistent=True,

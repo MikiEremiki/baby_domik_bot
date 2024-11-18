@@ -1,7 +1,7 @@
 import logging
 import datetime
 
-from typing import Any, List, Tuple, Dict
+from typing import List, Tuple, Dict
 
 from pydantic import ValidationError
 from telegram.ext import ContextTypes
@@ -431,28 +431,29 @@ async def decrease_nonconfirm_seat(
         event_id,
         chose_base_ticket_id
 ):
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, event_id)
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+
+    q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
+    q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
+
+    q_child = chose_base_ticket.quality_of_children
+    q_adult = chose_base_ticket.quality_of_adult
+    q_add_adult = chose_base_ticket.quality_of_add_adult
+
+    qty_child_nonconfirm_seat_new = (
+            q_child_nonconfirm_seat - q_child)
+    qty_adult_nonconfirm_seat_new = (
+            q_adult_nonconfirm_seat - (q_adult + q_add_adult))
+
+    numbers = [
+        qty_child_nonconfirm_seat_new,
+        qty_adult_nonconfirm_seat_new
+    ]
+
     try:
-        schedule_event = await db_postgres.get_schedule_event(
-            context.session, event_id)
-        chose_base_ticket = await db_postgres.get_base_ticket(
-            context.session, chose_base_ticket_id)
-
-        q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
-        q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
-
-        q_child = chose_base_ticket.quality_of_children
-        q_adult = chose_base_ticket.quality_of_adult
-        q_add_adult = chose_base_ticket.quality_of_add_adult
-
-        qty_child_nonconfirm_seat_new = (
-                q_child_nonconfirm_seat - q_child)
-        qty_adult_nonconfirm_seat_new = (
-                q_adult_nonconfirm_seat - (q_adult + q_add_adult))
-
-        numbers = [
-            qty_child_nonconfirm_seat_new,
-            qty_adult_nonconfirm_seat_new
-        ]
         write_data_reserve(event_id, numbers, 2)
         await db_postgres.update_schedule_event(
             context.session,

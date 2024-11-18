@@ -102,7 +102,8 @@ async def get_ticket_and_price(context, base_ticket_id):
 
 async def cancel_tickets(update, context):
     states_for_cancel = ['EMAIL', 'FORMA', 'PHONE', 'CHILDREN', 'PAID']
-    if context.user_data['STATE'] in states_for_cancel:
+    state = context.user_data.get('STATE', None)
+    if state in states_for_cancel:
         utl_ticket_logger.info(context.user_data['STATE'])
 
         try:
@@ -123,5 +124,24 @@ async def cancel_tickets(update, context):
                 f'так как обычно не создается платеж из-за неверного email'
             )
 
-        ticket_status = TicketStatus.CANCELED
-        await write_to_return_seats_for_sale(context, status=ticket_status)
+        flag_skip = False
+        reserve_user_data = context.user_data['reserve_user_data']
+        ticket_ids = reserve_user_data.get('ticket_ids', None)
+
+        if ticket_ids:
+            text = 'Билеты: '
+            for ticket_id in ticket_ids:
+                ticket = await db_postgres.get_ticket(context.session,
+                                                      ticket_id)
+                text += f'{ticket.id}-{ticket.status.value}|'
+                if ticket.status in [TicketStatus.APPROVED, TicketStatus.PAID]:
+                    flag_skip = True
+                    text += 'Нельзя отменять'
+        else:
+            text = 'Билетов для отмены нет'
+
+        if not flag_skip:
+            utl_ticket_logger.warning(text)
+            ticket_status = TicketStatus.CANCELED
+            text += f'=>{ticket_status.value}'
+            await write_to_return_seats_for_sale(context, status=ticket_status)
