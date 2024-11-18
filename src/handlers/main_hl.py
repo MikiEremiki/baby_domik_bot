@@ -29,10 +29,6 @@ main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Приветственная команда при первом запуске бота,
-    при перезапуске бота или при использовании команды start
-    """
     await check_user_db(update, context)
     await clean_context(context)
 
@@ -319,13 +315,14 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: подтвердить бронь')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -405,13 +402,14 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -468,13 +466,14 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -540,13 +539,14 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
         return
+    message_thread_id = query.message.message_thread_id
     await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=query.message.message_thread_id)
+        ChatAction.TYPING, message_thread_id=message_thread_id)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
         reply_to_message_id=query.message.message_id,
-        message_thread_id=query.message.message_thread_id
+        message_thread_id=message_thread_id
     )
 
     chat_id = query.data.split('|')[1].split()[0]
@@ -612,13 +612,14 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     command = context.user_data['command']
     message = None
+    message_thread_id = query.message.message_thread_id
 
     if state == 'MONTH':
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=query.message.message_thread_id
+            message_thread_id=message_thread_id
         )
     elif state == 'SHOW':
         try:
@@ -632,7 +633,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                message_thread_id=query.message.message_thread_id
+                message_thread_id=message_thread_id
             )
     elif state == 'DATE' and command != 'birthday':
         try:
@@ -653,13 +654,13 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     photo=photo,
                     caption=text,
                     reply_markup=reply_markup,
-                    message_thread_id=query.message.message_thread_id
+                    message_thread_id=message_thread_id
                 )
             else:
                 await update.effective_chat.send_message(
                     text=text,
                     reply_markup=reply_markup,
-                    message_thread_id=query.message.message_thread_id
+                    message_thread_id=message_thread_id
                 )
         except BadRequest as e:
             main_handlers_logger.error(e)
@@ -703,7 +704,7 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message = await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                message_thread_id=query.message.message_thread_id
+                message_thread_id=message_thread_id
             )
     context.user_data['STATE'] = state
     if message:

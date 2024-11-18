@@ -1,7 +1,4 @@
-from typing import Dict, List
-
 from telegram.ext import (
-    BaseHandler,
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
     filters,
 )
@@ -15,7 +12,7 @@ from conv_hl import handlers_event_selection, handlers_client_data_selection
 F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
 back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
-states:  Dict[object, List[BaseHandler]] = {
+states = {
     1: [
         cancel_callback_handler,
         CallbackQueryHandler(reserve_hl.choice_month, pattern='params'),

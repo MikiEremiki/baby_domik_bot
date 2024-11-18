@@ -237,7 +237,7 @@ async def schedule_event_select(
 
 async def theater_event_preview(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        _: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
 
@@ -260,7 +260,7 @@ async def theater_event_preview(
 
 async def schedule_event_preview(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        _: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
 

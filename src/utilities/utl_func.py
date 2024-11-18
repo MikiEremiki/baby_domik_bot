@@ -29,7 +29,6 @@ from settings.settings import (
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, DICT_OF_EMOJI_FOR_BUTTON
 )
 from utilities.schemas.context_user_data import context_user_data
-from utilities.utl_check import is_skip_ticket
 
 utilites_logger = logging.getLogger('bot.utilites')
 
@@ -41,10 +40,10 @@ def add_btn_back_and_cancel(
         postfix_for_back=None
 ) -> List[InlineKeyboardButton]:
     """
-    :param add_cancel_btn: Опциональное добавление кнопки Отменить
+    :param add_cancel_btn: Опциональное добавление кнопки Отменить.
     :param add_back_btn: Опциональное добавление кнопки Назад
     :param postfix_for_cancel: Добавление дополнительной приписки для
-    корректного определения случая при использовании Отменить
+    корректного определения случая при использовании Отменить.
     :param postfix_for_back: Добавление дополнительной приписки для
     корректного определения случая при использовании Назад
     :return: List[InlineKeyboardButton]
@@ -585,155 +584,6 @@ async def update_config(_: Update, context: ContextTypes.DEFAULT_TYPE):
         'Параметры из settings.yml загружены')
 
 
-def get_month_numbers(dict_of_date_show):
-    list_of_months = []
-    for item in dict_of_date_show.keys():
-        if int(item[3:5]) not in list_of_months:
-            list_of_months.append(int(item[3:5]))
-    return list_of_months
-
-
-def create_replay_markup_for_list_of_shows(
-        dict_of_show: dict,
-        num_colum=2,
-        ver=1,
-        add_cancel_btn=True,
-        postfix_for_cancel=None,
-        add_back_btn=True,
-        postfix_for_back=None,
-        number_of_month=None,
-        number_of_show=None,
-        dict_of_events_show: dict = None
-):
-    """
-    Создает inline клавиатуру
-    :param number_of_month: номер месяца
-    :param number_of_show: номер спектакля при загрузке всех дат из расписания
-    :param dict_of_show: Словарь со списком спектаклей
-    :param num_colum: Кол-во кнопок в строке
-    :param ver:
-    ver = 1 для бронирования обычного спектакля
-    ver = 2 для бронирования дня рождения
-    ver = 3 для бронирования в декабре
-    :param add_cancel_btn: если True, то добавляет кнопку Отменить
-    :param add_back_btn: если True, то добавляет кнопку Назад
-    :param postfix_for_cancel: Добавление дополнительной приписки для
-    корректного определения случая при использовании Отменить
-    :param postfix_for_back: Добавление дополнительной приписки для
-    корректного определения случая при использовании Назад
-    :param dict_of_events_show:
-    :return: InlineKeyboardMarkup
-    """
-    # Определение кнопок для inline клавиатуры
-    keyboard = []
-    list_btn_of_numbers = []
-
-    i = 0
-    y = yrange(len(dict_of_show))
-    for key, items in dict_of_show.items():
-        if (number_of_month is not None and
-                int(key[3:5]) != int(number_of_month)):
-            continue
-        num = next(y) + 1
-        button_tmp = None
-        match ver:
-            case 1:
-                for item in items:
-                    if number_of_month:
-                        filter_theater_event_id = enum_current_show_by_month(
-                            dict_of_show, number_of_month)
-
-                        if item in filter_theater_event_id.keys():
-                            button_tmp = InlineKeyboardButton(
-                                text=DICT_OF_EMOJI_FOR_BUTTON[
-                                         filter_theater_event_id[item]] + ' ' + key,
-                                callback_data=str(item) + ' | ' + key
-                            )
-                    if button_tmp is None:
-                        continue
-                    list_btn_of_numbers.append(button_tmp)
-
-                    i += 1
-                    # Две кнопки в строке так как для узких экранов телефонов
-                    # дни недели обрезаются
-                    if i % num_colum == 0:
-                        i = 0
-                        keyboard.append(list_btn_of_numbers)
-                        list_btn_of_numbers = []
-            case 2:
-                button_tmp = InlineKeyboardButton(
-                    text=DICT_OF_EMOJI_FOR_BUTTON[num],
-                    callback_data=key
-                )
-                if button_tmp is None:
-                    continue
-                list_btn_of_numbers.append(button_tmp)
-
-                i += 1
-                # Две кнопки в строке так как для узких экранов телефонов
-                # дни недели обрезаются
-                if i % num_colum == 0:
-                    i = 0
-                    keyboard.append(list_btn_of_numbers)
-                    list_btn_of_numbers = []
-            case 3:
-                # Если в день разные спектакли с разным наполнением,
-                # то к тексту добавляются все статусы
-                for item in items:
-                    if number_of_month:
-                        filter_theater_event_id = enum_current_show_by_month(
-                            dict_of_show, number_of_month)
-                        if (item in filter_theater_event_id.keys() and
-                                item == number_of_show):
-                            text = key
-                            flag_gift = False
-                            flag_christmas_tree = False
-                            flag_santa = False
-                            for event in dict_of_events_show.values():
-                                if key == event['date_show']:
-                                    if event['flag_gift']:
-                                        flag_gift = True
-                                    if event['flag_christmas_tree']:
-                                        flag_christmas_tree = True
-                                    if event['flag_santa']:
-                                        flag_santa = True
-                            if flag_gift:
-                                text += f'{SUPPORT_DATA['Подарок'][0]}'
-                            if flag_christmas_tree:
-                                text += f'{SUPPORT_DATA['Елка'][0]}'
-                            if flag_santa:
-                                text += f'{SUPPORT_DATA['Дед'][0]}'
-                            button_tmp = InlineKeyboardButton(
-                                text=text,
-                                callback_data=str(item) + ' | ' + key
-                            )
-                        else:
-                            continue
-                    if button_tmp is None:
-                        continue
-                    list_btn_of_numbers.append(button_tmp)
-
-                    i += 1
-                    # Две кнопки в строке так как для узких экранов телефонов
-                    # дни недели обрезаются
-                    if i % num_colum == 0:
-                        i = 0
-                        keyboard.append(list_btn_of_numbers)
-                        list_btn_of_numbers = []
-    if len(list_btn_of_numbers):
-        keyboard.append(list_btn_of_numbers)
-
-    list_end_btn = add_btn_back_and_cancel(
-        add_cancel_btn,
-        postfix_for_cancel,
-        add_back_btn,
-        postfix_for_back
-    )
-    if len(list_end_btn):
-        keyboard.append(list_end_btn)
-    return InlineKeyboardMarkup(keyboard)
-
-
 def check_phone_number(phone):
     if len(phone) != 10 or phone[0] != '9':
         return True
@@ -758,20 +608,6 @@ def create_approve_and_reject_replay(
     )
     keyboard.append([button_approve, button_cancel])
     return InlineKeyboardMarkup(keyboard)
-
-
-def enum_current_show_by_month(dict_of_date_show: dict, num: str) -> dict:
-    filter_theater_event_id = {}
-    i = 1
-    for key, items in dict_of_date_show.items():
-        if num is not None and int(key[3:5]) != int(num):
-            continue
-        for item in items:
-            if item not in filter_theater_event_id.keys():
-                filter_theater_event_id[item] = i
-                i += 1
-
-    return filter_theater_event_id
 
 
 def add_text_of_show_and_numerate(
@@ -910,15 +746,7 @@ async def filter_schedule_event_by_active(
             continue
 
         schedule_events_tmp.append(event)
-
     return schedule_events_tmp
-
-
-async def create_postfix_for_cancel_btn(context, postfix):
-    if context.user_data.get('command', False) == 'reserve_admin':
-        postfix = 'reserve_admin'
-    postfix += '|'
-    return postfix
 
 
 async def create_event_names_text(enum_theater_events, text):
@@ -964,8 +792,6 @@ async def del_messages(
         context: ContextTypes.DEFAULT_TYPE,
         del_message_ids=None,
 ):
-    if not del_message_ids:
-        del_message_ids = context.user_data['common_data']['del_message_ids']
     ok_del_message_ids = del_message_ids.copy()
     for message_id in ok_del_message_ids:
         try:

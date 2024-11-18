@@ -102,7 +102,8 @@ async def get_ticket_and_price(context, base_ticket_id):
 
 async def cancel_tickets(update, context):
     states_for_cancel = ['EMAIL', 'FORMA', 'PHONE', 'CHILDREN', 'PAID']
-    if context.user_data['STATE'] in states_for_cancel:
+    state = context.user_data.get('STATE', None)
+    if state in states_for_cancel:
         utl_ticket_logger.info(context.user_data['STATE'])
 
         try:

@@ -1,7 +1,4 @@
-from typing import Dict, List
-
 from telegram.ext import (
-    BaseHandler,
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
     filters,
 )
@@ -15,7 +12,7 @@ from conv_hl import (
 )
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
-states: Dict[object, List[BaseHandler]] = {
+states = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),

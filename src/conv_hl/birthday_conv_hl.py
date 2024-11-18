@@ -1,7 +1,4 @@
-from typing import Dict, List
-
 from telegram.ext import (
-    BaseHandler,
     CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler,
     filters,
 )
@@ -13,7 +10,7 @@ F_text_and_no_command = filters.TEXT & ~filters.COMMAND
 cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
 back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 
-states:  Dict[object, List[BaseHandler]] = {
+states = {
     'PLACE': [
         CallbackQueryHandler(birthday_hl.ask_date, pattern='^0$'),
         CallbackQueryHandler(birthday_hl.ask_address, pattern='^1$'),
@@ -87,7 +84,7 @@ birthday_paid_conv_hl = ConversationHandler(
         ],
         states={
             'PAID': [
-                CallbackQueryHandler(main_hl.cancel, pattern='^Отменить'),
+                cancel_callback_handler,
                 MessageHandler(
                     filters.PHOTO | filters.ATTACHMENT,
                     birthday_hl.forward_photo_or_file

@@ -6,7 +6,7 @@ from telegram.ext import (
 from custom_filters import filter_admin
 from handlers import afisha_hl, main_hl
 from conv_hl import cancel_callback_handler
-from settings.settings import COMMAND_DICT, ADMIN_ID
+from settings.settings import COMMAND_DICT
 
 afisha_conv_hl = ConversationHandler(
     entry_points=[
