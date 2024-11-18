@@ -331,18 +331,19 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
-    user_data = context.application.user_data.get(int(chat_id))
 
-    reserve_user_data = user_data['reserve_user_data']
-    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
-    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    ticket_ids = reserve_user_data['ticket_ids']
+    ticket_ids = [int(update.message.text.split('#ticket_id ')[1])]
+    choose_schedule_event_ids = []
+    for ticket_id in ticket_ids:
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        choose_base_ticket_id = ticket.base_ticket_id
+        choose_schedule_event_ids.append(ticket.schedule_event_id)
 
     await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
         await decrease_nonconfirm_seat(context,
                                        schedule_event_id,
-                                       chose_base_ticket_id)
+                                       choose_base_ticket_id)
 
     text = message.text + f'\nСписаны неподтвержденные места...'
     await message.edit_text(text)
@@ -418,18 +419,19 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
-    user_data = context.application.user_data.get(int(chat_id))
 
-    reserve_user_data = user_data['reserve_user_data']
-    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
-    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    ticket_ids = reserve_user_data['ticket_ids']
+    ticket_ids = [int(update.message.text.split('#ticket_id ')[1])]
+    choose_schedule_event_ids = []
+    for ticket_id in ticket_ids:
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        choose_base_ticket_id = ticket.base_ticket_id
+        choose_schedule_event_ids.append(ticket.schedule_event_id)
 
     await query.answer()
     for schedule_event_id in choose_schedule_event_ids:
         await increase_free_and_decrease_nonconfirm_seat(context,
                                                          schedule_event_id,
-                                                         chose_base_ticket_id)
+                                                         choose_base_ticket_id)
 
     text = message.text + f'\nВозвращены места в продажу...'
     await message.edit_text(text)
