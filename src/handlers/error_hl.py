@@ -9,7 +9,9 @@ from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from utilities.utl_db import open_session
-from utilities.utl_func import clean_context, split_message
+from utilities.utl_func import (
+    clean_context, clean_context_on_end_handler, split_message,
+)
 from utilities.utl_ticket import cancel_tickets
 
 error_hl_logger = logging.getLogger('bot.error_hl')
@@ -18,6 +20,7 @@ error_hl_logger = logging.getLogger('bot.error_hl')
 async def error_handler(update: Update,
                         context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
+    error_hl_logger.error(f'UPDATE: {update}')
     error_hl_logger.error("Exception while handling an update:",
                           exc_info=context.error)
 
@@ -38,7 +41,7 @@ async def error_handler(update: Update,
     else:
         await update.effective_chat.send_message(
             'Произошла не предвиденная ошибка\n'
-            'Выполните команду /start и повторите операцию заново')
+            'Пожалуйста, выполните команду /start и повторите операцию заново')
 
         tb_list = traceback.format_exception(None,
                                              context.error,
@@ -66,14 +69,17 @@ async def error_handler(update: Update,
 
         await split_message(context, message)
 
-        message = pformat(context.bot_data)
-        error_hl_logger.info(message)
-
-        message = pformat(context.user_data)
-        error_hl_logger.info(message)
-
     await cancel_tickets(update, context)
 
     await clean_context(context)
+    await clean_context_on_end_handler(error_hl_logger, context)
+
+    message = pformat(context.bot_data, compact=True)
+    error_hl_logger.info('bot_data')
+    error_hl_logger.info(message)
+
+    message = pformat(context.user_data)
+    error_hl_logger.info('user_data')
+    error_hl_logger.info(message)
 
     await context.session.close()

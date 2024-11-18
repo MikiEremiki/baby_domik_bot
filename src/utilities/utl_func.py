@@ -109,6 +109,8 @@ async def clean_context_on_end_handler(logger, context):
         context.user_data.pop('birthday_user_data')
     if context.user_data.get('reserve_user_data', False):
         context.user_data.pop('reserve_user_data')
+    if context.user_data.get('reserve_admin_data', False):
+        context.user_data.pop('reserve_admin_data')
 
 
 async def delete_message_for_job_in_callback(

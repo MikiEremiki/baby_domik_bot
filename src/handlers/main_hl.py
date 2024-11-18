@@ -31,6 +31,7 @@ main_handlers_logger = logging.getLogger('bot.main_handlers')
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await check_user_db(update, context)
     await clean_context(context)
+    await clean_context_on_end_handler(main_handlers_logger, context)
 
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
@@ -853,6 +854,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Текущая операция сброшена.\nМожете выполните новую команду',
         message_thread_id=update.message.message_thread_id
     )
+    await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
