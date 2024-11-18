@@ -23,7 +23,7 @@ from utilities.utl_func import (
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event
 )
-from utilities.utl_googlesheets import write_to_return_seats_for_sale
+from utilities.utl_ticket import cancel_tickets
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -722,6 +722,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
     user = context.user_data['user']
+    state = context.user_data.get('STATE')
     data = query.data.split('|')[0].split('-')[-1]
 
     first_text = '<b>Вы выбрали отмену</b>\n\n'
@@ -758,39 +759,39 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      description + address + ask_question)
             await cancel_common(update, text)
 
-            if context.user_data['STATE'] == 'OFFER':
+            if state == 'OFFER':
                 await context.bot.delete_message(
                     update.effective_chat.id,
                     context.user_data['reserve_user_data']['accept_message_id']
                 )
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'reserve_admin':
             text += (use_command_text + reserve_text + reserve_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'studio':
             text += (use_command_text + studio_text + '\n' +
                      description + address + ask_question)
             await cancel_common(update, text)
 
-            if context.user_data['STATE'] == 'OFFER':
+            if state == 'OFFER':
                 await context.bot.delete_message(
                     update.effective_chat.id,
                     context.user_data['reserve_user_data']['accept_message_id']
                 )
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'studio_admin':
             text += (use_command_text + studio_text + studio_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_payment(context)
+                await cancel_tickets(update, context)
         case 'birthday':
             text += (use_command_text + bd_order_text + '\n' +
                      description + address + ask_question)
@@ -819,11 +820,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
-
-
-async def cancel_payment(context):
-    new_ticket_status = TicketStatus.CANCELED
-    await write_to_return_seats_for_sale(context, status=new_ticket_status)
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
