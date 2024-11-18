@@ -3,12 +3,12 @@ from telegram.ext import (
     filters,
 )
 
-from handlers import birthday_hl, main_hl
+from handlers import birthday_hl
+from conv_hl import (
+    cancel_callback_handler, back_callback_handler,
+    F_text_and_no_command, common_fallbacks
+)
 from settings.settings import COMMAND_DICT
-
-F_text_and_no_command = filters.TEXT & ~filters.COMMAND
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
-back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 
 states = {
     'PLACE': [
@@ -58,43 +58,42 @@ states = {
 }
 
 for key in states.keys():
-    states[key].append(CommandHandler('reset', main_hl.reset))
     states[key].insert(0, cancel_callback_handler)
     if key != 'PLACE':
         states[key].insert(1, back_callback_handler)
 states[ConversationHandler.TIMEOUT] = [birthday_hl.TIMEOUT_HANDLER]
 
 birthday_conv_hl = ConversationHandler(
-        entry_points=[
-            CommandHandler(COMMAND_DICT['BD_ORDER'][0],
-                           birthday_hl.choice_place),
-        ],
-        states=states,
-        fallbacks=[CommandHandler('help', main_hl.help_command)],
-        conversation_timeout=30*60,  # 30 мин
-        name='bd_order',
-        persistent=True,
-        allow_reentry=True
-    )
+    entry_points=[
+        CommandHandler(COMMAND_DICT['BD_ORDER'][0],
+                       birthday_hl.choice_place),
+    ],
+    states=states,
+    fallbacks=common_fallbacks,
+    conversation_timeout=30 * 60,  # 30 мин
+    name='bd_order',
+    persistent=True,
+    allow_reentry=True
+)
 
 birthday_paid_conv_hl = ConversationHandler(
-        entry_points=[
-            CommandHandler(COMMAND_DICT['BD_PAID'][0],
-                           birthday_hl.paid_info),
+    entry_points=[
+        CommandHandler(COMMAND_DICT['BD_PAID'][0],
+                       birthday_hl.paid_info),
+    ],
+    states={
+        'PAID': [
+            cancel_callback_handler,
+            MessageHandler(
+                filters.PHOTO | filters.ATTACHMENT,
+                birthday_hl.forward_photo_or_file
+            ),
         ],
-        states={
-            'PAID': [
-                cancel_callback_handler,
-                MessageHandler(
-                    filters.PHOTO | filters.ATTACHMENT,
-                    birthday_hl.forward_photo_or_file
-                ),
-            ],
-            ConversationHandler.TIMEOUT: [birthday_hl.TIMEOUT_HANDLER]
-        },
-        fallbacks=[CommandHandler('help', main_hl.help_command)],
-        conversation_timeout=30*60,  # 30 мин
-        name='bd_paid',
-        persistent=True,
-        allow_reentry=True
-    )
+        ConversationHandler.TIMEOUT: [birthday_hl.TIMEOUT_HANDLER]
+    },
+    fallbacks=common_fallbacks,
+    conversation_timeout=30 * 60,  # 30 мин
+    name='bd_paid',
+    persistent=True,
+    allow_reentry=True
+)

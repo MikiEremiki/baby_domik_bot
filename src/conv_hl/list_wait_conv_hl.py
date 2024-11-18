@@ -4,10 +4,9 @@ from telegram.ext import (
 
 from custom_filters import filter_admin
 from handlers import reserve_hl, main_hl, list_wait_hl
+from conv_hl import cancel_callback_handler, common_fallbacks
 from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel,
-                                               pattern='^Отменить')
 states = {
     'MONTH': [
         cancel_callback_handler,
@@ -22,12 +21,9 @@ states = {
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад'),
         CallbackQueryHandler(list_wait_hl.send_clients_wait_data),
-    ]
+    ],
+    ConversationHandler.TIMEOUT: [reserve_hl.TIMEOUT_HANDLER]
 }
-
-for key in states.keys():
-    states[key].append(CommandHandler('reset', main_hl.reset))
-states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 list_wait_conv_hl = ConversationHandler(
     entry_points=[
@@ -36,7 +32,7 @@ list_wait_conv_hl = ConversationHandler(
                        filter_admin),
     ],
     states=states,
-    fallbacks=[CommandHandler('help', main_hl.help_command)],
+    fallbacks=common_fallbacks,
     conversation_timeout=RESERVE_TIMEOUT * 60,
     name='list_wait',
     persistent=True,

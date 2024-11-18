@@ -3,7 +3,8 @@ from .common_hl import (
     handlers_client_data_selection,
     F_text_and_no_command,
     cancel_callback_handler,
-    back_callback_handler
+    back_callback_handler,
+    common_fallbacks
 )
 
 from .reserve_conv_hl import reserve_conv_hl

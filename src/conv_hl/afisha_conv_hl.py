@@ -4,8 +4,8 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_admin
-from handlers import afisha_hl, main_hl
-from conv_hl import cancel_callback_handler
+from handlers import afisha_hl
+from conv_hl import cancel_callback_handler, common_fallbacks
 from settings.settings import COMMAND_DICT
 
 afisha_conv_hl = ConversationHandler(
@@ -26,7 +26,7 @@ afisha_conv_hl = ConversationHandler(
             MessageHandler(filters.PHOTO, afisha_hl.check),
         ],
     },
-    fallbacks=[CommandHandler('help', main_hl.help_command)],
+    fallbacks=common_fallbacks,
     name='afisha',
     persistent=True,
     allow_reentry=True

@@ -1,6 +1,9 @@
 from warnings import filterwarnings
 
-from telegram.ext import CallbackQueryHandler, filters, MessageHandler
+from telegram.ext import (
+    filters,
+    CallbackQueryHandler, MessageHandler, CommandHandler
+)
 from telegram.warnings import PTBUserWarning
 
 from handlers import main_hl, reserve_hl
@@ -50,6 +53,12 @@ handlers_client_data_selection = {
         CallbackQueryHandler(reserve_hl.get_name_children, pattern='^Далее'),
     ],
 }
+
+common_fallbacks=[
+        CommandHandler('start', main_hl.start),
+        CommandHandler('help', main_hl.help_command),
+        CommandHandler('reset', main_hl.reset),
+    ],
 
 filterwarnings(action="ignore",
                message=r".*CallbackQueryHandler",
