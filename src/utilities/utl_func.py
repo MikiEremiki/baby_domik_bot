@@ -675,7 +675,19 @@ async def send_and_del_message_to_remove_kb(update: Update):
 
 
 def get_unique_months(events: Sequence[ScheduleEvent]):
-    return sorted(set(event.datetime_event.month for event in events))
+    unique_sorted_months = []
+    months = {}
+    years = set()
+    for event in events:
+        year = event.datetime_event.year
+        month = event.datetime_event.month
+        years.add(year)
+        months.setdefault(year, set())
+        months[year].add(month)
+    years = sorted(years)
+    for year in years:
+        unique_sorted_months.extend(sorted(months[year]))
+    return unique_sorted_months
 
 
 def get_full_name_event(
