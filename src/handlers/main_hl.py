@@ -30,6 +30,7 @@ main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await check_user_db(update, context)
+    await cancel_tickets(update, context)
     await clean_context(context)
     await clean_context_on_end_handler(main_handlers_logger, context)
 
@@ -332,7 +333,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
 
-    ticket_ids = [int(update.message.text.split('#ticket_id ')[1])]
+    ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
     choose_schedule_event_ids = []
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
@@ -420,7 +421,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
 
-    ticket_ids = [int(update.message.text.split('#ticket_id ')[1])]
+    ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
     choose_schedule_event_ids = []
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
@@ -835,6 +836,7 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         chat_id=update.effective_chat.id,
         text='Попробуйте выполнить новый запрос'
     )
+    await cancel_tickets(update, context)
     await clean_context_on_end_handler(utilites_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
@@ -853,6 +855,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Текущая операция сброшена.\nМожете выполните новую команду',
         message_thread_id=update.message.message_thread_id
     )
+    await cancel_tickets(update, context)
     await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END

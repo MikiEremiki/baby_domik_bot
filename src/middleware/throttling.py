@@ -4,6 +4,8 @@ from cachetools import TTLCache
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop, TypeHandler
 
+from settings.settings import ADMIN_GROUP_ID
+
 logger_ttl = logging.getLogger('bot.TTL')
 ttl = 0.5
 CACHE = TTLCache(maxsize=10_000, ttl=ttl)
@@ -18,12 +20,17 @@ def add_throttling_middleware(application):
         last_update: Update = context.user_data.get('last_update', None)
         if last_update:
             query = update.callback_query
+            chat_id = update.effective_chat.id
             last_query = last_update.callback_query
-            if query and last_query:
+            last_chat_id = last_update.effective_chat.id
+            if (query and last_query) and (chat_id and last_chat_id):
                 query_data = query.data
                 last_query_data = last_query.data
                 if last_query_data == query_data:
                     logger_ttl.warning(f'Update уже обработан: {update}')
+                    if chat_id in ADMIN_GROUP_ID:
+                        await update.effective_message.reply_text(
+                            'Для повторной обработки вызови /start в ЛС бота')
                     raise ApplicationHandlerStop
         context.user_data['last_update'] = update
 
