@@ -23,14 +23,14 @@ from utilities.utl_func import (
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event
 )
-from utilities.utl_ticket import cancel_tickets
+from utilities.utl_ticket import cancel_tickets_db_and_gspread
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await check_user_db(update, context)
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
     await clean_context(context)
     await clean_context_on_end_handler(main_handlers_logger, context)
 
@@ -770,13 +770,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'reserve_admin':
             text += (use_command_text + reserve_text + reserve_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'studio':
             text += (use_command_text + studio_text + '\n' +
                      description + address + ask_question)
@@ -789,13 +789,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'studio_admin':
             text += (use_command_text + studio_text + studio_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'birthday':
             text += (use_command_text + bd_order_text + '\n' +
                      description + address + ask_question)
@@ -836,8 +836,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         chat_id=update.effective_chat.id,
         text='Попробуйте выполнить новый запрос'
     )
-    await cancel_tickets(update, context)
     await clean_context_on_end_handler(utilites_logger, context)
+    await cancel_tickets_db_and_gspread(update, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
@@ -855,7 +855,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Текущая операция сброшена.\nМожете выполните новую команду',
         message_thread_id=update.message.message_thread_id
     )
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
     await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END

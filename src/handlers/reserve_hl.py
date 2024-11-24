@@ -54,7 +54,7 @@ from utilities.utl_kbd import (
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
 )
-from utilities.utl_ticket import cancel_tickets
+from utilities.utl_ticket import cancel_tickets_db_and_gspread
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
@@ -886,7 +886,7 @@ async def conversation_timeout(
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
 
     await clean_context(context)
     context.user_data['conv_hl_run'] = False
