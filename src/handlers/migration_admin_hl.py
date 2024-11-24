@@ -70,9 +70,9 @@ async def get_ticket_by_id(
                 update.effective_chat.id,
                 del_message_ids[0]
             )
-    ticket_id = update.message.text
-    ticket = await db_postgres.get_ticket(context.session, int(ticket_id))
     client_data = context.user_data['reserve_user_data']['client_data']
+    ticket_id = int(update.message.text)
+    ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if ticket:
         user = ticket.user
         people = ticket.people
