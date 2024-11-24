@@ -184,6 +184,7 @@ async def start_forma_info(
     reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
     text = 'Уменьшаю места на выбранное мероприятие...'
     await query.edit_message_text(text)
@@ -253,7 +254,6 @@ async def start_forma_info(
             reply_markup=reply_markup
         )
 
-        reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
         reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'
 
