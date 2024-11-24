@@ -19,7 +19,7 @@ from settings.settings import (
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
-    clean_context_on_end_handler, utilites_logger, cancel_common, del_messages,
+    clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event
 )
@@ -827,7 +827,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
-    utilites_logger.info(
+    main_handlers_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
         f'Вызвал команду reset'
@@ -836,8 +836,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         chat_id=update.effective_chat.id,
         text='Попробуйте выполнить новый запрос'
     )
-    await clean_context_on_end_handler(utilites_logger, context)
     await cancel_tickets_db_and_gspread(update, context)
+    await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
