@@ -1,21 +1,10 @@
 from telegram import Update, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, TypeHandler, ApplicationHandlerStop
+from telegram.ext import ContextTypes, ApplicationHandlerStop, CommandHandler
 
 from settings.settings import COMMAND_DICT
 from utilities.utl_func import add_btn_back_and_cancel, extract_command
 
-
-def add_check_run_conv_hl_middleware(application):
-    async def check_run_conv_hl(
-            update: Update,
-            context: ContextTypes.DEFAULT_TYPE
-    ):
-        if update.effective_message.text:
-            command = extract_command(update.effective_message.text)
-        else:
-            command = None
-        if command and context.user_data.get('conv_hl_run', False):
-            commands = [
+commands = [
                 COMMAND_DICT['RESERVE'][0],
                 COMMAND_DICT['STUDIO'][0],
                 COMMAND_DICT['RESERVE_ADMIN'][0],
@@ -28,6 +17,14 @@ def add_check_run_conv_hl_middleware(application):
                 COMMAND_DICT['AFISHA'][0],
                 COMMAND_DICT['SETTINGS'][0],
             ]
+
+def add_check_run_conv_hl_middleware(application):
+    async def check_run_conv_hl(
+            update: Update,
+            context: ContextTypes.DEFAULT_TYPE
+    ):
+        command = extract_command(update.effective_message.text)
+        if command and context.user_data.get('conv_hl_run', False):
             if command in commands:
                 keyboard = [add_btn_back_and_cancel(
                     postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
@@ -41,4 +38,4 @@ def add_check_run_conv_hl_middleware(application):
                 )
                 raise ApplicationHandlerStop
 
-    application.add_handler(TypeHandler(Update, check_run_conv_hl), group=-40)
+    application.add_handler(CommandHandler(commands, check_run_conv_hl), group=-40)
