@@ -134,7 +134,7 @@ async def cancel_tickets(update, context):
                 ticket = await db_postgres.get_ticket(context.session,
                                                       ticket_id)
                 text += f'{ticket.id}-{ticket.status.value}|'
-                if ticket.status in [TicketStatus.APPROVED, TicketStatus.PAID]:
+                if ticket.status != TicketStatus.CREATED:
                     flag_skip = True
                     text += 'Нельзя отменять'
         else:
