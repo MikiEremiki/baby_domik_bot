@@ -27,6 +27,8 @@ application = (
     .defaults(Defaults(parse_mode=ParseMode.HTML))
     .get_updates_pool_timeout(3)
     .get_updates_write_timeout(7)
+    .get_updates_connect_timeout(7)
+    .get_updates_read_timeout(7)
     .get_updates_connection_pool_size(2)
     .rate_limiter(AIORateLimiter())
 
