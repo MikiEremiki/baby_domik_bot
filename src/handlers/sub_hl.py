@@ -7,17 +7,19 @@ from telegram import (
     InlineKeyboardMarkup, InlineKeyboardButton,
     ReplyKeyboardMarkup, KeyboardButton, Message
 )
+from telegram.constants import ChatAction
 from telegram.error import BadRequest
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 from yookassa import Payment
 
-from api.yookassa_connect import create_param_payment
 from api.googlesheets import write_client_reserve
+from api.yookassa_connect import create_param_payment
 from db import db_postgres, TheaterEvent
 from db.enum import TicketStatus
 from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
-    load_schedule_events, load_theater_events, load_custom_made_format
+    load_schedule_events, load_theater_events, load_custom_made_format,
+    decrease_free_and_increase_nonconfirm_seat,
 )
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities import add_btn_back_and_cancel
@@ -25,10 +27,13 @@ from utilities.utl_func import (
     get_unique_months, get_full_name_event,
     filter_schedule_event_by_active,
     get_formatted_date_and_time_of_event,
-    create_approve_and_reject_replay, set_back_context
+    create_approve_and_reject_replay, set_back_context,
+    get_schedule_event_ids_studio
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import create_email_confirm_btn
+from utilities.utl_ticket import (
+    create_tickets_and_people, cancel_ticket_db_when_end_handler)
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -237,16 +242,15 @@ async def create_and_send_payment(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    chat_id = update.effective_chat.id
+    text = 'Готовлю информацию об оплате...'
     message = await context.bot.send_message(
-        text='Готовлю информацию об оплате...',
-        chat_id=chat_id,
+        text=text,
+        chat_id=update.effective_chat.id,
     )
 
     reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    client_data = reserve_user_data['client_data']
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
     theater_event_id = reserve_user_data['choose_theater_event_id']
     command = context.user_data['command']
@@ -268,38 +272,29 @@ async def create_and_send_payment(
     email = await db_postgres.get_email(context.session,
                                         update.effective_user.id)
 
-    people_ids = await db_postgres.create_people(context.session,
-                                                 update.effective_user.id,
-                                                 client_data)
+    choose_schedule_event_ids = await get_schedule_event_ids_studio(context)
 
-    studio = context.bot_data['studio']
-    choose_schedule_event_ids = [schedule_event_id]
-    if command == 'studio' and chose_base_ticket.flag_season_ticket:
-        for v in studio['Театральный интенсив']:
-            if schedule_event_id in v:
-                choose_schedule_event_ids = v
+    text += '\nСоздаю ваши билеты...'
+    await message.edit_text(text)
+    ticket_ids = await create_tickets_and_people(
+        update, context, TicketStatus.CREATED)
 
-    ticket_ids = []
-    for event_id in choose_schedule_event_ids:
-        ticket = await db_postgres.create_ticket(
-            context.session,
-            base_ticket_id=chose_base_ticket.base_ticket_id,
-            price=chose_price,
-            schedule_event_id=event_id,
-            status=TicketStatus.CREATED,
-        )
-        ticket_ids.append(ticket.id)
-
-        await db_postgres.attach_user_and_people_to_ticket(context.session,
-                                                           ticket.id,
-                                                           update.effective_user.id,
-                                                           people_ids)
-
-    reserve_user_data['ticket_ids'] = ticket_ids
-    reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
-
-    # TODO Заменить на запись в другой лист
-    write_client_reserve(context, chat_id, chose_base_ticket)
+    await update.effective_chat.send_action(ChatAction.TYPING)
+    await write_client_reserve(context,
+                               update.effective_chat.id,
+                               chose_base_ticket,
+                               TicketStatus.CREATED.value)
+    text += '\nСохраняю за вами резерв по кол-ву выбранных мест...'
+    await message.edit_text(text)
+    result = await decrease_free_and_increase_nonconfirm_seat(
+        context, schedule_event_id, chose_base_ticket_id)
+    if not result:
+        text = ('Произошла проблема сетевого соединения.'
+                '\nПриносим извинения за предоставленные неудобства.'
+                '\nПовторите бронирование еще раз /reserve')
+        await cancel_ticket_db_when_end_handler(update, context, text)
+        context.user_data['conv_hl_run'] = False
+        return ConversationHandler.END
 
     ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
     max_len_decs = 128
@@ -324,6 +319,8 @@ async def create_and_send_payment(
     )
     idempotency_id = uuid.uuid4()
     try:
+        text += '\nСоздаю ссылку на оплату...'
+        await message.edit_text(text)
         payment = Payment.create(param, idempotency_id)
     except ValueError as e:
         sub_hl_logger.error(e)
@@ -348,7 +345,7 @@ async def create_and_send_payment(
         payment_id=payment.id,
         idempotency_id=idempotency_id,
     )
-
+    await update.effective_chat.send_action(ChatAction.TYPING)
     keyboard = []
     button_payment = InlineKeyboardButton(
         'Оплатить',
@@ -392,7 +389,10 @@ async def processing_successful_payment(
 ):
     query = update.callback_query
     if query:
-        await query.answer()
+        try:
+            await query.answer()
+        except BadRequest as e:
+            sub_hl_logger.error(e)
         await query.edit_message_text('Платеж успешно обработан')
 
     reserve_user_data = context.user_data['reserve_user_data']
@@ -421,6 +421,7 @@ async def processing_successful_payment(
             new_ticket_status = TicketStatus.APPROVED
         else:
             new_ticket_status = TicketStatus.PAID
+        await update.effective_chat.send_action(ChatAction.TYPING)
         for ticket_id in ticket_ids:
             await update_ticket_db_and_gspread(context,
                                                ticket_id,
