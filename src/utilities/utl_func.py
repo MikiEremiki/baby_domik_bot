@@ -793,7 +793,10 @@ async def get_events_for_time_hl(theater_event_id, selected_date, context):
 
 async def cancel_common(update, text):
     query = update.callback_query
-    await query.delete_message()
+    try:
+        await query.delete_message()
+    except BadRequest as e:
+        utilites_logger.error(e)
     await update.effective_chat.send_message(
         text=text,
         message_thread_id=query.message.message_thread_id,
