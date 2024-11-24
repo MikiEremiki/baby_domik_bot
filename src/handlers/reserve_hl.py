@@ -8,6 +8,7 @@ from telegram import (
     InlineKeyboardButton,
     ReplyKeyboardRemove,
 )
+from telegram.error import TimedOut
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram.constants import ChatType, ChatAction
 
@@ -984,12 +985,16 @@ async def get_phone_for_waiting(
         message_thread_id=thread_id
     )
     write_client_list_waiting(context)
-    await update.effective_chat.send_message(
-        text='Вы добавлены в лист ожидания, '
-             'если место освободится, то с вами свяжутся. '
-             'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
-             f'{context.bot_data['admin']['contacts']}'
-    )
+    try:
+        await update.effective_chat.send_message(
+            text='Вы добавлены в лист ожидания, '
+                 'если место освободится, то с вами свяжутся. '
+                 'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
+                 f'{context.bot_data['admin']['contacts']}'
+        )
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+        reserve_hl_logger.error('Выполнение запроса занимает много времени')
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
