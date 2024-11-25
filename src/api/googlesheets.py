@@ -497,12 +497,12 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values: List[List[Any]] = [[]]
 
         date = datetime.now().strftime('%y%m%d %H:%M:%S')
+        reserve_user_data = context.user_data['reserve_user_data']
+        schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
         values[0].append(context.user_data['user'].id)
         values[0].append(context.user_data['user'].username)
         values[0].append(context.user_data['user'].full_name)
-        reserve_user_data = context.user_data['reserve_user_data']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
         values[0].append(reserve_user_data['client_data']['phone'])
         values[0].append(date)
         values[0].append(schedule_event_id)
