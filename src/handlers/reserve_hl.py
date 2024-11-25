@@ -764,6 +764,8 @@ async def get_name_children(
         text += '\nПоследняя проверка...'
         await message.edit_text(text)
         await processing_successful_payment(update, context)
+        text += '\n\nБилет успешно оформлен.'
+        await message.edit_text(text)
 
         state = ConversationHandler.END
         context.user_data['conv_hl_run'] = False
