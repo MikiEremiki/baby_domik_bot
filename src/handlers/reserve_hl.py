@@ -665,7 +665,7 @@ async def get_name_children(
     if chose_base_ticket.quality_of_children > 0:
         text = update.effective_message.text
         wrong_input_data_text = (
-            'Проверьте, что указали дату или возраст правильно\n'
+            'Проверьте, что указали возраст правильно\n'
             'Например:\n'
             'Сергей 2\n'
             'Юля 3\n'
