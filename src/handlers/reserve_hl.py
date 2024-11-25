@@ -594,10 +594,9 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
 
-    base_ticket_id = context.user_data['reserve_user_data'][
-        'chose_base_ticket_id']
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     base_ticket = await db_postgres.get_base_ticket(context.session,
-                                                    base_ticket_id)
+                                                    chose_base_ticket_id)
     if base_ticket.quality_of_children > 0:
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
@@ -765,6 +764,8 @@ async def get_name_children(
         text += '\nПоследняя проверка...'
         await message.edit_text(text)
         await processing_successful_payment(update, context)
+        text += '\n\nБилет успешно оформлен.'
+        await message.edit_text(text)
 
         state = ConversationHandler.END
         context.user_data['conv_hl_run'] = False
