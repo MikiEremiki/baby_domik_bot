@@ -178,9 +178,12 @@ async def start_forma_info(
     _, callback_data = remove_intent_id(query.data)
     base_ticket_id = int(callback_data)
 
+    chose_base_ticket, chose_price = await get_ticket_and_price(
+        context, base_ticket_id)
     reserve_user_data = context.user_data['reserve_user_data']
-
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    reserve_user_data['chose_price'] = chose_price
+    reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
     reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
     if 'migration' in context.user_data['command']:
@@ -223,11 +226,6 @@ async def start_forma_info(
 
         text += '\nСоздаю новые билеты в бд...'
         await query.edit_message_text(text)
-
-        chose_base_ticket, chose_price = await get_ticket_and_price(
-            context, base_ticket_id)
-        reserve_user_data['chose_price'] = chose_price
-        reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
         ticket_ids = []
         ticket = await db_postgres.create_ticket(
