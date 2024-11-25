@@ -1,6 +1,7 @@
 import logging
 
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import (
+    ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram import Update, ReplyKeyboardRemove, LinkPreviewOptions
 from telegram.constants import ChatType, ChatAction
 from telegram.error import BadRequest
@@ -604,7 +605,14 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = int(state)
     else:
         state = state.upper()
-    text, reply_markup, del_message_ids = await get_back_context(context, state)
+    try:
+        text, reply_markup, del_message_ids = await get_back_context(context, state)
+    except KeyError as e:
+        main_handlers_logger.error(e)
+        await update.effective_chat.send_message(
+            'Произошла ошибка при возврате назад\n'
+            'Пожалуйста, выполните команду /start и повторите операцию заново')
+        raise ApplicationHandlerStop
     if del_message_ids:
         await del_messages(update, context, del_message_ids)
 
