@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import List, Any, Optional, Dict
+from typing import List, Any, Dict
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -225,12 +225,13 @@ def write_data_reserve(
         googlesheets_logger.error(err)
 
 
-def write_client_reserve(
+async def write_client_reserve(
         context: ContextTypes.DEFAULT_TYPE,
         chat_id: int,
         base_ticket: BaseTicket,
-        ticket_status=TicketStatus.CREATED.value,
-) -> Optional[List[int]]:
+        ticket_status_value,
+) -> int:
+    # TODO Заменить на запись в другой лист
     reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
     client_data: dict = reserve_user_data['client_data']
@@ -245,7 +246,7 @@ def write_client_reserve(
 
         if not values_column:
             googlesheets_logger.info('No data found')
-            return
+            return 0
 
         sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
@@ -256,13 +257,11 @@ def write_client_reserve(
             values.append([])
             values[i].append(ticket_ids[i])
             values[i].append(chat_id)
-            for key, item in client_data.items():
-                if key == 'data_children':
-                    values[i].append(' | '.join([i[0] for i in item]))
-                    values[i].append('')
-                    values[i].append(' | '.join([i[1] for i in item]))
-                else:
-                    values[i].append(item)
+            values[i].append(client_data['name_adult'])
+            values[i].append(client_data['phone'])
+            values[i].append(' | '.join([i[0] for i in client_data['data_children']]))
+            values[i].append('')
+            values[i].append(' | '.join([i[1] for i in client_data['data_children']]))
 
             # Спектакль
             values[i].append(event_id)
@@ -287,12 +286,12 @@ def write_client_reserve(
 
             (flag_exclude,
              flag_exclude_place_sum,
-             flag_transfer) = get_flags_by_ticket_status(ticket_status)
+             flag_transfer) = get_flags_by_ticket_status(ticket_status_value)
 
             values[i].append(flag_exclude)
             values[i].append(flag_transfer)
             values[i].append(flag_exclude_place_sum)
-            values[i].append(ticket_status)
+            values[i].append(ticket_status_value)
 
         googlesheets_logger.info(values)
 
@@ -310,9 +309,13 @@ def write_client_reserve(
                                    value_input_option,
                                    response_value_render_option,
                                    value_range_body)
-
+        return 1
     except HttpError as err:
         googlesheets_logger.error(err)
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не записался билет {ticket_ids} в клиентскую базу')
+        return 0
 
 
 def update_ticket_in_gspread(
@@ -394,21 +397,21 @@ def update_ticket_in_gspread(
         googlesheets_logger.error(e)
 
 
-def get_flags_by_ticket_status(ticket_status):
+def get_flags_by_ticket_status(ticket_status_value):
     flag_exclude = False
     flag_transfer = False
     flag_exclude_place_sum = False
     if (
-            ticket_status == TicketStatus.CREATED.value or
-            ticket_status == TicketStatus.CANCELED.value or
-            ticket_status == TicketStatus.REJECTED.value
+            ticket_status_value == TicketStatus.CREATED.value or
+            ticket_status_value == TicketStatus.CANCELED.value or
+            ticket_status_value == TicketStatus.REJECTED.value
     ):
         flag_exclude = True
         flag_transfer = False
         flag_exclude_place_sum = True
     if (
-            ticket_status == TicketStatus.REFUNDED.value or
-            ticket_status == TicketStatus.MIGRATED.value
+            ticket_status_value == TicketStatus.REFUNDED.value or
+            ticket_status_value == TicketStatus.MIGRATED.value
     ):
         flag_exclude = True
         flag_transfer = True
@@ -494,12 +497,12 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         values: List[List[Any]] = [[]]
 
         date = datetime.now().strftime('%y%m%d %H:%M:%S')
+        reserve_user_data = context.user_data['reserve_user_data']
+        schedule_event_id = reserve_user_data['choose_schedule_event_id']
 
         values[0].append(context.user_data['user'].id)
         values[0].append(context.user_data['user'].username)
         values[0].append(context.user_data['user'].full_name)
-        reserve_user_data = context.user_data['reserve_user_data']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
         values[0].append(reserve_user_data['client_data']['phone'])
         values[0].append(date)
         values[0].append(schedule_event_id)

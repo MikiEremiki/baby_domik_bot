@@ -793,7 +793,10 @@ async def get_events_for_time_hl(theater_event_id, selected_date, context):
 
 async def cancel_common(update, text):
     query = update.callback_query
-    await query.delete_message()
+    try:
+        await query.delete_message()
+    except BadRequest as e:
+        utilites_logger.error(e)
     await update.effective_chat.send_message(
         text=text,
         message_thread_id=query.message.message_thread_id,
@@ -923,3 +926,21 @@ async def create_str_info_by_schedule_event_id(context, choice_event_id):
                          f'{time_event}</b>\n')
     text_select_event += f'{text_emoji}\n' if text_emoji else ''
     return text_select_event
+
+
+async def get_schedule_event_ids_studio(context):
+    studio = context.bot_data['studio']
+    reserve_user_data = context.user_data['reserve_user_data']
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+
+    choose_schedule_event_ids = [schedule_event_id]
+    if chose_base_ticket.flag_season_ticket:
+        for v in studio['Театральный интенсив']:
+            if schedule_event_id in v:
+                choose_schedule_event_ids = v
+
+    reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
+    return choose_schedule_event_ids

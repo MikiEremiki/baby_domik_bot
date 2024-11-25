@@ -291,8 +291,14 @@ async def increase_free_and_decrease_nonconfirm_seat(
             qty_adult_free_seat=qty_adult_free_seat_new,
             qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
         )
+        return 1
     except TimeoutError as e:
         db_googlesheets_logger.error(e)
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не уменьшились свободные места и не увеличились '
+                 f'неподтвержденные места у {event_id=} в клиентскую базу')
+        return 0
 
 
 async def decrease_free_and_increase_nonconfirm_seat(
@@ -345,6 +351,10 @@ async def decrease_free_and_increase_nonconfirm_seat(
         db_googlesheets_logger.error(e)
         db_googlesheets_logger.error(
             f'{event_id=} Ошибка при обновлении данных')
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не уменьшились свободные места и не увеличились '
+                 f'неподтвержденные места у {event_id=} в клиентскую базу')
         return 0
 
 
@@ -383,8 +393,14 @@ async def increase_free_seat(
             qty_child_free_seat=qty_child_free_seat_new,
             qty_adult_free_seat=qty_adult_free_seat_new,
         )
+        return 1
     except TimeoutError as e:
         db_googlesheets_logger.error(e)
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не увеличились свободные места у {event_id=}'
+                 f' в клиентскую базу')
+        return 0
 
 
 async def decrease_free_seat(
@@ -422,8 +438,14 @@ async def decrease_free_seat(
             qty_child_free_seat=qty_child_free_seat_new,
             qty_adult_free_seat=qty_adult_free_seat_new,
         )
+        return 1
     except TimeoutError as e:
         db_googlesheets_logger.error(e)
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не уменьшились свободные места у {event_id=}'
+                 f' в клиентскую базу')
+        return 0
 
 
 async def decrease_nonconfirm_seat(
@@ -461,5 +483,11 @@ async def decrease_nonconfirm_seat(
             qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
             qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
         )
+        return 1
     except TimeoutError as e:
         db_googlesheets_logger.error(e)
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не уменьшились неподтвержденные места у {event_id=}'
+                 f' в клиентскую базу')
+        return 0

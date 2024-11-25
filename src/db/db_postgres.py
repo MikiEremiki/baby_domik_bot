@@ -79,6 +79,7 @@ async def create_people(
         user_id,
         client_data,
 ):
+    # TODO Исправить ошибку при вводе одинаковых имен
     session.autoflush = False
 
     people_ids = []

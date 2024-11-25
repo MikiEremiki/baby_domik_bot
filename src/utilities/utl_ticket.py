@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 
 from db import BaseTicket, ScheduleEvent, TheaterEvent, db_postgres
 from db.enum import PriceType, TicketStatus
+from utilities.utl_func import clean_context_on_end_handler
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
 utl_ticket_logger = logging.getLogger('bot.utl_ticket')
@@ -90,8 +91,7 @@ async def get_ticket_and_price(context, base_ticket_id):
     theater_event = await db_postgres.get_theater_event(
         context.session, theater_event_id)
 
-    ticket = await db_postgres.get_base_ticket(context.session,
-                                                     base_ticket_id)
+    ticket = await db_postgres.get_base_ticket(context.session, base_ticket_id)
     price, price_privilege = await get_spec_ticket_price(context,
                                                          ticket,
                                                          schedule_event,
@@ -100,8 +100,10 @@ async def get_ticket_and_price(context, base_ticket_id):
     return ticket, price
 
 
-async def cancel_tickets(update, context):
-    states_for_cancel = ['EMAIL', 'FORMA', 'PHONE', 'CHILDREN', 'PAID']
+async def cancel_tickets_db_and_gspread(update, context):
+    # TODO переделать на более надежный флаг: билет Требует/Не требует отмены.
+    #  По сути не должно быть билетов в статусе CREATED
+    states_for_cancel = ['CHILDREN', 'PAID']
     state = context.user_data.get('STATE', None)
     if state in states_for_cancel:
         utl_ticket_logger.info(context.user_data['STATE'])
@@ -113,9 +115,7 @@ async def cancel_tickets(update, context):
                     'message_id_buy_info']
             )
         except BadRequest as e:
-            if e.message == 'Message to edit not found':
-                utl_ticket_logger.error(
-                    'Возможно возникла проблема записи в клиентскую базу')
+            utl_ticket_logger.error(e)
         except KeyError as e:
             utl_ticket_logger.error(e)
             utl_ticket_logger.error(
@@ -124,24 +124,65 @@ async def cancel_tickets(update, context):
                 f'так как обычно не создается платеж из-за неверного email'
             )
 
-        flag_skip = False
-        reserve_user_data = context.user_data['reserve_user_data']
-        ticket_ids = reserve_user_data.get('ticket_ids', None)
+        await write_to_return_seats_for_sale(context)
 
-        if ticket_ids:
-            text = 'Билеты: '
-            for ticket_id in ticket_ids:
-                ticket = await db_postgres.get_ticket(context.session,
-                                                      ticket_id)
-                text += f'{ticket.id}-{ticket.status.value}|'
-                if ticket.status in [TicketStatus.APPROVED, TicketStatus.PAID]:
-                    flag_skip = True
-                    text += 'Нельзя отменять'
-        else:
-            text = 'Билетов для отмены нет'
 
-        if not flag_skip:
-            utl_ticket_logger.warning(text)
-            ticket_status = TicketStatus.CANCELED
-            text += f'=>{ticket_status.value}'
-            await write_to_return_seats_for_sale(context, status=ticket_status)
+async def create_tickets_and_people(
+        update,
+        context,
+        ticket_status
+):
+    reserve_user_data = context.user_data['reserve_user_data']
+    client_data = reserve_user_data['client_data']
+
+    ticket_ids = await create_tickets(context, ticket_status)
+
+    people_ids = await db_postgres.create_people(context.session,
+                                                 update.effective_user.id,
+                                                 client_data)
+    for ticket_id in ticket_ids:
+        await db_postgres.attach_user_and_people_to_ticket(context.session,
+                                                           ticket_id,
+                                                           update.effective_user.id,
+                                                           people_ids)
+
+    return ticket_ids
+
+
+async def create_tickets(context, ticket_status):
+    ticket_ids = []
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
+    chose_price = reserve_user_data['chose_price']
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+
+    for event_id in choose_schedule_event_ids:
+        ticket = await db_postgres.create_ticket(
+            context.session,
+            base_ticket_id=chose_base_ticket.base_ticket_id,
+            price=chose_price,
+            schedule_event_id=event_id,
+            status=ticket_status,
+        )
+        ticket_ids.append(ticket.id)
+
+    reserve_user_data['ticket_ids'] = ticket_ids
+    return ticket_ids
+
+
+async def cancel_ticket_db_when_end_handler(update, context, text):
+    reserve_user_data = context.user_data['reserve_user_data']
+    ticket_ids = reserve_user_data['ticket_ids']
+
+    for ticket_id in ticket_ids:
+        await db_postgres.update_ticket(
+            context.session, ticket_id, status=TicketStatus.CANCELED)
+
+    await context.bot.send_message(
+        text=text,
+        chat_id=update.effective_chat.id,
+    )
+    await clean_context_on_end_handler(utl_ticket_logger, context)

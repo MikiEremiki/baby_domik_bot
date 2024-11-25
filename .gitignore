@@ -2,7 +2,7 @@ venv/*
 .idea/*
 __pycache__/*
 config/*
-**/archive/log.txt*
+**/archive/*log.txt*
 **/data/conversationbot*
 **/json_files/*
 settings.py

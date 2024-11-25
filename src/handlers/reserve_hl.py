@@ -8,10 +8,12 @@ from telegram import (
     InlineKeyboardButton,
     ReplyKeyboardRemove,
 )
+from telegram.error import TimedOut
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram.constants import ChatType, ChatAction
 
 from db import db_postgres
+from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from db.enum import TicketStatus
 from handlers import init_conv_hl_dialog, check_user_db
@@ -23,9 +25,6 @@ from handlers.sub_hl import (
     remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment,
     get_theater_and_schedule_events_by_month,
-)
-from db.db_googlesheets import (
-    decrease_free_and_increase_nonconfirm_seat,
 )
 from api.googlesheets import write_client_list_waiting, write_client_reserve
 from utilities.utl_check import (
@@ -41,8 +40,13 @@ from utilities.utl_func import (
     get_type_event_ids_by_command, clean_context,
     add_clients_data_to_text, add_qty_visitors_to_text,
     filter_schedule_event_by_active, get_unique_months,
-    clean_replay_kb_and_send_typing_action, create_str_info_by_schedule_event_id
+    clean_replay_kb_and_send_typing_action,
+    create_str_info_by_schedule_event_id,
+    get_schedule_event_ids_studio, clean_context_on_end_handler
 )
+from utilities.utl_googlesheets import update_ticket_db_and_gspread
+from utilities.utl_ticket import (
+    cancel_tickets_db_and_gspread, create_tickets_and_people)
 from utilities.utl_kbd import (
     create_kbd_schedule_and_date, create_kbd_schedule,
     create_kbd_for_time_in_reserve, create_replay_markup,
@@ -53,7 +57,6 @@ from utilities.utl_kbd import (
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
 )
-from utilities.utl_ticket import cancel_tickets
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
@@ -425,7 +428,7 @@ async def choice_option_of_reserve(
     await message.edit_text('Формирую список доступных билетов...')
 
     text = text_select_event + text
-    text += '<b>Выберите подходящий вариант бронирования:</b>\n'
+    text += '\n<b>Выберите подходящий вариант бронирования:</b>\n'
 
     base_tickets_filtered = []
     for i, ticket in enumerate(base_tickets):
@@ -541,38 +544,8 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Проверка пройдена, готовлю дальнейшие шаги...')
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    # TODO Рассмотреть вариант убрать к созданию билета
-    result = await decrease_free_and_increase_nonconfirm_seat(context,
-                                                              schedule_event_id,
-                                                              chose_base_ticket_id)
-
-    if not result:
-        state = 'TICKET'
-
-        reserve_hl_logger.error(f'Бронирование в авто-режиме не сработало')
-
-        keyboard = [add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'],
-            postfix_for_back='TIME')]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        text = ('К сожалению произошла непредвиденная ошибка\n'
-                'Нажмите "Назад" и выберите время повторно.\n'
-                'Если ошибка повторяется свяжитесь с Администратором:\n'
-                f'{context.bot_data['admin']['contacts']}')
-        await message.edit_text(
-            text=text,
-            reply_markup=reply_markup
-        )
-        context.user_data['STATE'] = state
-        return state
-
     await message.delete()
     await send_breaf_message(update, context)
-
-    # Нужно на случай отмены пользователем
-    choose_schedule_event_ids = [schedule_event_id]
-    reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
 
     state = 'FORMA'
     context.user_data['STATE'] = state
@@ -692,7 +665,7 @@ async def get_name_children(
     if chose_base_ticket.quality_of_children > 0:
         text = update.effective_message.text
         wrong_input_data_text = (
-            'Проверьте, что указали дату или возраст правильно\n'
+            'Проверьте, что указали возраст правильно\n'
             'Например:\n'
             'Сергей 2\n'
             'Юля 3\n'
@@ -750,60 +723,47 @@ async def get_name_children(
     else:
         processed_data_on_children = [['0', '0']]
 
-    reserve_user_data = context.user_data['reserve_user_data']
     client_data = reserve_user_data['client_data']
     client_data['data_children'] = processed_data_on_children
     reserve_user_data['original_child_text'] = update.effective_message.text
 
-    user = context.user_data['user']
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            'отправил:',
-        ],
-    ))
-    reserve_hl_logger.info(client_data)
-
     command = context.user_data.get('command', False)
     if '_admin' in command:
-        studio = context.bot_data['studio']
         schedule_event_id = reserve_user_data['choose_schedule_event_id']
-        price = reserve_user_data['chose_price']
-        choose_schedule_event_ids = [schedule_event_id]
+        await get_schedule_event_ids_studio(context)
+        await update.effective_chat.send_action(ChatAction.TYPING)
 
-        ticket_ids = []
-        if chose_base_ticket.flag_season_ticket:
-            for v in studio['Театральный интенсив']:
-                if schedule_event_id in v:
-                    choose_schedule_event_ids = v
-        for event_id in choose_schedule_event_ids:
-            ticket = await db_postgres.create_ticket(
-                context.session,
-                base_ticket_id=chose_base_ticket.base_ticket_id,
-                price=price,
-                schedule_event_id=event_id,
-                status=TicketStatus.CREATED,
-            )
-            ticket_ids.append(ticket.id)
+        text = 'Создаю новые билеты в бд...'
+        message = await update.effective_chat.send_message(text)
+        ticket_ids = await create_tickets_and_people(
+            update, context, TicketStatus.CREATED)
 
-        reserve_user_data['ticket_ids'] = ticket_ids
-        reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
+        text += '\nЗаписываю новый билет в клиентскую базу...'
+        await message.edit_text(text)
+        await write_client_reserve(context,
+                                   update.effective_chat.id,
+                                   chose_base_ticket,
+                                   TicketStatus.CREATED.value)
 
-        #TODO Исправить ошибку при вводе одинаковых имен
-        people_ids = await db_postgres.create_people(context.session,
-                                                     update.effective_user.id,
-                                                     client_data)
-        for ticket_id in ticket_ids:
-            await db_postgres.attach_user_and_people_to_ticket(context.session,
-                                                               ticket_id,
-                                                               update.effective_user.id,
-                                                               people_ids)
-        write_client_reserve(context,
-                             update.effective_chat.id,
-                             chose_base_ticket,
-                             TicketStatus.APPROVED.value)
+        text += '\nУменьшаю кол-во свободных мест...'
+        await message.edit_text(text)
+        result = await decrease_free_seat(
+            context, schedule_event_id, chose_base_ticket_id)
+        if not result:
+            for ticket_id in ticket_ids:
+                await update_ticket_db_and_gspread(context,
+                                                   ticket_id,
+                                                   status=TicketStatus.CANCELED)
+            text += ('\nНе уменьшились свободные места'
+                     '\nНовый билет отменен'
+                     '\nНеобходимо повторить резервирование заново')
+            await message.edit_text(text)
+            context.user_data['conv_hl_run'] = False
+            await clean_context_on_end_handler(reserve_hl_logger, context)
+            return ConversationHandler.END
 
+        text += '\nПоследняя проверка...'
+        await message.edit_text(text)
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
@@ -885,7 +845,7 @@ async def conversation_timeout(
     reserve_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
 
     await clean_context(context)
     context.user_data['conv_hl_run'] = False
@@ -984,12 +944,16 @@ async def get_phone_for_waiting(
         message_thread_id=thread_id
     )
     write_client_list_waiting(context)
-    await update.effective_chat.send_message(
-        text='Вы добавлены в лист ожидания, '
-             'если место освободится, то с вами свяжутся. '
-             'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
-             f'{context.bot_data['admin']['contacts']}'
-    )
+    try:
+        await update.effective_chat.send_message(
+            text='Вы добавлены в лист ожидания, '
+                 'если место освободится, то с вами свяжутся. '
+                 'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
+                 f'{context.bot_data['admin']['contacts']}'
+        )
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+        reserve_hl_logger.error('Выполнение запроса занимает много времени')
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state

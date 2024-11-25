@@ -70,9 +70,9 @@ async def get_ticket_by_id(
                 update.effective_chat.id,
                 del_message_ids[0]
             )
-
-    ticket_id = update.message.text
-    ticket = await db_postgres.get_ticket(context.session, int(ticket_id))
+    client_data = context.user_data['reserve_user_data']['client_data']
+    ticket_id = int(update.message.text)
+    ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if ticket:
         user = ticket.user
         people = ticket.people
@@ -85,11 +85,16 @@ async def get_ticket_by_id(
         )
         adult_str = ''
         child_str = ''
+        client_data['data_children'] = []
         for person in people:
             if hasattr(person.adult, 'phone'):
                 adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+                client_data['name_adult'] = person.name
+                client_data['phone'] = person.adult.phone
             elif hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}\n'
+                client_data['data_children'].append(
+                    [person.name, str(person.child.age)])
         people_str = adult_str + child_str
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
@@ -118,6 +123,7 @@ async def get_ticket_by_id(
                                                  reply_markup=reply_markup)
 
         context.user_data['reserve_admin_data']['ticket_id'] = ticket_id
+        context.user_data['reserve_user_data']['original_child_text'] = child_str
         state = 1
         await set_back_context(context, state, text, reply_markup)
         return state

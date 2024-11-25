@@ -1,6 +1,7 @@
 import logging
 
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import (
+    ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram import Update, ReplyKeyboardRemove, LinkPreviewOptions
 from telegram.constants import ChatType, ChatAction
 from telegram.error import BadRequest
@@ -19,18 +20,18 @@ from settings.settings import (
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
-    clean_context_on_end_handler, utilites_logger, cancel_common, del_messages,
+    clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event
 )
-from utilities.utl_ticket import cancel_tickets
+from utilities.utl_ticket import cancel_tickets_db_and_gspread
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await check_user_db(update, context)
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
     await clean_context(context)
     await clean_context_on_end_handler(main_handlers_logger, context)
 
@@ -131,6 +132,8 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=reply_to_msg_id)
         return
 
+    await update.effective_chat.send_action(
+        ChatAction.TYPING, message_thread_id=update.message.message_thread_id)
     if len(context.args) == 1:
         user = ticket.user
         people = ticket.people
@@ -334,17 +337,11 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id_buy_info = query.data.split('|')[1].split()[1]
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    choose_schedule_event_ids = []
+    await query.answer()
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
-        choose_base_ticket_id = ticket.base_ticket_id
-        choose_schedule_event_ids.append(ticket.schedule_event_id)
-
-    await query.answer()
-    for schedule_event_id in choose_schedule_event_ids:
-        await decrease_nonconfirm_seat(context,
-                                       schedule_event_id,
-                                       choose_base_ticket_id)
+        await decrease_nonconfirm_seat(
+            context, ticket.schedule_event_id, ticket.base_ticket_id)
 
     text = message.text + f'\nСписаны неподтвержденные места...'
     await message.edit_text(text)
@@ -422,17 +419,11 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id_buy_info = query.data.split('|')[1].split()[1]
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    choose_schedule_event_ids = []
+    await query.answer()
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
-        choose_base_ticket_id = ticket.base_ticket_id
-        choose_schedule_event_ids.append(ticket.schedule_event_id)
-
-    await query.answer()
-    for schedule_event_id in choose_schedule_event_ids:
-        await increase_free_and_decrease_nonconfirm_seat(context,
-                                                         schedule_event_id,
-                                                         choose_base_ticket_id)
+        await increase_free_and_decrease_nonconfirm_seat(
+            context, ticket.schedule_event_id, ticket.base_ticket_id)
 
     text = message.text + f'\nВозвращены места в продажу...'
     await message.edit_text(text)
@@ -614,7 +605,14 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = int(state)
     else:
         state = state.upper()
-    text, reply_markup, del_message_ids = await get_back_context(context, state)
+    try:
+        text, reply_markup, del_message_ids = await get_back_context(context, state)
+    except KeyError as e:
+        main_handlers_logger.error(e)
+        await update.effective_chat.send_message(
+            'Произошла ошибка при возврате назад\n'
+            'Пожалуйста, выполните команду /start и повторите операцию заново')
+        raise ApplicationHandlerStop
     if del_message_ids:
         await del_messages(update, context, del_message_ids)
 
@@ -770,13 +768,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'reserve_admin':
             text += (use_command_text + reserve_text + reserve_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'studio':
             text += (use_command_text + studio_text + '\n' +
                      description + address + ask_question)
@@ -789,13 +787,13 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'studio_admin':
             text += (use_command_text + studio_text + studio_admin_text)
             await cancel_common(update, text)
 
             if '|' in query.data:
-                await cancel_tickets(update, context)
+                await cancel_tickets_db_and_gspread(update, context)
         case 'birthday':
             text += (use_command_text + bd_order_text + '\n' +
                      description + address + ask_question)
@@ -827,7 +825,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
-    utilites_logger.info(
+    main_handlers_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
         f'Вызвал команду reset'
@@ -836,8 +834,8 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> -1:
         chat_id=update.effective_chat.id,
         text='Попробуйте выполнить новый запрос'
     )
-    await cancel_tickets(update, context)
-    await clean_context_on_end_handler(utilites_logger, context)
+    await cancel_tickets_db_and_gspread(update, context)
+    await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
@@ -855,7 +853,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Текущая операция сброшена.\nМожете выполните новую команду',
         message_thread_id=update.message.message_thread_id
     )
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
     await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END

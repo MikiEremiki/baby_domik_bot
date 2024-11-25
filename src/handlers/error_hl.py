@@ -12,7 +12,7 @@ from utilities.utl_db import open_session
 from utilities.utl_func import (
     clean_context, clean_context_on_end_handler, split_message,
 )
-from utilities.utl_ticket import cancel_tickets
+from utilities.utl_ticket import cancel_tickets_db_and_gspread
 
 error_hl_logger = logging.getLogger('bot.error_hl')
 
@@ -69,7 +69,7 @@ async def error_handler(update: Update,
 
         await split_message(context, message)
 
-    await cancel_tickets(update, context)
+    await cancel_tickets_db_and_gspread(update, context)
 
     await clean_context(context)
     await clean_context_on_end_handler(error_hl_logger, context)

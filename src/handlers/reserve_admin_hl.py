@@ -5,17 +5,19 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ConversationHandler
 
-from api.googlesheets import update_ticket_in_gspread, write_client_reserve
+from api.googlesheets import write_client_reserve
 from db import db_postgres
 from db.enum import TicketStatus
-from db.db_googlesheets import decrease_free_seat, increase_free_seat
+from db.db_googlesheets import increase_free_seat, decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import processing_successful_payment
 from utilities.utl_func import (
     add_btn_back_and_cancel, set_back_context,
-    create_str_info_by_schedule_event_id
+    create_str_info_by_schedule_event_id,
+    clean_context_on_end_handler,
 )
+from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_kbd_and_text_tickets_for_choice,
     create_replay_markup,
@@ -176,20 +178,10 @@ async def start_forma_info(
     _, callback_data = remove_intent_id(query.data)
     base_ticket_id = int(callback_data)
 
-    chose_base_ticket, price = await get_ticket_and_price(context,
-                                                          base_ticket_id)
-
     reserve_user_data = context.user_data['reserve_user_data']
-    reserve_user_data['chose_price'] = price
-    reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
-
-    text = 'Уменьшаю места на выбранное мероприятие...'
-    await query.edit_message_text(text)
-    await decrease_free_seat(context,
-                             schedule_event_id,
-                             base_ticket_id)
+    reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
     if 'migration' in context.user_data['command']:
         ticket_id = context.user_data['reserve_admin_data']['ticket_id']
@@ -198,26 +190,50 @@ async def start_forma_info(
         for person in ticket.people:
             people_ids.append(person.id)
 
-        ticket_status = TicketStatus.MIGRATED
-        text += text + '\nОбновляю билет который надо перенести...'
+        old_ticket_status = ticket.status
+        new_ticket_status = TicketStatus.MIGRATED
+        text = 'Проверяю надо ли переносить билет...'
         await query.edit_message_text(text)
-        update_ticket_in_gspread(ticket_id, ticket_status.value)
-        await db_postgres.update_ticket(context.session,
-                                        ticket_id,
-                                        status=ticket_status)
-        text += text + '\nВозвращаю места с перенесенного мероприятия...'
-        await query.edit_message_text(text)
-        await increase_free_seat(context,
-                                 ticket.schedule_event_id,
-                                 ticket.base_ticket_id)
+        if new_ticket_status != old_ticket_status:
+            text += '\nОбновляю билет который надо перенести...'
+            await query.edit_message_text(text)
+            await update.effective_chat.send_action(ChatAction.TYPING)
+            await update_ticket_db_and_gspread(context,
+                                               ticket_id,
+                                               status=new_ticket_status)
+            text += '\nВозвращаю места с перенесенного мероприятия...'
+            await query.edit_message_text(text)
+            result = await increase_free_seat(
+                context, ticket.schedule_event_id, ticket.base_ticket_id)
+            if not result:
+                await update_ticket_db_and_gspread(context,
+                                                   ticket_id,
+                                                   status=old_ticket_status)
+                text += (
+                    '\nМеста не были возвращены в продажу.'
+                    '\nСтатус билета возвращен обратно.'
+                    '\nНеобходимо повторить перенос заново.')
+                await query.edit_message_text(text)
+                context.user_data['conv_hl_run'] = False
+                await clean_context_on_end_handler(reserve_admin_hl_logger, context)
+                return ConversationHandler.END
+        else:
+            text += '\nБилет уже в статусе Перенесен...'
+            await query.edit_message_text(text)
 
-        text += text + '\nСоздаю новые билеты в бд...'
+        text += '\nСоздаю новые билеты в бд...'
         await query.edit_message_text(text)
+
+        chose_base_ticket, chose_price = await get_ticket_and_price(
+            context, base_ticket_id)
+        reserve_user_data['chose_price'] = chose_price
+        reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
+
         ticket_ids = []
         ticket = await db_postgres.create_ticket(
             context.session,
             base_ticket_id=base_ticket_id,
-            price=price,
+            price=chose_price,
             schedule_event_id=schedule_event_id,
             promo_id=ticket.promo_id,
             status=TicketStatus.CREATED,
@@ -231,14 +247,38 @@ async def start_forma_info(
                                                            ticket.id,
                                                            update.effective_user.id,
                                                            people_ids)
-        text += text + '\nЗаписываю новый билет в клиентскую базу...'
-        await query.edit_message_text(text)
-        write_client_reserve(context,
-                             update.effective_chat.id,
-                             chose_base_ticket,
-                             TicketStatus.APPROVED.value)
 
+        text += '\nЗаписываю новый билет в клиентскую базу...'
+        await query.edit_message_text(text)
+        await update.effective_chat.send_action(ChatAction.TYPING)
+        await write_client_reserve(context,
+                                   update.effective_chat.id,
+                                   chose_base_ticket,
+                                   TicketStatus.CREATED.value)
+
+        text += '\nУменьшаю кол-во свободных мест...'
+        await query.edit_message_text(text)
+        result = await decrease_free_seat(
+            context, schedule_event_id, base_ticket_id)
+        if not result:
+            await update_ticket_db_and_gspread(context,
+                                               ticket_id,
+                                               status=TicketStatus.CANCELED)
+            text += ('\nНе уменьшились свободные места'
+                     '\nНовый билет отменен.'
+                     '\nСтарый билет будет учтен, что уже перенесен.'
+                     '\nНеобходимо повторить перенос заново')
+            await query.edit_message_text(text)
+            context.user_data['conv_hl_run'] = False
+            await clean_context_on_end_handler(reserve_admin_hl_logger, context)
+            return ConversationHandler.END
+
+        text += '\nПоследняя проверка...'
+        await query.edit_message_text(text)
+        await update.effective_chat.send_action(ChatAction.TYPING)
         await processing_successful_payment(update, context)
+        text += '\n\nБилет успешно перенесен.'
+        await query.edit_message_text(text)
 
         state = ConversationHandler.END
         context.user_data['conv_hl_run'] = False
@@ -253,7 +293,6 @@ async def start_forma_info(
             reply_markup=reply_markup
         )
 
-        reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
         reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'
 
