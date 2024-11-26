@@ -268,7 +268,9 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                              f'{base_ticket.name} '
                                              f'{int(price)}руб\n\n')
                 text += 'На кого оформлен:\n'
-                text += people_str
+                text += people_str + '\n\n'
+                refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
+                text += refund
 
                 await update.message.reply_text(
                     text, reply_to_message_id=reply_to_msg_id)

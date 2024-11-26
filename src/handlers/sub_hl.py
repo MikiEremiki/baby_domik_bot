@@ -594,8 +594,10 @@ async def send_by_ticket_info(update, context):
     ticket_id = ticket_ids[0]
     text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
     text += context.user_data['common_data']['text_for_notification_massage']
-    text += (f'__________\n'
-             'Задать вопросы можно в сообщениях группы\n'
+    text += f'__________\n'
+    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
+    text += refund
+    text += ('Задать вопросы можно в сообщениях группы\n'
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
         text=text,
