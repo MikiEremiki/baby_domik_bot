@@ -743,9 +743,7 @@ async def get_name_children(
                                    update.effective_chat.id,
                                    chose_base_ticket,
                                    TicketStatus.CREATED.value)
-
-        text += '\nУменьшаю кол-во свободных мест...'
-        await message.edit_text(text)
+        reserve_user_data['changed_seat'] = False
         result = await decrease_free_seat(
             context, schedule_event_id, chose_base_ticket_id)
         if not result:
@@ -760,8 +758,10 @@ async def get_name_children(
             context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
+        else:
+            reserve_user_data['changed_seat'] = True
 
-        text += '\nПоследняя проверка...'
+        text += '\nУменьшил кол-во свободных мест...\nПоследняя проверка...'
         await message.edit_text(text)
         await processing_successful_payment(update, context)
         text += '\n\nБилет успешно оформлен.'

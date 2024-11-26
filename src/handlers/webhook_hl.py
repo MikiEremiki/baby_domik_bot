@@ -55,6 +55,8 @@ async def webhook_update(update: WebhookNotification,
                                             status=ticket_status)
             text += f'<code>{ticket_id}</code> '
         text += '</b>\n\n'
+        refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
+        text += refund
 
         text += (
             'Платеж успешно обработан\n\n'

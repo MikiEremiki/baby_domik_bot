@@ -8,7 +8,7 @@ from telegram import (
     ReplyKeyboardMarkup, KeyboardButton, Message
 )
 from telegram.constants import ChatAction
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TimedOut
 from telegram.ext import ContextTypes, ConversationHandler
 from yookassa import Payment
 
@@ -285,7 +285,11 @@ async def create_and_send_payment(
                                chose_base_ticket,
                                TicketStatus.CREATED.value)
     text += '\nСохраняю за вами резерв по кол-ву выбранных мест...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        sub_hl_logger.error(e)
+    reserve_user_data['changed_seat'] = False
     result = await decrease_free_and_increase_nonconfirm_seat(
         context, schedule_event_id, chose_base_ticket_id)
     if not result:
@@ -295,6 +299,8 @@ async def create_and_send_payment(
         await cancel_ticket_db_when_end_handler(update, context, text)
         context.user_data['conv_hl_run'] = False
         return ConversationHandler.END
+    else:
+        reserve_user_data['changed_seat'] = True
 
     ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
     max_len_decs = 128
@@ -594,8 +600,10 @@ async def send_by_ticket_info(update, context):
     ticket_id = ticket_ids[0]
     text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
     text += context.user_data['common_data']['text_for_notification_massage']
-    text += (f'__________\n'
-             'Задать вопросы можно в сообщениях группы\n'
+    text += f'__________\n'
+    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
+    text += refund
+    text += ('Задать вопросы можно в сообщениях группы\n'
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
         text=text,
