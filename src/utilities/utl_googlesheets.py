@@ -14,13 +14,14 @@ async def write_to_return_seats_for_sale(context):
     ticket_ids = reserve_user_data.get('ticket_ids', None)
     command = context.user_data['command']
     ticket_status = TicketStatus.CANCELED
+    changed_seat = reserve_user_data.get('changed_seat', False)
 
     if ticket_ids:
         for ticket_id in ticket_ids:
             ticket = await db_postgres.get_ticket(
                 context.session, ticket_id)
             text = f'Билету|{ticket.id}-{ticket.status.value}|'
-            if ticket.status == TicketStatus.CREATED:
+            if ticket.status == TicketStatus.CREATED and changed_seat:
                 schedule_event_id = ticket.schedule_event_id
                 base_ticket_id = ticket.base_ticket_id
                 if '_admin' in command:

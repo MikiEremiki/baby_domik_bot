@@ -67,6 +67,7 @@ context_user_data: Dict = {
         'date_for_price': datetime,
         'ticket_ids': List[int],
         'flag_send_ticket_info': bool,
+        'changed_seat': bool,
     },
     'reserve_admin_data': {
         'ticket_id': int,

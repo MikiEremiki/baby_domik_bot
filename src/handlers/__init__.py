@@ -26,6 +26,7 @@ async def init_conv_hl_dialog(update, context: ContextTypes.DEFAULT_TYPE):
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['back'] = {}
     reserve_user_data['client_data'] = {}
+    reserve_user_data['changed_seat'] = False
 
     return state
 
