@@ -651,17 +651,43 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.edit_text(message.text + f'и бд {cme_status.value}')
 
     await query.edit_message_reply_markup()
+    reply_markup = None
     match step:
         case '1':
             await message.edit_text(
                 f'Заявка {cme_id} подтверждена, ждём предоплату')
 
             text = (f'<b>У нас отличные новости'
-                    f' по вашей заявке: {cme_id}!</b>\n')
+                    f' по вашей заявке: {cme_id}</b>\n')
             text += 'Мы с радостью проведем день рождения вашего малыша\n\n'
-            text += ('Если вы готовы внести предоплату, то нажмите на команду\n'
-                     f'/{COMMAND_DICT['BD_PAID'][0]}\n\n')
-            text += '<i>Вам будет отправлено сообщение с информацией об оплате</i>'
+            text += (
+                '❗️важно\n'
+                'При отмене мероприятия заказчиком не менее чем за 24 часа до '
+                'запланированного времени проведения, возможен перенос на другую'
+                ' дату или сохранение средств, внесенных в предоплату, '
+                'на депозите, которыми можно воспользоваться и забронировать '
+                'билеты в театр «Домик» в течение 6 месяцев❗️\n\n'
+                'В случае отмены мероприятия заказчиком менее, чем за 24 часа до '
+                'мероприятия, перенос даты или сохранение средств на депозите '
+                'не возможно и внесенная предоплата не возвращается\n\n')
+            text += (
+                '- Если вы согласны с правилами, то переходите к оплате:\n'
+                '<b>- Сумма к оплате поступит в течении 5 минут</b>\n'
+                ' Нажмите кнопку <b>Оплатить</b>\n'
+                ' <i>Вы будете перенаправлены на платежный сервис Юкасса'
+                ' Способ оплаты - СБП</i>\n\n'
+            )
+            text += '<i>- Ссылка не имеет ограничений по времени</i>\n'
+            text += ('<i>- После оплаты отправьте сюда в чат квитанцию об '
+                     'оплате файлом или картинкой.</i>\n')
+            text += '<i> и <u>обязательно</u> напишите номер заявки</i>\n'
+            keyboard = []
+            button_payment = InlineKeyboardButton(
+                'Оплатить',
+                url='https://yookassa.ru/my/i/Z1Xo7iDNcw7l/l'
+            )
+            keyboard.append([button_payment])
+            reply_markup = InlineKeyboardMarkup(keyboard)
 
         case '2':
             await message.edit_text(f'Подтверждена бронь по заявке {cme_id}')
@@ -674,6 +700,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=text,
             chat_id=chat_id,
             reply_to_message_id=message_id_for_reply,
+            reply_markup=reply_markup,
         )
     except BadRequest as e:
         main_handlers_logger.error(e)
