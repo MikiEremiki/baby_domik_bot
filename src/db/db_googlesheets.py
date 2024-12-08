@@ -297,7 +297,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились свободные места и не увеличились '
-                 f'неподтвержденные места у {event_id=} в клиентскую базу')
+                 f'неподтвержденные места у {event_id=} в расписании')
         return 0
 
 
@@ -354,7 +354,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились свободные места и не увеличились '
-                 f'неподтвержденные места у {event_id=} в клиентскую базу')
+                 f'неподтвержденные места у {event_id=} в расписании')
         return 0
 
 
@@ -399,7 +399,7 @@ async def increase_free_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не увеличились свободные места у {event_id=}'
-                 f' в клиентскую базу')
+                 f' в расписании')
         return 0
 
 
@@ -444,7 +444,7 @@ async def decrease_free_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились свободные места у {event_id=}'
-                 f' в клиентскую базу')
+                 f' в расписании')
         return 0
 
 
@@ -489,5 +489,5 @@ async def decrease_nonconfirm_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились неподтвержденные места у {event_id=}'
-                 f' в клиентскую базу')
+                 f' в расписании')
         return 0
