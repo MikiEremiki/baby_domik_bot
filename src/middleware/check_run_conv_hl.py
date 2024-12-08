@@ -2,7 +2,8 @@ from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ApplicationHandlerStop, CommandHandler
 
 from settings.settings import COMMAND_DICT
-from utilities.utl_func import add_btn_back_and_cancel, extract_command
+from utilities.utl_func import extract_command
+from utilities.utl_kbd import add_btn_back_and_cancel
 
 commands = [
                 COMMAND_DICT['RESERVE'][0],

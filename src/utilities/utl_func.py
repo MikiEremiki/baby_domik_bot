@@ -33,30 +33,6 @@ from utilities.schemas.context_user_data import context_user_data
 utilites_logger = logging.getLogger('bot.utilites')
 
 
-def add_btn_back_and_cancel(
-        add_cancel_btn=True,
-        postfix_for_cancel=None,
-        add_back_btn=True,
-        postfix_for_back=None
-) -> List[InlineKeyboardButton]:
-    """
-    :param add_cancel_btn: Опциональное добавление кнопки Отменить.
-    :param add_back_btn: Опциональное добавление кнопки Назад
-    :param postfix_for_cancel: Добавление дополнительной приписки для
-    корректного определения случая при использовании Отменить.
-    :param postfix_for_back: Добавление дополнительной приписки для
-    корректного определения случая при использовании Назад
-    :return: List[InlineKeyboardButton]
-    """
-    list_btn = []
-
-    if add_back_btn:
-        list_btn.append(create_btn('Назад', postfix_for_back))
-    if add_cancel_btn:
-        list_btn.append(create_btn('Отменить', postfix_for_cancel))
-    return list_btn
-
-
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     utilites_logger.info(
         f'{update.effective_user.id}: '
@@ -360,17 +336,6 @@ async def get_contact(
         reply_markup=ReplyKeyboardRemove()
     )
     print(update.message.contact)
-
-
-def create_btn(text, postfix_for_callback):
-    callback_data = text
-    if not postfix_for_callback is None:
-        callback_data += f'-{postfix_for_callback}'
-    btn = InlineKeyboardButton(
-        text,
-        callback_data=callback_data
-    )
-    return btn
 
 
 def is_admin(update: Update):

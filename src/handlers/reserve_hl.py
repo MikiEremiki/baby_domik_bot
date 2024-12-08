@@ -32,8 +32,7 @@ from utilities.utl_check import (
     check_entered_command, check_topic, check_input_text, is_skip_ticket
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text, add_btn_back_and_cancel,
-    set_back_context, check_phone_number,
+    extract_phone_number_from_text, set_back_context, check_phone_number,
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
@@ -52,7 +51,7 @@ from utilities.utl_kbd import (
     create_kbd_for_time_in_reserve, create_replay_markup,
     create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio,
     create_kbd_for_date_in_reserve, remove_intent_id, create_kbd_with_months,
-    adjust_kbd
+    adjust_kbd, add_btn_back_and_cancel,
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
@@ -146,11 +145,15 @@ async def choice_show_or_date(
     schedule_events = await db_postgres.get_schedule_events_by_ids(
         context.session, schedule_event_ids)
 
-    enum_theater_events, schedule_events_filter_by_month = await (
-        get_theater_and_schedule_events_by_month(context,
-                                                 schedule_events,
-                                                 number_of_month_str)
-    )
+    try:
+        enum_theater_events, schedule_events_filter_by_month = await (
+            get_theater_and_schedule_events_by_month(context,
+                                                     schedule_events,
+                                                     number_of_month_str)
+        )
+    except ValueError as e:
+        reserve_hl_logger.error(e)
+        return
 
     text_legend = context.bot_data['texts']['text_legend']
 
@@ -205,7 +208,10 @@ async def choice_show_or_date(
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     await query.delete_message()
     return state
 
@@ -266,7 +272,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if flag_santa:
         text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
 
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+
     photo = (
         context.bot_data
         .get('afisha', {})
@@ -339,7 +349,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
 
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     await query.delete_message()
     await update.effective_chat.send_message(
         text=text,
@@ -467,7 +480,10 @@ async def choice_option_of_reserve(
              '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
     await message.delete()
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
@@ -594,9 +610,10 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
 
-    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    base_ticket_id = context.user_data['reserve_user_data'][
+        'chose_base_ticket_id']
     base_ticket = await db_postgres.get_base_ticket(context.session,
-                                                    chose_base_ticket_id)
+                                                    base_ticket_id)
     if base_ticket.quality_of_children > 0:
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
@@ -743,7 +760,9 @@ async def get_name_children(
                                    update.effective_chat.id,
                                    chose_base_ticket,
                                    TicketStatus.CREATED.value)
-        reserve_user_data['changed_seat'] = False
+
+        text += '\nУменьшаю кол-во свободных мест...'
+        await message.edit_text(text)
         result = await decrease_free_seat(
             context, schedule_event_id, chose_base_ticket_id)
         if not result:
@@ -758,14 +777,13 @@ async def get_name_children(
             context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
-        else:
-            reserve_user_data['changed_seat'] = True
 
-        text += '\nУменьшил кол-во свободных мест...\nПоследняя проверка...'
-        await message.edit_text(text)
+        text += '\nПоследняя проверка...'
+        try:
+            await message.edit_text(text)
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
         await processing_successful_payment(update, context)
-        text += '\n\nБилет успешно оформлен.'
-        await message.edit_text(text)
 
         state = ConversationHandler.END
         context.user_data['conv_hl_run'] = False
@@ -945,16 +963,12 @@ async def get_phone_for_waiting(
         message_thread_id=thread_id
     )
     write_client_list_waiting(context)
-    try:
-        await update.effective_chat.send_message(
-            text='Вы добавлены в лист ожидания, '
-                 'если место освободится, то с вами свяжутся. '
-                 'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
-                 f'{context.bot_data['admin']['contacts']}'
-        )
-    except TimedOut as e:
-        reserve_hl_logger.error(e)
-        reserve_hl_logger.error('Выполнение запроса занимает много времени')
+    await update.effective_chat.send_message(
+        text='Вы добавлены в лист ожидания, '
+             'если место освободится, то с вами свяжутся. '
+             'Если у вас есть вопросы, вы можете связаться с Администратором:\n'
+             f'{context.bot_data['admin']['contacts']}'
+    )
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state

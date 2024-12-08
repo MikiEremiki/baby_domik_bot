@@ -2,7 +2,7 @@ from telegram import InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from db import db_postgres
-from utilities import add_btn_back_and_cancel
+from utilities.utl_kbd import add_btn_back_and_cancel
 from utilities.utl_check import check_email
 
 

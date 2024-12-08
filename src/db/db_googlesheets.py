@@ -297,7 +297,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились свободные места и не увеличились '
-                 f'неподтвержденные места у {event_id=} в клиентскую базу')
+                 f'неподтвержденные места у {event_id=} в расписании')
         return 0
 
 
@@ -354,7 +354,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились свободные места и не увеличились '
-                 f'неподтвержденные места у {event_id=} в клиентскую базу')
+                 f'неподтвержденные места у {event_id=} в расписании')
         return 0
 
 
@@ -399,7 +399,7 @@ async def increase_free_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не увеличились свободные места у {event_id=}'
-                 f' в клиентскую базу')
+                 f' в расписании')
         return 0
 
 
@@ -444,7 +444,7 @@ async def decrease_free_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились свободные места у {event_id=}'
-                 f' в клиентскую базу')
+                 f' в расписании')
         return 0
 
 
@@ -489,5 +489,62 @@ async def decrease_nonconfirm_seat(
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
             text=f'Не уменьшились неподтвержденные места у {event_id=}'
-                 f' в клиентскую базу')
+                 f' в расписании')
+        return 0
+
+
+async def update_free_seat(
+        context: ContextTypes.DEFAULT_TYPE,
+        event_id,
+        old_base_ticket_id,
+        new_base_ticket_id
+):
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, event_id)
+    old_base_ticket = await db_postgres.get_base_ticket(
+        context.session, old_base_ticket_id)
+    new_base_ticket = await db_postgres.get_base_ticket(
+        context.session, new_base_ticket_id)
+
+    q_child_free_seat = schedule_event.qty_child_free_seat
+    q_adult_free_seat = schedule_event.qty_adult_free_seat
+
+    q_child_old = old_base_ticket.quality_of_children
+    q_adult_old = old_base_ticket.quality_of_adult
+    q_add_adult_old = old_base_ticket.quality_of_add_adult
+
+    q_child_new = new_base_ticket.quality_of_children
+    q_adult_new = new_base_ticket.quality_of_adult
+    q_add_adult_new = new_base_ticket.quality_of_add_adult
+
+    qty_child_free_seat_new = (
+            q_child_free_seat
+            + q_child_old
+            - q_child_new
+    )
+    qty_adult_free_seat_new = (
+            q_adult_free_seat
+            + (q_adult_old + q_add_adult_old)
+            - (q_adult_new + q_add_adult_new)
+    )
+
+    numbers = [
+        qty_child_free_seat_new,
+        qty_adult_free_seat_new,
+    ]
+
+    try:
+        write_data_reserve(event_id, numbers, 3)
+        await db_postgres.update_schedule_event(
+            context.session,
+            int(event_id),
+            qty_child_free_seat=qty_child_free_seat_new,
+            qty_adult_free_seat=qty_adult_free_seat_new,
+        )
+        return 1
+    except TimeoutError as e:
+        db_googlesheets_logger.error(e)
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'Не обновились свободные места у {event_id=} в расписании')
         return 0

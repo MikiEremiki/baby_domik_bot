@@ -22,16 +22,14 @@ from db.db_googlesheets import (
     decrease_free_and_increase_nonconfirm_seat,
 )
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
-from utilities import add_btn_back_and_cancel
 from utilities.utl_func import (
     get_unique_months, get_full_name_event,
     filter_schedule_event_by_active,
-    get_formatted_date_and_time_of_event,
+    get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
-    get_schedule_event_ids_studio
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
-from utilities.utl_kbd import create_email_confirm_btn
+from utilities.utl_kbd import create_email_confirm_btn, add_btn_back_and_cancel
 from utilities.utl_ticket import (
     create_tickets_and_people, cancel_ticket_db_when_end_handler)
 
@@ -191,7 +189,11 @@ async def update_schedule_event_data(update: Update,
 
     sub_hl_logger.info(text)
 
-    await update.callback_query.answer()
+    query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        sub_hl_logger.error(e)
     return 'updates'
 
 
@@ -376,11 +378,9 @@ async def create_and_send_payment(
   Способ оплаты - СБП</i>
 
 - Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
-- Если вы уже сделали оплату, <b>отправьте квитанцию об оплате файлом или картинкой.</b>
-
-__________
-После оплаты необходимо:
-Дождаться подтверждения""",
+- Если вы уже сделали оплату
+ или подтверждение факта оплаты не пришло в течении 5-10 минут
+ <b>отправьте квитанцию об оплате файлом или картинкой.</b>""",
         reply_markup=reply_markup,
         disable_web_page_preview=True
     )

@@ -3,8 +3,9 @@ import logging
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 
-from utilities.utl_func import add_btn_back_and_cancel
-from utilities.utl_kbd import create_kbd_with_number_btn, adjust_kbd
+from utilities.utl_kbd import (
+    create_kbd_with_number_btn, adjust_kbd, add_btn_back_and_cancel
+)
 
 afisha_hl_logger = logging.getLogger('bot.afisha_hl')
 

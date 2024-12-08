@@ -12,16 +12,15 @@ from db.db_googlesheets import increase_free_seat, decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from handlers import init_conv_hl_dialog, check_user_db
 from handlers.sub_hl import processing_successful_payment
+from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_func import (
-    add_btn_back_and_cancel, set_back_context,
+    set_back_context,
     create_str_info_by_schedule_event_id,
     clean_context_on_end_handler,
 )
-from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
-    create_kbd_and_text_tickets_for_choice,
-    create_replay_markup,
-    remove_intent_id,
+    create_kbd_and_text_tickets_for_choice, create_replay_markup,
+    remove_intent_id, add_btn_back_and_cancel,
 )
 from utilities.utl_ticket import get_ticket_and_price
 

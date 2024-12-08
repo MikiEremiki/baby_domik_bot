@@ -12,8 +12,7 @@ from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
 from conv_hl import (
     reserve_conv_hl, reserve_admin_conv_hl, list_wait_conv_hl, birthday_conv_hl,
-    birthday_paid_conv_hl, afisha_conv_hl, support_conv_hl,
-    migration_admin_conv_hl, studio_conv_hl,
+    afisha_conv_hl, support_conv_hl, migration_admin_conv_hl, studio_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
@@ -52,7 +51,6 @@ def set_handlers(application, config):
         reserve_admin_conv_hl,
         list_wait_conv_hl,
         birthday_conv_hl,
-        birthday_paid_conv_hl,
         afisha_conv_hl,
         support_conv_hl,
         migration_admin_conv_hl,
@@ -71,6 +69,7 @@ def set_handlers(application, config):
                              pattern='Next'))
 
     filter_admin = custom_filters.filter_admin
+    filter_to_send_msg = custom_filters.filter_to_send_msg
     application.add_handlers([
         CommandHandler('clean_ud', clean_ud, filter_admin),
         CommandHandler('print_ud', print_ud, filter_admin),
@@ -82,6 +81,9 @@ def set_handlers(application, config):
         CommandHandler('update_ticket',
                        main_hl.update_ticket,
                        filter_admin),
+        CommandHandler('send_msg',
+                       main_hl.send_msg,
+                       filter_to_send_msg),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
         CommandHandler("postgres_log", send_postgres_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
