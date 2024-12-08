@@ -177,9 +177,12 @@ async def start_forma_info(
     _, callback_data = remove_intent_id(query.data)
     base_ticket_id = int(callback_data)
 
+    chose_base_ticket, chose_price = await get_ticket_and_price(
+        context, base_ticket_id)
     reserve_user_data = context.user_data['reserve_user_data']
-
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    reserve_user_data['chose_price'] = chose_price
+    reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
     reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
     if 'migration' in context.user_data['command']:
@@ -202,6 +205,7 @@ async def start_forma_info(
                                                status=new_ticket_status)
             text += '\nВозвращаю места с перенесенного мероприятия...'
             await query.edit_message_text(text)
+            reserve_user_data['changed_seat'] = False
             result = await increase_free_seat(
                 context, ticket.schedule_event_id, ticket.base_ticket_id)
             if not result:
@@ -216,17 +220,14 @@ async def start_forma_info(
                 context.user_data['conv_hl_run'] = False
                 await clean_context_on_end_handler(reserve_admin_hl_logger, context)
                 return ConversationHandler.END
+            else:
+                reserve_user_data['changed_seat'] = True
         else:
             text += '\nБилет уже в статусе Перенесен...'
             await query.edit_message_text(text)
 
         text += '\nСоздаю новые билеты в бд...'
         await query.edit_message_text(text)
-
-        chose_base_ticket, chose_price = await get_ticket_and_price(
-            context, base_ticket_id)
-        reserve_user_data['chose_price'] = chose_price
-        reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
         ticket_ids = []
         ticket = await db_postgres.create_ticket(
@@ -254,9 +255,7 @@ async def start_forma_info(
                                    update.effective_chat.id,
                                    chose_base_ticket,
                                    TicketStatus.CREATED.value)
-
-        text += '\nУменьшаю кол-во свободных мест...'
-        await query.edit_message_text(text)
+        reserve_user_data['changed_seat'] = False
         result = await decrease_free_seat(
             context, schedule_event_id, base_ticket_id)
         if not result:
@@ -271,8 +270,10 @@ async def start_forma_info(
             context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_admin_hl_logger, context)
             return ConversationHandler.END
+        else:
+            reserve_user_data['changed_seat'] = True
 
-        text += '\nПоследняя проверка...'
+        text += '\nУменьшил кол-во свободных мест...\nПоследняя проверка...'
         await query.edit_message_text(text)
         await update.effective_chat.send_action(ChatAction.TYPING)
         await processing_successful_payment(update, context)
