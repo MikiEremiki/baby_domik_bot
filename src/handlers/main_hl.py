@@ -99,7 +99,7 @@ async def send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=update.message.message_id)
         return
     type_enter_chat_id = context.args[0]
-    text = context.args[2:]
+    text = ' '.join(context.args[2:])
     match type_enter_chat_id:
         case 'Билет':
             ticket_id = context.args[1]
