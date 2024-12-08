@@ -83,6 +83,54 @@ async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Подтверждение успешно отправлено')
 
 
+async def send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        text = (
+            'Отправить сообщение пользователю:\n'
+            '- по номеру билета (<code>Билет</code>)\n'
+            '- по номеру заявки заказного мероприятия (<code>Заявка</code>)\n'
+            '- по chat_id в telegram (<code>Чат</code>)\n\n'
+        )
+        text += '<code>/send_msg Тип 0 Сообщение</code>\n\n'
+        await update.message.reply_text(
+            text, reply_to_message_id=update.message.message_id)
+        return
+    type_enter_chat_id = context.args[0]
+    text = context.args[2]
+    match type_enter_chat_id:
+        case 'Билет':
+            ticket_id = context.args[1]
+            ticket = await db_postgres.get_ticket(context.session, ticket_id)
+            if not ticket:
+                text = 'Проверь номер билета'
+                await update.message.reply_text(
+                    text, reply_to_message_id=update.message.message_id)
+                return
+            chat_id = ticket.user.chat_id
+        case 'Заявка':
+            cme_id = context.args[1]
+            cme = await db_postgres.get_custom_made_event(context.session, cme_id)
+            if not cme:
+                text = 'Проверь номер заявки'
+                await update.message.reply_text(
+                    text, reply_to_message_id=update.message.message_id)
+                return
+            chat_id = cme.user_id
+        case 'Чат':
+            chat_id = context.args[1]
+        case _:
+            text = ('Проверь что Тип указан верно, возможные варианты:\n'
+                    '<code>Билет</code>\n'
+                    '<code>Заявка</code>\n'
+                    '<code>Чат</code>')
+            await update.message.reply_text(
+                text, reply_to_message_id=update.message.message_id)
+            return
+    await context.bot.send_message(text=text, chat_id=chat_id)
+    await update.effective_message.reply_text(
+        f'Сообщение:\n{text}\nУспешно отправлено')
+
+
 async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = 'Справка по команде\n'
     text += '<code>/update_ticket 0 Слово Текст</code>\n\n'
