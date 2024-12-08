@@ -2,7 +2,10 @@ import logging
 
 from telegram.ext import (
     ContextTypes, ConversationHandler, ApplicationHandlerStop)
-from telegram import Update, ReplyKeyboardRemove, LinkPreviewOptions
+from telegram import (
+    Update, ReplyKeyboardRemove, LinkPreviewOptions,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 from telegram.constants import ChatType, ChatAction
 from telegram.error import BadRequest, TimedOut
 
@@ -12,7 +15,7 @@ from handlers import check_user_db
 from db.db_googlesheets import (
     decrease_nonconfirm_seat,
     increase_free_seat,
-    increase_free_and_decrease_nonconfirm_seat,
+    increase_free_and_decrease_nonconfirm_seat, update_free_seat,
 )
 from settings.settings import (
     COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
@@ -96,7 +99,7 @@ async def send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text, reply_to_message_id=update.message.message_id)
         return
     type_enter_chat_id = context.args[0]
-    text = context.args[2]
+    text = context.args[2:]
     match type_enter_chat_id:
         case 'Билет':
             ticket_id = context.args[1]
@@ -109,7 +112,8 @@ async def send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id = ticket.user.chat_id
         case 'Заявка':
             cme_id = context.args[1]
-            cme = await db_postgres.get_custom_made_event(context.session, cme_id)
+            cme = await db_postgres.get_custom_made_event(context.session,
+                                                          cme_id)
             if not cme:
                 text = 'Проверь номер заявки'
                 await update.message.reply_text(
@@ -141,9 +145,11 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += 'Слово - может быть:\n'
     text += ('<code>Статус</code>\n'
              '<code>Примечание</code>\n'
+             '<code>Базовый</code>\n'
              '<code>Покупатель</code>\n\n')
     help_key_word_text = text
-    text += 'Для <code>Примечание</code> просто пишем Текст примечания \n\n'
+    text += 'Для <code>Примечание</code> просто пишем Текст примечания\n\n'
+    text += 'Для <code>Базовый</code> Текст это номер базового билета\n\n'
     text += 'Для <code>Статус</code> Текст может быть:\n'
     text += get_ticket_status_name()
     text += '\nПовлияют на расписание\n'
@@ -325,6 +331,36 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(
                     text, reply_to_message_id=reply_to_msg_id)
                 return
+            case 'Базовый':
+                try:
+                    new_base_ticket_id = int(context.args[2])
+                    old_base_ticket_id = ticket.base_ticket_id
+                except ValueError:
+                    text = 'Задан не номер базового билета'
+                    await update.message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
+                    return
+                new_base_ticket = await db_postgres.get_base_ticket(
+                    context.session, new_base_ticket_id)
+                if not new_base_ticket:
+                    text = 'Проверь номер базового билета'
+                    await update.message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
+                    return
+                if new_base_ticket_id == old_base_ticket_id:
+                    text = (f'Билету {ticket_id} уже присвоен '
+                            f'базовый билет {new_base_ticket_id}')
+                    await update.message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
+                    return
+
+                data['base_ticket_id'] = new_base_ticket_id
+                await update_free_seat(
+                    context,
+                    ticket.schedule_event_id,
+                    old_base_ticket_id,
+                    new_base_ticket_id
+                )
             case _:
                 text = 'Не задано ключевое слово или оно написано с ошибкой\n\n'
                 text += help_key_word_text
@@ -352,9 +388,15 @@ async def send_result_update_ticket(
 ):
     text = f'Билет <code>{ticket_id}</code> обновлен\n'
     status = data.get('status', None)
-    text += 'Статус: ' + status.value if status else ''
+    text += ('Статус: ' + status.value) if status else ''
+    base_ticket_id = data.get('base_ticket_id', None)
+    text += ('Новый базовый билет: '
+             + str(base_ticket_id)
+             + '\nВ Расписании обновлено, а в клиентской базе данную '
+               'информацию надо поменять в ручную'
+             ) if base_ticket_id else ''
     notes = data.get('notes', None)
-    text += 'Примечание: ' + notes if notes else ''
+    text += ('Примечание: ' + notes) if notes else ''
     if bool(update.message.reply_to_message):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
