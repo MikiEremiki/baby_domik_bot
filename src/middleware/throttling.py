@@ -2,6 +2,7 @@ import logging
 
 from cachetools import TTLCache
 from telegram import Update
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes, ApplicationHandlerStop, TypeHandler
 
 from settings.settings import ADMIN_GROUP_ID
@@ -29,8 +30,21 @@ def add_throttling_middleware(application):
                 if last_query_data == query_data:
                     logger_ttl.warning(f'Update уже обработан: {update}')
                     if chat_id in ADMIN_GROUP_ID:
-                        await update.effective_message.reply_text(
-                            'Для повторной обработки вызови /start в ЛС бота')
+                        text = ('При необходимости повторной обработки '
+                                'вызови /start в ЛС бота, иначе игнорируй '
+                                'данное сообщение')
+                        message_thread_id = update.message.message_thread_id
+                        try:
+                            await update.effective_message.reply_text(
+                                text=text,
+                                message_thread_id=message_thread_id,
+                            )
+                        except BadRequest as e:
+                            logger_ttl.error(e)
+                            await update.effective_chat.send_message(
+                                text=text,
+                                message_thread_id=message_thread_id,
+                            )
                     raise ApplicationHandlerStop
         context.user_data['last_update'] = update
 

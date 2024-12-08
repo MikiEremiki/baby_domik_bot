@@ -6,6 +6,7 @@ from pprint import pformat
 
 from requests import HTTPError
 from telegram import Update
+from telegram.error import TimedOut, NetworkError
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from utilities.utl_db import open_session
@@ -37,6 +38,12 @@ async def error_handler(update: Update,
     elif (hasattr(context.error, 'message') and
           (context.error.message == outdated_err_msg)):
         error_hl_logger.error(context.error.message)
+        raise ApplicationHandlerStop
+    elif (isinstance(context.error, TimedOut) or
+        isinstance(context.error, NetworkError)):
+        error_hl_logger.error(context.error.message)
+        error_hl_logger.error('Выполнение запроса занимает много времени')
+        context.user_data['last_update'] = None
         raise ApplicationHandlerStop
     else:
         await update.effective_chat.send_message(
