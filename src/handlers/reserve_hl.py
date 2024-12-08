@@ -32,8 +32,7 @@ from utilities.utl_check import (
     check_entered_command, check_topic, check_input_text, is_skip_ticket
 )
 from utilities.utl_func import (
-    extract_phone_number_from_text, add_btn_back_and_cancel,
-    set_back_context, check_phone_number,
+    extract_phone_number_from_text, set_back_context, check_phone_number,
     get_full_name_event, render_text_for_choice_time,
     get_formatted_date_and_time_of_event,
     create_event_names_text, get_events_for_time_hl,
@@ -52,7 +51,7 @@ from utilities.utl_kbd import (
     create_kbd_for_time_in_reserve, create_replay_markup,
     create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio,
     create_kbd_for_date_in_reserve, remove_intent_id, create_kbd_with_months,
-    adjust_kbd
+    adjust_kbd, add_btn_back_and_cancel,
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT

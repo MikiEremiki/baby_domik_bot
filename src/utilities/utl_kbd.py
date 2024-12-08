@@ -9,7 +9,6 @@ from db import BaseTicket, ScheduleEvent
 from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
     SUPPORT_DATA, DICT_CONVERT_MONTH_NUMBER_TO_STR)
-from utilities import add_btn_back_and_cancel
 from utilities.utl_func import (
     get_time_with_timezone, get_formatted_date_and_time_of_event)
 from utilities.utl_ticket import get_spec_ticket_price
@@ -82,6 +81,41 @@ def adjust_kbd(keyboard: list, size: int = 8):
         markup.append(row)
 
     return markup
+
+
+def add_btn_back_and_cancel(
+        add_cancel_btn=True,
+        postfix_for_cancel=None,
+        add_back_btn=True,
+        postfix_for_back=None
+) -> List[InlineKeyboardButton]:
+    """
+    :param add_cancel_btn: Опциональное добавление кнопки Отменить.
+    :param add_back_btn: Опциональное добавление кнопки Назад
+    :param postfix_for_cancel: Добавление дополнительной приписки для
+    корректного определения случая при использовании Отменить.
+    :param postfix_for_back: Добавление дополнительной приписки для
+    корректного определения случая при использовании Назад
+    :return: List[InlineKeyboardButton]
+    """
+    keyboard = []
+    if add_back_btn:
+        keyboard.append(
+            create_btn('Назад', postfix_for_back))
+    if add_cancel_btn:
+        keyboard.append(
+            create_btn('Отменить', postfix_for_cancel))
+    return keyboard
+
+
+def create_btn(text, postfix_for_callback, intent_id: str | None = None):
+    callback_data = text
+    if postfix_for_callback:
+        callback_data += f'-{postfix_for_callback}'
+    if intent_id:
+        callback_data = intent_callback_data(intent_id, str(callback_data))
+    btn = InlineKeyboardButton(text=text, callback_data=callback_data)
+    return btn
 
 
 async def create_kbd_and_text_tickets_for_choice(

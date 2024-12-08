@@ -6,9 +6,10 @@ from telegram.ext import ContextTypes
 
 from db import db_postgres
 from handlers import init_conv_hl_dialog
+from utilities.utl_kbd import add_btn_back_and_cancel
 from utilities.utl_func import (
-    add_btn_back_and_cancel, set_back_context, get_back_context,
-    get_formatted_date_and_time_of_event)
+    set_back_context, get_back_context, get_formatted_date_and_time_of_event
+)
 
 transfer_admin_hl_logger = logging.getLogger('bot.transfer_admin_hl')
 

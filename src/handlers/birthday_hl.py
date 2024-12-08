@@ -27,12 +27,13 @@ from utilities.utl_func import (
     extract_phone_number_from_text,
     check_phone_number,
     create_approve_and_reject_replay,
-    send_and_del_message_to_remove_kb, add_btn_back_and_cancel,
-    set_back_context, del_keyboard_messages, append_message_ids_back_context,
+    send_and_del_message_to_remove_kb, set_back_context, del_keyboard_messages, append_message_ids_back_context,
     get_full_name_event,
 )
 from utilities.utl_kbd import (
-    create_kbd_with_number_btn, create_replay_markup, remove_intent_id)
+    create_kbd_with_number_btn, create_replay_markup, remove_intent_id,
+    add_btn_back_and_cancel
+)
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
 
