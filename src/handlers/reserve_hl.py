@@ -8,6 +8,7 @@ from telegram import (
     InlineKeyboardButton,
     ReplyKeyboardRemove,
 )
+from telegram.error import TimedOut
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram.constants import ChatType, ChatAction
 
@@ -144,11 +145,15 @@ async def choice_show_or_date(
     schedule_events = await db_postgres.get_schedule_events_by_ids(
         context.session, schedule_event_ids)
 
-    enum_theater_events, schedule_events_filter_by_month = await (
-        get_theater_and_schedule_events_by_month(context,
-                                                 schedule_events,
-                                                 number_of_month_str)
-    )
+    try:
+        enum_theater_events, schedule_events_filter_by_month = await (
+            get_theater_and_schedule_events_by_month(context,
+                                                     schedule_events,
+                                                     number_of_month_str)
+        )
+    except ValueError as e:
+        reserve_hl_logger.error(e)
+        return
 
     text_legend = context.bot_data['texts']['text_legend']
 
@@ -203,7 +208,10 @@ async def choice_show_or_date(
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     await query.delete_message()
     return state
 
@@ -264,7 +272,11 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if flag_santa:
         text += f'{SUPPORT_DATA['Дед'][0]} - {SUPPORT_DATA['Дед'][1]}\n'
 
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+
     photo = (
         context.bot_data
         .get('afisha', {})
@@ -337,7 +349,10 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
 
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     await query.delete_message()
     await update.effective_chat.send_message(
         text=text,
@@ -465,7 +480,10 @@ async def choice_option_of_reserve(
              '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
     await message.delete()
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     await query.edit_message_text(
         text=text,
         reply_markup=reply_markup
@@ -761,7 +779,10 @@ async def get_name_children(
             return ConversationHandler.END
 
         text += '\nПоследняя проверка...'
-        await message.edit_text(text)
+        try:
+            await message.edit_text(text)
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END

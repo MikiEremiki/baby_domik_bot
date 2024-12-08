@@ -1,6 +1,7 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import BadRequest
 from telegram.ext import TypeHandler, ContextTypes
 from yookassa.domain.notification import WebhookNotification
 
@@ -22,7 +23,11 @@ async def webhook_update(update: WebhookNotification,
                 text += f'{k1}: {v1}\n'
         else:
             text += f'{k}: {v}\n'
-    await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+    try:
+        await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+    except BadRequest as e:
+        webhook_hl_logger.error(e)
+        webhook_hl_logger.info(text)
 
     if update.object.status == 'pending':
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI,

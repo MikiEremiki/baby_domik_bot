@@ -8,7 +8,7 @@ from telegram import (
     ReplyKeyboardMarkup, KeyboardButton, Message
 )
 from telegram.constants import ChatAction
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TimedOut
 from telegram.ext import ContextTypes, ConversationHandler
 from yookassa import Payment
 
@@ -189,7 +189,11 @@ async def update_schedule_event_data(update: Update,
 
     sub_hl_logger.info(text)
 
-    await update.callback_query.answer()
+    query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        sub_hl_logger.error(e)
     return 'updates'
 
 

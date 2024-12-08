@@ -6,7 +6,7 @@ from pprint import pformat
 
 from requests import HTTPError
 from telegram import Update
-from telegram.error import TimedOut, NetworkError
+from telegram.error import TimedOut, NetworkError, BadRequest
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from utilities.utl_db import open_session
@@ -40,15 +40,28 @@ async def error_handler(update: Update,
         error_hl_logger.error(context.error.message)
         raise ApplicationHandlerStop
     elif (isinstance(context.error, TimedOut) or
-        isinstance(context.error, NetworkError)):
+          isinstance(context.error, NetworkError)):
         error_hl_logger.error(context.error.message)
         error_hl_logger.error('Выполнение запроса занимает много времени')
         context.user_data['last_update'] = None
         raise ApplicationHandlerStop
     else:
-        await update.effective_chat.send_message(
-            'Произошла не предвиденная ошибка\n'
-            'Пожалуйста, выполните команду /start и повторите операцию заново')
+        text = ('Произошла не предвиденная ошибка\n'
+                'Пожалуйста, выполните команду /start и повторите операцию заново')
+        message_thread_id = update.effective_message.message_thread_id
+        try:
+            await update.effective_message.reply_text(
+                text=text,
+                message_thread_id=message_thread_id,
+            )
+        except BadRequest as e:
+            error_hl_logger.error(e)
+            await update.effective_chat.send_message(
+                text=text,
+                message_thread_id=message_thread_id,
+            )
+        except TimedOut as e:
+            error_hl_logger.error(e)
 
         tb_list = traceback.format_exception(None,
                                              context.error,
@@ -67,14 +80,16 @@ async def error_handler(update: Update,
                                                ensure_ascii=False))}"
             f"</pre>"
         )
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=message,
-        )
+        try:
+            await split_message(context, message)
+        except TimedOut as e:
+            error_hl_logger.error(e)
 
         message = f"{html.escape(tb_string)}\n\n"
-
-        await split_message(context, message)
+        try:
+            await split_message(context, message)
+        except TimedOut as e:
+            error_hl_logger.error(e)
 
     await cancel_tickets_db_and_gspread(update, context)
 

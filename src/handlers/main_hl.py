@@ -4,7 +4,7 @@ from telegram.ext import (
     ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram import Update, ReplyKeyboardRemove, LinkPreviewOptions
 from telegram.constants import ChatType, ChatAction
-from telegram.error import BadRequest
+from telegram.error import BadRequest, TimedOut
 
 from db import db_postgres
 from db.enum import TicketStatus, CustomMadeStatus
@@ -179,9 +179,13 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             text, reply_to_message_id=reply_to_msg_id)
         return
+    try:
+        await update.effective_chat.send_action(
+            ChatAction.TYPING,
+            message_thread_id=update.message.message_thread_id)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
-    await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=update.message.message_thread_id)
     if len(context.args) == 1:
         user = ticket.user
         people = ticket.people
@@ -369,11 +373,16 @@ async def send_result_update_ticket(
 async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not is_admin(update):
-        main_handlers_logger.warning('Не разрешенное действие: подтвердить бронь')
+        text = 'Не разрешенное действие: подтвердить бронь'
+        main_handlers_logger.warning(text)
         return
     message_thread_id = query.message.message_thread_id
-    await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=message_thread_id)
+    try:
+        await update.effective_chat.send_action(
+            ChatAction.TYPING,
+            message_thread_id=update.message.message_thread_id)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
@@ -385,14 +394,21 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id_buy_info = query.data.split('|')[1].split()[1]
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         await decrease_nonconfirm_seat(
             context, ticket.schedule_event_id, ticket.base_ticket_id)
 
     text = message.text + f'\nСписаны неподтвержденные места...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     ticket_status = TicketStatus.APPROVED
     for ticket_id in ticket_ids:
@@ -401,18 +417,34 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         ticket_id,
                                         status=ticket_status)
 
-    await query.edit_message_reply_markup()
+    try:
+        await query.edit_message_reply_markup()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     text = message.text + f'\nОбновлен статус билета: {ticket_status.value}...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     await send_approve_message(chat_id, context)
     text = message.text + f'\nОтправлено сообщение о подтверждении бронирования...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     text = f'Бронь подтверждена\n'
     for ticket_id in ticket_ids:
         text += 'Билет ' + str(ticket_id) + '\n'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     try:
         await context.bot.delete_message(
@@ -454,8 +486,12 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
     message_thread_id = query.message.message_thread_id
-    await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=message_thread_id)
+    try:
+        await update.effective_chat.send_action(
+            ChatAction.TYPING,
+            message_thread_id=update.message.message_thread_id)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
@@ -467,14 +503,21 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_id_buy_info = query.data.split('|')[1].split()[1]
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         await increase_free_and_decrease_nonconfirm_seat(
             context, ticket.schedule_event_id, ticket.base_ticket_id)
 
     text = message.text + f'\nВозвращены места в продажу...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     ticket_status = TicketStatus.REJECTED
     for ticket_id in ticket_ids:
@@ -485,16 +528,28 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_reply_markup()
     text = message.text + f'\nОбновлен статус билета: {ticket_status.value}...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     await send_reject_message(chat_id, context)
     text = message.text + f'\nОтправлено сообщение об отклонении бронирования...'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     text = f'Бронь отклонена\n'
     for ticket_id in ticket_ids:
         text += 'Билет ' + str(ticket_id) + '\n'
-    await message.edit_text(text)
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     try:
         await context.bot.delete_message(
@@ -513,8 +568,12 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Не разрешенное действие: подтвердить день рождения')
         return
     message_thread_id = query.message.message_thread_id
-    await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=message_thread_id)
+    try:
+        await update.effective_chat.send_action(
+            ChatAction.TYPING,
+            message_thread_id=update.message.message_thread_id)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс подтверждения...',
@@ -537,7 +596,10 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case '2':
             cme_status = CustomMadeStatus.PREPAID
 
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
     update_cme_in_gspread(cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
@@ -586,8 +648,12 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Не разрешенное действие: отклонить день рождения')
         return
     message_thread_id = query.message.message_thread_id
-    await update.effective_chat.send_action(
-        ChatAction.TYPING, message_thread_id=message_thread_id)
+    try:
+        await update.effective_chat.send_action(
+            ChatAction.TYPING,
+            message_thread_id=update.message.message_thread_id)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     message = await update.effective_chat.send_message(
         text='Начат процесс отклонения...',
@@ -606,7 +672,10 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     cme_status = CustomMadeStatus.REJECTED
 
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
     update_cme_in_gspread(cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
@@ -654,7 +723,11 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         state = state.upper()
     try:
-        text, reply_markup, del_message_ids = await get_back_context(context, state)
+        (
+            text,
+            reply_markup,
+            del_message_ids
+        ) = await get_back_context(context, state)
     except KeyError as e:
         main_handlers_logger.error(e)
         await update.effective_chat.send_message(
@@ -764,7 +837,10 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if message:
         await append_message_ids_back_context(
             context, [message.message_id])
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
     return state
 
 
@@ -866,7 +942,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
     await clean_context_on_end_handler(main_handlers_logger, context)
     context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
