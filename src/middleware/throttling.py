@@ -33,7 +33,7 @@ def add_throttling_middleware(application):
                         text = ('При необходимости повторной обработки '
                                 'вызови /start в ЛС бота, иначе игнорируй '
                                 'данное сообщение')
-                        message_thread_id = update.message.message_thread_id
+                        message_thread_id = update.effective_message.message_thread_id
                         try:
                             await update.effective_message.reply_text(
                                 text=text,
