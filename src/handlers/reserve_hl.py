@@ -357,7 +357,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.callback_query.message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id
     )
 
     reserve_user_data = context.user_data['reserve_user_data']
