@@ -190,7 +190,7 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
-            message_thread_id=update.message.message_thread_id)
+            message_thread_id=update.effective_message.message_thread_id)
     except TimedOut as e:
         main_handlers_logger.error(e)
 
@@ -426,7 +426,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
-            message_thread_id=update.message.message_thread_id)
+            message_thread_id=message_thread_id)
     except TimedOut as e:
         main_handlers_logger.error(e)
 
@@ -535,7 +535,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
-            message_thread_id=update.message.message_thread_id)
+            message_thread_id=message_thread_id)
     except TimedOut as e:
         main_handlers_logger.error(e)
 
@@ -617,7 +617,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
-            message_thread_id=update.message.message_thread_id)
+            message_thread_id=message_thread_id)
     except TimedOut as e:
         main_handlers_logger.error(e)
 
@@ -724,7 +724,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
-            message_thread_id=update.message.message_thread_id)
+            message_thread_id=message_thread_id)
     except TimedOut as e:
         main_handlers_logger.error(e)
 
