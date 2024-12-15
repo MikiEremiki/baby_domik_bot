@@ -8,7 +8,7 @@ from telegram import (
     ReplyKeyboardMarkup, KeyboardButton, Message
 )
 from telegram.constants import ChatAction
-from telegram.error import BadRequest, TimedOut
+from telegram.error import BadRequest, TimedOut, NetworkError
 from telegram.ext import ContextTypes, ConversationHandler
 from yookassa import Payment
 
@@ -397,7 +397,7 @@ async def processing_successful_payment(
     if query:
         try:
             await query.answer()
-        except BadRequest as e:
+        except NetworkError as e:
             sub_hl_logger.error(e)
         await query.edit_message_text('Платеж успешно обработан')
 

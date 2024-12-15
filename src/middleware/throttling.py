@@ -29,22 +29,27 @@ def add_throttling_middleware(application):
                 last_query_data = last_query.data
                 if last_query_data == query_data:
                     logger_ttl.warning(f'Update уже обработан: {update}')
+                    message_thread_id = update.effective_message.message_thread_id
                     if chat_id in ADMIN_GROUP_ID:
                         text = ('При необходимости повторной обработки '
                                 'вызови /start в ЛС бота, иначе игнорируй '
                                 'данное сообщение')
-                        message_thread_id = update.message.message_thread_id
-                        try:
-                            await update.effective_message.reply_text(
-                                text=text,
-                                message_thread_id=message_thread_id,
-                            )
-                        except BadRequest as e:
-                            logger_ttl.error(e)
-                            await update.effective_chat.send_message(
-                                text=text,
-                                message_thread_id=message_thread_id,
-                            )
+                    else:
+                        text = ('Подождите 3 секунды и повторите последнее '
+                                'действие, в случае многократного повтора '
+                                'данного  сообщения, вызовите /start и '
+                                'повторите запрос заново.')
+                    try:
+                        await update.effective_message.reply_text(
+                            text=text,
+                            message_thread_id=message_thread_id,
+                        )
+                    except BadRequest as e:
+                        logger_ttl.error(e)
+                        await update.effective_chat.send_message(
+                            text=text,
+                            message_thread_id=message_thread_id,
+                        )
                     raise ApplicationHandlerStop
         context.user_data['last_update'] = update
 

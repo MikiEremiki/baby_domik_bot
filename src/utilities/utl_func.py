@@ -4,7 +4,7 @@ import os
 import re
 from datetime import time
 from pprint import pformat
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, cast
 
 import pytz
 from telegram import (
@@ -199,11 +199,26 @@ async def set_description(bot: ExtBot) -> None:
 
 
 async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    caption = [0]
+    i = 1
+    while os.path.exists(f'log/archive/log.txt.{i}'):
+        caption.append(i)
+        i += 1
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
-        document='log/archive/log.txt'
+        document='log/archive/log.txt',
+        caption=caption
     )
     if context.args:
+        try:
+            num = int(context.args[0])
+            if os.path.exists(f'log/archive/log.txt.{num}'):
+                await context.bot.send_document(
+                    chat_id=update.effective_chat.id,
+                    document=f'log/archive/log.txt.{num}'
+                )
+        except ValueError:
+            pass
         if context.args[0] == 'all':
             i = 1
             while os.path.exists(f'log/archive/log.txt.{i}'):

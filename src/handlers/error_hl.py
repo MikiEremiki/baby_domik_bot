@@ -30,6 +30,7 @@ async def error_handler(update: Update,
     chat_id = context.config.bot.developer_chat_id
     outdated_err_msg = (
         'Query is too old and response timeout expired or query id is invalid')
+    del_err_msg = "Message can't be deleted for everyone"
     if isinstance(context.error, HTTPError):
         await context.bot.send_message(
             chat_id=chat_id,
@@ -39,15 +40,48 @@ async def error_handler(update: Update,
           (context.error.message == outdated_err_msg)):
         error_hl_logger.error(context.error.message)
         raise ApplicationHandlerStop
+    elif (hasattr(context.error, 'message') and
+          (context.error.message == del_err_msg)):
+        error_hl_logger.error(context.error.message)
+        text = 'Пожалуйста, выполните команду /start и повторите операцию заново'
+        message_thread_id = update.effective_message.message_thread_id
+        try:
+            await update.effective_message.reply_text(
+                text=text,
+                message_thread_id=message_thread_id,
+            )
+        except BadRequest as e:
+            error_hl_logger.error(e)
+            await update.effective_chat.send_message(
+                text=text,
+                message_thread_id=message_thread_id,
+            )
     elif (isinstance(context.error, TimedOut) or
-          isinstance(context.error, NetworkError)):
+          isinstance(context.error, NetworkError) and
+          not isinstance(context.error, BadRequest)):
         error_hl_logger.error(context.error.message)
         error_hl_logger.error('Выполнение запроса занимает много времени')
         context.user_data['last_update'] = None
+        text = ('Пожалуйста, подождите 3 секунды и повторите последнее '
+                'действие, если проблема остается, вызовите /start и '
+                'повторите запрос заново.')
+        message_thread_id = update.effective_message.message_thread_id
+        try:
+            await update.effective_message.reply_text(
+                text=text,
+                message_thread_id=message_thread_id,
+            )
+        except BadRequest as e:
+            error_hl_logger.error(e)
+            await update.effective_chat.send_message(
+                text=text,
+                message_thread_id=message_thread_id,
+            )
         raise ApplicationHandlerStop
     else:
         text = ('Произошла не предвиденная ошибка\n'
-                'Пожалуйста, выполните команду /start и повторите операцию заново')
+                'Пожалуйста, пробуйте повторить последнее действие, '
+                'или выполните команду /start и повторите операцию заново')
         message_thread_id = update.effective_message.message_thread_id
         try:
             await update.effective_message.reply_text(
@@ -74,11 +108,9 @@ async def error_handler(update: Update,
 
         message = (
             "An exception was raised while handling an update\n"
-            f"<pre>"
             f"update = {html.escape(json.dumps(update_str,
                                                indent=2,
                                                ensure_ascii=False))}"
-            f"</pre>"
         )
         try:
             await split_message(context, message)
