@@ -8,7 +8,7 @@ from telegram import (
     InlineKeyboardButton,
     ReplyKeyboardRemove,
 )
-from telegram.error import TimedOut
+from telegram.error import TimedOut, NetworkError
 from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
 from telegram.constants import ChatType, ChatAction
 
@@ -750,19 +750,28 @@ async def get_name_children(
         await update.effective_chat.send_action(ChatAction.TYPING)
 
         text = 'Создаю новые билеты в бд...'
+        reserve_hl_logger.info(text)
         message = await update.effective_chat.send_message(text)
         ticket_ids = await create_tickets_and_people(
             update, context, TicketStatus.CREATED)
 
         text += '\nЗаписываю новый билет в клиентскую базу...'
-        await message.edit_text(text)
+        try:
+            await message.edit_text(text)
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
+            reserve_hl_logger.info(text)
         await write_client_reserve(context,
                                    update.effective_chat.id,
                                    chose_base_ticket,
                                    TicketStatus.CREATED.value)
 
         text += '\nУменьшаю кол-во свободных мест...'
-        await message.edit_text(text)
+        try:
+            await message.edit_text(text)
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
+            reserve_hl_logger.info(text)
         result = await decrease_free_seat(
             context, schedule_event_id, chose_base_ticket_id)
         if not result:
@@ -773,7 +782,11 @@ async def get_name_children(
             text += ('\nНе уменьшились свободные места'
                      '\nНовый билет отменен'
                      '\nНеобходимо повторить резервирование заново')
-            await message.edit_text(text)
+            try:
+                await message.edit_text(text)
+            except TimedOut as e:
+                reserve_hl_logger.error(e)
+                reserve_hl_logger.info(text)
             context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
@@ -783,6 +796,7 @@ async def get_name_children(
             await message.edit_text(text)
         except TimedOut as e:
             reserve_hl_logger.error(e)
+            reserve_hl_logger.info(text)
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
@@ -900,7 +914,10 @@ async def send_clients_data(
         if not is_skip_ticket(ticket.status):
             base_ticket_and_tickets.append((base_ticket, ticket))
 
-    await query.edit_message_text('Загружаю данные покупателей')
+    try:
+        await query.edit_message_text('Загружаю данные покупателей')
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
 
     text = f'#Мероприятие <code>{event_id}</code>\n'
     text += (f'Список людей на\n'
@@ -916,7 +933,10 @@ async def send_clients_data(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    await query.answer()
+    try:
+        await query.answer()
+    except NetworkError as e:
+        reserve_hl_logger.error(e)
     context.user_data['conv_hl_run'] = False
     return state
 
