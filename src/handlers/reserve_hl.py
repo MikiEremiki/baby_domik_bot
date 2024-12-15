@@ -974,9 +974,9 @@ async def get_phone_for_waiting(
     user = context.user_data['user']
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Лист ожидания', None))
-    text = f'#Лист_ожидания\n' \
-           f'Пользователь @{user.username} {user.full_name}\n' \
-           f'Запросил добавление в лист ожидания\n' + text
+    text = (f'#Лист_ожидания\n'
+           f'Пользователь @{user.username} {user.full_name}\n'
+           f'Запросил добавление в лист ожидания\n' + text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,
