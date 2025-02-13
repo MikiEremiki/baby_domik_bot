@@ -257,11 +257,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             flag_christmas_tree = True
         if event.flag_santa:
             flag_santa = True
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     text = (f'Вы выбрали мероприятие:\n'
             f'<b>{full_name}</b>\n'
             f'<i>Выберите удобную дату</i>\n\n')
@@ -761,7 +757,9 @@ async def get_name_children(
         except TimedOut as e:
             reserve_hl_logger.error(e)
             reserve_hl_logger.info(text)
-        await write_client_reserve(context,
+        sheet_id_domik = context.config.sheets.sheet_id_domik
+        await write_client_reserve(sheet_id_domik,
+                                   context,
                                    update.effective_chat.id,
                                    chose_base_ticket,
                                    TicketStatus.CREATED.value)
@@ -982,7 +980,8 @@ async def get_phone_for_waiting(
         text=text,
         message_thread_id=thread_id
     )
-    write_client_list_waiting(context)
+    sheet_id_domik = context.config.sheets.sheet_id_domik
+    write_client_list_waiting(sheet_id_domik, context)
     await update.effective_chat.send_message(
         text='Вы добавлены в лист ожидания, '
              'если место освободится, то с вами свяжутся. '

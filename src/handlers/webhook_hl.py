@@ -46,7 +46,7 @@ async def webhook_update(update: WebhookNotification,
         pass
 
 
-async def processing_ticket_paid(update, context):
+async def processing_ticket_paid(update, context: ContextTypes.DEFAULT_TYPE):
     message_id = update.object.metadata['message_id']
     chat_id = update.object.metadata['chat_id']
     ticket_ids = update.object.metadata['ticket_ids'].split('|')
@@ -66,8 +66,9 @@ async def processing_ticket_paid(update, context):
         webhook_hl_logger.error('Удаление кнопки для оплаты не произошло')
     text = f'<b>Номер вашего билета '
     ticket_status = TicketStatus.PAID
+    sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        update_ticket_in_gspread(ticket_id, ticket_status.value)
+        update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)

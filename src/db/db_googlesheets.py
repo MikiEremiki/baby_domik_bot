@@ -7,11 +7,10 @@ from pydantic import ValidationError
 from telegram.ext import ContextTypes
 
 from api.googlesheets import (
-    get_data_from_spreadsheet,
-    get_column_info,
-    write_data_reserve,
+    get_data_from_spreadsheet, get_column_info, write_data_reserve,
 )
 from db import db_postgres
+from settings import parse_settings
 from settings.settings import RANGE_NAME
 from utilities.schemas.custom_made_format import CustomMadeFormatDTO
 from utilities.schemas.schedule_event import ScheduleEventDTO
@@ -19,20 +18,26 @@ from utilities.schemas.theater_event import TheaterEventDTO
 from utilities.schemas.ticket import BaseTicketDTO
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
+config = parse_settings()
+sheet_id_domik = config.sheets.sheet_id_domik
+sheet_id_cme = config.sheets.sheet_id_cme
 
 
 def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
     tickets = []
 
-    dict_column_name, len_column = get_column_info('Варианты стоимости_')
+    dict_column_name, len_column = get_column_info(
+        sheet_id_domik, 'Варианты стоимости_')
 
     qty_tickets = len(get_data_from_spreadsheet(
-        RANGE_NAME['Варианты стоимости_'] + f'A:A'
-    ))
+        sheet_id_domik, RANGE_NAME['Варианты стоимости_'] + f'A:A'))
+
+    sheet = (RANGE_NAME['Варианты стоимости_'] +
+             f'R2C1:R{qty_tickets}C{len_column}')
 
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Варианты стоимости_'] +
-        f'R2C1:R{qty_tickets}C{len_column}'
+        sheet_id_domik,
+        sheet
     )
     db_googlesheets_logger.info('Данные стоимости броней загружены')
 
@@ -65,15 +70,18 @@ def load_schedule_events(
 ) -> List[ScheduleEventDTO]:
     events = []
 
-    dict_column_name, len_column = get_column_info('База спектаклей_')
+    dict_column_name, len_column = get_column_info(
+        sheet_id_domik, 'База спектаклей_')
 
     qty_events = len(get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_'] + f'A:A'
-    ))
+        sheet_id_domik, RANGE_NAME['База спектаклей_'] + f'A:A'))
+
+    sheet = (RANGE_NAME['База спектаклей_'] +
+             f'R2C1:R{qty_events}C{len_column}')
 
     data = get_data_from_spreadsheet(
-        RANGE_NAME['База спектаклей_'] +
-        f'R2C1:R{qty_events}C{len_column}',
+        sheet_id_domik,
+        sheet,
         value_render_option='UNFORMATTED_VALUE'
     )
     db_googlesheets_logger.info('Данные мероприятий загружены')
@@ -109,15 +117,18 @@ def load_schedule_events(
 def load_theater_events() -> List[TheaterEventDTO]:
     events = []
 
-    dict_column_name, len_column = get_column_info('Список спектаклей_')
+    dict_column_name, len_column = get_column_info(
+        sheet_id_domik, 'Список спектаклей_')
 
-    qty_tickets = len(get_data_from_spreadsheet(
-        RANGE_NAME['Список спектаклей_'] + f'A:A'
-    ))
+    qty_theater_events = len(get_data_from_spreadsheet(
+        sheet_id_domik, RANGE_NAME['Список спектаклей_'] + f'A:A'))
+
+    sheet = (RANGE_NAME['Список спектаклей_'] +
+             f'R2C1:R{qty_theater_events}C{len_column}')
 
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Список спектаклей_'] +
-        f'R2C1:R{qty_tickets}C{len_column}',
+        sheet_id_domik,
+        sheet,
         value_render_option='UNFORMATTED_VALUE'
     )
     db_googlesheets_logger.info('Данные репертуара загружены')
@@ -146,15 +157,17 @@ def load_theater_events() -> List[TheaterEventDTO]:
 def load_custom_made_format() -> List[CustomMadeFormatDTO]:
     formats = []
 
-    dict_column_name, len_column = get_column_info('База ФЗМ_')
+    dict_column_name, len_column = get_column_info(
+        sheet_id_cme, 'База ФЗМ_')
 
-    qty_tickets = len(get_data_from_spreadsheet(
-        RANGE_NAME['База ФЗМ_'] + f'A:A'
-    ))
+    qty_cme_formats = len(get_data_from_spreadsheet(
+        sheet_id_cme, RANGE_NAME['База ФЗМ_'] + f'A:A'))
+
+    sheet = RANGE_NAME['База ФЗМ_'] + f'R2C1:R{qty_cme_formats}C{len_column}'
 
     data = get_data_from_spreadsheet(
-        RANGE_NAME['База ФЗМ_'] +
-        f'R2C1:R{qty_tickets}C{len_column}',
+        sheet_id_cme,
+        sheet,
         value_render_option='UNFORMATTED_VALUE'
     )
     db_googlesheets_logger.info('Данные форматов заказных мероприятий загружены')
@@ -183,13 +196,16 @@ def load_custom_made_format() -> List[CustomMadeFormatDTO]:
 def load_special_ticket_price() -> Dict:
     special_ticket_price = {}
     first_colum = get_data_from_spreadsheet(
-        RANGE_NAME['Индив стоимости']
-    )
-    dict_column_name, len_column = get_column_info('Индив стоимости_')
+        sheet_id_domik, RANGE_NAME['Индив стоимости'])
+    dict_column_name, len_column = get_column_info(
+        sheet_id_domik, 'Индив стоимости_')
+
+    sheet = (RANGE_NAME['Индив стоимости_'] +
+             f'RC1:R{len(first_colum)}C{len_column}')
 
     data = get_data_from_spreadsheet(
-        RANGE_NAME['Индив стоимости_'] +
-        f'RC1:R{len(first_colum)}C{len_column}',
+        sheet_id_domik,
+        sheet,
         value_render_option='UNFORMATTED_VALUE'
     )
 
@@ -211,13 +227,16 @@ def load_clients_data(
         event_id: int
 ) -> Tuple[List[List[str]], Dict[int | str, int]]:
     data_clients_data = []
-    first_colum = get_data_from_spreadsheet(RANGE_NAME['База клиентов'])
+    first_colum = get_data_from_spreadsheet(
+        sheet_id_domik, RANGE_NAME['База клиентов'])
 
-    dict_column_name, len_column = get_column_info('База клиентов_')
+    dict_column_name, len_column = get_column_info(
+        sheet_id_domik, 'База клиентов_')
+
     sheet = (RANGE_NAME['База клиентов_'] +
              f'R1C1:R{len(first_colum)}C{len_column}')
 
-    data = get_data_from_spreadsheet(sheet)
+    data = get_data_from_spreadsheet(sheet_id_domik, sheet)
 
     for item in data[1:]:
         if item[dict_column_name['event_id']] == str(event_id):
@@ -230,14 +249,16 @@ def load_clients_wait_data(
         event_ids: List[int]
 ) -> Tuple[List[List[str]], Dict[int | str, int]]:
     data_clients_data = []
-    first_colum = get_data_from_spreadsheet(RANGE_NAME['Лист ожидания'])
+    first_colum = get_data_from_spreadsheet(
+        sheet_id_domik, RANGE_NAME['Лист ожидания'])
 
-    dict_column_name, len_column = get_column_info('Лист ожидания_')
+    dict_column_name, len_column = get_column_info(
+        sheet_id_domik, 'Лист ожидания_')
 
     sheet = (RANGE_NAME['Лист ожидания_'] +
              f'R1C1:R{len(first_colum)}C{len_column}')
 
-    data = get_data_from_spreadsheet(sheet)
+    data = get_data_from_spreadsheet(sheet_id_domik, sheet)
 
     for item in data[2:]:
         if int(item[dict_column_name['event_id']]) in event_ids:
@@ -282,7 +303,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
     ]
 
     try:
-        write_data_reserve(event_id, numbers)
+        write_data_reserve(sheet_id_domik, event_id, numbers)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -337,7 +358,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
     ]
 
     try:
-        write_data_reserve(event_id, numbers)
+        write_data_reserve(sheet_id_domik, event_id, numbers)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -386,7 +407,7 @@ async def increase_free_seat(
     ]
 
     try:
-        write_data_reserve(event_id, numbers, 3)
+        write_data_reserve(sheet_id_domik, event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -431,7 +452,7 @@ async def decrease_free_seat(
     ]
 
     try:
-        write_data_reserve(event_id, numbers, 3)
+        write_data_reserve(sheet_id_domik, event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -476,7 +497,7 @@ async def decrease_nonconfirm_seat(
     ]
 
     try:
-        write_data_reserve(event_id, numbers, 2)
+        write_data_reserve(sheet_id_domik, event_id, numbers, 2)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -534,7 +555,7 @@ async def update_free_seat(
     ]
 
     try:
-        write_data_reserve(event_id, numbers, 3)
+        write_data_reserve(sheet_id_domik, event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),

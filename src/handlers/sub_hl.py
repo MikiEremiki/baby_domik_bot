@@ -23,7 +23,7 @@ from db.db_googlesheets import (
 )
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities.utl_func import (
-    get_unique_months, get_full_name_event,
+    get_unique_months,
     filter_schedule_event_by_active,
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
@@ -265,11 +265,7 @@ async def create_and_send_payment(
         schedule_event)
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    name = theater_event.name
 
     email = await db_postgres.get_email(context.session,
                                         update.effective_user.id)
@@ -282,7 +278,9 @@ async def create_and_send_payment(
         update, context, TicketStatus.CREATED)
 
     await update.effective_chat.send_action(ChatAction.TYPING)
-    await write_client_reserve(context,
+    sheet_id_domik = context.config.sheets.sheet_id_domik
+    await write_client_reserve(sheet_id_domik,
+                               context,
                                update.effective_chat.id,
                                chose_base_ticket,
                                TicketStatus.CREATED.value)
@@ -311,8 +309,8 @@ async def create_and_send_payment(
         ticket_name_for_desc
     )
     len_for_name = max_len_decs - len_desc_without_name
-    full_name_for_desc = full_name[:len_for_name]
-    description = f'Билет на мероприятие {full_name_for_desc} {date_event} в {time_event}'
+    name_for_desc = name[:len_for_name]
+    description = f'Билет на мероприятие {name_for_desc} {date_event} в {time_event}'
     param = create_param_payment(
         price=chose_price,
         description=' '.join([description, ticket_name_for_desc]),

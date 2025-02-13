@@ -243,17 +243,20 @@ async def theater_event_preview(
 ):
     query = update.callback_query
 
-    text = (f'{kv_name_attr_theater_event['name']}=Название\n'
-            f'{kv_name_attr_theater_event['min_age_child']}=1\n'
-            f'{kv_name_attr_theater_event['max_age_child']}=0\n'
-            f'{kv_name_attr_theater_event['show_emoji']}=\n'
-            f'{kv_name_attr_theater_event['flag_premier']}=Нет\n'
-            f'{kv_name_attr_theater_event['flag_active_repertoire']}=Да\n'
-            f'{kv_name_attr_theater_event['flag_active_bd']}=Нет\n'
-            f'{kv_name_attr_theater_event['max_num_child_bd']}=8\n'
-            f'{kv_name_attr_theater_event['max_num_adult_bd']}=10\n'
-            f'{kv_name_attr_theater_event['flag_indiv_cost']}=Нет\n'
-            f'{kv_name_attr_theater_event['price_type']}=По умолчанию/Базовая стоимость/Опции/Индивидуальная\n')
+    text = (
+        f'{kv_name_attr_theater_event['name']}=Название\n'
+        f'{kv_name_attr_theater_event['min_age_child']}=1\n'
+        f'{kv_name_attr_theater_event['max_age_child']}=0\n'
+        f'{kv_name_attr_theater_event['show_emoji']}=\n'
+        f'{kv_name_attr_theater_event['flag_premier']}=Нет\n'
+        f'{kv_name_attr_theater_event['flag_active_repertoire']}=Да\n'
+        f'{kv_name_attr_theater_event['flag_active_bd']}=Нет\n'
+        f'{kv_name_attr_theater_event['max_num_child_bd']}=8\n'
+        f'{kv_name_attr_theater_event['max_num_adult_bd']}=10\n'
+        f'{kv_name_attr_theater_event['flag_indiv_cost']}=Нет\n'
+        f'{kv_name_attr_theater_event['price_type']}=По умолчанию/Базовая стоимость/Опции/Индивидуальная\n'
+        f'{kv_name_attr_theater_event['note']}=\n'
+    )
     await query.edit_message_text(text)
     await query.answer()
 

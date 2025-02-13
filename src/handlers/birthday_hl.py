@@ -261,11 +261,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'{context.bot_data['texts']['text_legend']}'
     )
     for i, theater_event in enumerate(theater_events):
-        full_name = get_full_name_event(theater_event.name,
-                                        theater_event.flag_premier,
-                                        theater_event.min_age_child,
-                                        theater_event.max_age_child,
-                                        theater_event.duration)
+        full_name = get_full_name_event(theater_event)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
         text += f'{full_name}\n'
         keyboard.append(InlineKeyboardButton(
@@ -306,11 +302,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     theater_event_id = int(callback_data)
     theater_event = await db_postgres.get_theater_event(context.session,
                                                         theater_event_id)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     await query.edit_message_text(
         f'<b>Вы выбрали мероприятие:</b>\n{full_name}')
 
@@ -351,7 +343,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     _, callback_data = remove_intent_id(query.data)
     age = callback_data
-    await query.edit_message_text(f'<b>Возраст именника:</b> {age}')
+    await query.edit_message_text(f'<b>Исполнится лет имениннику:</b> {age}')
 
     custom_made_formats = await db_postgres.get_all_custom_made_format(
         context.session)
@@ -654,11 +646,7 @@ async def get_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
             case 'theater_event_id':
                 theater_event = await db_postgres.get_theater_event(
                     context.session, item)
-                item = get_full_name_event(theater_event.name,
-                                           theater_event.flag_premier,
-                                           theater_event.min_age_child,
-                                           theater_event.max_age_child,
-                                           theater_event.duration)
+                item = get_full_name_event(theater_event)
             case 'custom_made_format_id':
                 custom_made_format = await db_postgres.get_custom_made_format(
                     context.session, item)
@@ -753,7 +741,8 @@ async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['birthday_user_data'][
             'custom_made_event_id'] = custom_made_event.id
 
-    write_client_cme(custom_made_event)
+    sheet_id_cme = context.config.sheets.sheet_id_cme
+    write_client_cme(sheet_id_cme, custom_made_event)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
