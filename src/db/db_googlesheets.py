@@ -71,7 +71,7 @@ def load_schedule_events(
     events = []
 
     dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'Варианты стоимости_')
+        sheet_id_domik, 'База спектаклей_')
 
     qty_events = len(get_data_from_spreadsheet(
         sheet_id_domik, RANGE_NAME['База спектаклей_'] + f'A:A'))
@@ -118,13 +118,13 @@ def load_theater_events() -> List[TheaterEventDTO]:
     events = []
 
     dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'Варианты стоимости_')
+        sheet_id_domik, 'Список спектаклей_')
 
-    qty_tickets = len(get_data_from_spreadsheet(
+    qty_theater_events = len(get_data_from_spreadsheet(
         sheet_id_domik, RANGE_NAME['Список спектаклей_'] + f'A:A'))
 
     sheet = (RANGE_NAME['Список спектаклей_'] +
-             f'R2C1:R{qty_tickets}C{len_column}')
+             f'R2C1:R{qty_theater_events}C{len_column}')
 
     data = get_data_from_spreadsheet(
         sheet_id_domik,
@@ -160,10 +160,10 @@ def load_custom_made_format() -> List[CustomMadeFormatDTO]:
     dict_column_name, len_column = get_column_info(
         sheet_id_cme, 'База ФЗМ_')
 
-    qty_tickets = len(get_data_from_spreadsheet(
+    qty_cme_formats = len(get_data_from_spreadsheet(
         sheet_id_cme, RANGE_NAME['База ФЗМ_'] + f'A:A'))
 
-    sheet = RANGE_NAME['База ФЗМ_'] + f'R2C1:R{qty_tickets}C{len_column}'
+    sheet = RANGE_NAME['База ФЗМ_'] + f'R2C1:R{qty_cme_formats}C{len_column}'
 
     data = get_data_from_spreadsheet(
         sheet_id_cme,
