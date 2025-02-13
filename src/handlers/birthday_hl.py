@@ -351,7 +351,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     _, callback_data = remove_intent_id(query.data)
     age = callback_data
-    await query.edit_message_text(f'<b>Возраст именника:</b> {age}')
+    await query.edit_message_text(f'<b>Исполнится лет имениннику:</b> {age}')
 
     custom_made_formats = await db_postgres.get_all_custom_made_format(
         context.session)
