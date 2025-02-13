@@ -257,11 +257,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             flag_christmas_tree = True
         if event.flag_santa:
             flag_santa = True
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     text = (f'Вы выбрали мероприятие:\n'
             f'<b>{full_name}</b>\n'
             f'<i>Выберите удобную дату</i>\n\n')

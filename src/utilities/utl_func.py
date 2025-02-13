@@ -618,11 +618,7 @@ async def clean_replay_kb_and_send_typing_action(update):
 
 
 async def render_text_for_choice_time(theater_event, schedule_events):
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     event = schedule_events[0]
     weekday = int(event.datetime_event.strftime('%w'))
     date_event = (event.datetime_event.strftime('%d.%m ') +
@@ -670,13 +666,13 @@ def get_unique_months(events: Sequence[ScheduleEvent]):
     return unique_sorted_months
 
 
-def get_full_name_event(
-        name,
-        flag_premiere,
-        min_age_child,
-        max_age_child,
-        duration
-):
+def get_full_name_event(event: TheaterEvent):
+    name = event.name
+    flag_premiere = event.flag_premier
+    min_age_child = event.min_age_child
+    max_age_child = event.max_age_child
+    duration = event.duration
+
     full_name: str = name
     full_name += '\n'
     if flag_premiere:
@@ -745,11 +741,7 @@ async def filter_schedule_event_by_active(
 
 async def create_event_names_text(enum_theater_events, text):
     for i, event in enum_theater_events:
-        full_name = get_full_name_event(event.name,
-                                        event.flag_premier,
-                                        event.min_age_child,
-                                        event.max_age_child,
-                                        event.duration)
+        full_name = get_full_name_event(event)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[i]} {full_name}\n\n'
     return text
 
@@ -894,11 +886,7 @@ async def create_str_info_by_schedule_event_id(context, choice_event_id):
         context.session, schedule_event.theater_event_id)
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     text_emoji = await get_emoji(schedule_event)
     text_select_event = (f'Мероприятие:\n'
                          f'<b>{full_name}\n'

@@ -31,11 +31,7 @@ async def send_clients_wait_data(
 
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_events[0])
 

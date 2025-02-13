@@ -261,11 +261,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'{context.bot_data['texts']['text_legend']}'
     )
     for i, theater_event in enumerate(theater_events):
-        full_name = get_full_name_event(theater_event.name,
-                                        theater_event.flag_premier,
-                                        theater_event.min_age_child,
-                                        theater_event.max_age_child,
-                                        theater_event.duration)
+        full_name = get_full_name_event(theater_event)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} '
         text += f'{full_name}\n'
         keyboard.append(InlineKeyboardButton(
@@ -306,11 +302,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     theater_event_id = int(callback_data)
     theater_event = await db_postgres.get_theater_event(context.session,
                                                         theater_event_id)
-    full_name = get_full_name_event(theater_event.name,
-                                    theater_event.flag_premier,
-                                    theater_event.min_age_child,
-                                    theater_event.max_age_child,
-                                    theater_event.duration)
+    full_name = get_full_name_event(theater_event)
     await query.edit_message_text(
         f'<b>Вы выбрали мероприятие:</b>\n{full_name}')
 
@@ -654,11 +646,7 @@ async def get_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
             case 'theater_event_id':
                 theater_event = await db_postgres.get_theater_event(
                     context.session, item)
-                item = get_full_name_event(theater_event.name,
-                                           theater_event.flag_premier,
-                                           theater_event.min_age_child,
-                                           theater_event.max_age_child,
-                                           theater_event.duration)
+                item = get_full_name_event(theater_event)
             case 'custom_made_format_id':
                 custom_made_format = await db_postgres.get_custom_made_format(
                     context.session, item)
