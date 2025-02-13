@@ -761,7 +761,9 @@ async def get_name_children(
         except TimedOut as e:
             reserve_hl_logger.error(e)
             reserve_hl_logger.info(text)
-        await write_client_reserve(context,
+        sheet_id_domik = context.config.sheets.sheet_id_domik
+        await write_client_reserve(sheet_id_domik,
+                                   context,
                                    update.effective_chat.id,
                                    chose_base_ticket,
                                    TicketStatus.CREATED.value)
@@ -982,7 +984,8 @@ async def get_phone_for_waiting(
         text=text,
         message_thread_id=thread_id
     )
-    write_client_list_waiting(context)
+    sheet_id_domik = context.config.sheets.sheet_id_domik
+    write_client_list_waiting(sheet_id_domik, context)
     await update.effective_chat.send_message(
         text='Вы добавлены в лист ожидания, '
              'если место освободится, то с вами свяжутся. '

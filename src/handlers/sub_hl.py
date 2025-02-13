@@ -282,7 +282,9 @@ async def create_and_send_payment(
         update, context, TicketStatus.CREATED)
 
     await update.effective_chat.send_action(ChatAction.TYPING)
-    await write_client_reserve(context,
+    sheet_id_domik = context.config.sheets.sheet_id_domik
+    await write_client_reserve(sheet_id_domik,
+                               context,
                                update.effective_chat.id,
                                chose_base_ticket,
                                TicketStatus.CREATED.value)

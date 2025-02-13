@@ -15,8 +15,6 @@ from settings.config_loader import parse_settings
 from settings.settings import RANGE_NAME
 
 config = parse_settings()
-SPREADSHEET_ID = {}
-SPREADSHEET_ID.setdefault('Домик', config.sheets.sheet_id)
 
 filename = 'credentials.json'
 path = os.getenv('CONFIG_PATH')
@@ -53,10 +51,14 @@ def get_values(
     return result.get('values', [])
 
 
-def get_data_from_spreadsheet(sheet, value_render_option='FORMATTED_VALUE'):
+def get_data_from_spreadsheet(
+        spreadsheet_id,
+        sheet,
+        value_render_option='FORMATTED_VALUE'
+):
     try:
         values = get_values(
-            SPREADSHEET_ID['Домик'],
+            spreadsheet_id,
             sheet,
             value_render_option
         )
@@ -71,36 +73,9 @@ def get_data_from_spreadsheet(sheet, value_render_option='FORMATTED_VALUE'):
         raise ConnectionError
 
 
-def get_quality_of_seats(event_id: str, keys: List[str]):
-    try:
-        dict_column_name, len_column = get_column_info('База спектаклей_')
-
-        values = get_values(
-            SPREADSHEET_ID['Домик'],
-            f'{RANGE_NAME['База спектаклей']}'
-        )
-
-        if not values:
-            googlesheets_logger.info('No data found')
-            raise ValueError
-
-        return_data = []
-        for row in values:
-            if event_id == row[dict_column_name['event_id']]:
-                for key in keys:
-                    return_data.append(row[dict_column_name[key]])
-                return return_data
-        raise KeyError
-    except HttpError as err:
-        googlesheets_logger.error(err)
-    except KeyError:
-        googlesheets_logger.error(f'Показа с event_id = {event_id} не найдено')
-
-
-def get_column_info(name_sheet):
+def get_column_info(spreadsheet_id, name_sheet):
     data_column_name = get_data_from_spreadsheet(
-        RANGE_NAME[name_sheet] + f'2:2'
-    )
+        spreadsheet_id, RANGE_NAME[name_sheet] + f'2:2')
     dict_column_name: Dict[int | str, int] = {}
     for i, item in enumerate(data_column_name[0]):
         if item == '':
@@ -117,15 +92,17 @@ def get_column_info(name_sheet):
 
 
 def write_data_reserve(
+        spreadsheet_id,
         event_id,
         numbers: List[int],
         option: int = 1
 ) -> None:
     try:
-        dict_column_name, len_column = get_column_info('База спектаклей_')
+        dict_column_name, len_column = get_column_info(
+            spreadsheet_id, 'База спектаклей_')
 
         values = get_values(
-            SPREADSHEET_ID['Домик'],
+            spreadsheet_id,
             f'{RANGE_NAME['База спектаклей']}',
             value_render_option='UNFORMATTED_VALUE'
         )
@@ -204,7 +181,7 @@ def write_data_reserve(
             'data': data
         }
         request = sheet.values().batchUpdate(
-            spreadsheetId=SPREADSHEET_ID['Домик'],
+            spreadsheetId=spreadsheet_id,
             body=value_range_body
         )
         try:
@@ -226,10 +203,11 @@ def write_data_reserve(
 
 
 async def write_client_reserve(
+        spreadsheet_id,
         context: ContextTypes.DEFAULT_TYPE,
         chat_id: int,
         base_ticket: BaseTicket,
-        ticket_status_value,
+        ticket_status_value
 ) -> int:
     # TODO Заменить на запись в другой лист
     reserve_user_data = context.user_data['reserve_user_data']
@@ -240,7 +218,7 @@ async def write_client_reserve(
 
     try:
         values_column = get_values(
-            SPREADSHEET_ID['Домик'],
+            spreadsheet_id,
             RANGE_NAME['База клиентов']
         )
 
@@ -259,9 +237,11 @@ async def write_client_reserve(
             values[i].append(chat_id)
             values[i].append(client_data['name_adult'])
             values[i].append(client_data['phone'])
-            values[i].append(' | '.join([i[0] for i in client_data['data_children']]))
+            values[i].append(
+                ' | '.join([i[0] for i in client_data['data_children']]))
             values[i].append('')
-            values[i].append(' | '.join([i[1] for i in client_data['data_children']]))
+            values[i].append(
+                ' | '.join([i[1] for i in client_data['data_children']]))
 
             # Спектакль
             values[i].append(event_id)
@@ -304,7 +284,8 @@ async def write_client_reserve(
         range_sheet = (RANGE_NAME['База клиентов_'] +
                        f'R1C1:R1C{end_column_index}')
 
-        execute_append_googlesheet(sheet,
+        execute_append_googlesheet(spreadsheet_id,
+                                   sheet,
                                    range_sheet,
                                    value_input_option,
                                    response_value_render_option,
@@ -319,15 +300,17 @@ async def write_client_reserve(
 
 
 def update_ticket_in_gspread(
+        spreadsheet_id,
         ticket_id: int,
         ticket_status: str,
         option: int = 1
 ) -> None:
     try:
-        dict_column_name, len_column = get_column_info('База клиентов_')
+        dict_column_name, len_column = get_column_info(
+            spreadsheet_id, 'База клиентов_')
 
         values = get_values(
-            SPREADSHEET_ID['Домик'],
+            spreadsheet_id,
             f'{RANGE_NAME['База клиентов']}',
             value_render_option='UNFORMATTED_VALUE'
         )
@@ -374,7 +357,7 @@ def update_ticket_in_gspread(
             'data': data
         }
         request = sheet.values().batchUpdate(
-            spreadsheetId=SPREADSHEET_ID['Домик'],
+            spreadsheetId=spreadsheet_id,
             body=value_range_body
         )
         try:
@@ -420,12 +403,14 @@ def get_flags_by_ticket_status(ticket_status_value):
 
 
 def write_client_cme(
-        custom_made_event: CustomMadeEvent,
+        spreadsheet_id,
+        custom_made_event: CustomMadeEvent
 ) -> None:
-    dict_column_name, len_column = get_column_info('База ДР_')
+    dict_column_name, len_column = get_column_info(
+        spreadsheet_id, 'База ДР_')
 
     values_column = get_values(
-        SPREADSHEET_ID['Домик'],
+        spreadsheet_id,
         RANGE_NAME['База ДР']
     )
 
@@ -473,17 +458,21 @@ def write_client_cme(
     range_sheet = (RANGE_NAME['База ДР_'] +
                    f'R1C1:R1C{end_column_index}')
 
-    execute_append_googlesheet(sheet,
+    execute_append_googlesheet(spreadsheet_id,
+                               sheet,
                                range_sheet,
                                value_input_option,
                                response_value_render_option,
                                value_range_body)
 
 
-def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
+def write_client_list_waiting(
+        spreadsheet_id,
+        context: ContextTypes.DEFAULT_TYPE
+):
     try:
         values_column = get_values(
-            SPREADSHEET_ID['Домик'],
+            spreadsheet_id,
             RANGE_NAME['Лист ожидания']
         )
 
@@ -535,7 +524,8 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         range_sheet = (RANGE_NAME['Лист ожидания_'] +
                        f'R1C1:R1C{end_column_index}')
 
-        execute_append_googlesheet(sheet,
+        execute_append_googlesheet(spreadsheet_id,
+                                   sheet,
                                    range_sheet,
                                    value_input_option,
                                    response_value_render_option,
@@ -545,10 +535,15 @@ def write_client_list_waiting(context: ContextTypes.DEFAULT_TYPE):
         googlesheets_logger.error(err)
 
 
-def update_cme_in_gspread(cme_id, status) -> None:
-    dict_column_name, len_column = get_column_info('База ДР_')
+def update_cme_in_gspread(
+        spreadsheet_id,
+        cme_id,
+        status
+) -> None:
+    dict_column_name, len_column = get_column_info(
+        spreadsheet_id, 'База ДР_')
     values = get_values(
-        SPREADSHEET_ID['Домик'],
+        spreadsheet_id,
         f'{RANGE_NAME['База ДР']}',
         value_render_option='UNFORMATTED_VALUE'
     )
@@ -579,7 +574,8 @@ def update_cme_in_gspread(cme_id, status) -> None:
     range_sheet = (f'{RANGE_NAME['База ДР_']}'
                    f'R{row_cme}C{col1}:R{row_cme}C{col2}')
 
-    execute_update_googlesheet(sheet,
+    execute_update_googlesheet(spreadsheet_id,
+                               sheet,
                                range_sheet,
                                value_input_option,
                                response_value_render_option,
@@ -587,6 +583,7 @@ def update_cme_in_gspread(cme_id, status) -> None:
 
 
 def execute_update_googlesheet(
+        spreadsheet_id,
         sheet,
         range_sheet,
         value_input_option,
@@ -594,7 +591,7 @@ def execute_update_googlesheet(
         value_range_body
 ):
     request = sheet.values().update(
-        spreadsheetId=SPREADSHEET_ID['Домик'],
+        spreadsheetId=spreadsheet_id,
         range=range_sheet,
         valueInputOption=value_input_option,
         responseValueRenderOption=response_value_render_option,
@@ -618,6 +615,7 @@ def execute_update_googlesheet(
 
 
 def execute_append_googlesheet(
+        spreadsheet_id,
         sheet,
         range_sheet,
         value_input_option,
@@ -625,7 +623,7 @@ def execute_append_googlesheet(
         value_range_body
 ):
     request = sheet.values().append(
-        spreadsheetId=SPREADSHEET_ID['Домик'],
+        spreadsheetId=spreadsheet_id,
         range=range_sheet,
         valueInputOption=value_input_option,
         insertDataOption='INSERT_ROWS',
