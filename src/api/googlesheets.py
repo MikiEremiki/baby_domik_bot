@@ -437,7 +437,7 @@ def write_client_cme(
         elif key == 'name_theater':
             values[0].append(
                 '=VLOOKUP('
-                'INDEX($1:$66;ROW();MATCH("theater_event_id";$2:$2;0));'
+                'INDEX($A:$Z;ROW();MATCH("theater_event_id";$2:$2;0));'
                 '\'Репертуар\'!$A$3:$F;'
                 'MATCH("name";\'Репертуар\'!$2:$2;0)'
                 ')'
