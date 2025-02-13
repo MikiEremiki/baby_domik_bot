@@ -29,6 +29,7 @@ class TheaterEventDTO(BaseModel):
     max_num_adult_bd: int
     flag_indiv_cost: bool
     price_type: PriceType
+    note: str
 
     def to_dto(self):
         return {
@@ -44,7 +45,8 @@ class TheaterEventDTO(BaseModel):
             'max_num_child_bd': self.max_num_child_bd,
             'max_num_adult_bd': self.max_num_adult_bd,
             'flag_indiv_cost': self.flag_indiv_cost,
-            'price_type': self.price_type
+            'price_type': self.price_type,
+            'note': self.note
         }
 
 
@@ -60,6 +62,7 @@ kv_name_attr_theater_event = {
     'max_num_adult_bd': 'Макс кол-во взрослых ДР',
     'flag_indiv_cost': 'Индив стоимость',
     'price_type': 'Расчет стоимости',
+    'note': 'Примечание',
 }
 
 

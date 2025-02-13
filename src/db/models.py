@@ -231,6 +231,7 @@ class TheaterEvent(BaseModel):
     max_num_adult_bd: Mapped[int] = mapped_column(default=10)
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
     price_type: Mapped[PriceType] = mapped_column(default=PriceType.NONE)
+    note: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
         lazy='selectin')

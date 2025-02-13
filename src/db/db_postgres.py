@@ -297,6 +297,7 @@ async def create_theater_event(
         flag_indiv_cost=False,
         price_type=PriceType.NONE,
         theater_event_id=None,
+        note=None,
 ):
     theater_event = TheaterEvent(
         id=theater_event_id,
@@ -311,7 +312,8 @@ async def create_theater_event(
         max_num_child_bd=max_num_child_bd,
         max_num_adult_bd=max_num_adult_bd,
         flag_indiv_cost=flag_indiv_cost,
-        price_type=price_type
+        price_type=price_type,
+        note=note
     )
     session.add(theater_event)
     await session.commit()
