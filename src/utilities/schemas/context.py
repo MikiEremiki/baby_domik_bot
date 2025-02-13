@@ -4,7 +4,7 @@ birthday_data = {
         'date': 'Дата',
         'time': 'Время',
         'theater_event_id': 'Спектакль',
-        'age': 'Возраст именинника',
+        'age': 'Исполнится лет имениннику',
         'qty_child': 'Кол-во детей',
         'qty_adult': 'Кол-во взрослых',
         'custom_made_format_id': 'Формат праздника',
