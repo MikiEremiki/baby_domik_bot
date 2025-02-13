@@ -672,6 +672,7 @@ def get_full_name_event(event: TheaterEvent):
     min_age_child = event.min_age_child
     max_age_child = event.max_age_child
     duration = event.duration
+    note = event.note
 
     full_name: str = name
     full_name += '\n'
@@ -692,6 +693,8 @@ def get_full_name_event(event: TheaterEvent):
                 full_name += str(duration // 60) + 'ч'
             if duration % 60 > 0:
                 full_name += str(duration % 60) + 'мин'
+    if note:
+        full_name += f'\n<i>{note}</i>'
     return full_name
 
 
