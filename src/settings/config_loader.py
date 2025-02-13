@@ -29,7 +29,8 @@ class PostgresSettings(BaseModel):
 
 class GoogleSheetsSettings(BaseModel):
     credentials_path: str
-    sheet_id: str
+    sheet_id_domik: str
+    sheet_id_cme: str
 
 
 class YookassaSettings(BaseModel):
