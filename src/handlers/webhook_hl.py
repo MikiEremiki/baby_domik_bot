@@ -129,10 +129,10 @@ async def processing_cme_prepaid(update, context):
         customer_email = update.object.metadata['custEmail']
         customer_number = update.object.metadata['customerNumber']
         invoice_original_number = update.object.metadata['dashboardInvoiceOriginalNumber']
-        text += f'Покупатель: {customer_email}'
-        text += f'Номер счета: {invoice_original_number}'
+        text += f'Покупатель: {customer_email}\n'
+        text += f'Номер счета: {invoice_original_number}\n'
         if customer_number != customer_email:
-            text += f' {customer_number}'
+            text += f' {customer_number}\n'
 
         text += 'Ждем сообщения от пользователя с квитанцией и номером заявки'
 

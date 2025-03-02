@@ -16,8 +16,9 @@ def add_glob_on_off_middleware(application, config):
                 'Проводятся технические работы, сроки устранения уточняются.\n'
                 'Приносим свои извинения за возможные неудобства.\n'
                 'Вы можете написать свой вопрос мне и я перешлю его '
-                'администратору или вы можете написать в сообщениях группы во '
-                '<a href="https://vk.com/baby_theater_domik">ВКонтакте</a>'
+                'администратору или вы можете написать в группах:\n'
+                '- <a href="https://t.me/theater_domik">Телеграм</a>\n'
+                '- <a href="https://vk.com/baby_theater_domik">ВКонтакте</a>'
             )
             raise ApplicationHandlerStop
 

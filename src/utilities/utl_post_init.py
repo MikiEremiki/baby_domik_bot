@@ -10,7 +10,7 @@ async def post_init(app: Application, config):
 
     app.bot_data.setdefault('texts', {})
     app.bot_data['texts']['description'] = (
-        '<a href="https://t.me/theater_domik">Канал театра</a> в телеграмм'
+        '<a href="https://t.me/theater_domik">Канал театра</a> в телеграм'
         ' с удобным делением по темам\n'
         'ПОДПИСЫВАЙТЕСЬ, чтобы не пропустить новости театра\n\n'
     )
@@ -29,7 +29,10 @@ async def post_init(app: Application, config):
     )
 
     app.bot_data.setdefault('admin', {})
-    app.bot_data['admin'].setdefault('contacts', {})
+    app.bot_data.setdefault('cme_admin', {})
+    contacts = 'Театр Домик\ntelegram @Theater_Domik_admin\nтелефон +79991400114'
+    app.bot_data['admin'].setdefault('contacts', contacts)
+    app.bot_data['cme_admin'].setdefault('contacts', contacts)
     app.bot_data.setdefault('dict_topics_name', {})
     app.bot_data.setdefault('global_on_off', True)
     app.context_types.context.config = config

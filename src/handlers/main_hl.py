@@ -18,7 +18,7 @@ from db.db_googlesheets import (
     increase_free_and_decrease_nonconfirm_seat, update_free_seat,
 )
 from settings.settings import (
-    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
+    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN, FILE_ID_RULES
 )
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
@@ -69,23 +69,43 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_approve_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        text = 'Только отправляет подтверждение пользователю по номеру билета\n'
-        text += '<code>/send_approve_msg 0</code>\n\n'
-        await update.message.reply_text(
+        text = (
+            'Отправляет:\n'
+            '- подтверждение пользователю по номеру билета\n'
+            '- правила при добавлении слова <code>Правила</code> в конце\n'
+        )
+        text += '\n\n<code>/send_approve_msg 0</code>'
+        text += '\nИЛИ'
+        text += '\n<code>/send_approve_msg 0 Правила</code>'
+        await update.effective_message.reply_text(
             text, reply_to_message_id=update.message.message_id)
         return
+    text = ''
     ticket_id = context.args[0]
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
-        text = 'Проверь номер билета'
-        await update.message.reply_text(
+        text = (f'Проверь номер билета\n'
+                f'Введено: {ticket_id}')
+        await update.effective_message.reply_text(
             text, reply_to_message_id=update.message.message_id)
         return
     chat_id = ticket.user.chat_id
-
     await send_approve_message(chat_id, context)
-    await update.effective_message.reply_text(
-        'Подтверждение успешно отправлено')
+    text += 'Подтверждение'
+
+    if len(context.args) == 2:
+        if context.args[1] == 'Правила':
+            await context.bot.send_photo(
+                chat_id=chat_id, photo=FILE_ID_RULES, caption='Правила театра')
+            text += ' и правила'
+        else:
+            text = (f'Проверь ключевое слово <code>Правила</code>\n'
+                    f'Введено: {context.args[1]}')
+            await update.effective_message.reply_text(
+                text, reply_to_message_id=update.message.message_id)
+            return
+    text += ' успешно отправлено'
+    await update.effective_message.reply_text(text)
 
 
 async def send_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -638,7 +658,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = query.data.split('|')[0][-1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
-            f'{context.bot_data['admin']['contacts']}')
+            f'{context.bot_data['cme_admin']['contacts']}')
 
     match step:
         case '1':
@@ -747,7 +767,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = query.data.split('|')[0][-1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
-            f'{context.bot_data['admin']['contacts']}')
+            f'{context.bot_data['cme_admin']['contacts']}')
 
     cme_status = CustomMadeStatus.REJECTED
 
@@ -771,16 +791,17 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await message.edit_text(f'Заявка {cme_id} отклонена')
 
             text = f'Мы рассмотрели Вашу заявку: {cme_id}.\n'
-            text += 'К сожалению, мы не сможем провести день рождения вашего малыша\n\n'
+            text += ('Срок обработки данной заявки истёк.\n'
+                     'При необходимости сформируйте повторную заявку.\n'
+                     'Мы всегда готовы стать частью Вашего праздника🏡💚')
 
         case '2':
             await message.edit_text(f'Отклонена бронь по заявке {cme_id}')
 
             text = f'Ваша бронь по заявке: {cme_id} отклонена.\n'
 
-    text += ('Для решения данного вопроса, пожалуйста, '
-             'свяжитесь с Администратором:\n'
-             f'{context.bot_data['admin']['contacts']}')
+    text += ('При возникновении вопросов, свяжитесь с Администратором:\n'
+             f'{context.bot_data['cme_admin']['contacts']}')
     try:
         await context.bot.send_message(
             text=text,

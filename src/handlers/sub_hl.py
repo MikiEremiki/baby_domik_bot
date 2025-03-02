@@ -51,15 +51,17 @@ async def request_phone_number(update, context):
     return message
 
 
-async def update_admin_info(update: Update,
-                            context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.bot_data.setdefault('admin', {})
-    admin_info = context.bot_data['admin']
+async def processing_admin_info(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        admin_str
+):
+    admin_info = context.bot_data[admin_str]
     if context.args:
         if context.args[0] == 'clean':
-            context.bot_data['admin'] = {}
+            context.bot_data[admin_str] = {}
             await update.effective_chat.send_message(
-                f'Зафиксировано: {context.bot_data['admin']}')
+                f'Зафиксировано: {context.bot_data[admin_str]}')
             return
         if len(context.args) == 4:
             admin_info['name'] = ' '.join(context.args[0:2])
@@ -71,16 +73,30 @@ async def update_admin_info(update: Update,
                  'телефон ' + admin_info['phone']]
             )
             await update.effective_chat.send_message(
-                f'Зафиксировано: {context.bot_data['admin']}')
+                f'Зафиксировано: {admin_info}')
         else:
             await update.effective_chat.send_message(
                 f'Должно быть 4 параметра, а передано {len(context.args)}\n'
-                'Формат: Имя Фамилия @username +79991234455')
+                'Формат:\n<code>Имя Фамилия @username +79991234455</code>')
     else:
         await update.effective_chat.send_message(
             'Не заданы параметры к команде\n'
             'Текущие контакты администратора:\n'
             f'{admin_info}')
+
+
+async def update_admin_info(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.bot_data.setdefault('admin', {})
+
+    await processing_admin_info(update, context, 'admin')
+
+
+async def update_cme_admin_info(update: Update,
+                                context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.bot_data.setdefault('cme_admin', {})
+
+    await processing_admin_info(update, context, 'cme_admin')
 
 
 async def update_bd_price(update: Update,

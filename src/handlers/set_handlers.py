@@ -6,7 +6,8 @@ from telegram.ext import (
 
 import custom_filters
 from handlers import main_hl, reserve_hl
-from handlers.sub_hl import update_admin_info, update_bd_price
+from handlers.sub_hl import (
+    update_admin_info, update_bd_price, update_cme_admin_info)
 from handlers.webhook_hl import WebhookHandler
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
@@ -99,6 +100,9 @@ def set_handlers(application, config):
                        filter_admin),
         CommandHandler(COMMAND_DICT['ADM_INFO'][0],
                        update_admin_info,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['ADM_CME_INFO'][0],
+                       update_cme_admin_info,
                        filter_admin),
     ])
 
