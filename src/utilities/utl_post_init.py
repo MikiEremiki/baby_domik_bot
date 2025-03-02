@@ -10,7 +10,7 @@ async def post_init(app: Application, config):
 
     app.bot_data.setdefault('texts', {})
     app.bot_data['texts']['description'] = (
-        '<a href="https://t.me/theater_domik">Канал театра</a> в телеграмм'
+        '<a href="https://t.me/theater_domik">Канал театра</a> в телеграм'
         ' с удобным делением по темам\n'
         'ПОДПИСЫВАЙТЕСЬ, чтобы не пропустить новости театра\n\n'
     )
