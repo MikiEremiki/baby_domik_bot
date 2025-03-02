@@ -658,7 +658,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = query.data.split('|')[0][-1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
-            f'{context.bot_data['admin']['contacts']}')
+            f'{context.bot_data['cme_admin']['contacts']}')
 
     match step:
         case '1':
@@ -767,7 +767,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = query.data.split('|')[0][-1]
     text = ('Возникла ошибка\n'
             'Cвяжитесь с администратором:\n'
-            f'{context.bot_data['admin']['contacts']}')
+            f'{context.bot_data['cme_admin']['contacts']}')
 
     cme_status = CustomMadeStatus.REJECTED
 
@@ -798,9 +798,8 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             text = f'Ваша бронь по заявке: {cme_id} отклонена.\n'
 
-    text += ('Для решения данного вопроса, пожалуйста, '
-             'свяжитесь с Администратором:\n'
-             f'{context.bot_data['admin']['contacts']}')
+    text += ('При возникновении вопросов, свяжитесь с Администратором:\n'
+             f'{context.bot_data['cme_admin']['contacts']}')
     try:
         await context.bot.send_message(
             text=text,
