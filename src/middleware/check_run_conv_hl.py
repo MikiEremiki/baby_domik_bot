@@ -33,9 +33,9 @@ def add_check_run_conv_hl_middleware(application):
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await update.effective_chat.send_message(
                     'У вас запущен другой диалог.\n'
-                    'Если вы хотите закончить с ним работу '
-                    'нажмите кнопку Отмена и выполните новую команду',
-                    reply_markup=reply_markup
+                    'Нажмите кнопку Отмена и выполните новую команду',
+                    reply_markup=reply_markup,
+                    message_thread_id=update.effective_message.message_thread_id
                 )
                 raise ApplicationHandlerStop
 
