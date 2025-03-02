@@ -27,6 +27,12 @@ context_bot_data: Dict = {
         'phone': str,
         'contacts': str,
     },
+    'cme_admin': {
+        'name': str,
+        'username': str,
+        'phone': str,
+        'contacts': str,
+    },
     'birthday_price': {
         int: (int, str),
     },
