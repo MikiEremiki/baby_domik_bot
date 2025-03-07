@@ -20,6 +20,8 @@ async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
 
     option = get_option(schedule_event, theater_event)
 
+    # Переопределил дату определения цены по дате спектакля
+    date_for_price = schedule_event.datetime_event
     price, price_privilege = ticket.get_price_from_date(date_for_price)
     key = ticket.base_ticket_id
     type_ticket_price = await set_type_ticket_price(schedule_event)
@@ -76,7 +78,7 @@ def get_option(
         if price_type == PriceType.INDIVIDUAL:
             option = theater_event.id
         else:
-            option = price_type
+            option = price_type.value
     return option
 
 
