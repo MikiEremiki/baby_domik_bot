@@ -123,9 +123,17 @@ class BaseTicket(BaseModelTimed):
         date_gt_start = False
         date_le_end = False
         if isinstance(self.period_start_change_price, date):
-            date_gt_start = _date >= self.period_start_change_price
+            # Для варианта расчета по наступлению даты
+            # s_date = datetime.fromtimestamp(
+            #    self.period_start_change_price.timestamp())
+            # Для варианта расчета по дате мероприятия
+            s_date = self.period_start_change_price
+            date_gt_start = _date >= s_date
         if isinstance(self.period_end_change_price, date):
-            date_le_end = _date <= self.period_end_change_price
+            # e_date = datetime.fromtimestamp(
+            #     self.period_end_change_price.timestamp())
+            e_date = self.period_end_change_price
+            date_le_end = _date <= e_date
 
         check_1 = date_gt_start and date_le_end
         check_2 = date_gt_start and not date_le_end
