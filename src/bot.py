@@ -26,6 +26,7 @@ application = (
     .persistence(pickle_persistence)
     .defaults(Defaults(parse_mode=ParseMode.HTML))
     .rate_limiter(AIORateLimiter())
+    .read_timeout(10)
 
     .build()
 )
