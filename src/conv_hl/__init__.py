@@ -14,4 +14,3 @@ from .birthday_conv_hl import birthday_conv_hl, birthday_paid_conv_hl
 from .afisha_conv_hl import afisha_conv_hl
 from .support_conv_hl import support_conv_hl
 from .migration_admin_conv_hl import migration_admin_conv_hl
-from .studio_conv_hl import studio_conv_hl

@@ -13,7 +13,7 @@ from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
 from conv_hl import (
     reserve_conv_hl, reserve_admin_conv_hl, list_wait_conv_hl, birthday_conv_hl,
-    afisha_conv_hl, support_conv_hl, migration_admin_conv_hl, studio_conv_hl,
+    afisha_conv_hl, support_conv_hl, migration_admin_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
@@ -55,7 +55,6 @@ def set_handlers(application, config):
         afisha_conv_hl,
         support_conv_hl,
         migration_admin_conv_hl,
-        studio_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
