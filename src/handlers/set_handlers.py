@@ -55,7 +55,6 @@ def set_handlers(application, config):
         afisha_conv_hl,
         support_conv_hl,
         migration_admin_conv_hl,
-        studio_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 

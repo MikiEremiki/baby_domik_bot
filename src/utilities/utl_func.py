@@ -104,8 +104,6 @@ async def set_menu(bot: ExtBot) -> None:
                    COMMAND_DICT['START'][1]),
         BotCommand(COMMAND_DICT['RESERVE'][0],
                    COMMAND_DICT['RESERVE'][1]),
-        BotCommand(COMMAND_DICT['STUDIO'][0],
-                   COMMAND_DICT['STUDIO'][1]),
         BotCommand(COMMAND_DICT['BD_ORDER'][0],
                    COMMAND_DICT['BD_ORDER'][1]),
     ]
