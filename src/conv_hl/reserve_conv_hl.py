@@ -16,7 +16,7 @@ states = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
-        CallbackQueryHandler(ticket_hl.get_ticket),
+        CallbackQueryHandler(ticket_hl.get_ticket, pattern='^TICKET'),
     ],
     'OFFER': [
         cancel_callback_handler,
@@ -43,7 +43,7 @@ states = {
     'LIST': [
         cancel_callback_handler,
         back_callback_handler,
-        CallbackQueryHandler(reserve_hl.send_clients_data),
+        CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
     ],
     'CHOOSING': [
         MessageHandler(

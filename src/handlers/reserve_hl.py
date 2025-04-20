@@ -51,7 +51,7 @@ from utilities.utl_kbd import (
     create_kbd_for_time_in_reserve, create_replay_markup,
     create_kbd_and_text_tickets_for_choice, create_kbd_for_time_in_studio,
     create_kbd_for_date_in_reserve, remove_intent_id, create_kbd_with_months,
-    adjust_kbd, add_btn_back_and_cancel,
+    adjust_kbd, add_btn_back_and_cancel, add_intent_id,
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
@@ -97,6 +97,8 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = 'Выберите месяц'
     keyboard = await create_kbd_with_months(months)
     keyboard = adjust_kbd(keyboard, 1)
+    state = 'MONTH'
+    keyboard = add_intent_id(keyboard, state)
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=False
@@ -112,7 +114,6 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_thread_id=update.effective_message.message_thread_id
     )
 
-    state = 'MONTH'
     schedule_event_ids = [item.id for item in schedule_events]
     state_data = context.user_data['reserve_user_data'][state] = {}
     state_data['schedule_event_ids'] = schedule_event_ids
@@ -136,7 +137,8 @@ async def choice_show_or_date(
     """
     query = update.callback_query
 
-    number_of_month_str = query.data
+    _, callback_data = remove_intent_id(query.data)
+    number_of_month_str = callback_data
 
     reserve_hl_logger.info(f'Пользователь выбрал месяц: {number_of_month_str}')
     reserve_user_data = context.user_data['reserve_user_data']
@@ -179,6 +181,7 @@ async def choice_show_or_date(
 
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back='MONTH',
         size_row=2
@@ -198,7 +201,7 @@ async def choice_show_or_date(
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=update.callback_query.message.message_thread_id,
+            message_thread_id=update.effective_message.message_thread_id,
         )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
@@ -238,9 +241,15 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     schedule_events = await db_postgres.get_schedule_events_by_ids_and_theater(
         context.session, schedule_event_ids, [theater_event_id])
 
+    if context.user_data['command'] == 'list_wait':
+        state = 'LIST_WAIT'
+    else:
+        state = 'DATE'
+
     keyboard = await create_kbd_for_date_in_reserve(schedule_events)
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back='SHOW',
         size_row=2
@@ -289,11 +298,6 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup,
         )
 
-    if context.user_data['command'] == 'list_wait':
-        state = 'LIST_WAIT'
-    else:
-        state = 'DATE'
-
     schedule_event_ids = [item.id for item in schedule_events]
     state_data = context.user_data['reserve_user_data'][state] = {}
     state_data['schedule_event_ids'] = schedule_event_ids
@@ -324,8 +328,15 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = await create_kbd_for_time_in_studio(schedule_events)
     else:
         keyboard = await create_kbd_for_time_in_reserve(schedule_events)
+
+    if context.user_data.get('command', False) == 'list':
+        state = 'LIST'
+    else:
+        state = 'TIME'
+
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back='DATE',
         size_row=1
@@ -359,10 +370,6 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['choose_theater_event_id'] = theater_event.id
 
-    if context.user_data.get('command', False) == 'list':
-        state = 'LIST'
-    else:
-        state = 'TIME'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
@@ -459,8 +466,12 @@ async def choice_option_of_reserve(
         theater_event,
         date_for_price
     )
+
+    state = 'TICKET'
+
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back='TIME',
         size_row=5
@@ -487,7 +498,6 @@ async def choice_option_of_reserve(
 
     context.user_data['reserve_user_data']['date_for_price'] = date_for_price
 
-    state = 'TICKET'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state

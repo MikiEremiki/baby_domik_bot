@@ -47,7 +47,7 @@ def intent_callback_data(
     return prefix + callback_data
 
 
-def add_intent_id(keyboard: [[InlineKeyboardButton]], intent_id: str):
+def add_intent_id(keyboard: List[List[InlineKeyboardButton]], intent_id: str):
     new_keyboard = []
     for row in keyboard:
         new_row = []
@@ -324,7 +324,8 @@ def create_kbd_confirm():
 
 
 async def create_replay_markup(
-        keyboard,
+        keyboard: List[InlineKeyboardButton],
+        intent_id: str,
         add_cancel_btn: bool = True,
         postfix_for_cancel: Any = None,
         add_back_btn: bool = True,
@@ -332,7 +333,7 @@ async def create_replay_markup(
         size_row: int = 8
 ):
     keyboard = adjust_kbd(keyboard, size_row)
-    keyboard = add_intent_id(keyboard, new_id())
+    keyboard = add_intent_id(keyboard, intent_id)
     keyboard.append(
         add_btn_back_and_cancel(add_cancel_btn=add_cancel_btn,
                                 postfix_for_cancel=postfix_for_cancel,

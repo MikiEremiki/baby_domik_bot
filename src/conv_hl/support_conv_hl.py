@@ -19,8 +19,8 @@ states = {
     1: [
         back_callback_handler,
         cancel_callback_handler,
-        CallbackQueryHandler(support_hl.get_updates_option, 'update_data'),
-        CallbackQueryHandler(support_hl.choice_db_settings),
+        CallbackQueryHandler(support_hl.get_updates_option, '^update_data$'),
+        CallbackQueryHandler(support_hl.choice_db_settings, '^db$'),
     ],
     'updates': [
         back_callback_handler,
@@ -35,7 +35,7 @@ states = {
     2: [
         back_callback_handler,
         cancel_callback_handler,
-        CallbackQueryHandler(support_hl.get_settings),
+        CallbackQueryHandler(support_hl.get_settings, pattern='^db|$'),
     ],
     3: [
         back_callback_handler,
@@ -52,12 +52,12 @@ states = {
     41: [
         cancel_callback_handler,
         MessageHandler(F_text_and_no_command, support_hl.theater_event_check),
-        CallbackQueryHandler(support_hl.theater_event_create),
+        CallbackQueryHandler(support_hl.theater_event_create, '^accept$'),
     ],
     42: [
         cancel_callback_handler,
         MessageHandler(F_text_and_no_command, support_hl.schedule_event_check),
-        CallbackQueryHandler(support_hl.schedule_event_create),
+        CallbackQueryHandler(support_hl.schedule_event_create, '^accept$'),
     ],
     ConversationHandler.TIMEOUT: [support_hl.TIMEOUT_HANDLER]
 }
