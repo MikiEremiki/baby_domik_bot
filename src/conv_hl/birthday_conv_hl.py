@@ -25,19 +25,19 @@ states = {
         MessageHandler(F_text_and_no_command, birthday_hl.get_time),
     ],
     'CHOOSE': [
-        CallbackQueryHandler(birthday_hl.get_show),
+        CallbackQueryHandler(birthday_hl.get_show, pattern='^CHOOSE'),
     ],
     'AGE': [
-        CallbackQueryHandler(birthday_hl.get_age),
+        CallbackQueryHandler(birthday_hl.get_age, pattern='^AGE'),
     ],
     'FORMAT_BD': [
-        CallbackQueryHandler(birthday_hl.get_format_bd),
+        CallbackQueryHandler(birthday_hl.get_format_bd, pattern='^FORMAT_BD'),
     ],
     'QTY_CHILD': [
-        CallbackQueryHandler(birthday_hl.get_qty_child),
+        CallbackQueryHandler(birthday_hl.get_qty_child, pattern='^QTY_CHILD'),
     ],
     'QTY_ADULT': [
-        CallbackQueryHandler(birthday_hl.get_qty_adult),
+        CallbackQueryHandler(birthday_hl.get_qty_adult, pattern='^QTY_ADULT'),
     ],
     'NAME_CHILD': [
         MessageHandler(F_text_and_no_command, birthday_hl.get_name_child),
@@ -49,11 +49,11 @@ states = {
         MessageHandler(F_text_and_no_command, birthday_hl.get_phone),
     ],
     'NOTE': [
-        CallbackQueryHandler(birthday_hl.get_note),
+        CallbackQueryHandler(birthday_hl.get_note, pattern='Next'),
         MessageHandler(F_text_and_no_command, birthday_hl.get_note),
     ],
     'CONFIRM': [
-        CallbackQueryHandler(birthday_hl.get_confirm),
+        CallbackQueryHandler(birthday_hl.get_confirm, pattern='confirm'),
     ],
 }
 

@@ -18,7 +18,7 @@ from handlers.sub_hl import request_phone_number, send_message_to_admin
 from api.googlesheets import write_client_cme
 from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON,
-    ADMIN_GROUP,
+    ADMIN_CME_GROUP,
     ADDRESS_OFFICE,
     COMMAND_DICT,
 )
@@ -268,8 +268,10 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
             callback_data=theater_event.id
         ))
+    state = 'CHOOSE'
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back=context.user_data['STATE'],
         size_row=4
@@ -286,7 +288,6 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['birthday_user_data']['time'] = time
 
-    state = 'CHOOSE'
     await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     return state
@@ -310,8 +311,10 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i in range(2, 7):  # Фиксированно можно выбрать только от 2 до 6 лет
         keyboard.append(InlineKeyboardButton(str(i), callback_data=str(i)))
 
+    state = 'AGE'
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back=context.user_data['STATE'],
     )
@@ -328,7 +331,6 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['birthday_user_data'][
         'theater_event_id'] = theater_event_id
 
-    state = 'AGE'
     await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     await query.answer()
@@ -362,8 +364,10 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
             callback_data=item.id
         ))
+    state = 'FORMAT_BD'
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back=context.user_data['STATE'],
     )
@@ -378,7 +382,6 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['birthday_user_data']['age'] = int(age)
 
-    state = 'FORMAT_BD'
     await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     await query.answer()
@@ -407,8 +410,10 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ('Выберите сколько будет гостей-детей\n\n'
             f'Праздник рассчитан до {max_qty_child} детей.')
     keyboard = create_kbd_with_number_btn(max_qty_child)
+    state = 'QTY_CHILD'
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back=context.user_data['STATE'],
         size_row=5
@@ -425,7 +430,6 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['birthday_user_data']['custom_made_format_id'] = int(
         custom_made_format_id)
 
-    state = 'QTY_CHILD'
     await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     await query.answer()
@@ -446,8 +450,10 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ('Выберите сколько будет гостей-взрослых\n\n'
             'Праздник рассчитан до 10 взрослых.')
     keyboard = create_kbd_with_number_btn(10)
+    state = 'QTY_ADULT'
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back=context.user_data['STATE'],
         size_row=5
@@ -463,7 +469,6 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['birthday_user_data']['qty_child'] = int(qty_child)
 
-    state = 'QTY_ADULT'
     await set_back_context(context, state, text, reply_markup, del_message_ids)
     context.user_data['STATE'] = state
     await query.answer()
@@ -731,7 +736,7 @@ async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  .get('Выездные мероприятия', None))
     message = await context.bot.send_message(
         text=text,
-        chat_id=ADMIN_GROUP,
+        chat_id=ADMIN_CME_GROUP,
         reply_markup=reply_markup,
         message_thread_id=thread_id
     )
@@ -822,14 +827,14 @@ async def forward_photo_or_file(
             'message_id_for_admin']
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Выездные мероприятия', None))
-        await send_message_to_admin(ADMIN_GROUP,
+        await send_message_to_admin(ADMIN_CME_GROUP,
                                     text,
                                     message_id_for_admin,
                                     context,
                                     thread_id)
 
         await update.effective_message.forward(
-            chat_id=ADMIN_GROUP,
+            chat_id=ADMIN_CME_GROUP,
             message_thread_id=thread_id
         )
 
@@ -839,7 +844,7 @@ async def forward_photo_or_file(
         )
 
         await context.bot.send_message(
-            chat_id=ADMIN_GROUP,
+            chat_id=ADMIN_CME_GROUP,
             text=f'Пользователь @{user.username} {user.full_name}\n'
                  f'Запросил подтверждение брони на сумму 5000 руб\n',
             reply_markup=reply_markup,
