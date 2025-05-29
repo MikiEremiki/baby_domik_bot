@@ -1,4 +1,3 @@
 from .db import add_db_handlers_middleware
 from .glob_usage_users import add_glob_on_off_middleware
-from .throttling import add_throttling_middleware
 from .check_run_conv_hl import add_check_run_conv_hl_middleware

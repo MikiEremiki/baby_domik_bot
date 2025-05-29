@@ -15,23 +15,24 @@ back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
 handlers_event_selection  = {
     'MONTH': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.choice_show_or_date),
+        CallbackQueryHandler(reserve_hl.choice_show_or_date, pattern='^MONTH'),
     ],
     'SHOW': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
-        CallbackQueryHandler(reserve_hl.choice_date),
+        CallbackQueryHandler(reserve_hl.choice_date, pattern='^SHOW'),
     ],
     'DATE': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
-        CallbackQueryHandler(reserve_hl.choice_time),
+        CallbackQueryHandler(reserve_hl.choice_time, pattern='^DATE'),
     ],
     'TIME': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
-        CallbackQueryHandler(reserve_hl.choice_option_of_reserve),
+        CallbackQueryHandler(reserve_hl.choice_option_of_reserve,
+                             pattern='^TIME'),
     ],
 }
 

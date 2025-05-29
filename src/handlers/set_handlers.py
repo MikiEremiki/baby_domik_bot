@@ -18,7 +18,6 @@ from conv_hl import (
 from middleware import (
     add_glob_on_off_middleware,
     add_db_handlers_middleware,
-    add_throttling_middleware,
     add_check_run_conv_hl_middleware
 )
 from utilities.utl_func import (
@@ -35,7 +34,6 @@ set_handlers_logger = logging.getLogger('bot.set_handlers')
 def set_handlers(application, config):
     add_db_handlers_middleware(application, config)
     add_glob_on_off_middleware(application, config)
-    add_throttling_middleware(application)
     add_check_run_conv_hl_middleware(application)
 
     application.add_handlers([

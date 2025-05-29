@@ -143,8 +143,10 @@ async def choice_option_of_reserve(
         theater_event,
         date_for_price
     )
+    state = 'TICKET'
     reply_markup = await create_replay_markup(
         keyboard,
+        intent_id=state,
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         postfix_for_back=1,
         size_row=5
@@ -157,7 +159,6 @@ async def choice_option_of_reserve(
     reserve_user_data['choose_theater_event_id'] = theater_event.id
     context.user_data['reserve_user_data']['date_for_price'] = date_for_price
 
-    state = 'TICKET'
     context.user_data['STATE'] = state
     return state
 

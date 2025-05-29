@@ -34,7 +34,8 @@ states = {
     'TICKET': [
         cancel_callback_handler,
         back_callback_handler,
-        CallbackQueryHandler(reserve_admin_hl.start_forma_info),
+        CallbackQueryHandler(reserve_admin_hl.start_forma_info,
+                             pattern='^TICKET'),
     ],
 }
 

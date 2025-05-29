@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes, TypeHandler, ApplicationHandlerStop
 
+from settings.settings import CHAT_ID_KOCHETKOVA
 from utilities.utl_func import is_admin
 
 
@@ -9,7 +10,7 @@ def add_glob_on_off_middleware(application, config):
             update: Update,
             context: ContextTypes.DEFAULT_TYPE
     ):
-        if update.effective_chat.id == config.bot.admin_group:
+        if update.effective_chat.id in [config.bot.admin_group, CHAT_ID_KOCHETKOVA]:
             return
         if not is_admin(update) and not context.bot_data['global_on_off']:
             await update.effective_message.reply_text(

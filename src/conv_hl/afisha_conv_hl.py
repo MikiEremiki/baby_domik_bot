@@ -18,7 +18,7 @@ afisha_conv_hl = ConversationHandler(
         1: [
             cancel_callback_handler,
             CallbackQueryHandler(afisha_hl.show_data, pattern='show_data'),
-            CallbackQueryHandler(afisha_hl.set_month),
+            CallbackQueryHandler(afisha_hl.set_month, pattern="^([1-9]|1[0-2])$"),
         ],
         2: [
             cancel_callback_handler,

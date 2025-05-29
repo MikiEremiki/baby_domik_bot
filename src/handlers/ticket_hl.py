@@ -22,11 +22,11 @@ async def get_ticket(
     _, callback_data = remove_intent_id(query.data)
     base_ticket_id = int(callback_data)
 
+    await query.answer()
     try:
         chose_base_ticket, price = await get_ticket_and_price(context,
                                                               base_ticket_id)
     except AttributeError as e:
-        await query.answer()
         ticket_hl_logger.error(e)
         state = 'TIME'
         text, reply_markup, _ = await get_back_context(context, state)
@@ -40,7 +40,6 @@ async def get_ticket(
     reserve_user_data['chose_price'] = price
     reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
-    await query.answer()
     if chose_base_ticket.flag_individual:
         await send_info_about_individual_ticket(update, context)
         state = ConversationHandler.END

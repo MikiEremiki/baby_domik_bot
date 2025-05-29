@@ -4,6 +4,7 @@ from telegram.ext import (
 )
 from telegram.ext.filters import Text
 
+from custom_filters.admin import filter_list_cmd
 from handlers import reserve_hl, main_hl, offer_hl, ticket_hl
 from conv_hl import (
     handlers_event_selection, handlers_client_data_selection,
@@ -16,7 +17,7 @@ states = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
-        CallbackQueryHandler(ticket_hl.get_ticket),
+        CallbackQueryHandler(ticket_hl.get_ticket, pattern='^TICKET'),
     ],
     'OFFER': [
         cancel_callback_handler,
@@ -43,7 +44,7 @@ states = {
     'LIST': [
         cancel_callback_handler,
         back_callback_handler,
-        CallbackQueryHandler(reserve_hl.send_clients_data),
+        CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
     ],
     'CHOOSING': [
         MessageHandler(
@@ -71,7 +72,9 @@ states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 reserve_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE'][0], reserve_hl.choice_month),
-        CommandHandler(COMMAND_DICT['LIST'][0], reserve_hl.choice_month),
+        CommandHandler(COMMAND_DICT['LIST'][0],
+                       reserve_hl.choice_month,
+                       filter_list_cmd),
     ],
     states=states,
     fallbacks=common_fallbacks,

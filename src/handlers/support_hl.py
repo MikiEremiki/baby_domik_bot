@@ -11,7 +11,8 @@ from utilities.schemas.schedule_event import kv_name_attr_schedule_event
 from utilities.schemas.theater_event import kv_name_attr_theater_event
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
-    create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel,
+    create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel, add_intent_id,
+    remove_intent_id,
 )
 
 support_hl_logger = logging.getLogger('bot.support_hl')
@@ -120,6 +121,7 @@ async def choice_db_settings(
         [*button_back_and_cancel, ],
     ]
 
+    keyboard = add_intent_id(keyboard, intent_id='db')
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = 'Выберите что хотите настроить'
@@ -189,8 +191,9 @@ async def get_settings(
         context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.callback_query
+    _, callback_data = remove_intent_id(query.data)
 
-    reply_markup = create_kbd_crud(query.data)
+    reply_markup = create_kbd_crud(callback_data)
 
     text = 'Выберите что хотите настроить'
     await query.edit_message_text(
