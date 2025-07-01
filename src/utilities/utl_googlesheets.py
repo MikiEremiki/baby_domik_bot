@@ -21,7 +21,10 @@ async def write_to_return_seats_for_sale(context):
             ticket = await db_postgres.get_ticket(
                 context.session, ticket_id)
             text = f'Билету|{ticket.id}-{ticket.status.value}|'
-            if ticket.status == TicketStatus.CREATED and changed_seat:
+            if ticket is None:
+                text += 'Билет отсутствует в базе'
+                utl_googlesheets_logger.warning(text)
+            elif ticket.status == TicketStatus.CREATED and changed_seat:
                 schedule_event_id = ticket.schedule_event_id
                 base_ticket_id = ticket.base_ticket_id
                 if '_admin' in command:
@@ -43,6 +46,9 @@ async def write_to_return_seats_for_sale(context):
             else:
                 text += 'Нельзя отменять'
             utl_googlesheets_logger.warning(text)
+            await context.bot.send_message(
+                chat_id=context.config.bot.developer_chat_id,
+                text=text)
     else:
         text = 'Билетов для отмены нет'
         utl_googlesheets_logger.warning(text)
