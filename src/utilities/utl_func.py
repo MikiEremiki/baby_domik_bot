@@ -33,7 +33,7 @@ from utilities.schemas import context_user_data
 utilites_logger = logging.getLogger('bot.utilites')
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def echo(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> None:
     utilites_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name} '
@@ -90,7 +90,7 @@ async def clean_context_on_end_handler(logger, context):
 
 
 async def delete_message_for_job_in_callback(
-        context: ContextTypes.DEFAULT_TYPE) -> None:
+        context: "ContextTypes.DEFAULT_TYPE") -> None:
     await context.bot.delete_message(
         chat_id=context.job.chat_id,
         message_id=context.job.data
@@ -196,7 +196,7 @@ async def set_description(bot: ExtBot) -> None:
     utilites_logger.info('Описания для бота установлены')
 
 
-async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def send_log(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> None:
     caption = [0]
     i = 1
     while os.path.exists(f'log/archive/log.txt.{i}'):
@@ -228,7 +228,7 @@ async def send_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def send_postgres_log(update: Update,
-                            context: ContextTypes.DEFAULT_TYPE) -> None:
+                            context: "ContextTypes.DEFAULT_TYPE") -> None:
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
         document='log/archive/postgres_log.txt'
@@ -256,7 +256,7 @@ def yrange(n):
         i += 1
 
 
-async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def print_ud(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
     if context.args and update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         chat_id = int(context.args[0])
@@ -277,7 +277,7 @@ async def print_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await split_message(context, message)
 
 
-async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def clean_ud(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
         user_ids = []
         qty_users = len(context.application.user_data)
@@ -292,7 +292,7 @@ async def clean_ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.application.update_persistence()
 
 
-async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def clean_bd(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     param = context.args
     if len(param) == 0:
         await update.effective_chat.send_message(
@@ -312,7 +312,7 @@ async def clean_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def request_contact_location(
         update: Update,
-        _: ContextTypes.DEFAULT_TYPE
+        _: "ContextTypes.DEFAULT_TYPE"
 ):
     location_keyboard = KeyboardButton(text="send_location",
                                        request_location=True)
@@ -331,7 +331,7 @@ async def request_contact_location(
 
 async def get_location(
         update: Update,
-        _: ContextTypes.DEFAULT_TYPE
+        _: "ContextTypes.DEFAULT_TYPE"
 ):
     await update.effective_chat.send_message(
         'Вы можете выбрать другую команду',
@@ -342,7 +342,7 @@ async def get_location(
 
 async def get_contact(
         update: Update,
-        _: ContextTypes.DEFAULT_TYPE
+        _: "ContextTypes.DEFAULT_TYPE"
 ):
     await update.effective_chat.send_message(
         'Вы можете выбрать другую команду',
@@ -371,7 +371,7 @@ def is_admin(update: Update):
 
 async def _bot_is_admin(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     admins = await update.effective_chat.get_administrators()
     admins = [admin.user.id for admin in admins]
@@ -387,7 +387,7 @@ async def _bot_is_admin(
 
 async def create_or_connect_topic(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     if not await _bot_is_admin(update, context):
         return
@@ -453,7 +453,7 @@ async def create_or_connect_topic(
 
 async def del_topic(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     if not await _bot_is_admin(update, context):
         return
@@ -478,7 +478,7 @@ async def del_topic(
 
 
 async def set_back_context(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         state,
         text,
         reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup,
@@ -492,7 +492,7 @@ async def set_back_context(
 
 
 async def get_back_context(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         state,
 ):
     dict_back = context.user_data['reserve_user_data']['back'][state]
@@ -504,7 +504,7 @@ async def get_back_context(
 
 
 async def append_message_ids_back_context(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         del_message_ids: List[int] = None
 ):
     state = context.user_data['STATE']
@@ -513,7 +513,7 @@ async def append_message_ids_back_context(
         dict_back['del_message_ids'].extend(del_message_ids)
 
 
-async def clean_context(context: ContextTypes.DEFAULT_TYPE):
+async def clean_context(context: "ContextTypes.DEFAULT_TYPE"):
     if isinstance(context, dict):
         list_keys = list(context.keys())
         tmp_context = context
@@ -557,7 +557,7 @@ async def split_message(context, message: str):
         )
 
 
-async def update_config(_: Update, context: ContextTypes.DEFAULT_TYPE):
+async def update_config(_: Update, context: "ContextTypes.DEFAULT_TYPE"):
     config = parse_settings()
     context.config = config
     utilites_logger.info(
@@ -780,7 +780,7 @@ async def cancel_common(update, text):
 
 async def del_messages(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         del_message_ids=None,
 ):
     ok_del_message_ids = del_message_ids.copy()
@@ -797,7 +797,7 @@ async def del_messages(
 
 
 async def del_keyboard_messages(update: Update,
-                                context: ContextTypes.DEFAULT_TYPE):
+                                context: "ContextTypes.DEFAULT_TYPE"):
     del_keyboard_message_ids = context.user_data['common_data'][
         'del_keyboard_message_ids']
     ok_del_message_ids = del_keyboard_message_ids.copy()

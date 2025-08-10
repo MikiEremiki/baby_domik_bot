@@ -16,7 +16,7 @@ transfer_admin_hl_logger = logging.getLogger('bot.transfer_admin_hl')
 
 async def enter_ticket_id(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     await init_conv_hl_dialog(update, context)
 
@@ -55,7 +55,7 @@ async def enter_ticket_id(
 
 async def get_ticket_by_id(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     try:
         await context.bot.edit_message_reply_markup(
@@ -140,7 +140,7 @@ async def get_ticket_by_id(
 
 async def migration_ticket(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     query = update.callback_query
 
@@ -171,6 +171,6 @@ async def migration_ticket(
 
 async def update_ticket(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     pass

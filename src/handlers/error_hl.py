@@ -19,7 +19,7 @@ error_hl_logger = logging.getLogger('bot.error_hl')
 
 
 async def error_handler(update: Update,
-                        context: ContextTypes.DEFAULT_TYPE) -> None:
+                        context: "ContextTypes.DEFAULT_TYPE") -> None:
     """Log the error and send a telegram message to notify the developer."""
     error_hl_logger.error(f'UPDATE: {update}')
     error_hl_logger.error("Exception while handling an update:",

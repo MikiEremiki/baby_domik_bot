@@ -29,7 +29,7 @@ reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
 
 async def event_selection_option(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     await init_conv_hl_dialog(update, context)
     await check_user_db(update, context)
@@ -68,7 +68,7 @@ async def event_selection_option(
     return state
 
 
-async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def enter_event_id(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     state = context.user_data['STATE']
 
@@ -107,7 +107,7 @@ async def enter_event_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def choice_option_of_reserve(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     await context.bot.delete_message(
         update.effective_chat.id,
@@ -165,7 +165,7 @@ async def choice_option_of_reserve(
 
 async def start_forma_info(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     query = update.callback_query
     await query.answer()

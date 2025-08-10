@@ -17,7 +17,7 @@ list_wait_hl_logger = logging.getLogger('bot.list_wait_hl')
 
 async def send_clients_wait_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     query = update.callback_query
     _, callback_data = remove_intent_id(query.data)

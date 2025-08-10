@@ -15,7 +15,7 @@ webhook_hl_logger = logging.getLogger('bot.webhook')
 
 
 async def webhook_update(update: WebhookNotification,
-                         context: ContextTypes.DEFAULT_TYPE):
+                         context: "ContextTypes.DEFAULT_TYPE"):
     text = 'Платеж\n'
     for k, v in dict(update).items():
         if k == 'object':
@@ -46,7 +46,7 @@ async def webhook_update(update: WebhookNotification,
         pass
 
 
-async def processing_ticket_paid(update, context: ContextTypes.DEFAULT_TYPE):
+async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
     message_id = update.object.metadata['message_id']
     chat_id = update.object.metadata['chat_id']
     ticket_ids = update.object.metadata['ticket_ids'].split('|')

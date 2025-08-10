@@ -60,7 +60,7 @@ from settings.settings import (
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
 
-async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_month(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     """
     Функция отправляет пользователю список месяцев.
 
@@ -127,7 +127,7 @@ async def choice_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def choice_show_or_date(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     """
     Функция отправляет пользователю список спектаклей с датами.
@@ -219,7 +219,7 @@ async def choice_show_or_date(
     return state
 
 
-async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_date(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю варианты
     времени и кол-во свободных мест
@@ -307,7 +307,7 @@ async def choice_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_time(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю варианты
     времени и кол-во свободных мест
@@ -377,7 +377,7 @@ async def choice_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def choice_option_of_reserve(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю,
@@ -503,7 +503,7 @@ async def choice_option_of_reserve(
     return state
 
 
-async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_email(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     if not query:
         await check_email_and_update_user(update, context)
@@ -576,7 +576,7 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_name_adult(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -602,7 +602,7 @@ async def get_name_adult(
     return state
 
 
-async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_phone(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     reserve_user_data = context.user_data['reserve_user_data']
 
     await context.bot.edit_message_reply_markup(
@@ -657,7 +657,7 @@ __________
 
 async def get_name_children(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -818,7 +818,7 @@ async def get_name_children(
 
 async def forward_photo_or_file(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     await remove_button_from_last_message(update, context)
 
@@ -832,7 +832,7 @@ async def forward_photo_or_file(
 
 async def processing_successful_notification(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     await processing_successful_payment(update, context)
 
@@ -844,7 +844,7 @@ async def processing_successful_notification(
 
 async def conversation_timeout(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ) -> int:
     """Informs the user that the operation has timed out,
     calls :meth:`remove_reply_markup` and ends the conversation.
@@ -898,7 +898,7 @@ TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)
 
 async def send_clients_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     query = update.callback_query
 
@@ -951,7 +951,7 @@ async def send_clients_data(
 
 async def write_list_of_waiting(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',
@@ -964,7 +964,7 @@ async def write_list_of_waiting(
 
 async def get_phone_for_waiting(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     reserve_user_data = context.user_data['reserve_user_data']
 
