@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, timedelta
 from typing import List, Union, Optional
 
 from telegram import (
@@ -200,6 +201,9 @@ async def update_schedule_event_data(update: Update,
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
 
+    for event in schedule_event_list:
+        await schedule_notification_job(context, event)
+
     text = 'Расписание обновлено'
     await update.effective_chat.send_message(text)
 
@@ -211,6 +215,50 @@ async def update_schedule_event_data(update: Update,
     except TimedOut as e:
         sub_hl_logger.error(e)
     return 'updates'
+
+
+async def send_reminder(context: "ContextTypes.DEFAULT_TYPE") -> None:
+    job = context.job
+    event_id = job.data['event_id']
+    event = await db_postgres.get_schedule_event(context.session, event_id)
+    theater = await db_postgres.get_theater_event(context.session,
+                                                  event.theater_event_id)
+    tickets = event.tickets
+
+    date_event, time_event = await get_formatted_date_and_time_of_event(event)
+
+    for ticket in tickets:
+        if ticket.status == TicketStatus.PAID:
+            text = (f"Напоминаем о предстоящем мероприятии завтра!\n\n"
+                    f"{theater.name}\n"
+                    f"Дата: {date_event}\n"
+                    f"Время: {time_event}\n"
+                    f"Номер билета: {ticket.id}")
+            try:
+                await context.bot.send_message(
+                    chat_id=ticket.user_id,
+                    text=text
+                )
+            except Exception as e:
+                sub_hl_logger.error(
+                    f"Failed to send reminder for ticket {ticket.id}: {e}")
+
+
+async def schedule_notification_job(
+        context: "ContextTypes.DEFAULT_TYPE",
+        event
+) -> None:
+    check_time = event.datetime_event - timedelta(minutes=30)
+    notification_time = event.datetime_event - timedelta(days=1)
+    if check_time > datetime.now():
+        job = context.job_queue.run_once(
+            send_reminder,
+            notification_time,
+            data={'event_id': event.id},
+            name=f'reminder_event_{event.id}',
+            job_kwargs={'replace_existing': True,
+                        'id': f'reminder_event_{event.id}'}
+        )
 
 
 async def get_schedule_events_and_month_by_type_event(context, type_event_ids):
