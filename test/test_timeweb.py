@@ -10,7 +10,7 @@ class TestTimeWeb(TestCase):
         self.assertIsInstance(response, Response)
 
     def test_ok_response(self):
-        self.assertEquals(response.status_code, 200)
+        self.assertEqual(response.status_code, 200)
 
     def test_is_int(self):
         self.assertIsInstance(response.json()['finances']['hours_left'], int)
