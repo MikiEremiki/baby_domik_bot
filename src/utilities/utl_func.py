@@ -4,7 +4,7 @@ import os
 import re
 from datetime import time
 from pprint import pformat
-from typing import List, Sequence, Tuple, cast
+from typing import List, Sequence, Tuple
 
 import pytz
 from telegram import (
@@ -702,7 +702,8 @@ async def get_time_with_timezone(event, tz_name='Europe/Moscow'):
     return text
 
 
-async def get_formatted_date_and_time_of_event(schedule_event) -> (str, str):
+async def get_formatted_date_and_time_of_event(
+        schedule_event: ScheduleEvent) -> Tuple[str, str]:
     event = schedule_event
     weekday = int(event.datetime_event.strftime('%w'))
     date_event = (event.datetime_event.strftime('%d.%m ') +
