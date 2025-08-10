@@ -86,6 +86,59 @@ async def get_column_info(spreadsheet_id: str, name_sheet: str):
     return dict_column_name, len(data_column_name[0])
 
 
+def _get_flags_by_ticket_status(ticket_status_value):
+    flag_exclude = False
+    flag_transfer = False
+    flag_exclude_place_sum = False
+    if (
+            ticket_status_value == TicketStatus.CREATED.value or
+            ticket_status_value == TicketStatus.CANCELED.value or
+            ticket_status_value == TicketStatus.REJECTED.value
+    ):
+        flag_exclude = True
+        flag_transfer = False
+        flag_exclude_place_sum = True
+    if (
+            ticket_status_value == TicketStatus.REFUNDED.value or
+            ticket_status_value == TicketStatus.MIGRATED.value
+    ):
+        flag_exclude = True
+        flag_transfer = True
+        flag_exclude_place_sum = True
+    return flag_exclude, flag_exclude_place_sum, flag_transfer
+
+
+async def load_from_gspread(
+        sheet_id: str,
+        name_sh: str,
+        value_render_option: str = 'FORMATTED_VALUE',
+):
+    """
+    Унифицированная загрузка данных из Google Sheets по имени листа.
+
+    Параметры:
+      - sheet_id: ID таблицы
+      - name_sh: ключ из RANGE_NAME (например, 'База спектаклей_', 'Список спектаклей_', ...)
+      - value_render_option: формат данных из гугл-таблицы
+
+    Возвращает кортеж (data, dict_column_name).
+    """
+    dict_column_name, len_col = await get_column_info(sheet_id, name_sh)
+
+    first_col = await get_data_from_spreadsheet(
+        sheet_id, RANGE_NAME[name_sh] + 'A:A')
+
+    len_row = len(first_col)
+    sheet_range = f"{RANGE_NAME[name_sh]}R2C1:R{len_row}C{len_col}"
+
+    data = await get_data_from_spreadsheet(
+        sheet_id,
+        sheet_range,
+        value_render_option=value_render_option
+    )
+    return data, dict_column_name
+
+
 async def write_data_reserve(
         spreadsheet_id,
         event_id,
@@ -97,7 +150,7 @@ async def write_data_reserve(
             spreadsheet_id, 'База спектаклей_')
         values = await _get_values(
             spreadsheet_id,
-            f"{RANGE_NAME['База спектаклей']}",
+            f"{RANGE_NAME['База спектаклей_']}" + 'A:AA',
             value_render_option='UNFORMATTED_VALUE'
         )
         if not values:
@@ -185,7 +238,7 @@ async def write_client_reserve(
     try:
         values_column = await _get_values(
             spreadsheet_id,
-            RANGE_NAME['База клиентов']
+            RANGE_NAME['База клиентов_'] + 'A:A'
         )
 
         if not values_column:
@@ -231,7 +284,7 @@ async def write_client_reserve(
 
             (flag_exclude,
              flag_exclude_place_sum,
-             flag_transfer) = get_flags_by_ticket_status(ticket_status_value)
+             flag_transfer) = _get_flags_by_ticket_status(ticket_status_value)
 
             values[i].append(flag_exclude)
             values[i].append(flag_transfer)
@@ -293,7 +346,7 @@ async def write_client_cme(
 
     values_column = await _get_values(
         spreadsheet_id,
-        RANGE_NAME['База ДР']
+        RANGE_NAME['База ДР_'] + 'A:A'
     )
 
     if not values_column:
@@ -351,15 +404,6 @@ async def write_client_list_waiting(
         context: "ContextTypes.DEFAULT_TYPE"
 ):
     try:
-        values_column = await _get_values(
-            spreadsheet_id,
-            RANGE_NAME['Лист ожидания']
-        )
-
-        if not values_column:
-            googlesheets_logger.info('No data found')
-            return
-
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
         values: List[List[Any]] = [[]]
@@ -413,28 +457,6 @@ async def write_client_list_waiting(
         googlesheets_logger.error(err)
 
 
-def get_flags_by_ticket_status(ticket_status_value):
-    flag_exclude = False
-    flag_transfer = False
-    flag_exclude_place_sum = False
-    if (
-            ticket_status_value == TicketStatus.CREATED.value or
-            ticket_status_value == TicketStatus.CANCELED.value or
-            ticket_status_value == TicketStatus.REJECTED.value
-    ):
-        flag_exclude = True
-        flag_transfer = False
-        flag_exclude_place_sum = True
-    if (
-            ticket_status_value == TicketStatus.REFUNDED.value or
-            ticket_status_value == TicketStatus.MIGRATED.value
-    ):
-        flag_exclude = True
-        flag_transfer = True
-        flag_exclude_place_sum = True
-    return flag_exclude, flag_exclude_place_sum, flag_transfer
-
-
 async def update_ticket_in_gspread(
         spreadsheet_id,
         ticket_id: int,
@@ -447,7 +469,7 @@ async def update_ticket_in_gspread(
 
         values = await _get_values(
             spreadsheet_id,
-            f"{RANGE_NAME['База клиентов']}",
+            f"{RANGE_NAME['База клиентов_']}" + 'A:A',
             value_render_option='UNFORMATTED_VALUE'
         )
 
@@ -470,7 +492,7 @@ async def update_ticket_in_gspread(
             case 1:
                 (flag_exclude,
                  flag_exclude_place_sum,
-                 flag_transfer) = get_flags_by_ticket_status(ticket_status)
+                 flag_transfer) = _get_flags_by_ticket_status(ticket_status)
 
                 col1 = dict_column_name['flag_exclude'] + 1
                 col2 = dict_column_name['ticket_status'] + 1
@@ -503,7 +525,7 @@ async def update_cme_in_gspread(
         spreadsheet_id, 'База ДР_')
     values = await _get_values(
         spreadsheet_id,
-        f"{RANGE_NAME['База ДР']}",
+        f"{RANGE_NAME['База ДР_']}" + 'A:A',
         value_render_option='UNFORMATTED_VALUE'
     )
 

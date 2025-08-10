@@ -21,37 +21,6 @@ sheet_id_cme = config.sheets.sheet_id_cme
 T = TypeVar('T')
 
 
-async def _load_from_gspread(
-        sheet_id: str,
-        name_sh: str,
-        value_render_option: str = 'FORMATTED_VALUE',
-):
-    """
-    Унифицированная загрузка данных из Google Sheets по имени листа.
-
-    Параметры:
-      - sheet_id: ID таблицы
-      - name_sh: ключ из RANGE_NAME (например, 'База спектаклей_', 'Список спектаклей_', ...)
-      - value_render_option: формат данных из гугл-таблицы
-
-    Возвращает кортеж (data, dict_column_name).
-    """
-    dict_column_name, len_col = await get_column_info(sheet_id, name_sh)
-
-    first_col = await get_data_from_spreadsheet(
-        sheet_id, RANGE_NAME[name_sh] + 'A:A')
-
-    len_row = len(first_col)
-    sheet_range = f"{RANGE_NAME[name_sh]}R2C1:R{len_row}C{len_col}"
-
-    data = await get_data_from_spreadsheet(
-        sheet_id,
-        sheet_range,
-        value_render_option=value_render_option
-    )
-    return data, dict_column_name
-
-
 def _map_row_to_dict(
         row: list,
         column_map: dict,
@@ -137,7 +106,7 @@ async def load_entities_from_sheet(
     Универсальный загрузчик записей из Google Sheets.
     Параметризуется DTO-классом, именем листа и общими фильтрами.
     """
-    data, dict_column_name = await _load_from_gspread(
+    data, dict_column_name = await load_from_gspread(
         sheet_id,
         name_sh,
         value_render_option=value_render_option
@@ -228,7 +197,7 @@ async def load_custom_made_format() -> List[CustomMadeFormatDTO]:
 
 async def load_special_ticket_price() -> Dict:
     name_sh = 'Индив стоимости_'
-    data, dict_column_name = await _load_from_gspread(
+    data, dict_column_name = await load_from_gspread(
         sheet_id_domik,
         name_sh,
         value_render_option='UNFORMATTED_VALUE')
@@ -252,7 +221,7 @@ async def load_clients_wait_data(
         event_ids: List[int]
 ) -> Tuple[List[List[str]], Dict[int | str, int]]:
     name_sh = 'Лист ожидания_'
-    data, dict_column_name = await _load_from_gspread(
+    data, dict_column_name = await load_from_gspread(
         sheet_id_domik,
         name_sh,
         value_render_option='UNFORMATTED_VALUE')
