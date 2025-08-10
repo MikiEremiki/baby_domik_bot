@@ -22,7 +22,7 @@ from settings.settings import (
     ADDRESS_OFFICE,
     COMMAND_DICT,
 )
-from utilities.schemas.context import birthday_data
+from utilities.schemas import birthday_data
 from utilities.utl_func import (
     extract_phone_number_from_text,
     check_phone_number,

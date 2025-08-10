@@ -6,16 +6,12 @@ from typing import List, Tuple, Dict, Type, Any, Optional, Callable, TypeVar
 from pydantic import ValidationError
 from telegram.ext import ContextTypes
 
-from api.googlesheets import (
-    get_data_from_spreadsheet, get_column_info, write_data_reserve,
-)
+from api.googlesheets import load_from_gspread, write_data_reserve
 from db import db_postgres
 from settings import parse_settings
-from settings.settings import RANGE_NAME
-from utilities.schemas.custom_made_format import CustomMadeFormatDTO
-from utilities.schemas.schedule_event import ScheduleEventDTO
-from utilities.schemas.theater_event import TheaterEventDTO
-from utilities.schemas.ticket import BaseTicketDTO
+from utilities.schemas import (
+    CustomMadeFormatDTO, ScheduleEventDTO, TheaterEventDTO, BaseTicketDTO
+)
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 config = parse_settings()

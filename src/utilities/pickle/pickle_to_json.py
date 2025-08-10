@@ -10,7 +10,7 @@ from telegram import User, InlineKeyboardMarkup
 
 from db import BaseTicket, TheaterEvent, ScheduleEvent
 from settings.config_loader import Settings
-from utilities.schemas.ticket import BaseTicketDTO
+from utilities.schemas import BaseTicketDTO
 
 _REPLACED_KNOWN_BOT = "a known bot replaced by PTB's PicklePersistence"
 _REPLACED_UNKNOWN_BOT = "an unknown bot replaced by PTB's PicklePersistence"

@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel, computed_field, ConfigDict
 
 from telegram import Contact, User
-from utilities.schemas.ticket import BaseTicketDTO
+from utilities.schemas import BaseTicketDTO
 
 
 class CustomerChild(BaseModel):

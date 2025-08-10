@@ -7,8 +7,8 @@ from db import db_postgres
 from db.enum import PriceType, TicketPriceType
 from handlers import init_conv_hl_dialog
 from settings.settings import RESERVE_TIMEOUT, COMMAND_DICT
-from utilities.schemas.schedule_event import kv_name_attr_schedule_event
-from utilities.schemas.theater_event import kv_name_attr_theater_event
+from utilities.schemas import (
+    kv_name_attr_schedule_event, kv_name_attr_theater_event)
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
     create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel, add_intent_id,

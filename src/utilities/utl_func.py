@@ -28,7 +28,7 @@ from settings.settings import (
     LIST_TOPICS_NAME, SUPPORT_DATA,
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, DICT_OF_EMOJI_FOR_BUTTON
 )
-from utilities.schemas.context_user_data import context_user_data
+from utilities.schemas import context_user_data
 
 utilites_logger = logging.getLogger('bot.utilites')
 
