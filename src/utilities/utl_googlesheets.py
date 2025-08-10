@@ -55,5 +55,6 @@ async def write_to_return_seats_for_sale(context):
 
 async def update_ticket_db_and_gspread(context, ticket_id, **kwargs):
     sheet_id_domik = context.config.sheets.sheet_id_domik
-    update_ticket_in_gspread(sheet_id_domik, ticket_id, kwargs['status'].value)
+    await update_ticket_in_gspread(
+        sheet_id_domik, ticket_id, kwargs['status'].value)
     await db_postgres.update_ticket(context.session, ticket_id, **kwargs)

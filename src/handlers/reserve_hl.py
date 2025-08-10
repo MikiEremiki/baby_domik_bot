@@ -991,7 +991,7 @@ async def get_phone_for_waiting(
         message_thread_id=thread_id
     )
     sheet_id_domik = context.config.sheets.sheet_id_domik
-    write_client_list_waiting(sheet_id_domik, context)
+    await write_client_list_waiting(sheet_id_domik, context)
     await update.effective_chat.send_message(
         text='Вы добавлены в лист ожидания, '
              'если место освободится, то с вами свяжутся. '

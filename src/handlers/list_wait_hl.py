@@ -35,7 +35,7 @@ async def send_clients_wait_data(
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_events[0])
 
-    clients_data, name_column = load_clients_wait_data(event_ids)
+    clients_data, name_column = await load_clients_wait_data(event_ids)
     text = f'#Лист_ожидания\n'
     text += (f'Список людей на\n'
              f'{full_name}\n'

@@ -324,7 +324,7 @@ async def update_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
 
                 sheet_id_domik = context.config.sheets.sheet_id_domik
-                update_ticket_in_gspread(sheet_id_domik, ticket_id,
+                await update_ticket_in_gspread(sheet_id_domik, ticket_id,
                                          new_ticket_status.value)
                 data['status'] = new_ticket_status
             case 'Покупатель':
@@ -481,7 +481,7 @@ async def confirm_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ticket_status = TicketStatus.APPROVED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
+        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -591,7 +591,7 @@ async def reject_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ticket_status = TicketStatus.REJECTED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
+        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -672,7 +672,7 @@ async def confirm_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
+    await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
 
@@ -777,7 +777,7 @@ async def reject_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
         main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
+    await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
 

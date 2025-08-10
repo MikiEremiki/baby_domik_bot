@@ -747,7 +747,7 @@ async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'custom_made_event_id'] = custom_made_event.id
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    write_client_cme(sheet_id_cme, custom_made_event)
+    await write_client_cme(sheet_id_cme, custom_made_event)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state

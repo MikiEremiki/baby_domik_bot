@@ -1,15 +1,14 @@
 alembic
 black
 cachetools
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
 psycopg
 psycopg-binary
 pydantic
 pydantic_core
 pydantic-settings
 pytest
+gspread
+gspread-asyncio
 python-telegram-bot[ext]
 pytz
 PyYAML

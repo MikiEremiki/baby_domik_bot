@@ -68,7 +68,7 @@ async def processing_ticket_paid(update, context: ContextTypes.DEFAULT_TYPE):
     ticket_status = TicketStatus.PAID
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
+        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)

@@ -148,7 +148,7 @@ async def update_special_ticket_price(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
 ):
-    context.bot_data['special_ticket_price'] = load_special_ticket_price()
+    context.bot_data['special_ticket_price'] = await load_special_ticket_price()
     text = 'Индивидуальные стоимости обновлены'
     await update.effective_chat.send_message(text)
 
@@ -196,7 +196,7 @@ async def update_theater_event_data(
 
 async def update_schedule_event_data(update: Update,
                                      context: ContextTypes.DEFAULT_TYPE):
-    schedule_event_list = load_schedule_events(False)
+    schedule_event_list = await load_schedule_events(False, True)
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
 
