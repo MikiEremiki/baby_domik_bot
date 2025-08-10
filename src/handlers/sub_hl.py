@@ -53,7 +53,7 @@ async def request_phone_number(update, context):
 
 async def processing_admin_info(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         admin_str
 ):
     admin_info = context.bot_data[admin_str]
@@ -86,21 +86,21 @@ async def processing_admin_info(
 
 
 async def update_admin_info(update: Update,
-                            context: ContextTypes.DEFAULT_TYPE) -> None:
+                            context: "ContextTypes.DEFAULT_TYPE") -> None:
     context.bot_data.setdefault('admin', {})
 
     await processing_admin_info(update, context, 'admin')
 
 
 async def update_cme_admin_info(update: Update,
-                                context: ContextTypes.DEFAULT_TYPE) -> None:
+                                context: "ContextTypes.DEFAULT_TYPE") -> None:
     context.bot_data.setdefault('cme_admin', {})
 
     await processing_admin_info(update, context, 'cme_admin')
 
 
 async def update_bd_price(update: Update,
-                          context: ContextTypes.DEFAULT_TYPE) -> None:
+                          context: "ContextTypes.DEFAULT_TYPE") -> None:
     birthday_price = context.bot_data.setdefault('birthday_price', {})
     if context.args:
         if context.args[0] == 'clean':
@@ -131,7 +131,7 @@ async def update_bd_price(update: Update,
 
 async def update_base_ticket_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     ticket_list = load_base_tickets(True)
     await db_postgres.update_base_tickets_from_googlesheets(
@@ -146,7 +146,7 @@ async def update_base_ticket_data(
 
 async def update_special_ticket_price(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     context.bot_data['special_ticket_price'] = await load_special_ticket_price()
     text = 'Индивидуальные стоимости обновлены'
@@ -162,7 +162,7 @@ async def update_special_ticket_price(
 
 async def update_custom_made_format_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     custom_made_format_list = load_custom_made_format()
     await db_postgres.update_custom_made_format_from_googlesheets(
@@ -179,7 +179,7 @@ async def update_custom_made_format_data(
 
 async def update_theater_event_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     theater_event_list = load_theater_events()
     await db_postgres.update_theater_events_from_googlesheets(
@@ -195,7 +195,7 @@ async def update_theater_event_data(
 
 
 async def update_schedule_event_data(update: Update,
-                                     context: ContextTypes.DEFAULT_TYPE):
+                                     context: "ContextTypes.DEFAULT_TYPE"):
     schedule_event_list = await load_schedule_events(False, True)
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
@@ -258,7 +258,7 @@ async def remove_button_from_last_message(update, context):
 
 async def create_and_send_payment(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     text = 'Готовлю информацию об оплате...'
     message = await context.bot.send_message(
@@ -405,7 +405,7 @@ async def create_and_send_payment(
 
 async def processing_successful_payment(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
 ):
     query = update.callback_query
     if query:
@@ -544,7 +544,7 @@ async def get_thread_id(context, command, schedule_event):
 
 
 async def send_breaf_message(update: Update,
-                             context: ContextTypes.DEFAULT_TYPE):
+                             context: "ContextTypes.DEFAULT_TYPE"):
     """
     Сообщение для опроса
     """
@@ -572,7 +572,7 @@ async def send_breaf_message(update: Update,
 
 async def forward_message_to_admin(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ) -> Message:
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
@@ -751,7 +751,7 @@ async def send_message_to_admin(
         chat_id: Union[int, str],
         text: str,
         message_id: Optional[Union[int, str]],
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         thread_id: Optional[int],
         reply_markup=None,
 ):
