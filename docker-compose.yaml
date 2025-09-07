@@ -1,4 +1,3 @@
-version: "3.9"
 name: "baby_domik"
 services:
   bot:
