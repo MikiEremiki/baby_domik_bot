@@ -41,7 +41,7 @@ _agcm = AsyncioGspreadClientManager(get_creds)
 
 async def _open_spreadsheet(spreadsheet_id: str) -> AsyncioGspreadSpreadsheet:
     agc: AsyncioGspreadClient = await _agcm.authorize()
-    ss = await agc.open_by_key(spreadsheet_id)
+    ss: AsyncioGspreadSpreadsheet = await agc.open_by_key(spreadsheet_id)
     return ss
 
 
@@ -62,6 +62,7 @@ async def get_data_from_spreadsheet(
         value_render_option: str = 'FORMATTED_VALUE'
 ) -> List[List[Any]]:
     values = await _get_values(spreadsheet_id, sheet, value_render_option)
+    googlesheets_logger.info('_get_values done')
     if not values:
         googlesheets_logger.info('No data found')
         raise ValueError('No data found')
@@ -326,8 +327,10 @@ async def write_data_to_batch_update(
         'data': data
     }
     ss = await _open_spreadsheet(spreadsheet_id)
+
     try:
-        responses = await ss.batch_update(value_range_body)
+        responses = await ss.agcm._call(ss.ss.values_batch_update,
+                                       body=value_range_body)
         googlesheets_logger.info(
             f"spreadsheetId: {responses.get('spreadsheetId', '')}")
         for response in responses.get('responses', []):
