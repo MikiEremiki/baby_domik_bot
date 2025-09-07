@@ -4,7 +4,7 @@ import os
 import re
 from datetime import time
 from pprint import pformat
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Optional
 
 import pytz
 from telegram import (
@@ -379,7 +379,7 @@ async def _bot_is_admin(
         await update.effective_message.reply_text(
             text='Предоставьте боту права на управление темами',
             reply_to_message_id=update.message.id,
-            message_thread_id=update.message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id
         )
         return False
     return True
@@ -422,7 +422,7 @@ async def create_or_connect_topic(
         await update.effective_message.reply_text(
             text=text,
             reply_to_message_id=update.message.id,
-            message_thread_id=update.message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id
         )
     elif context.args[0] == 'create' and len(dict_topics_name) == 0:
         try:
@@ -431,8 +431,7 @@ async def create_or_connect_topic(
                     name=name
                 )
                 topic_id = topic.message_thread_id
-                context.bot_data[
-                    'dict_topics_name'][name] = topic_id
+                context.bot_data['dict_topics_name'][name] = topic_id
                 await update.effective_chat.send_message(
                     text=topic_ready,
                     message_thread_id=topic_id
@@ -443,8 +442,7 @@ async def create_or_connect_topic(
         name = update.effective_message.reply_to_message.forum_topic_created.name
         topic_id = update.effective_message.message_thread_id
         if name in LIST_TOPICS_NAME:
-            context.bot_data[
-                'dict_topics_name'][name] = topic_id
+            context.bot_data['dict_topics_name'][name] = topic_id
             await update.effective_chat.send_message(
                 text=topic_ready,
                 message_thread_id=topic_id
@@ -460,16 +458,17 @@ async def del_topic(
 
     if context.args:
         name = ' '.join([item for item in context.args])
+        message_thread_id = update.effective_message.message_thread_id
         try:
             context.bot_data['dict_topics_name'].pop(name)
             await update.effective_chat.send_message(
                 text=f'Удален ключ: {name}',
-                message_thread_id=update.message.message_thread_id
+                message_thread_id=message_thread_id
             )
         except KeyError as e:
             await update.effective_chat.send_message(
                 text=f'{e}\nПроверьте ключ',
-                message_thread_id=update.message.message_thread_id
+                message_thread_id=message_thread_id
             )
     else:
         await update.effective_chat.send_message(
@@ -627,19 +626,6 @@ async def render_text_for_choice_time(theater_event, schedule_events):
     return text
 
 
-def convert_sheets_datetime(
-        sheets_date: int,
-        sheets_time: float = 0,
-        utc_offset: int = 0
-) -> datetime.datetime:
-    hours = int(sheets_time * 24) + utc_offset
-    minutes = int(sheets_time * 24 % 1 * 60)
-    return (datetime.datetime(1899, 12, 30)
-            + datetime.timedelta(days=sheets_date,
-                                 hours=hours,
-                                 minutes=minutes))
-
-
 async def send_and_del_message_to_remove_kb(update: Update):
     return await update.effective_chat.send_message(
         text='Загружаем данные',
@@ -664,6 +650,35 @@ def get_unique_months(events: Sequence[ScheduleEvent]):
     return unique_sorted_months
 
 
+def _format_age_banner(min_age_child: int, max_age_child: Optional[int]) -> str:
+    banner = ''
+    if min_age_child > 0:
+        banner += '👶🏼' + str(min_age_child)
+    if max_age_child is not None and max_age_child > 0:
+        banner += '-' + str(max_age_child)
+    elif min_age_child > 0:
+        # если есть минимальный возраст, но нет максимального
+        banner += '+'
+    return banner
+
+def _format_duration(duration: Optional[time]) -> str:
+    if duration is None:
+        return ''
+    if isinstance(duration, time):
+        duration_minutes = duration.hour * 60 + duration.minute
+    else:
+        return ''
+    if duration_minutes <= 0:
+        return ''
+    parts = ['⏳']
+    hours = duration_minutes // 60
+    minutes = duration_minutes % 60
+    if hours > 0:
+        parts.append(f'{hours}ч')
+    if minutes > 0:
+        parts.append(f'{minutes}мин')
+    return ''.join(parts)
+
 def get_full_name_event(event: TheaterEvent):
     name = event.name
     flag_premiere = event.flag_premier
@@ -676,21 +691,12 @@ def get_full_name_event(event: TheaterEvent):
     full_name += '\n'
     if flag_premiere:
         full_name += '📍'
-    if min_age_child > 0:
-        full_name += '👶🏼' + str(min_age_child)
-    if max_age_child > 0:
-        full_name += "-" + str(max_age_child)
-    elif min_age_child > 0:
-        full_name += '+'
-    if duration is not None:
-        if isinstance(duration, time):
-            duration = duration.hour * 60 + duration.minute
-        if duration > 0:
-            full_name += '⏳'
-            if duration // 60 > 0:
-                full_name += str(duration // 60) + 'ч'
-            if duration % 60 > 0:
-                full_name += str(duration % 60) + 'мин'
+    age_banner = _format_age_banner(min_age_child, max_age_child)
+    if age_banner:
+        full_name += age_banner
+    duration_banner = _format_duration(duration)
+    if duration_banner:
+        full_name += duration_banner
     if note:
         full_name += f'\n<i>{note}</i>'
     return full_name
@@ -773,7 +779,7 @@ async def cancel_common(update, text):
         utilites_logger.error(e)
     await update.effective_chat.send_message(
         text=text,
-        message_thread_id=query.message.message_thread_id,
+        message_thread_id=update.effective_message.message_thread_id,
         reply_markup=ReplyKeyboardRemove()
     )
 

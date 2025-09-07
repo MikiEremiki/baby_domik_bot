@@ -180,6 +180,7 @@ class Ticket(BaseModelTimed):
     price: Mapped[int]
     status: Mapped[TicketStatus]
     notes: Mapped[Optional[str]]
+    reminded_1d_at: Mapped[Optional[datetime]]
 
     payment_id: Mapped[Optional[str]] = mapped_column(unique=True)
     idempotency_id: Mapped[Optional[str]] = mapped_column(unique=True)
