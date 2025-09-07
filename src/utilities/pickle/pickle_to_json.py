@@ -62,7 +62,7 @@ class CustomEncoder(json.JSONEncoder):
 
 
 objects = []
-path = r'D:\Develop\Python\baby_domik_bot\src\db\data\conversationbot'
+path = r'D:\develop\projects\baby_domik_bot\src\db\data\conversationbot'
 # path = r'D:\Temp\conversationbot'
 # path = r'D:\Temp\conversationbot2'
 with open(path, "rb") as file:
