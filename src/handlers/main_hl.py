@@ -68,7 +68,8 @@ async def start(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return ConversationHandler.END
 
 
-async def send_approve_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def send_approve_msg(update: Update,
+                           context: "ContextTypes.DEFAULT_TYPE"):
     if not context.args:
         text = (
             'Отправляет:\n'
@@ -326,7 +327,7 @@ async def update_ticket(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
                 sheet_id_domik = context.config.sheets.sheet_id_domik
                 await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                         new_ticket_status.value)
+                                               new_ticket_status.value)
                 data['status'] = new_ticket_status
             case 'Покупатель':
                 people = ticket.people
@@ -424,17 +425,18 @@ async def send_result_update_ticket(
              ) if base_ticket_id else ''
     notes = data.get('notes', None)
     text += ('Примечание: ' + notes) if notes else ''
+    message_thread_id = update.effective_message.message_thread_id
     if bool(update.message.reply_to_message):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=text,
             reply_to_message_id=update.message.reply_to_message.message_id,
-            message_thread_id=update.message.message_thread_id
+            message_thread_id=message_thread_id
         )
     else:
         await update.effective_message.reply_text(
             text=text,
-            message_thread_id=update.message.message_thread_id,
+            message_thread_id=message_thread_id,
             reply_to_message_id=update.message.message_id
         )
 
@@ -445,19 +447,29 @@ async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         text = 'Не разрешенное действие: подтвердить бронь'
         main_handlers_logger.warning(text)
         return
-    message_thread_id = query.message.message_thread_id
+    message_thread_id = update.effective_message.message_thread_id
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
             message_thread_id=message_thread_id)
+    except BadRequest as e:
+        main_handlers_logger.error(e)
+        await update.effective_chat.send_action(ChatAction.TYPING)
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    message = await update.effective_chat.send_message(
-        text='Начат процесс подтверждения...',
-        reply_to_message_id=query.message.message_id,
-        message_thread_id=message_thread_id
-    )
+    try:
+        message = await update.effective_chat.send_message(
+            text='Начат процесс подтверждения...',
+            reply_to_message_id=query.message.message_id,
+            message_thread_id=message_thread_id
+        )
+    except BadRequest as e:
+        main_handlers_logger.error(e)
+        message = await update.effective_chat.send_message(
+            text='Начат процесс подтверждения...',
+            reply_to_message_id=query.message.message_id,
+        )
 
     chat_id = query.data.split('|')[1].split()[0]
     message_id_buy_info = query.data.split('|')[1].split()[1]
@@ -482,7 +494,8 @@ async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     ticket_status = TicketStatus.APPROVED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
+        await update_ticket_in_gspread(sheet_id_domik, ticket_id,
+                                       ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -560,7 +573,7 @@ async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
-    message_thread_id = query.message.message_thread_id
+    message_thread_id = update.effective_message.message_thread_id
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
@@ -597,7 +610,8 @@ async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     ticket_status = TicketStatus.REJECTED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
+        await update_ticket_in_gspread(sheet_id_domik, ticket_id,
+                                       ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -637,13 +651,14 @@ async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         main_handlers_logger.info('Cообщение уже удалено')
 
 
-async def confirm_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def confirm_birthday(update: Update,
+                           context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
         return
-    message_thread_id = query.message.message_thread_id
+    message_thread_id = update.effective_message.message_thread_id
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
@@ -752,7 +767,7 @@ async def reject_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
         return
-    message_thread_id = query.message.message_thread_id
+    message_thread_id = update.effective_message.message_thread_id
     try:
         await update.effective_chat.send_action(
             ChatAction.TYPING,
@@ -847,7 +862,7 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
     command = context.user_data['command']
     message = None
-    message_thread_id = query.message.message_thread_id
+    message_thread_id = update.effective_message.message_thread_id
 
     if state == 'MONTH':
         await query.delete_message()
@@ -1059,7 +1074,7 @@ async def cancel(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return ConversationHandler.END
 
 
-async def reset(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> -1:
+async def reset(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> int:
     main_handlers_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
@@ -1086,7 +1101,7 @@ async def help_command(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     # TODO Прописать логику использования help
     await update.effective_chat.send_message(
         'Текущая операция сброшена.\nМожете выполните новую команду',
-        message_thread_id=update.message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id
     )
     await cancel_tickets_db_and_gspread(update, context)
     await clean_context_on_end_handler(main_handlers_logger, context)
@@ -1094,7 +1109,8 @@ async def help_command(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return ConversationHandler.END
 
 
-async def feedback_send_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def feedback_send_msg(update: Update,
+                            context: "ContextTypes.DEFAULT_TYPE"):
     main_handlers_logger.info('FEEDBACK')
     main_handlers_logger.info(update.effective_user)
     main_handlers_logger.info(update.message)
@@ -1166,7 +1182,7 @@ async def feedback_reply_msg(
         main_handlers_logger.error(e)
         await update.effective_message.reply_text(
             text='Проверьте что отвечаете на правильное сообщение',
-            message_thread_id=update.message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id
         )
 
 

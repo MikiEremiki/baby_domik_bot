@@ -463,7 +463,7 @@ async def write_client_list_waiting(
 async def update_ticket_in_gspread(
         spreadsheet_id,
         ticket_id: int,
-        ticket_status: str,
+        ticket_status,
         option: int = 1
 ) -> None:
     try:
