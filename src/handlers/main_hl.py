@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from telegram.ext import (
     ContextTypes, ConversationHandler, ApplicationHandlerStop)
@@ -90,7 +91,7 @@ async def send_approve_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE")
             text, reply_to_message_id=update.message.message_id)
         return
     chat_id = ticket.user.chat_id
-    await send_approve_message(chat_id, context)
+    await send_approve_message(chat_id, context, [ticket_id])
     text += 'Подтверждение'
 
     if len(context.args) == 2:
@@ -498,7 +499,7 @@ async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         main_handlers_logger.error(e)
         main_handlers_logger.info(text)
 
-    await send_approve_message(chat_id, context)
+    await send_approve_message(chat_id, context, ticket_ids)
     text = message.text + f'\nОтправлено сообщение о подтверждении бронирования...'
     try:
         await message.edit_text(text)
@@ -525,7 +526,7 @@ async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         main_handlers_logger.info('Cообщение уже удалено')
 
 
-async def send_approve_message(chat_id, context):
+async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     description = context.bot_data['texts']['description']
     address = context.bot_data['texts']['address']
     ask_question = context.bot_data['texts']['ask_question']
@@ -533,7 +534,12 @@ async def send_approve_message(chat_id, context):
         'Для продолжения работы используйте команды:\n'
         f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль\n'
     )
-    approve_text = '<b>Ваша бронь подтверждена, ждем вас на мероприятии.</b>\n\n'
+    text = ''
+    for ticket_id in ticket_ids:
+        text += 'Билет ' + str(ticket_id) + '\n'
+    approve_text = (f'<b>Ваша бронь\n'
+                    f'{text}'
+                    f'подтверждена, ждем вас на мероприятии.</b>\n\n')
     refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
     text = approve_text + address + refund + description + ask_question + command
     await context.bot.send_message(text=text, chat_id=chat_id)
