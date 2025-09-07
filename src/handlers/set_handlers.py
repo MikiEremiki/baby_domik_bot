@@ -83,7 +83,7 @@ def set_handlers(application, config):
                        main_hl.send_msg,
                        filter_to_send_msg),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
-        CommandHandler("postgres_log", send_postgres_log, filter_admin),
+        CommandHandler('postgres_log', send_postgres_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC'][0],
