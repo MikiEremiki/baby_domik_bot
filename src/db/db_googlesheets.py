@@ -1,215 +1,209 @@
 import logging
 import datetime
 
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Type, Any, Optional, Callable, TypeVar
 
 from pydantic import ValidationError
 from telegram.ext import ContextTypes
 
-from api.googlesheets import (
-    get_data_from_spreadsheet, get_column_info, write_data_reserve,
-)
+from api.googlesheets import load_from_gspread, write_data_reserve
 from db import db_postgres
 from settings import parse_settings
-from settings.settings import RANGE_NAME
-from utilities.schemas.custom_made_format import CustomMadeFormatDTO
-from utilities.schemas.schedule_event import ScheduleEventDTO
-from utilities.schemas.theater_event import TheaterEventDTO
-from utilities.schemas.ticket import BaseTicketDTO
+from utilities.schemas import (
+    CustomMadeFormatDTO, ScheduleEventDTO, TheaterEventDTO, BaseTicketDTO
+)
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 config = parse_settings()
 sheet_id_domik = config.sheets.sheet_id_domik
 sheet_id_cme = config.sheets.sheet_id_cme
 
+T = TypeVar('T')
 
-def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
-    tickets = []
 
-    dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'Варианты стоимости_')
-
-    qty_tickets = len(get_data_from_spreadsheet(
-        sheet_id_domik, RANGE_NAME['Варианты стоимости_'] + f'A:A'))
-
-    sheet = (RANGE_NAME['Варианты стоимости_'] +
-             f'R2C1:R{qty_tickets}C{len_column}')
-
-    data = get_data_from_spreadsheet(
-        sheet_id_domik,
-        sheet
-    )
-    db_googlesheets_logger.info('Данные стоимости броней загружены')
-
-    fields_ticket = [*BaseTicketDTO.model_fields.keys()]
-    for item in data[1:]:
-        tmp_dict = {}
-        for value in fields_ticket:
-            try:
-                tmp_dict[value] = item[dict_column_name[value]]
-            except KeyError as e:
-                if e.args[0] != 'date_show_tmp':
-                    db_googlesheets_logger.error(item)
-                    db_googlesheets_logger.error(e)
+def _map_row_to_dict(
+        row: list,
+        column_map: dict,
+        field_names: list
+) -> dict:
+    row_dict = {}
+    for field in field_names:
         try:
-            ticket = BaseTicketDTO(**tmp_dict)
-            if only_active and not ticket.flag_active:
-                continue
-            tickets.append(ticket)
-        except ValidationError as exc:
-            db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
-            db_googlesheets_logger.error(tmp_dict)
+            row_dict[field] = row[column_map[field]]
+        except KeyError as exc:
+            if exc.args and exc.args[0] != "date_show_tmp":
+                db_googlesheets_logger.error(
+                    "Missing column mapping for field")
+                db_googlesheets_logger.error("row=%s", row)
+                db_googlesheets_logger.error("error=%s", exc)
+        except IndexError as exc:
+            db_googlesheets_logger.error("Row is shorter than expected")
+            db_googlesheets_logger.error("row=%s", row)
+            db_googlesheets_logger.error("error=%s", exc)
+    return row_dict
 
+
+def _process_row(
+        dto_cls: Type[Any],
+        row_dict: dict,
+        *,
+        only_active: bool = False,
+        active_attr: str = None,
+        only_actual: bool = False,
+        date_getter: Optional[Callable[[Any], datetime.date]] = None,
+) -> Any | None:
+    """
+    Универсальная обработка строки, создаёт DTO класса dto_cls из row_dict,
+    логирует ValidationError и выполняет общие фильтры.
+
+    Параметры:
+      - dto_cls: класс Pydantic DTO (например, BaseTicketDTO или ScheduleEventDTO)
+      - row_dict: словарь с полями для DTO
+      - only_active: если True — применяется фильтр по активности (если active_attr указан)
+      - active_attr: имя атрибута в DTO, указывающего активность (например, 'flag_active' или 'flag_turn_on_off')
+      - only_actual: если True — применяется фильтр по дате (только для DTO, у которых есть date_getter)
+      - date_getter: callable(dto) -> date, функция/метод для получения даты события (возвращает datetime.date или datetime.datetime)
+
+    Возвращает экземпляр dto_cls или None (если валидация не прошла или запись отфильтрована).
+    """
+    try:
+        obj = dto_cls(**row_dict)
+    except ValidationError as exc:
+        err_type = repr(exc.errors()[0]["type"])
+        db_googlesheets_logger.error("Validation error: %s", err_type)
+        db_googlesheets_logger.error("Invalid row dict: %s", row_dict)
+        return None
+
+    # Фильтрация по активности (если задано имя атрибута)
+    if only_active and active_attr:
+        if not getattr(obj, active_attr, False):
+            return None
+
+    # Фильтрация по дате (если требуется и передан date_getter)
+    if only_actual and date_getter:
+        event_date = date_getter(obj)
+        # если возврат — datetime, привести к date
+        if hasattr(event_date, "date"):
+            event_date = event_date.date()
+        if event_date < datetime.date.today():
+            return None
+
+    return obj
+
+
+async def load_entities_from_sheet(
+        dto_cls: Type[T],
+        *,
+        sheet_id: str,
+        name_sh: str,
+        value_render_option: str = 'UNFORMATTED_VALUE',
+        only_active: bool = False,
+        active_attr: Optional[str] = None,
+        only_actual: bool = False,
+        date_getter: Optional[Callable[[Any], datetime.date]] = None,
+) -> List[T]:
+    """
+    Универсальный загрузчик записей из Google Sheets.
+    Параметризуется DTO-классом, именем листа и общими фильтрами.
+    """
+    data, dict_column_name = await load_from_gspread(
+        sheet_id,
+        name_sh,
+        value_render_option=value_render_option
+    )
+
+    field_names = list(dto_cls.model_fields.keys())
+    result: List[T] = []
+
+    for row in data[1:]:
+        row_dict = _map_row_to_dict(row, dict_column_name, field_names)
+        entity = _process_row(
+            dto_cls,
+            row_dict,
+            only_active=only_active,
+            active_attr=active_attr,
+            only_actual=only_actual,
+            date_getter=date_getter
+        )
+        if entity is None:
+            continue
+        result.append(entity)
+
+    return result
+
+
+async def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:
+    name_sh = 'Варианты стоимости_'
+    tickets = await load_entities_from_sheet(
+        BaseTicketDTO,
+        sheet_id=sheet_id_domik,
+        name_sh=name_sh,
+        value_render_option='FORMATTED_VALUE',
+        only_active=only_active,
+        active_attr='flag_active',
+    )
     db_googlesheets_logger.info('Список билетов загружен')
     return tickets
 
 
-def load_schedule_events(
-        only_active=True,
-        only_actual=True
+async def load_schedule_events(
+        only_active: bool = True,
+        only_actual: bool = True
 ) -> List[ScheduleEventDTO]:
-    events = []
-
-    dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'База спектаклей_')
-
-    qty_events = len(get_data_from_spreadsheet(
-        sheet_id_domik, RANGE_NAME['База спектаклей_'] + f'A:A'))
-
-    sheet = (RANGE_NAME['База спектаклей_'] +
-             f'R2C1:R{qty_events}C{len_column}')
-
-    data = get_data_from_spreadsheet(
-        sheet_id_domik,
-        sheet,
-        value_render_option='UNFORMATTED_VALUE'
+    """
+    Загружает события из Google Sheets и возвращает список ScheduleEventDTO.
+    Фильтры:
+      - only_active: если True — возвращать только включенные события
+      - only_actual: если True — возвращать только события с датой >= today
+    """
+    name_sh = 'База спектаклей_'
+    events = await load_entities_from_sheet(
+        ScheduleEventDTO,
+        sheet_id=sheet_id_domik,
+        name_sh=name_sh,
+        value_render_option='UNFORMATTED_VALUE',
+        only_active=only_active,
+        active_attr='flag_turn_on_off',
+        only_actual=only_actual,
+        date_getter=lambda e: e.get_date_event(),
     )
-    db_googlesheets_logger.info('Данные мероприятий загружены')
-
-    fields_ticket = [*ScheduleEventDTO.model_fields.keys()]
-    for item in data[1:]:
-        tmp_dict = {}
-        for value in fields_ticket:
-            try:
-                tmp_dict[value] = item[dict_column_name[value]]
-            except KeyError as e:
-                if e.args[0] != 'date_show_tmp':
-                    db_googlesheets_logger.error(item)
-                    db_googlesheets_logger.error(e)
-            except IndexError as e:
-                db_googlesheets_logger.error(item)
-                db_googlesheets_logger.error(e)
-        try:
-            event = ScheduleEventDTO(**tmp_dict)
-            if only_active and not event.flag_turn_on_off:
-                continue
-            if only_actual and event.get_date_event().date() < datetime.date.today():
-                continue
-            events.append(event)
-        except ValidationError as exc:
-            db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
-            db_googlesheets_logger.error(tmp_dict)
-
-    db_googlesheets_logger.info('Список мероприятий загружен')
+    db_googlesheets_logger.info("Список мероприятий загружен")
     return events
 
 
-def load_theater_events() -> List[TheaterEventDTO]:
-    events = []
-
-    dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'Список спектаклей_')
-
-    qty_theater_events = len(get_data_from_spreadsheet(
-        sheet_id_domik, RANGE_NAME['Список спектаклей_'] + f'A:A'))
-
-    sheet = (RANGE_NAME['Список спектаклей_'] +
-             f'R2C1:R{qty_theater_events}C{len_column}')
-
-    data = get_data_from_spreadsheet(
-        sheet_id_domik,
-        sheet,
-        value_render_option='UNFORMATTED_VALUE'
+async def load_theater_events() -> List[TheaterEventDTO]:
+    name_sh = 'Список спектаклей_'
+    events = await load_entities_from_sheet(
+        TheaterEventDTO,
+        sheet_id=sheet_id_domik,
+        name_sh=name_sh,
+        value_render_option='UNFORMATTED_VALUE',
     )
-    db_googlesheets_logger.info('Данные репертуара загружены')
-
-    fields_ticket = [*TheaterEventDTO.model_fields.keys()]
-    for item in data[1:]:
-        tmp_dict = {}
-        for value in fields_ticket:
-            try:
-                tmp_dict[value] = item[dict_column_name[value]]
-            except KeyError as e:
-                if e.args[0] != 'date_show_tmp':
-                    db_googlesheets_logger.error(item)
-                    db_googlesheets_logger.error(e)
-        try:
-            event = TheaterEventDTO(**tmp_dict)
-            events.append(event)
-        except ValidationError as exc:
-            db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
-            db_googlesheets_logger.error(tmp_dict)
-
     db_googlesheets_logger.info('Список репертуара загружен')
     return events
 
 
-def load_custom_made_format() -> List[CustomMadeFormatDTO]:
-    formats = []
-
-    dict_column_name, len_column = get_column_info(
-        sheet_id_cme, 'База ФЗМ_')
-
-    qty_cme_formats = len(get_data_from_spreadsheet(
-        sheet_id_cme, RANGE_NAME['База ФЗМ_'] + f'A:A'))
-
-    sheet = RANGE_NAME['База ФЗМ_'] + f'R2C1:R{qty_cme_formats}C{len_column}'
-
-    data = get_data_from_spreadsheet(
-        sheet_id_cme,
-        sheet,
-        value_render_option='UNFORMATTED_VALUE'
+async def load_custom_made_format() -> List[CustomMadeFormatDTO]:
+    name_sh = 'База ФЗМ_'
+    cmfs = await load_entities_from_sheet(
+        CustomMadeFormatDTO,
+        sheet_id=sheet_id_cme,
+        name_sh=name_sh,
+        value_render_option='UNFORMATTED_VALUE',
     )
-    db_googlesheets_logger.info('Данные форматов заказных мероприятий загружены')
-
-    fields_ticket = [*CustomMadeFormatDTO.model_fields.keys()]
-    for item in data[1:]:
-        tmp_dict = {}
-        for value in fields_ticket:
-            try:
-                tmp_dict[value] = item[dict_column_name[value]]
-            except KeyError as e:
-                if e.args[0] != 'date_show_tmp':
-                    db_googlesheets_logger.error(item)
-                    db_googlesheets_logger.error(e)
-        try:
-            custom_made_format = CustomMadeFormatDTO(**tmp_dict)
-            formats.append(custom_made_format)
-        except ValidationError as exc:
-            db_googlesheets_logger.error(repr(exc.errors()[0]['type']))
-            db_googlesheets_logger.error(tmp_dict)
-
     db_googlesheets_logger.info('Список репертуара загружен')
-    return formats
+    return cmfs
 
 
-def load_special_ticket_price() -> Dict:
+async def load_special_ticket_price() -> Dict:
+    name_sh = 'Индив стоимости_'
+    data, dict_column_name = await load_from_gspread(
+        sheet_id_domik,
+        name_sh,
+        value_render_option='UNFORMATTED_VALUE')
+
     special_ticket_price = {}
-    first_colum = get_data_from_spreadsheet(
-        sheet_id_domik, RANGE_NAME['Индив стоимости'])
-    dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'Индив стоимости_')
-
-    sheet = (RANGE_NAME['Индив стоимости_'] +
-             f'RC1:R{len(first_colum)}C{len_column}')
-
-    data = get_data_from_spreadsheet(
-        sheet_id_domik,
-        sheet,
-        value_render_option='UNFORMATTED_VALUE'
-    )
-
-    for item in data[2:]:
+    for item in data[1:]:
         if item[1]:
             type_price = special_ticket_price.setdefault(item[1], {})
         else:
@@ -223,44 +217,17 @@ def load_special_ticket_price() -> Dict:
     return special_ticket_price
 
 
-def load_clients_data(
-        event_id: int
-) -> Tuple[List[List[str]], Dict[int | str, int]]:
-    data_clients_data = []
-    first_colum = get_data_from_spreadsheet(
-        sheet_id_domik, RANGE_NAME['База клиентов'])
-
-    dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'База клиентов_')
-
-    sheet = (RANGE_NAME['База клиентов_'] +
-             f'R1C1:R{len(first_colum)}C{len_column}')
-
-    data = get_data_from_spreadsheet(sheet_id_domik, sheet)
-
-    for item in data[1:]:
-        if item[dict_column_name['event_id']] == str(event_id):
-            data_clients_data.append(item)
-
-    return data_clients_data, dict_column_name
-
-
-def load_clients_wait_data(
+async def load_clients_wait_data(
         event_ids: List[int]
 ) -> Tuple[List[List[str]], Dict[int | str, int]]:
+    name_sh = 'Лист ожидания_'
+    data, dict_column_name = await load_from_gspread(
+        sheet_id_domik,
+        name_sh,
+        value_render_option='UNFORMATTED_VALUE')
+
     data_clients_data = []
-    first_colum = get_data_from_spreadsheet(
-        sheet_id_domik, RANGE_NAME['Лист ожидания'])
-
-    dict_column_name, len_column = get_column_info(
-        sheet_id_domik, 'Лист ожидания_')
-
-    sheet = (RANGE_NAME['Лист ожидания_'] +
-             f'R1C1:R{len(first_colum)}C{len_column}')
-
-    data = get_data_from_spreadsheet(sheet_id_domik, sheet)
-
-    for item in data[2:]:
+    for item in data[1:]:
         if int(item[dict_column_name['event_id']]) in event_ids:
             data_clients_data.append(item)
 
@@ -268,7 +235,7 @@ def load_clients_wait_data(
 
 
 async def increase_free_and_decrease_nonconfirm_seat(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         event_id,
         chose_base_ticket_id,
 ):
@@ -303,7 +270,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
     ]
 
     try:
-        write_data_reserve(sheet_id_domik, event_id, numbers)
+        await write_data_reserve(sheet_id_domik, event_id, numbers)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -323,7 +290,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
 
 
 async def decrease_free_and_increase_nonconfirm_seat(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         event_id,
         chose_base_ticket_id,
 ):
@@ -358,7 +325,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
     ]
 
     try:
-        write_data_reserve(sheet_id_domik, event_id, numbers)
+        await write_data_reserve(sheet_id_domik, event_id, numbers)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -380,7 +347,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
 
 
 async def increase_free_seat(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         event_id,
         chose_base_ticket_id,
 ):
@@ -407,7 +374,7 @@ async def increase_free_seat(
     ]
 
     try:
-        write_data_reserve(sheet_id_domik, event_id, numbers, 3)
+        await write_data_reserve(sheet_id_domik, event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -425,7 +392,7 @@ async def increase_free_seat(
 
 
 async def decrease_free_seat(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         event_id,
         chose_base_ticket_id,
 ):
@@ -452,7 +419,7 @@ async def decrease_free_seat(
     ]
 
     try:
-        write_data_reserve(sheet_id_domik, event_id, numbers, 3)
+        await write_data_reserve(sheet_id_domik, event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -470,7 +437,7 @@ async def decrease_free_seat(
 
 
 async def decrease_nonconfirm_seat(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         event_id,
         chose_base_ticket_id
 ):
@@ -497,7 +464,7 @@ async def decrease_nonconfirm_seat(
     ]
 
     try:
-        write_data_reserve(sheet_id_domik, event_id, numbers, 2)
+        await write_data_reserve(sheet_id_domik, event_id, numbers, 2)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -515,7 +482,7 @@ async def decrease_nonconfirm_seat(
 
 
 async def update_free_seat(
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         event_id,
         old_base_ticket_id,
         new_base_ticket_id
@@ -555,7 +522,7 @@ async def update_free_seat(
     ]
 
     try:
-        write_data_reserve(sheet_id_domik, event_id, numbers, 3)
+        await write_data_reserve(sheet_id_domik, event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),

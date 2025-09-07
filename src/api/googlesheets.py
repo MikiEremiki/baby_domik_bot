@@ -3,10 +3,13 @@ import os
 from datetime import datetime
 from typing import List, Any, Dict
 
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from telegram.ext import ContextTypes
+from google.oauth2.service_account import Credentials
+from gspread_asyncio import (
+    AsyncioGspreadClientManager,
+    AsyncioGspreadSpreadsheet,
+    AsyncioGspreadClient
+)
 
 from db import BaseTicket
 from db.enum import TicketStatus
@@ -16,66 +19,59 @@ from settings.settings import RANGE_NAME
 
 config = parse_settings()
 
-filename = 'credentials.json'
+creds_file = 'credentials.json'
 path = os.getenv('CONFIG_PATH')
 if path is not None:
-    filename = path + filename
+    creds_file = path + creds_file
 else:
-    filename = config.sheets.credentials_path
+    creds_file = config.sheets.credentials_path
 googlesheets_logger = logging.getLogger('bot.googlesheets')
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 
-def get_service_sacc(scopes):
-    credentials = service_account.Credentials.from_service_account_file(
-        filename=filename,
-        scopes=scopes
-    )
-
-    return build('sheets', 'v4', credentials=credentials)
+def get_creds():
+    creds = Credentials.from_service_account_file(creds_file)
+    scoped = creds.with_scopes(SCOPES)
+    return scoped
 
 
-def get_values(
-        spreadsheet_id,
-        range_name,
-        value_render_option='FORMATTED_VALUE'
-):
-    sheet = get_service_sacc(SCOPES).spreadsheets()
-    result = sheet.values().get(
-        spreadsheetId=spreadsheet_id,
-        range=range_name,
-        valueRenderOption=value_render_option,
-
-    ).execute()
-    return result.get('values', [])
+_agcm = AsyncioGspreadClientManager(get_creds)
 
 
-def get_data_from_spreadsheet(
-        spreadsheet_id,
-        sheet,
-        value_render_option='FORMATTED_VALUE'
-):
-    try:
-        values = get_values(
-            spreadsheet_id,
-            sheet,
-            value_render_option
-        )
-
-        if not values:
-            googlesheets_logger.info('No data found')
-            raise ValueError
-
-        return values
-    except HttpError as err:
-        googlesheets_logger.error(err)
-        raise ConnectionError
+async def _open_spreadsheet(spreadsheet_id: str) -> AsyncioGspreadSpreadsheet:
+    agc: AsyncioGspreadClient = await _agcm.authorize()
+    ss: AsyncioGspreadSpreadsheet = await agc.open_by_key(spreadsheet_id)
+    return ss
 
 
-def get_column_info(spreadsheet_id, name_sheet):
-    data_column_name = get_data_from_spreadsheet(
-        spreadsheet_id, RANGE_NAME[name_sheet] + f'2:2')
+async def _get_values(
+        spreadsheet_id: str,
+        range_name: str,
+        value_render_option: str = 'FORMATTED_VALUE'
+) -> List[List[Any]]:
+    ss: AsyncioGspreadSpreadsheet = await _open_spreadsheet(spreadsheet_id)
+    values = await ss.values_get(
+        range_name, params={'valueRenderOption': value_render_option})
+    return values.get('values', [])
+
+
+async def get_data_from_spreadsheet(
+        spreadsheet_id: str,
+        sheet: str,
+        value_render_option: str = 'FORMATTED_VALUE'
+) -> List[List[Any]]:
+    values = await _get_values(spreadsheet_id, sheet, value_render_option)
+    googlesheets_logger.info('_get_values done')
+    if not values:
+        googlesheets_logger.info('No data found')
+        raise ValueError('No data found')
+    return values
+
+
+async def get_column_info(spreadsheet_id: str, name_sheet: str):
+    data_column_name = await get_data_from_spreadsheet(
+        spreadsheet_id, RANGE_NAME[name_sheet] + '2:2')
     dict_column_name: Dict[int | str, int] = {}
     for i, item in enumerate(data_column_name[0]):
         if item == '':
@@ -86,125 +82,149 @@ def get_column_info(spreadsheet_id, name_sheet):
         googlesheets_logger.warning(
             'dict_column_name, len(data_column_name[0]) не равны')
         googlesheets_logger.warning(
-            f'{len(dict_column_name)} != {len(data_column_name[0])}')
+            f"{len(dict_column_name)} != {len(data_column_name[0])}")
 
     return dict_column_name, len(data_column_name[0])
 
 
-def write_data_reserve(
+def _get_flags_by_ticket_status(ticket_status_value):
+    flag_exclude = False
+    flag_transfer = False
+    flag_exclude_place_sum = False
+    if (
+            ticket_status_value == TicketStatus.CREATED.value or
+            ticket_status_value == TicketStatus.CANCELED.value or
+            ticket_status_value == TicketStatus.REJECTED.value
+    ):
+        flag_exclude = True
+        flag_transfer = False
+        flag_exclude_place_sum = True
+    if (
+            ticket_status_value == TicketStatus.REFUNDED.value or
+            ticket_status_value == TicketStatus.MIGRATED.value
+    ):
+        flag_exclude = True
+        flag_transfer = True
+        flag_exclude_place_sum = True
+    return flag_exclude, flag_exclude_place_sum, flag_transfer
+
+
+async def load_from_gspread(
+        sheet_id: str,
+        name_sh: str,
+        value_render_option: str = 'FORMATTED_VALUE',
+):
+    """
+    Унифицированная загрузка данных из Google Sheets по имени листа.
+
+    Параметры:
+      - sheet_id: ID таблицы
+      - name_sh: ключ из RANGE_NAME (например, 'База спектаклей_', 'Список спектаклей_', ...)
+      - value_render_option: формат данных из гугл-таблицы
+
+    Возвращает кортеж (data, dict_column_name).
+    """
+    dict_column_name, len_col = await get_column_info(sheet_id, name_sh)
+
+    first_col = await get_data_from_spreadsheet(
+        sheet_id, RANGE_NAME[name_sh] + 'A:A')
+
+    len_row = len(first_col)
+    sheet_range = f"{RANGE_NAME[name_sh]}R2C1:R{len_row}C{len_col}"
+
+    data = await get_data_from_spreadsheet(
+        sheet_id,
+        sheet_range,
+        value_render_option=value_render_option
+    )
+    return data, dict_column_name
+
+
+async def write_data_reserve(
         spreadsheet_id,
         event_id,
         numbers: List[int],
         option: int = 1
 ) -> None:
     try:
-        dict_column_name, len_column = get_column_info(
+        dict_column_name, _ = await get_column_info(
             spreadsheet_id, 'База спектаклей_')
-
-        values = get_values(
+        values = await _get_values(
             spreadsheet_id,
-            f'{RANGE_NAME['База спектаклей']}',
+            f"{RANGE_NAME['База спектаклей_']}" + 'A:AA',
             value_render_option='UNFORMATTED_VALUE'
         )
-
         if not values:
             googlesheets_logger.info('No data found')
             raise ValueError
-
         row_event = 0
         for i, row in enumerate(values):
             if event_id == row[dict_column_name['event_id']]:
                 row_event = i + 1
-
-        sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'RAW'
         major_dimension = 'ROWS'
         data = []
-
         match option:
             case 1:
                 col1 = dict_column_name['qty_child_free_seat'] + 1
                 col2 = dict_column_name['qty_child_nonconfirm_seat'] + 1
-                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
-                               f'R{row_event}C{col1}:R{row_event}C{col2}')
-                data.append({
-                    'range': range_sheet,
-                    'majorDimension': major_dimension,
-                    'values': [numbers[0:2]]
-                })
+                range_sheet = (
+                    f"{RANGE_NAME['База спектаклей_']}" f"R{row_event}C{col1}:R{row_event}C{col2}")
+                data.append(
+                    {'range': range_sheet, 'majorDimension': major_dimension,
+                     'values': [numbers[0:2]]})
                 col1 = dict_column_name['qty_adult_free_seat'] + 1
                 col2 = dict_column_name['qty_adult_nonconfirm_seat'] + 1
-                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
-                               f'R{row_event}C{col1}:R{row_event}C{col2}')
-                data.append({
-                    'range': range_sheet,
-                    'majorDimension': major_dimension,
-                    'values': [numbers[2:4]]
-                })
+                range_sheet = (
+                    f"{RANGE_NAME['База спектаклей_']}" f"R{row_event}C{col1}:R{row_event}C{col2}")
+                data.append(
+                    {'range': range_sheet, 'majorDimension': major_dimension,
+                     'values': [numbers[2:4]]})
             case 2:
                 col = dict_column_name['qty_child_nonconfirm_seat'] + 1
-                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
-                               f'R{row_event}C{col}')
-                data.append({
-                    'range': range_sheet,
-                    'majorDimension': major_dimension,
-                    'values': [[numbers[0]]]
-                })
+                range_sheet = (
+                    f"{RANGE_NAME['База спектаклей_']}" f"R{row_event}C{col}")
+                data.append(
+                    {'range': range_sheet, 'majorDimension': major_dimension,
+                     'values': [[numbers[0]]]})
                 col = dict_column_name['qty_adult_nonconfirm_seat'] + 1
-                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
-                               f'R{row_event}C{col}')
-                data.append({
-                    'range': range_sheet,
-                    'majorDimension': major_dimension,
-                    'values': [[numbers[1]]]
-                })
+                range_sheet = (
+                    f"{RANGE_NAME['База спектаклей_']}" f"R{row_event}C{col}")
+                data.append(
+                    {'range': range_sheet, 'majorDimension': major_dimension,
+                     'values': [[numbers[1]]]})
             case 3:
                 col = dict_column_name['qty_child_free_seat'] + 1
-                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
-                               f'R{row_event}C{col}')
+                range_sheet = (
+                    f"{RANGE_NAME['База спектаклей_']}" f"R{row_event}C{col}")
                 data.append({
                     'range': range_sheet,
                     'majorDimension': major_dimension,
-                    'values': [[numbers[0]]]
+                    'values': [[
+                        numbers[0]
+                    ]]
                 })
                 col = dict_column_name['qty_adult_free_seat'] + 1
-                range_sheet = (f'{RANGE_NAME['База спектаклей_']}'
-                               f'R{row_event}C{col}')
+                range_sheet = (
+                    f"{RANGE_NAME['База спектаклей_']}" f"R{row_event}C{col}")
                 data.append({
                     'range': range_sheet,
                     'majorDimension': major_dimension,
-                    'values': [[numbers[1]]]
+                    'values': [[
+                        numbers[1]
+                    ]]
                 })
 
-        value_range_body = {
-            'valueInputOption': value_input_option,
-            'data': data
-        }
-        request = sheet.values().batchUpdate(
-            spreadsheetId=spreadsheet_id,
-            body=value_range_body
-        )
-        try:
-            responses = request.execute()
-            googlesheets_logger.info(
-                f'spreadsheetId: {responses['spreadsheetId']}')
-            for response in responses['responses']:
-                googlesheets_logger.info(': '.join(
-                    [
-                        'updatedRange: ',
-                        response['updatedRange']
-                    ]
-                ))
-        except TimeoutError:
-            googlesheets_logger.error(value_range_body)
+        await write_data_to_batch_update(
+            data, spreadsheet_id, value_input_option)
 
-    except HttpError as err:
+    except Exception as err:
         googlesheets_logger.error(err)
 
 
 async def write_client_reserve(
         spreadsheet_id,
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         chat_id: int,
         base_ticket: BaseTicket,
         ticket_status_value
@@ -217,16 +237,15 @@ async def write_client_reserve(
     event_ids = reserve_user_data['choose_schedule_event_ids']
 
     try:
-        values_column = get_values(
+        values_column = await _get_values(
             spreadsheet_id,
-            RANGE_NAME['База клиентов']
+            RANGE_NAME['База клиентов_'] + 'A:A'
         )
 
         if not values_column:
             googlesheets_logger.info('No data found')
             return 0
 
-        sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
         values: List[Any] = []
@@ -266,7 +285,7 @@ async def write_client_reserve(
 
             (flag_exclude,
              flag_exclude_place_sum,
-             flag_transfer) = get_flags_by_ticket_status(ticket_status_value)
+             flag_transfer) = _get_flags_by_ticket_status(ticket_status_value)
 
             values[i].append(flag_exclude)
             values[i].append(flag_transfer)
@@ -284,14 +303,13 @@ async def write_client_reserve(
         range_sheet = (RANGE_NAME['База клиентов_'] +
                        f'R1C1:R1C{end_column_index}')
 
-        execute_append_googlesheet(spreadsheet_id,
-                                   sheet,
-                                   range_sheet,
-                                   value_input_option,
-                                   response_value_render_option,
-                                   value_range_body)
+        await execute_append_googlesheet(spreadsheet_id,
+                                         range_sheet,
+                                         value_input_option,
+                                         response_value_render_option,
+                                         value_range_body)
         return 1
-    except HttpError as err:
+    except Exception as err:
         googlesheets_logger.error(err)
         await context.bot.send_message(
             chat_id=context.config.bot.developer_chat_id,
@@ -299,126 +317,45 @@ async def write_client_reserve(
         return 0
 
 
-def update_ticket_in_gspread(
+async def write_data_to_batch_update(
+        data,
         spreadsheet_id,
-        ticket_id: int,
-        ticket_status: str,
-        option: int = 1
-) -> None:
+        value_input_option
+):
+    value_range_body = {
+        'valueInputOption': value_input_option,
+        'data': data
+    }
+    ss = await _open_spreadsheet(spreadsheet_id)
+
     try:
-        dict_column_name, len_column = get_column_info(
-            spreadsheet_id, 'База клиентов_')
-
-        values = get_values(
-            spreadsheet_id,
-            f'{RANGE_NAME['База клиентов']}',
-            value_render_option='UNFORMATTED_VALUE'
-        )
-
-        if not values:
-            googlesheets_logger.info('No data found')
-            raise ValueError
-
-        row_event = 0
-        for i, row in enumerate(values):
-            if ticket_id == row[dict_column_name['ticket_id']]:
-                row_event = i + 1
-        if row_event <= 1:
-            raise ValueError('Билет удален из гугл-таблицы')
-
-        sheet = get_service_sacc(SCOPES).spreadsheets()
-        value_input_option = 'RAW'
-        major_dimension = 'ROWS'
-        data = []
-
-        match option:
-            case 1:
-                (flag_exclude,
-                 flag_exclude_place_sum,
-                 flag_transfer) = get_flags_by_ticket_status(ticket_status)
-
-                col1 = dict_column_name['flag_exclude'] + 1
-                col2 = dict_column_name['ticket_status'] + 1
-                range_sheet = (f'{RANGE_NAME['База клиентов_']}'
-                               f'R{row_event}C{col1}:R{row_event}C{col2}')
-                data.append({
-                    'range': range_sheet,
-                    'majorDimension': major_dimension,
-                    'values': [[
-                        flag_exclude,
-                        flag_transfer,
-                        flag_exclude_place_sum,
-                        ticket_status,
-                    ]]
-                })
-
-        value_range_body = {
-            'valueInputOption': value_input_option,
-            'data': data
-        }
-        request = sheet.values().batchUpdate(
-            spreadsheetId=spreadsheet_id,
-            body=value_range_body
-        )
-        try:
-            responses = request.execute()
-            googlesheets_logger.info(
-                f'spreadsheetId: {responses['spreadsheetId']}')
-            for response in responses['responses']:
-                googlesheets_logger.info(': '.join(
-                    [
-                        'updatedRange: ',
-                        response['updatedRange']
-                    ]
-                ))
-        except TimeoutError:
-            googlesheets_logger.error(value_range_body)
-
-    except HttpError as err:
-        googlesheets_logger.error(err)
-    except ValueError as e:
-        googlesheets_logger.error(e)
+        responses = await ss.agcm._call(ss.ss.values_batch_update,
+                                       body=value_range_body)
+        googlesheets_logger.info(
+            f"spreadsheetId: {responses.get('spreadsheetId', '')}")
+        for response in responses.get('responses', []):
+            googlesheets_logger.info(': '.join(
+                ['updatedRange: ', response.get('updatedRange', '')]))
+    except TimeoutError:
+        googlesheets_logger.error(value_range_body)
 
 
-def get_flags_by_ticket_status(ticket_status_value):
-    flag_exclude = False
-    flag_transfer = False
-    flag_exclude_place_sum = False
-    if (
-            ticket_status_value == TicketStatus.CREATED.value or
-            ticket_status_value == TicketStatus.CANCELED.value or
-            ticket_status_value == TicketStatus.REJECTED.value
-    ):
-        flag_exclude = True
-        flag_transfer = False
-        flag_exclude_place_sum = True
-    if (
-            ticket_status_value == TicketStatus.REFUNDED.value or
-            ticket_status_value == TicketStatus.MIGRATED.value
-    ):
-        flag_exclude = True
-        flag_transfer = True
-        flag_exclude_place_sum = True
-    return flag_exclude, flag_exclude_place_sum, flag_transfer
-
-
-def write_client_cme(
+async def write_client_cme(
         spreadsheet_id,
         custom_made_event: CustomMadeEvent
 ) -> None:
-    dict_column_name, len_column = get_column_info(
+    dict_column_name, _ = await get_column_info(
         spreadsheet_id, 'База ДР_')
 
-    values_column = get_values(
+    values_column = await _get_values(
         spreadsheet_id,
-        RANGE_NAME['База ДР']
+        RANGE_NAME['База ДР_'] + 'A:A'
     )
 
     if not values_column:
         googlesheets_logger.info('No data found.')
         return
 
-    sheet = get_service_sacc(SCOPES).spreadsheets()
     value_input_option = 'USER_ENTERED'
     response_value_render_option = 'FORMATTED_VALUE'
     values = [[]]
@@ -458,29 +395,18 @@ def write_client_cme(
     range_sheet = (RANGE_NAME['База ДР_'] +
                    f'R1C1:R1C{end_column_index}')
 
-    execute_append_googlesheet(spreadsheet_id,
-                               sheet,
-                               range_sheet,
-                               value_input_option,
-                               response_value_render_option,
-                               value_range_body)
+    await execute_append_googlesheet(spreadsheet_id,
+                                     range_sheet,
+                                     value_input_option,
+                                     response_value_render_option,
+                                     value_range_body)
 
 
-def write_client_list_waiting(
+async def write_client_list_waiting(
         spreadsheet_id,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     try:
-        values_column = get_values(
-            spreadsheet_id,
-            RANGE_NAME['Лист ожидания']
-        )
-
-        if not values_column:
-            googlesheets_logger.info('No data found')
-            return
-
-        sheet = get_service_sacc(SCOPES).spreadsheets()
         value_input_option = 'USER_ENTERED'
         response_value_render_option = 'FORMATTED_VALUE'
         values: List[List[Any]] = [[]]
@@ -524,27 +450,85 @@ def write_client_list_waiting(
         range_sheet = (RANGE_NAME['Лист ожидания_'] +
                        f'R1C1:R1C{end_column_index}')
 
-        execute_append_googlesheet(spreadsheet_id,
-                                   sheet,
-                                   range_sheet,
-                                   value_input_option,
-                                   response_value_render_option,
-                                   value_range_body)
+        await execute_append_googlesheet(spreadsheet_id,
+                                         range_sheet,
+                                         value_input_option,
+                                         response_value_render_option,
+                                         value_range_body)
 
-    except HttpError as err:
+    except Exception as err:
         googlesheets_logger.error(err)
 
 
-def update_cme_in_gspread(
+async def update_ticket_in_gspread(
+        spreadsheet_id,
+        ticket_id: int,
+        ticket_status,
+        option: int = 1
+) -> None:
+    try:
+        dict_column_name, _ = await get_column_info(
+            spreadsheet_id, 'База клиентов_')
+
+        values = await _get_values(
+            spreadsheet_id,
+            f"{RANGE_NAME['База клиентов_']}" + 'A:A',
+            value_render_option='UNFORMATTED_VALUE'
+        )
+
+        if not values:
+            googlesheets_logger.info('No data found')
+            raise ValueError
+
+        row_event = 0
+        for i, row in enumerate(values):
+            if ticket_id == row[dict_column_name['ticket_id']]:
+                row_event = i + 1
+        if row_event <= 1:
+            raise ValueError('Билет удален из гугл-таблицы')
+
+        value_input_option = 'RAW'
+        major_dimension = 'ROWS'
+        data = []
+
+        match option:
+            case 1:
+                (flag_exclude,
+                 flag_exclude_place_sum,
+                 flag_transfer) = _get_flags_by_ticket_status(ticket_status)
+
+                col1 = dict_column_name['flag_exclude'] + 1
+                col2 = dict_column_name['ticket_status'] + 1
+                range_sheet = (f"{RANGE_NAME['База клиентов_']}"
+                               f"R{row_event}C{col1}:R{row_event}C{col2}")
+                data.append({
+                    'range': range_sheet,
+                    'majorDimension': major_dimension,
+                    'values': [[
+                        flag_exclude,
+                        flag_transfer,
+                        flag_exclude_place_sum,
+                        ticket_status,
+                    ]]
+                })
+
+        await write_data_to_batch_update(
+            data, spreadsheet_id, value_input_option)
+
+    except Exception as err:
+        googlesheets_logger.error(err)
+
+
+async def update_cme_in_gspread(
         spreadsheet_id,
         cme_id,
         status
 ) -> None:
-    dict_column_name, len_column = get_column_info(
+    dict_column_name, _ = await get_column_info(
         spreadsheet_id, 'База ДР_')
-    values = get_values(
+    values = await _get_values(
         spreadsheet_id,
-        f'{RANGE_NAME['База ДР']}',
+        f"{RANGE_NAME['База ДР_']}" + 'A:A',
         value_render_option='UNFORMATTED_VALUE'
     )
 
@@ -559,90 +543,72 @@ def update_cme_in_gspread(
     if row_cme == 0:
         raise ValueError('Билет удален из гугл-таблицы')
 
-    sheet = get_service_sacc(SCOPES).spreadsheets()
     value_input_option = 'USER_ENTERED'
     response_value_render_option = 'FORMATTED_VALUE'
 
-    values = [[]]
-    values[0].append(status)
-    googlesheets_logger.info(values)
+    values_body = [[]]
+    values_body[0].append(status)
+    googlesheets_logger.info(values_body)
 
-    value_range_body = {'values': values}
+    value_range_body = {'values': values_body}
 
     col1 = dict_column_name['status'] + 1
     col2 = col1 + 1
-    range_sheet = (f'{RANGE_NAME['База ДР_']}'
-                   f'R{row_cme}C{col1}:R{row_cme}C{col2}')
+    range_sheet = (f"{RANGE_NAME['База ДР_']}"
+                   f"R{row_cme}C{col1}:R{row_cme}C{col2}")
 
-    execute_update_googlesheet(spreadsheet_id,
-                               sheet,
-                               range_sheet,
-                               value_input_option,
-                               response_value_render_option,
-                               value_range_body)
+    await execute_update_googlesheet(spreadsheet_id,
+                                     range_sheet,
+                                     value_input_option,
+                                     response_value_render_option,
+                                     value_range_body)
 
 
-def execute_update_googlesheet(
+async def execute_update_googlesheet(
         spreadsheet_id,
-        sheet,
         range_sheet,
         value_input_option,
         response_value_render_option,
         value_range_body
 ):
-    request = sheet.values().update(
-        spreadsheetId=spreadsheet_id,
-        range=range_sheet,
-        valueInputOption=value_input_option,
-        responseValueRenderOption=response_value_render_option,
-        body=value_range_body
-    )
+    sh = await _open_spreadsheet(spreadsheet_id)
+    params = {
+        'valueInputOption': value_input_option,
+        'responseValueRenderOption': response_value_render_option,
+    }
     try:
-        response = request.execute()
-
-        googlesheets_logger.info(": ".join(
-            [
-                'spreadsheetId: ',
-                response['spreadsheetId'],
-                '\n'
-                'updatedRange: ',
-                response['updatedRange']
-            ]
-        ))
+        response = await sh.values_update(
+            range_sheet, params=params, body=value_range_body)
+        googlesheets_logger.info(': '.join([
+            'spreadsheetId: ', response.get('spreadsheetId', ''), '\n',
+            'updatedRange: ', response.get('updatedRange', '')
+        ]))
     except TimeoutError as err:
         googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)
 
 
-def execute_append_googlesheet(
+async def execute_append_googlesheet(
         spreadsheet_id,
-        sheet,
         range_sheet,
         value_input_option,
         response_value_render_option,
         value_range_body
 ):
-    request = sheet.values().append(
-        spreadsheetId=spreadsheet_id,
-        range=range_sheet,
-        valueInputOption=value_input_option,
-        insertDataOption='INSERT_ROWS',
-        includeValuesInResponse=True,
-        responseValueRenderOption=response_value_render_option,
-        body=value_range_body,
-    )
+    sh = await _open_spreadsheet(spreadsheet_id)
+    params = {
+        'valueInputOption': value_input_option,
+        'insertDataOption': 'INSERT_ROWS',
+        'includeValuesInResponse': True,
+        'responseValueRenderOption': response_value_render_option,
+    }
     try:
-        response = request.execute()
-
-        googlesheets_logger.info(": ".join(
-            [
-                'spreadsheetId: ',
-                response['spreadsheetId'],
-                '\n'
-                'tableRange: ',
-                response['tableRange']
-            ]
-        ))
+        response = await sh.values_append(
+            range_sheet, params=params, body=value_range_body)
+        googlesheets_logger.info(': '.join([
+            'spreadsheetId: ', response.get('spreadsheetId', ''), '\n',
+            'tableRange: ', response.get('tableRange', '')
+        ]))
     except TimeoutError as err:
         googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)

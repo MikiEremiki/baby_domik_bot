@@ -17,7 +17,7 @@ list_wait_hl_logger = logging.getLogger('bot.list_wait_hl')
 
 async def send_clients_wait_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     query = update.callback_query
     _, callback_data = remove_intent_id(query.data)
@@ -35,7 +35,7 @@ async def send_clients_wait_data(
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_events[0])
 
-    clients_data, name_column = load_clients_wait_data(event_ids)
+    clients_data, name_column = await load_clients_wait_data(event_ids)
     text = f'#Лист_ожидания\n'
     text += (f'Список людей на\n'
              f'{full_name}\n'

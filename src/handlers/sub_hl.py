@@ -21,10 +21,9 @@ from db.db_googlesheets import (
     load_schedule_events, load_theater_events, load_custom_made_format,
     decrease_free_and_increase_nonconfirm_seat,
 )
+from schedule.scheduler_jobs import schedule_notification_job
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities.utl_func import (
-    get_unique_months,
-    filter_schedule_event_by_active,
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
 )
@@ -53,7 +52,7 @@ async def request_phone_number(update, context):
 
 async def processing_admin_info(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         admin_str
 ):
     admin_info = context.bot_data[admin_str]
@@ -86,21 +85,21 @@ async def processing_admin_info(
 
 
 async def update_admin_info(update: Update,
-                            context: ContextTypes.DEFAULT_TYPE) -> None:
+                            context: "ContextTypes.DEFAULT_TYPE") -> None:
     context.bot_data.setdefault('admin', {})
 
     await processing_admin_info(update, context, 'admin')
 
 
 async def update_cme_admin_info(update: Update,
-                                context: ContextTypes.DEFAULT_TYPE) -> None:
+                                context: "ContextTypes.DEFAULT_TYPE") -> None:
     context.bot_data.setdefault('cme_admin', {})
 
     await processing_admin_info(update, context, 'cme_admin')
 
 
 async def update_bd_price(update: Update,
-                          context: ContextTypes.DEFAULT_TYPE) -> None:
+                          context: "ContextTypes.DEFAULT_TYPE") -> None:
     birthday_price = context.bot_data.setdefault('birthday_price', {})
     if context.args:
         if context.args[0] == 'clean':
@@ -131,7 +130,7 @@ async def update_bd_price(update: Update,
 
 async def update_base_ticket_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     ticket_list = load_base_tickets(True)
     await db_postgres.update_base_tickets_from_googlesheets(
@@ -146,9 +145,9 @@ async def update_base_ticket_data(
 
 async def update_special_ticket_price(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
-    context.bot_data['special_ticket_price'] = load_special_ticket_price()
+    context.bot_data['special_ticket_price'] = await load_special_ticket_price()
     text = 'Индивидуальные стоимости обновлены'
     await update.effective_chat.send_message(text)
 
@@ -162,7 +161,7 @@ async def update_special_ticket_price(
 
 async def update_custom_made_format_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     custom_made_format_list = load_custom_made_format()
     await db_postgres.update_custom_made_format_from_googlesheets(
@@ -179,7 +178,7 @@ async def update_custom_made_format_data(
 
 async def update_theater_event_data(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     theater_event_list = load_theater_events()
     await db_postgres.update_theater_events_from_googlesheets(
@@ -195,30 +194,25 @@ async def update_theater_event_data(
 
 
 async def update_schedule_event_data(update: Update,
-                                     context: ContextTypes.DEFAULT_TYPE):
-    schedule_event_list = load_schedule_events(False)
+                                     context: "ContextTypes.DEFAULT_TYPE"):
+    query = update.callback_query
+    text = 'Начато обновление расписания'
+    try:
+        await query.answer(text=text)
+    except TimedOut as e:
+        sub_hl_logger.error(e)
+    schedule_event_list = await load_schedule_events(False, True)
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
+
+    for event in schedule_event_list:
+        await schedule_notification_job(context, event)
 
     text = 'Расписание обновлено'
     await update.effective_chat.send_message(text)
 
     sub_hl_logger.info(text)
-
-    query = update.callback_query
-    try:
-        await query.answer()
-    except TimedOut as e:
-        sub_hl_logger.error(e)
     return 'updates'
-
-
-async def get_schedule_events_and_month_by_type_event(context, type_event_ids):
-    schedule_events = await db_postgres.get_schedule_events_by_type_actual(
-        context.session, type_event_ids)
-    schedule_events = await filter_schedule_event_by_active(schedule_events)
-    months = get_unique_months(schedule_events)
-    return months, schedule_events
 
 
 async def get_theater_and_schedule_events_by_month(context, schedule_events,
@@ -258,7 +252,7 @@ async def remove_button_from_last_message(update, context):
 
 async def create_and_send_payment(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     text = 'Готовлю информацию об оплате...'
     message = await context.bot.send_message(
@@ -405,7 +399,7 @@ async def create_and_send_payment(
 
 async def processing_successful_payment(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
 ):
     query = update.callback_query
     if query:
@@ -544,7 +538,7 @@ async def get_thread_id(context, command, schedule_event):
 
 
 async def send_breaf_message(update: Update,
-                             context: ContextTypes.DEFAULT_TYPE):
+                             context: "ContextTypes.DEFAULT_TYPE"):
     """
     Сообщение для опроса
     """
@@ -572,7 +566,7 @@ async def send_breaf_message(update: Update,
 
 async def forward_message_to_admin(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ) -> Message:
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
@@ -648,11 +642,13 @@ async def send_request_email(update: Update, context):
         keyboard = [back_and_cancel_btn]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    message_id = None
     try:
         message = await update.callback_query.edit_message_text(
             text=text,
             reply_markup=reply_markup
         )
+        message_id = message.message_id
     except AttributeError as e:
         sub_hl_logger.error(e)
 
@@ -661,13 +657,15 @@ async def send_request_email(update: Update, context):
                 text=text,
                 reply_markup=reply_markup
             )
+            message_id = message.message_id
         if context.user_data['STATE'] == 'OFFER':
             message = await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup
             )
+            message_id = message.message_id
 
-    context.user_data['reserve_user_data']['message_id'] = message.message_id
+    context.user_data['reserve_user_data']['message_id'] = message_id
     return text, reply_markup
 
 
@@ -751,7 +749,7 @@ async def send_message_to_admin(
         chat_id: Union[int, str],
         text: str,
         message_id: Optional[Union[int, str]],
-        context: ContextTypes.DEFAULT_TYPE,
+        context: "ContextTypes.DEFAULT_TYPE",
         thread_id: Optional[int],
         reply_markup=None,
 ):

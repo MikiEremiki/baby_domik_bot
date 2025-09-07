@@ -22,7 +22,7 @@ from settings.settings import (
     ADDRESS_OFFICE,
     COMMAND_DICT,
 )
-from utilities.schemas.context import birthday_data
+from utilities.schemas import birthday_data
 from utilities.utl_func import (
     extract_phone_number_from_text,
     check_phone_number,
@@ -38,7 +38,7 @@ from utilities.utl_kbd import (
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
 
 
-async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choice_place(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     """
     Функция отправляет пользователю выбор - где провести день рождения.
 
@@ -93,7 +93,7 @@ async def choice_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ask_date(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     del_message_ids = []
 
@@ -132,7 +132,7 @@ async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ask_address(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     del_message_ids = []
 
@@ -169,7 +169,7 @@ async def ask_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_address(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     address = update.effective_message.text
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -204,7 +204,7 @@ async def get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_date(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     date = update.effective_message.text
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -239,7 +239,7 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_time(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     await update.effective_chat.send_action(ChatAction.TYPING)
     time = update.effective_message.text
     await append_message_ids_back_context(
@@ -293,7 +293,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_show(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     del_message_ids = []
     await append_message_ids_back_context(
@@ -337,7 +337,7 @@ async def get_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_age(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -388,7 +388,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_format_bd(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -436,7 +436,7 @@ async def get_format_bd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_qty_child(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -475,7 +475,7 @@ async def get_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_qty_adult(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -510,7 +510,7 @@ async def get_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_name_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_name_child(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     name_child = update.effective_message.text
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -545,7 +545,7 @@ async def get_name_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_name(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     name = update.effective_message.text
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -580,7 +580,7 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_phone(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     phone = update.effective_message.text
     await append_message_ids_back_context(
         context, [update.effective_message.message_id])
@@ -627,7 +627,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_note(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     if not query:
         note = update.effective_message.text
@@ -698,7 +698,7 @@ async def get_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_confirm(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     query = update.callback_query
     await query.delete_message()
     await del_keyboard_messages(update, context)
@@ -747,7 +747,7 @@ async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'custom_made_event_id'] = custom_made_event.id
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    write_client_cme(sheet_id_cme, custom_made_event)
+    await write_client_cme(sheet_id_cme, custom_made_event)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
@@ -756,7 +756,7 @@ async def get_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def paid_info(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     context.user_data['conv_hl_run'] = True
     state = 'START'
     context.user_data['STATE'] = state
@@ -794,7 +794,7 @@ async def paid_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def forward_photo_or_file(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     """
     Пересылает картинку или файл.
@@ -872,7 +872,7 @@ async def forward_photo_or_file(
 
 async def conversation_timeout(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ) -> int:
     """Informs the user that the operation has timed out,
     calls :meth:`remove_reply_markup` and ends the conversation.

@@ -22,7 +22,7 @@ commands = [
 def add_check_run_conv_hl_middleware(application):
     async def check_run_conv_hl(
             update: Update,
-            context: ContextTypes.DEFAULT_TYPE
+            context: "ContextTypes.DEFAULT_TYPE"
     ):
         command = extract_command(update.effective_message.text)
         if command and context.user_data.get('conv_hl_run', False):

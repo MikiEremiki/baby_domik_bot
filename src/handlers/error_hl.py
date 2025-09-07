@@ -17,9 +17,32 @@ from utilities.utl_ticket import cancel_tickets_db_and_gspread
 
 error_hl_logger = logging.getLogger('bot.error_hl')
 
+outdated_err_msg = (
+    'Query is too old and response timeout expired or query id is invalid')
+del_err_msg = "Message can't be deleted for everyone"
+
+
+async def _send_text_after_bad_request(update: Update, text: str) -> None:
+    try:
+        await update.effective_chat.send_message(text)
+    except BadRequest as e:
+        error_hl_logger.error(e)
+
+
+async def _reply_or_fallback(update: Update, text: str) -> None:
+    """Попытаться отправить ответ в ветке сообщения, иначе отправить текст в чат."""
+    message_thread_id = getattr(update.effective_message,
+                                "message_thread_id", None)
+    try:
+        await update.effective_message.reply_text(
+            text=text, message_thread_id=message_thread_id)
+    except BadRequest as e:
+        error_hl_logger.error(e)
+        await _send_text_after_bad_request(update, text)
+
 
 async def error_handler(update: Update,
-                        context: ContextTypes.DEFAULT_TYPE) -> None:
+                        context: "ContextTypes.DEFAULT_TYPE") -> None:
     """Log the error and send a telegram message to notify the developer."""
     error_hl_logger.error(f'UPDATE: {update}')
     error_hl_logger.error("Exception while handling an update:",
@@ -28,14 +51,10 @@ async def error_handler(update: Update,
     context.session = await open_session(context.config)
 
     chat_id = context.config.bot.developer_chat_id
-    outdated_err_msg = (
-        'Query is too old and response timeout expired or query id is invalid')
-    del_err_msg = "Message can't be deleted for everyone"
+
     if isinstance(context.error, HTTPError):
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=context.error.response.text,
-        )
+        await context.bot.send_message(chat_id=chat_id,
+                                       text=context.error.response.text)
     elif (hasattr(context.error, 'message') and
           (context.error.message == outdated_err_msg)):
         error_hl_logger.error(context.error.message)
@@ -44,18 +63,7 @@ async def error_handler(update: Update,
           (context.error.message == del_err_msg)):
         error_hl_logger.error(context.error.message)
         text = 'Пожалуйста, выполните команду /start и повторите операцию заново'
-        message_thread_id = update.effective_message.message_thread_id
-        try:
-            await update.effective_message.reply_text(
-                text=text,
-                message_thread_id=message_thread_id,
-            )
-        except BadRequest as e:
-            error_hl_logger.error(e)
-            await update.effective_chat.send_message(
-                text=text,
-                message_thread_id=message_thread_id,
-            )
+        await _reply_or_fallback(update, text)
     elif (isinstance(context.error, TimedOut) or
           isinstance(context.error, NetworkError) and
           not isinstance(context.error, BadRequest)):
@@ -65,41 +73,16 @@ async def error_handler(update: Update,
         text = ('Пожалуйста, подождите 3 секунды и повторите последнее '
                 'действие, если проблема остается, вызовите /start и '
                 'повторите запрос заново.')
-        message_thread_id = update.effective_message.message_thread_id
-        try:
-            await update.effective_message.reply_text(
-                text=text,
-                message_thread_id=message_thread_id,
-            )
-        except BadRequest as e:
-            error_hl_logger.error(e)
-            await update.effective_chat.send_message(
-                text=text,
-                message_thread_id=message_thread_id,
-            )
+        await _reply_or_fallback(update, text)
         raise ApplicationHandlerStop
     else:
         text = ('Произошла не предвиденная ошибка\n'
                 'Пожалуйста, пробуйте повторить последнее действие, '
                 'или выполните команду /start и повторите операцию заново')
-        message_thread_id = update.effective_message.message_thread_id
-        try:
-            await update.effective_message.reply_text(
-                text=text,
-                message_thread_id=message_thread_id,
-            )
-        except BadRequest as e:
-            error_hl_logger.error(e)
-            await update.effective_chat.send_message(
-                text=text,
-                message_thread_id=message_thread_id,
-            )
-        except TimedOut as e:
-            error_hl_logger.error(e)
+        await _reply_or_fallback(update, text)
 
-        tb_list = traceback.format_exception(None,
-                                             context.error,
-                                             context.error.__traceback__)
+        tb_list = traceback.format_exception(
+            None, context.error, context.error.__traceback__)
         tb_string = "".join(tb_list)
 
         update_str = (

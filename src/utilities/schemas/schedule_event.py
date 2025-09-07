@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator
 
 from db.enum import TicketPriceType
-from utilities.utl_func import convert_sheets_datetime
+from utilities.utl_date import convert_sheets_datetime
 
 moscow_timezone_offset = -3
 

@@ -8,7 +8,7 @@ from utilities.utl_func import is_admin
 def add_glob_on_off_middleware(application, config):
     async def check_permissions(
             update: Update,
-            context: ContextTypes.DEFAULT_TYPE
+            context: "ContextTypes.DEFAULT_TYPE"
     ):
         if update.effective_chat.id in [config.bot.admin_group, CHAT_ID_KOCHETKOVA]:
             return

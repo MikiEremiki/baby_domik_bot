@@ -1,25 +1,33 @@
-[build-system]
-requires = ["setuptools>=66.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["components"]
-
 [project]
 name = "BabyDomikBot"
-version = "2"
+version = "5"
 authors = [
     { name = "Mikhail Eremin", email = "mr.eremin.ma@ya.ru" },
 ]
 license = { file = "LICENSE" }
 description = "Telegram bot on top of python-telegram-bot"
-requires-python = ">=3.12"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
+requires-python = ">=3.13"
+dependencies = [
+    "alembic",
+    "black",
+    "cachetools",
+    "psycopg",
+    "psycopg-binary",
+    "pydantic",
+    "pydantic_core",
+    "pydantic-settings",
+    "pytest",
+    "gspread",
+    "gspread-asyncio",
+    "python-telegram-bot[ext]",
+    "pytz",
+    "PyYAML",
+    "requests",
+    "sqlalchemy",
+    "typing_extensions",
+    "yookassa",
+    "uvicorn",
+    "fastapi",
+    "faststream[cli]",
+    "nats-py",
 ]

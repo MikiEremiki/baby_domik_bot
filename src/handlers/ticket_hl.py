@@ -14,7 +14,7 @@ ticket_hl_logger = logging.getLogger('bot.ticket_hl')
 
 async def get_ticket(
         update: Update,
-        context: ContextTypes.DEFAULT_TYPE
+        context: "ContextTypes.DEFAULT_TYPE"
 ):
     query = update.callback_query
     await query.edit_message_reply_markup()
