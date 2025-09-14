@@ -9,7 +9,8 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 from telegram.error import TimedOut, NetworkError
-from telegram.ext import ContextTypes, ConversationHandler, TypeHandler
+from telegram.ext import ContextTypes, ConversationHandler, TypeHandler, \
+    ApplicationHandlerStop
 from telegram.constants import ChatType, ChatAction
 
 from db import db_postgres
@@ -60,11 +61,11 @@ from settings.settings import (
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
 
-async def choice_month(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Функция отправляет пользователю список месяцев.
 
-    С сообщением передается inline клавиатура для выбора подходящего варианта
+    С сообщением передается inline клавиатура, для выбора подходящего варианта
     :return: возвращает state MONTH
     """
     query = update.callback_query
@@ -127,12 +128,12 @@ async def choice_month(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 async def choice_show_or_date(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     """
     Функция отправляет пользователю список спектаклей с датами.
 
-    С сообщением передается inline клавиатура для выбора подходящего варианта
+    С сообщением передается inline клавиатура, для выбора подходящего варианта
     :return: возвращает state DATE
     """
     query = update.callback_query
@@ -155,7 +156,7 @@ async def choice_show_or_date(
         )
     except ValueError as e:
         reserve_hl_logger.error(e)
-        return
+        return state
 
     text_legend = context.bot_data['texts']['text_legend']
 
@@ -219,12 +220,12 @@ async def choice_show_or_date(
     return state
 
 
-async def choice_date(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю варианты
     времени и кол-во свободных мест
 
-    С сообщением передается inline клавиатура для выбора подходящего варианта
+    С сообщением передается inline клавиатура, для выбора подходящего варианта
     :return: возвращает state TIME
     """
     query = update.callback_query
@@ -307,12 +308,12 @@ async def choice_date(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def choice_time(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю варианты
     времени и кол-во свободных мест
 
-    С сообщением передается inline клавиатура для выбора подходящего варианта
+    С сообщением передается inline клавиатура, для выбора подходящего варианта
     :return: возвращает state TIME
     """
     query = update.callback_query
@@ -377,13 +378,13 @@ async def choice_time(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 async def choice_option_of_reserve(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     """
     Функция отправляет пользователю сообщения по выбранному спектаклю,
     дате, времени и варианты бронирования
 
-    С сообщением передается inline клавиатура для выбора подходящего варианта
+    С сообщением передается inline клавиатура, для выбора подходящего варианта
     :return: возвращает state ORDER
     """
     query = update.callback_query
@@ -503,7 +504,7 @@ async def choice_option_of_reserve(
     return state
 
 
-async def get_email(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not query:
         await check_email_and_update_user(update, context)
@@ -538,11 +539,15 @@ async def get_email(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
                                                   schedule_event.type_event_id)
 
     check_command = check_entered_command(context, 'reserve')
+    only_child = None
     if check_command:
         only_child = False
     check_command = check_entered_command(context, 'studio')
     if check_command:
         only_child = True
+    if not only_child:
+        reserve_hl_logger.error('only_child is None')
+        raise ApplicationHandlerStop
 
     check_ticket = check_available_ticket_by_free_seat(schedule_event,
                                                        theater_event,
@@ -576,7 +581,7 @@ async def get_email(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 async def get_name_adult(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -602,7 +607,7 @@ async def get_name_adult(
     return state
 
 
-async def get_phone(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     reserve_user_data = context.user_data['reserve_user_data']
 
     await context.bot.edit_message_reply_markup(
@@ -657,7 +662,7 @@ __________
 
 async def get_name_children(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -818,7 +823,7 @@ async def get_name_children(
 
 async def forward_photo_or_file(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await remove_button_from_last_message(update, context)
 
@@ -832,7 +837,7 @@ async def forward_photo_or_file(
 
 async def processing_successful_notification(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await processing_successful_payment(update, context)
 
@@ -844,12 +849,12 @@ async def processing_successful_notification(
 
 async def conversation_timeout(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ) -> int:
     """Informs the user that the operation has timed out,
-    calls :meth:`remove_reply_markup` and ends the conversation.
+    calls: meth:`remove_reply_markup` and ends the conversation.
     :return:
-        int: :attr:`telegram.ext.ConversationHandler.END`.
+        Int: attr:`telegram.ext.ConversationHandler.END`.
     """
     user = context.user_data['user']
     if context.user_data['STATE'] == 'PAID':
@@ -898,7 +903,7 @@ TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)
 
 async def send_clients_data(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -951,7 +956,7 @@ async def send_clients_data(
 
 async def write_list_of_waiting(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await update.effective_chat.send_message(
         text='Напишите контактный номер телефона',
@@ -964,7 +969,7 @@ async def write_list_of_waiting(
 
 async def get_phone_for_waiting(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -983,8 +988,8 @@ async def get_phone_for_waiting(
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Лист ожидания', None))
     text = (f'#Лист_ожидания\n'
-           f'Пользователь @{user.username} {user.full_name}\n'
-           f'Запросил добавление в лист ожидания\n' + text)
+            f'Пользователь @{user.username} {user.full_name}\n'
+            f'Запросил добавление в лист ожидания\n' + text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,

@@ -26,11 +26,11 @@ async def attach_user_and_people_to_ticket(
     ))
     ticket = result.scalar_one()
     for person_id in people_ids:
-        person: Person = await session.get(Person, person_id)
+        person: Person | None = await session.get(Person, person_id)
         if person:
             ticket.people.append(person)
 
-    user = await session.get(User, user_id)
+    user: User | None = await session.get(User, user_id)
     ticket.user = user
     await session.commit()
 
@@ -166,7 +166,7 @@ async def create_user(
 
 
 async def create_person(session: AsyncSession, user_id, name, age_type):
-    user: User = await session.get(User, user_id)
+    user: User | None = await session.get(User, user_id)
     person = Person(name=name, age_type=age_type)
     user.people.append(person)
 
