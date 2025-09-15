@@ -45,7 +45,7 @@ async def send_clients_wait_data(
         text += '\n__________\n'
         text += str(i + 1) + '| '
         text += '<b>' + item[name_column['callback_name']] + '</b>'
-        text += '\n+7' + item[name_column['callback_phone']]
+        text += '\n+7' + str(item[name_column['callback_phone']])
         text += '\nЖелаемое время: '
         text += item[name_column['time_show']] + ' '
 
