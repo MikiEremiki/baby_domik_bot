@@ -223,8 +223,7 @@ async def load_clients_wait_data(
     name_sh = 'Лист ожидания_'
     data, dict_column_name = await load_from_gspread(
         sheet_id_domik,
-        name_sh,
-        value_render_option='UNFORMATTED_VALUE')
+        name_sh)
 
     data_clients_data = []
     for item in data[1:]:
