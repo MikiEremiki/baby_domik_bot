@@ -180,7 +180,7 @@ async def update_theater_event_data(
         update: Update,
         context: "ContextTypes.DEFAULT_TYPE"
 ):
-    theater_event_list = load_theater_events()
+    theater_event_list = await load_theater_events()
     await db_postgres.update_theater_events_from_googlesheets(
         context.session, theater_event_list)
 
