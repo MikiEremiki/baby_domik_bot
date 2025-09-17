@@ -9,7 +9,7 @@ from faststream import FastStream
 from yookassa.domain.notification import WebhookNotificationFactory
 
 from api.broker_nats import connect_to_nats
-from db import pickle_persistence, PTBSQLAlchemyJobStore
+from db import pickle_persistence
 from handlers.set_handlers import set_handlers
 from log.logging_conf import setup_logs
 from settings.config_loader import parse_settings
@@ -30,12 +30,6 @@ application = (
 
     .build()
 )
-application.job_queue.scheduler.add_jobstore(
-        PTBSQLAlchemyJobStore(
-            application=application,
-            url=str(config.postgres.db_url),
-        ),
-    )
 
 Configuration.configure(config.yookassa.account_id,
                         config.yookassa.secret_key.get_secret_value())
