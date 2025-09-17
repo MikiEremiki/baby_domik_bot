@@ -21,7 +21,6 @@ from db.db_googlesheets import (
     load_schedule_events, load_theater_events, load_custom_made_format,
     decrease_free_and_increase_nonconfirm_seat,
 )
-from schedule.scheduler_jobs import schedule_notification_job
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
@@ -204,9 +203,6 @@ async def update_schedule_event_data(update: Update,
     schedule_event_list = await load_schedule_events(False, True)
     await db_postgres.update_schedule_events_from_googlesheets(
         context.session, schedule_event_list)
-
-    for event in schedule_event_list:
-        await schedule_notification_job(context, event)
 
     text = 'Расписание обновлено'
     await update.effective_chat.send_message(text)
