@@ -545,8 +545,8 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     check_command = check_entered_command(context, 'studio')
     if check_command:
         only_child = True
-    if not only_child:
-        reserve_hl_logger.error('only_child is None')
+    if only_child is None:
+        reserve_hl_logger.error(f'{only_child=}')
         raise ApplicationHandlerStop
 
     check_ticket = check_available_ticket_by_free_seat(schedule_event,
