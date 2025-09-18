@@ -5,7 +5,7 @@ services:
     container_name: bot
     build:
       context: .
-    image: baby_domik:v1
+    image: mikieremiki/baby_domik_bot
     restart: always
     depends_on:
       nats:
@@ -108,7 +108,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-server
-    image: baby_domik_fastapi:v1
+    image: mikieremiki/baby_domik_fastapi
     restart: unless-stopped
     networks:
       - network
