@@ -25,10 +25,12 @@ def add_check_run_conv_hl_middleware(application):
             context: "ContextTypes.DEFAULT_TYPE"
     ):
         command = extract_command(update.effective_message.text)
-        if command and context.user_data.get('conv_hl_run', False):
+        user_data = context.user_data
+        if command and user_data.get('conv_hl_run', False):
             if command in commands:
+                postfix_for_cancel = user_data.get('postfix_for_cancel', '')
                 keyboard = [add_btn_back_and_cancel(
-                    postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+                    postfix_for_cancel= postfix_for_cancel + '|',
                     add_back_btn=False)]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await update.effective_chat.send_message(
