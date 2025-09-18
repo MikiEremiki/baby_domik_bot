@@ -131,7 +131,7 @@ async def update_base_ticket_data(
         update: Update,
         context: "ContextTypes.DEFAULT_TYPE"
 ):
-    ticket_list = load_base_tickets(True)
+    ticket_list = await load_base_tickets(True)
     await db_postgres.update_base_tickets_from_googlesheets(
         context.session, ticket_list)
 
@@ -162,7 +162,7 @@ async def update_custom_made_format_data(
         update: Update,
         context: "ContextTypes.DEFAULT_TYPE"
 ):
-    custom_made_format_list = load_custom_made_format()
+    custom_made_format_list = await load_custom_made_format()
     await db_postgres.update_custom_made_format_from_googlesheets(
         context.session, custom_made_format_list)
 
