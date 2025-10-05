@@ -15,8 +15,7 @@ from settings.settings import nats_url
 gspread_worker_logger = logging.getLogger('bot.gspread_worker')
 
 broker = NatsBroker(nats_url)
-stream = JStream(
-    name='baby_domik', max_msgs=100, max_age=60 * 60 * 24 * 7, declare=False)
+stream = JStream(name='baby_domik', max_msgs=100, max_age=60*60*24*7)
 MSG_PROCESSING_TIME = 60
 
 
