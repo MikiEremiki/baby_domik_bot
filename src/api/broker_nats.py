@@ -11,8 +11,8 @@ def connect_to_nats(app: Application,
     broker = NatsBroker(nats_url)
     stream = JStream(name='baby_domik', max_msgs=100, max_age=60*60*24*7, declare=False)
 
-    async def nats_handler(
     @broker.subscriber('bot', stream=stream, durable='yookassa')
+    async def yookassa_handler(
             data: dict,
             logger: Logger,
     ):
