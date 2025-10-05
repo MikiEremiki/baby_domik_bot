@@ -10,6 +10,7 @@ from telegram import (
 from telegram.constants import ChatType, ChatAction
 from telegram.error import BadRequest, TimedOut
 
+from api.gspread_pub import publish_update_ticket, publish_update_cme
 from db import db_postgres
 from db.enum import TicketStatus, CustomMadeStatus
 from handlers import check_user_db
@@ -29,6 +30,7 @@ from utilities.utl_func import (
     get_formatted_date_and_time_of_event
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
+from schedule.worker_jobs import cancel_old_created_tickets
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -326,8 +328,17 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     pass
 
                 sheet_id_domik = context.config.sheets.sheet_id_domik
-                await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                               new_ticket_status.value)
+                try:
+                    await publish_update_ticket(
+                        sheet_id_domik,
+                        ticket_id,
+                        str(new_ticket_status.value),
+                    )
+                except Exception as e:
+                    main_handlers_logger.exception(
+                        f"Failed to publish gspread task, fallback to direct call: {e}")
+                    await update_ticket_in_gspread(
+                        sheet_id_domik, ticket_id, new_ticket_status.value)
                 data['status'] = new_ticket_status
             case 'Покупатель':
                 people = ticket.people
@@ -494,8 +505,17 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     ticket_status = TicketStatus.APPROVED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                       ticket_status.value)
+        try:
+            await publish_update_ticket(
+                sheet_id_domik,
+                ticket_id,
+                str(ticket_status.value),
+            )
+        except Exception as e:
+            main_handlers_logger.exception(
+                f"Failed to publish gspread task, fallback to direct call: {e}")
+            await update_ticket_in_gspread(
+                sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -610,8 +630,17 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     ticket_status = TicketStatus.REJECTED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                       ticket_status.value)
+        try:
+            await publish_update_ticket(
+                sheet_id_domik,
+                ticket_id,
+                str(ticket_status.value),
+            )
+        except Exception as e:
+            main_handlers_logger.exception(
+                f"Failed to publish gspread task, fallback to direct call: {e}")
+            await update_ticket_in_gspread(
+                sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -693,7 +722,16 @@ async def confirm_birthday(update: Update,
         main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
+    try:
+        await publish_update_cme(
+            sheet_id_cme,
+            int(cme_id),
+            str(cme_status.value),
+        )
+    except Exception as e:
+        main_handlers_logger.exception(
+            f"Failed to publish gspread task, fallback to direct call: {e}")
+        await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
 
@@ -798,7 +836,16 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
+    try:
+        await publish_update_cme(
+            sheet_id_cme,
+            int(cme_id),
+            str(cme_status.value),
+        )
+    except Exception as e:
+        main_handlers_logger.exception(
+            f"Failed to publish gspread task, fallback to direct call: {e}")
+        await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
 

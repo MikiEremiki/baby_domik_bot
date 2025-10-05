@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ConversationHandler
 
 from api.googlesheets import write_client_reserve
+from api.gspread_pub import publish_write_client_reserve
 from db import db_postgres
 from db.enum import TicketStatus
 from db.db_googlesheets import increase_free_seat, decrease_free_seat
@@ -242,11 +242,30 @@ async def start_forma_info(
         await query.edit_message_text(text)
         await update.effective_chat.send_action(ChatAction.TYPING)
         sheet_id_domik = context.config.sheets.sheet_id_domik
-        await write_client_reserve(sheet_id_domik,
-                                   context,
-                                   update.effective_chat.id,
-                                   chose_base_ticket,
-                                   TicketStatus.CREATED.value)
+        chat_id = update.effective_chat.id
+        base_ticket_dto = chose_base_ticket.to_dto()
+        ticket_status_value = str(TicketStatus.CREATED.value)
+        reserve_user_data = context.user_data['reserve_user_data']
+        try:
+            await publish_write_client_reserve(
+                sheet_id_domik,
+                reserve_user_data,
+                chat_id,
+                base_ticket_dto,
+                ticket_status_value
+            )
+        except Exception as e:
+            reserve_admin_hl_logger.exception(
+                f'Failed to publish gspread task, fallback to direct call: {e}')
+            res = await write_client_reserve(sheet_id_domik,
+                                             reserve_user_data,
+                                             chat_id,
+                                             base_ticket_dto,
+                                             ticket_status_value)
+            if res == 0:
+                await context.bot.send_message(
+                    chat_id=context.config.bot.developer_chat_id,
+                    text=f'Не записался билет {ticket_ids} в клиентскую базу')
         reserve_user_data['changed_seat'] = False
         result = await decrease_free_seat(
             context, schedule_event_id, base_ticket_id)

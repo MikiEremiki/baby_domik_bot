@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 from typing import List, Any, Dict
 
-from telegram.ext import ContextTypes
 from google.oauth2.service_account import Credentials
 from gspread_asyncio import (
     AsyncioGspreadClientManager,
@@ -224,13 +223,12 @@ async def write_data_reserve(
 
 async def write_client_reserve(
         spreadsheet_id,
-        context: "ContextTypes.DEFAULT_TYPE",
+        reserve_user_data: dict,
         chat_id: int,
-        base_ticket: BaseTicket,
-        ticket_status_value
+        base_ticket_dto: dict,
+        ticket_status_value: str
 ) -> int:
     # TODO Заменить на запись в другой лист
-    reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
     client_data: dict = reserve_user_data['client_data']
     ticket_ids = reserve_user_data['ticket_ids']
@@ -276,6 +274,7 @@ async def write_client_reserve(
             values[i].append(datetime.now().strftime('%y%m%d %H:%M:%S'))
 
             # add ticket info
+            base_ticket = BaseTicket(**base_ticket_dto)
             values[i].append(base_ticket.base_ticket_id)
             values[i].append(base_ticket.name)
             values[i].append(int(chose_price))
@@ -401,7 +400,7 @@ async def write_client_cme(
 
 async def write_client_list_waiting(
         spreadsheet_id,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: dict
 ):
     try:
         value_input_option = 'USER_ENTERED'
@@ -409,13 +408,16 @@ async def write_client_list_waiting(
         values: List[List[Any]] = [[]]
 
         date = datetime.now().strftime('%y%m%d %H:%M:%S')
-        reserve_user_data = context.user_data['reserve_user_data']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
+        user_id = context['user_id']
+        username = context['username']
+        full_name = context['full_name']
+        phone = context['phone']
+        schedule_event_id = context['schedule_event_id']
 
-        values[0].append(context.user_data['user'].id)
-        values[0].append(context.user_data['user'].username)
-        values[0].append(context.user_data['user'].full_name)
-        values[0].append(reserve_user_data['client_data']['phone'])
+        values[0].append(user_id)
+        values[0].append(username)
+        values[0].append(full_name)
+        values[0].append(phone)
         values[0].append(date)
         values[0].append(schedule_event_id)
         for i in range(5):

@@ -6,6 +6,7 @@ from telegram.ext import TypeHandler, ContextTypes
 from yookassa.domain.notification import WebhookNotification
 
 from api.googlesheets import update_ticket_in_gspread
+from api.gspread_pub import publish_update_ticket
 from db import db_postgres
 from db.enum import TicketStatus
 from handlers.sub_hl import send_approve_reject_message_to_admin_in_webhook
@@ -74,10 +75,19 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     ticket_status = TicketStatus.PAID
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
-        await db_postgres.update_ticket(context.session,
-                                        ticket_id,
-                                        status=ticket_status)
+        try:
+            await publish_update_ticket(
+                sheet_id_domik,
+                ticket_id,
+                str(ticket_status.value),
+            )
+        except Exception as e:
+            webhook_hl_logger.exception(
+                f"Failed to publish gspread task, fallback to direct call: {e}")
+            await update_ticket_in_gspread(
+                sheet_id_domik, ticket_id, ticket_status.value)
+        await db_postgres.update_ticket(
+            context.session, ticket_id, status=ticket_status)
         text += f'<code>{ticket_id}</code> '
     text += '</b>\n\n'
     refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'

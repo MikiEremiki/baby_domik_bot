@@ -8,12 +8,14 @@ from telegram import (
     InlineKeyboardButton,
     ReplyKeyboardRemove,
 )
-from telegram.error import TimedOut, NetworkError
-from telegram.ext import ContextTypes, ConversationHandler, TypeHandler, \
-    ApplicationHandlerStop
+from telegram.error import TimedOut, NetworkError, BadRequest
+from telegram.ext import (
+    ContextTypes, ConversationHandler, TypeHandler, ApplicationHandlerStop)
 from telegram.constants import ChatType, ChatAction
 
-from db import db_postgres
+from api.gspread_pub import (
+    publish_write_client_reserve, publish_write_client_list_waiting)
+from db import db_postgres, BaseTicket
 from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from db.enum import TicketStatus
@@ -21,8 +23,7 @@ from handlers import init_conv_hl_dialog, check_user_db
 from handlers.email_hl import check_email_and_update_user
 from handlers.sub_hl import (
     request_phone_number,
-    send_breaf_message,
-    send_message_about_list_waiting,
+    send_breaf_message, send_message_about_list_waiting,
     remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment,
     get_theater_and_schedule_events_by_month,
@@ -754,11 +755,30 @@ async def get_name_children(
             reserve_hl_logger.error(e)
             reserve_hl_logger.info(text)
         sheet_id_domik = context.config.sheets.sheet_id_domik
-        await write_client_reserve(sheet_id_domik,
-                                   context,
-                                   update.effective_chat.id,
-                                   chose_base_ticket,
-                                   TicketStatus.CREATED.value)
+        chat_id = update.effective_chat.id
+        base_ticket_dto = chose_base_ticket.to_dto()
+        ticket_status_value = str(TicketStatus.CREATED.value)
+        reserve_user_data = context.user_data['reserve_user_data']
+        try:
+            await publish_write_client_reserve(
+                sheet_id_domik,
+                reserve_user_data,
+                chat_id,
+                base_ticket_dto,
+                ticket_status_value
+            )
+        except Exception as e:
+            reserve_hl_logger.exception(
+                f'Failed to publish gspread task, fallback to direct call: {e}')
+            res = await write_client_reserve(sheet_id_domik,
+                                             reserve_user_data,
+                                             chat_id,
+                                             base_ticket_dto,
+                                             ticket_status_value)
+            if res == 0:
+                await context.bot.send_message(
+                    chat_id=context.config.bot.developer_chat_id,
+                    text=f'Не записался билет {ticket_ids} в клиентскую базу')
 
         text += '\nУменьшаю кол-во свободных мест...'
         try:
@@ -796,8 +816,9 @@ async def get_name_children(
         state = ConversationHandler.END
         context.user_data['conv_hl_run'] = False
     else:
-        await create_and_send_payment(update, context)
-        state = 'PAID'
+        state = await create_and_send_payment(update, context)
+        if state is None:
+            state = 'PAID'
     context.user_data['STATE'] = state
     return state
 

@@ -13,6 +13,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from yookassa import Payment
 
 from api.googlesheets import write_client_reserve
+from api.gspread_pub import publish_write_client_reserve
 from api.yookassa_connect import create_param_payment
 from db import db_postgres, TheaterEvent
 from db.enum import TicketStatus
@@ -289,11 +290,30 @@ async def create_and_send_payment(
 
     await update.effective_chat.send_action(ChatAction.TYPING)
     sheet_id_domik = context.config.sheets.sheet_id_domik
-    await write_client_reserve(sheet_id_domik,
-                               context,
-                               update.effective_chat.id,
-                               chose_base_ticket,
-                               TicketStatus.CREATED.value)
+    chat_id = update.effective_chat.id
+    base_ticket_dto = chose_base_ticket.to_dto()
+    ticket_status_value = str(TicketStatus.CREATED.value)
+    reserve_user_data = context.user_data['reserve_user_data']
+    try:
+        await publish_write_client_reserve(
+            sheet_id_domik,
+            reserve_user_data,
+            chat_id,
+            base_ticket_dto,
+            ticket_status_value
+        )
+    except Exception as e:
+        sub_hl_logger.exception(
+            f'Failed to publish gspread task, fallback to direct call: {e}')
+        res = await write_client_reserve(sheet_id_domik,
+                                         reserve_user_data,
+                                         chat_id,
+                                         base_ticket_dto,
+                                         ticket_status_value)
+        if res == 0:
+            await context.bot.send_message(
+                chat_id=context.config.bot.developer_chat_id,
+                text=f'Не записался билет {ticket_ids} в клиентскую базу')
     text += '\nСохраняю за вами резерв по кол-ву выбранных мест...'
     try:
         await message.edit_text(text)
@@ -395,6 +415,7 @@ async def create_and_send_payment(
     common_data = context.user_data['common_data']
     common_data['message_id_buy_info'] = message.message_id
     reserve_user_data['flag_send_ticket_info'] = True
+    return None
 
 
 async def processing_successful_payment(
