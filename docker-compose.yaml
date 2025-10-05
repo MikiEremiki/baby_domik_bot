@@ -6,9 +6,11 @@ services:
     build:
       context: .
     image: mikieremiki/baby_domik_bot
-    restart: always
+    restart: unless-stopped
     depends_on:
       nats:
+        condition: service_started
+      gspread_worker:
         condition: service_started
       postgres:
         condition: service_healthy
@@ -97,7 +99,7 @@ services:
     profiles: [ "nats-cli" ]
     container_name: nats-cli
     image: natsio/nats-box
-    restart: unless-stopped
+    restart: no
     networks:
       - network
     command: [ "tail", "-f", "/dev/null" ]
@@ -115,6 +117,25 @@ services:
     depends_on:
       - nats
     command: [ "python3", "-m", "fastapi_nats", "run" ]
+
+  gspread_worker:
+    profiles: [ "all", "gspread" ]
+    container_name: gspread_worker
+    build:
+      context: .
+    image: mikieremiki/baby_domik_gspread_worker
+    restart: unless-stopped
+    networks:
+      - network
+    depends_on:
+      - nats
+    environment:
+      CONFIG_PATH: '/app/config/'
+    volumes:
+      - ./config:/app/config:ro
+      - ./config/settings.py:/app/src/settings/settings.py
+      - ./src/log/archive:/app/src/log/archive
+    command: faststream run api.gspread_worker:fast_stream
 
   nginx:
     profiles: [ "all", "nginx", "api" ]
