@@ -1,5 +1,6 @@
 from faststream import Logger
-from faststream.nats import JStream, NatsBroker
+from faststream.nats import JStream, NatsBroker, PullSub
+from nats.js.api import ConsumerConfig, DeliverPolicy
 from telegram.ext import Application
 from yookassa.domain.notification import WebhookNotificationFactory
 
@@ -20,7 +21,14 @@ def connect_to_nats(app: Application,
         notification = webhook_notification_factory.create(data)
         await app.update_queue.put(notification)
 
-    @broker.subscriber('gspread_failed', stream=stream, durable='gspread_failed')
+    @broker.subscriber(
+        subject='gspread_failed',
+        durable='gspread_failed',
+        config=ConsumerConfig(ack_wait=10),
+        deliver_policy=DeliverPolicy.NEW,
+        pull_sub=PullSub(),
+        stream=stream,
+    )
     async def gspread_handler(
             data: dict,
             logger: Logger,

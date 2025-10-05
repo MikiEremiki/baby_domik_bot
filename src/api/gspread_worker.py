@@ -2,9 +2,8 @@ import asyncio
 import logging
 from typing import Any, Dict
 
-from faststream import FastStream
-from faststream.nats import JStream, NatsBroker, PullSub
-from faststream import Logger
+from faststream import FastStream, Depends, Logger
+from faststream.nats import JStream, NatsBroker, PullSub, NatsMessage
 from nats.js.api import DeliverPolicy, ConsumerConfig
 
 from api.googlesheets import (
@@ -21,13 +20,26 @@ stream = JStream(
 MSG_PROCESSING_TIME = 60
 
 
-@broker.subscriber('gspread',
-                   stream=stream,
-                   durable='gspread',
-                   deliver_policy=DeliverPolicy.NEW,
-                   pull_sub=PullSub(),
-                   config=ConsumerConfig(ack_wait=MSG_PROCESSING_TIME),
-                   )
+async def progress_sender(message: NatsMessage):
+    async def in_progress_task():
+        while True:
+            await asyncio.sleep(5.0)
+            await message.in_progress()
+
+    task = asyncio.create_task(in_progress_task())
+    yield
+    task.cancel()
+
+
+@broker.subscriber(
+    subject='gspread',
+    durable='gspread',
+    config=ConsumerConfig(ack_wait=MSG_PROCESSING_TIME),
+    deliver_policy=DeliverPolicy.NEW,
+    pull_sub=PullSub(),
+    stream=stream,
+    dependencies=[Depends(progress_sender)]
+)
 async def handle_gspread_task(data: Dict[str, Any], logger: Logger):
     """
     Обработчик задач записи в Google Sheets.
