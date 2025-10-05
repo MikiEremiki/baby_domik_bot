@@ -20,4 +20,12 @@ def connect_to_nats(app: Application,
         notification = webhook_notification_factory.create(data)
         await app.update_queue.put(notification)
 
+    @broker.subscriber('gspread_failed', stream=stream, durable='gspread_failed')
+    async def gspread_handler(
+            data: dict,
+            logger: Logger,
+    ):
+        logger.info(f'{data=}')
+        await app.update_queue.put(data)
+
     return broker

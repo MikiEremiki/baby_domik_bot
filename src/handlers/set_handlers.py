@@ -9,6 +9,7 @@ from handlers import main_hl, reserve_hl
 from handlers.sub_hl import (
     update_admin_info, update_bd_price, update_cme_admin_info)
 from handlers.webhook_hl import WebhookHandler
+from handlers.gspredhook_hl import GspreadhookHandler
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
 from conv_hl import (
@@ -126,6 +127,7 @@ def set_handlers(application, config):
         main_hl.feedback_reply_msg))
 
     application.add_handler(WebhookHandler)
+    application.add_handler(GspreadhookHandler)
 
     application.add_error_handler(error_handler)
 

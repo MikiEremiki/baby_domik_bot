@@ -1,6 +1,7 @@
 import logging
 
 from api.googlesheets import update_ticket_in_gspread
+from api.gspread_pub import publish_update_ticket
 from db import db_postgres
 from db.db_googlesheets import (
     increase_free_and_decrease_nonconfirm_seat, increase_free_seat)
@@ -16,6 +17,7 @@ async def write_to_return_seats_for_sale(context):
     ticket_status = TicketStatus.CANCELED
     changed_seat = reserve_user_data.get('changed_seat', False)
 
+    text = 'Билетов для отмены нет'
     if ticket_ids:
         for ticket_id in ticket_ids:
             text = await cancel_ticket_and_return_seat(context, changed_seat,
@@ -24,8 +26,6 @@ async def write_to_return_seats_for_sale(context):
             await context.bot.send_message(
                 chat_id=context.config.bot.developer_chat_id,
                 text=text)
-    else:
-        text = 'Билетов для отмены нет'
     utl_googlesheets_logger.warning(text)
 
 
@@ -66,8 +66,41 @@ async def cancel_ticket_and_return_seat(
     return text
 
 
+async def cancel_ticket_and_return_seat_auto(context, ticket_id: int) -> str:
+    """
+    Автоматическая отмена билета, созданного более 30 минут назад.
+    Поведение аналогично write_to_return_seats_for_sale для не-админа:
+    - освобождаем место: increase_free_and_decrease_nonconfirm_seat
+    - меняем статус билета на CANCELED и обновляем Google Sheets
+    """
+    # В автоматическом сценарии всегда освобождаем место и не являемся админом
+    changed_seat = True
+    command = 'reserve'  # без суффикса '_admin' → уменьшит nonconfirm и увеличит free
+    ticket_status = TicketStatus.CANCELED
+    text = await cancel_ticket_and_return_seat(
+        context=context,
+        changed_seat=changed_seat,
+        command=command,
+        ticket_id=ticket_id,
+        ticket_status=ticket_status,
+    )
+    utl_googlesheets_logger.info(text)
+    return text
+
+
 async def update_ticket_db_and_gspread(context, ticket_id, **kwargs):
     sheet_id_domik = context.config.sheets.sheet_id_domik
-    await update_ticket_in_gspread(
-        sheet_id_domik, ticket_id, kwargs['status'].value)
-    await db_postgres.update_ticket(context.session, ticket_id, **kwargs)
+    try:
+        await publish_update_ticket(
+            sheet_id_domik,
+            ticket_id,
+            kwargs['status'].value,
+        )
+    except Exception as e:
+        utl_googlesheets_logger.exception(
+            f"Failed to publish gspread task, fallback to direct call: {e}")
+        await update_ticket_in_gspread(
+            sheet_id_domik, ticket_id, kwargs['status'].value)
+    ticket = await db_postgres.update_ticket(
+        context.session, ticket_id, **kwargs)
+    return ticket
