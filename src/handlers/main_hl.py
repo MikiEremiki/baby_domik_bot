@@ -934,14 +934,16 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             )
     elif state == 'DATE' and command != 'birthday':
         try:
-            number_of_month_str = context.user_data['reserve_user_data'][
-                'number_of_month_str']
+            reserve_data = context.user_data.get('reserve_user_data', {})
+            number_of_month_str = reserve_data.get('number_of_month_str')
             await query.delete_message()
-            photo = (
-                context.bot_data
-                .get('afisha', {})
-                .get(int(number_of_month_str), False)
-            )
+            photo = None
+            if number_of_month_str is not None:
+                photo = (
+                    context.bot_data
+                    .get('afisha', {})
+                    .get(int(number_of_month_str), False)
+                )
             if (
                     update.effective_chat.type == ChatType.PRIVATE and
                     photo and
