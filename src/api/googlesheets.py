@@ -56,7 +56,7 @@ async def _get_values(
     return values.get('values', [])
 
 
-async def get_data_from_spreadsheet(
+async def _get_data_from_spreadsheet(
         spreadsheet_id: str,
         sheet: str,
         value_render_option: str = 'FORMATTED_VALUE'
@@ -69,8 +69,8 @@ async def get_data_from_spreadsheet(
     return values
 
 
-async def get_column_info(spreadsheet_id: str, name_sheet: str):
-    data_column_name = await get_data_from_spreadsheet(
+async def _get_column_info(spreadsheet_id: str, name_sheet: str):
+    data_column_name = await _get_data_from_spreadsheet(
         spreadsheet_id, RANGE_NAME[name_sheet] + '2:2')
     dict_column_name: Dict[int | str, int] = {}
     for i, item in enumerate(data_column_name[0]):
@@ -124,15 +124,15 @@ async def load_from_gspread(
 
     Возвращает кортеж (data, dict_column_name).
     """
-    dict_column_name, len_col = await get_column_info(sheet_id, name_sh)
+    dict_column_name, len_col = await _get_column_info(sheet_id, name_sh)
 
-    first_col = await get_data_from_spreadsheet(
+    first_col = await _get_data_from_spreadsheet(
         sheet_id, RANGE_NAME[name_sh] + 'A:A')
 
     len_row = len(first_col)
     sheet_range = f"{RANGE_NAME[name_sh]}R2C1:R{len_row}C{len_col}"
 
-    data = await get_data_from_spreadsheet(
+    data = await _get_data_from_spreadsheet(
         sheet_id,
         sheet_range,
         value_render_option=value_render_option
@@ -141,13 +141,13 @@ async def load_from_gspread(
 
 
 async def write_data_reserve(
-        spreadsheet_id,
-        event_id,
+        spreadsheet_id: str,
+        event_id: int,
         numbers: List[int],
         option: int = 1
 ) -> None:
     try:
-        dict_column_name, _ = await get_column_info(
+        dict_column_name, _ = await _get_column_info(
             spreadsheet_id, 'База спектаклей_')
         values = await _get_values(
             spreadsheet_id,
@@ -215,7 +215,7 @@ async def write_data_reserve(
                     ]]
                 })
 
-        await write_data_to_batch_update(
+        await _write_data_to_batch_update(
             data, spreadsheet_id, value_input_option)
 
     except Exception as err:
@@ -303,21 +303,18 @@ async def write_client_reserve(
         range_sheet = (RANGE_NAME['База клиентов_'] +
                        f'R1C1:R1C{end_column_index}')
 
-        await execute_append_googlesheet(spreadsheet_id,
-                                         range_sheet,
-                                         value_input_option,
-                                         response_value_render_option,
-                                         value_range_body)
+        await _execute_append_googlesheet(spreadsheet_id,
+                                          range_sheet,
+                                          value_input_option,
+                                          response_value_render_option,
+                                          value_range_body)
         return 1
     except Exception as err:
         googlesheets_logger.error(err)
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не записался билет {ticket_ids} в клиентскую базу')
         return 0
 
 
-async def write_data_to_batch_update(
+async def _write_data_to_batch_update(
         data,
         spreadsheet_id,
         value_input_option
@@ -344,7 +341,7 @@ async def write_client_cme(
         spreadsheet_id,
         custom_made_event: CustomMadeEvent
 ) -> None:
-    dict_column_name, _ = await get_column_info(
+    dict_column_name, _ = await _get_column_info(
         spreadsheet_id, 'База ДР_')
 
     values_column = await _get_values(
@@ -395,11 +392,11 @@ async def write_client_cme(
     range_sheet = (RANGE_NAME['База ДР_'] +
                    f'R1C1:R1C{end_column_index}')
 
-    await execute_append_googlesheet(spreadsheet_id,
-                                     range_sheet,
-                                     value_input_option,
-                                     response_value_render_option,
-                                     value_range_body)
+    await _execute_append_googlesheet(spreadsheet_id,
+                                      range_sheet,
+                                      value_input_option,
+                                      response_value_render_option,
+                                      value_range_body)
 
 
 async def write_client_list_waiting(
@@ -450,11 +447,11 @@ async def write_client_list_waiting(
         range_sheet = (RANGE_NAME['Лист ожидания_'] +
                        f'R1C1:R1C{end_column_index}')
 
-        await execute_append_googlesheet(spreadsheet_id,
-                                         range_sheet,
-                                         value_input_option,
-                                         response_value_render_option,
-                                         value_range_body)
+        await _execute_append_googlesheet(spreadsheet_id,
+                                          range_sheet,
+                                          value_input_option,
+                                          response_value_render_option,
+                                          value_range_body)
 
     except Exception as err:
         googlesheets_logger.error(err)
@@ -467,7 +464,7 @@ async def update_ticket_in_gspread(
         option: int = 1
 ) -> None:
     try:
-        dict_column_name, _ = await get_column_info(
+        dict_column_name, _ = await _get_column_info(
             spreadsheet_id, 'База клиентов_')
 
         values = await _get_values(
@@ -512,7 +509,7 @@ async def update_ticket_in_gspread(
                     ]]
                 })
 
-        await write_data_to_batch_update(
+        await _write_data_to_batch_update(
             data, spreadsheet_id, value_input_option)
 
     except Exception as err:
@@ -524,7 +521,7 @@ async def update_cme_in_gspread(
         cme_id,
         status
 ) -> None:
-    dict_column_name, _ = await get_column_info(
+    dict_column_name, _ = await _get_column_info(
         spreadsheet_id, 'База ДР_')
     values = await _get_values(
         spreadsheet_id,
@@ -557,14 +554,14 @@ async def update_cme_in_gspread(
     range_sheet = (f"{RANGE_NAME['База ДР_']}"
                    f"R{row_cme}C{col1}:R{row_cme}C{col2}")
 
-    await execute_update_googlesheet(spreadsheet_id,
-                                     range_sheet,
-                                     value_input_option,
-                                     response_value_render_option,
-                                     value_range_body)
+    await _execute_update_googlesheet(spreadsheet_id,
+                                      range_sheet,
+                                      value_input_option,
+                                      response_value_render_option,
+                                      value_range_body)
 
 
-async def execute_update_googlesheet(
+async def _execute_update_googlesheet(
         spreadsheet_id,
         range_sheet,
         value_input_option,
@@ -588,7 +585,7 @@ async def execute_update_googlesheet(
         googlesheets_logger.error(value_range_body)
 
 
-async def execute_append_googlesheet(
+async def _execute_append_googlesheet(
         spreadsheet_id,
         range_sheet,
         value_input_option,
