@@ -74,6 +74,57 @@ async def get_email(session: AsyncSession, user_id):
         return None
 
 
+async def get_phone(session: AsyncSession, user_id):
+    """
+    Возвращает последний сохраненный телефон взрослого пользователя, если он есть.
+    Формат хранения: 10 цифр без префикса +7.
+    """
+    # Ищем любой последний (по person_id) телефон взрослого, связанного с пользователем
+    result = await session.execute(
+        select(Adult.phone)
+        .join(Person, Adult.person_id == Person.id)
+        .where(Person.user_id == user_id, Adult.phone.is_not(None))
+        .order_by(Adult.person_id.desc())
+    )
+    phone = result.scalars().first()
+    return phone or None
+
+
+async def get_adult(session: AsyncSession, user_id):
+    """
+    Возвращает последнее введенное имя взрослого пользователя, если оно есть.
+    """
+    result = await session.execute(
+        select(Person.name)
+        .where(
+            Person.user_id == user_id,
+            Person.name.is_not(None),
+            Person.age_type == AgeType.adult
+        )
+        .order_by(Person.id.desc())
+    )
+    person = result.scalars().first()
+    return person or None
+
+
+async def get_child(session: AsyncSession, user_id):
+    """
+    Возвращает последнее введенное имя ребенка, если оно есть.
+    """
+    result = await session.execute(
+        select(Person.name, Child.age)
+        .join(Child, Person.id == Child.person_id)
+        .where(
+            Person.user_id == user_id,
+            Person.name.is_not(None),
+            Person.age_type == AgeType.child
+        )
+        .order_by(Person.id.desc())
+    )
+    person = result.first()
+    return person or None
+
+
 async def create_people(
         session: AsyncSession,
         user_id,
@@ -766,6 +817,66 @@ async def update_custom_made_event(
         setattr(cme, key, value)
     await session.commit()
     return cme
+
+
+# ===== Helpers for Person/Adult/Child updates and deletion =====
+async def update_person(
+        session: AsyncSession,
+        person_id: int,
+        **kwargs
+):
+    person = await session.get(Person, person_id)
+    for key, value in kwargs.items():
+        setattr(person, key, value)
+    await session.commit()
+    return person
+
+
+async def update_adult_by_person_id(
+        session: AsyncSession,
+        person_id: int,
+        **kwargs
+):
+    # Find Adult by person_id; create if missing
+    result = await session.execute(
+        select(Adult).where(Adult.person_id == person_id))
+    adult = result.scalar_one_or_none()
+    if adult is None:
+        adult = Adult(person_id=person_id)
+        session.add(adult)
+        await session.flush()
+    for key, value in kwargs.items():
+        setattr(adult, key, value)
+    await session.commit()
+    return adult
+
+
+async def update_child_by_person_id(
+        session: AsyncSession,
+        person_id: int,
+        **kwargs
+):
+    result = await session.execute(
+        select(Child).where(Child.person_id == person_id))
+    child = result.scalar_one_or_none()
+    if child is None:
+        child = Child(person_id=person_id)
+        session.add(child)
+        await session.flush()
+    for key, value in kwargs.items():
+        setattr(child, key, value)
+    await session.commit()
+    return child
+
+
+async def delete_person(
+        session: AsyncSession,
+        person_id: int,
+):
+    person = await session.get(Person, person_id)
+    await session.delete(person)
+    await session.commit()
+    return person
 
 
 async def del_ticket(
