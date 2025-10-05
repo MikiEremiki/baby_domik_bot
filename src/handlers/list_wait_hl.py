@@ -17,7 +17,7 @@ list_wait_hl_logger = logging.getLogger('bot.list_wait_hl')
 
 async def send_clients_wait_data(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
     _, callback_data = remove_intent_id(query.data)
@@ -57,9 +57,7 @@ async def send_clients_wait_data(
             message_thread_id=update.effective_message.message_thread_id
         )
     else:
-        await query.edit_message_text(
-            text=text,
-        )
+        await query.edit_message_text(text)
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     await query.answer()

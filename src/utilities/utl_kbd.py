@@ -8,9 +8,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from db import BaseTicket, ScheduleEvent
 from settings.settings import (
     DICT_OF_EMOJI_FOR_BUTTON, DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
-    SUPPORT_DATA, DICT_CONVERT_MONTH_NUMBER_TO_STR)
+    DICT_CONVERT_MONTH_NUMBER_TO_STR)
 from utilities.utl_func import (
-    get_time_with_timezone, get_formatted_date_and_time_of_event)
+    get_time_with_timezone, get_formatted_date_and_time_of_event, get_emoji)
 from utilities.utl_ticket import get_spec_ticket_price
 
 _ID_SYMS = string.digits + string.ascii_letters
@@ -123,8 +123,7 @@ async def create_kbd_and_text_tickets_for_choice(
         text,
         base_tickets_filtered,
         schedule_event,
-        theater_event,
-        date_for_price
+        theater_event
 ):
     flag_indiv_cost_sep = False
     keyboard = []
@@ -132,11 +131,8 @@ async def create_kbd_and_text_tickets_for_choice(
         ticket: BaseTicket
         ticket_id = ticket.base_ticket_id
         name_ticket = ticket.name
-        price, price_privilege = await get_spec_ticket_price(context,
-                                                             ticket,
-                                                             schedule_event,
-                                                             theater_event,
-                                                             date_for_price)
+        price, price_privilege = await get_spec_ticket_price(
+            context, ticket, schedule_event, theater_event)
 
         if 8 > ticket_id // 100 >= 3 and not flag_indiv_cost_sep:
             text += "__________\n    Варианты со скидками:\n"
@@ -151,35 +147,6 @@ async def create_kbd_and_text_tickets_for_choice(
         )
         keyboard.append(button_tmp)
     return keyboard, text
-
-
-async def create_kbd_schedule_and_date(schedule_events_filter_by_month,
-                                       enum_theater_events):
-    checked_event = {}
-
-    keyboard = []
-    for event in schedule_events_filter_by_month:
-        event: ScheduleEvent
-        tmp_checked_event_by_type = checked_event.setdefault(
-            event.theater_event_id, [])
-        if event.datetime_event.date() in tmp_checked_event_by_type:
-            continue
-        index = 1
-        for i, theater_event in enum_theater_events:
-            if event.theater_event_id == theater_event.id:
-                index = i
-        weekday = int(event.datetime_event.strftime('%w'))
-        button_tmp = InlineKeyboardButton(
-            text=DICT_OF_EMOJI_FOR_BUTTON[index] +
-                 event.datetime_event.strftime('%d.%m ') +
-                 f'({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})',
-            callback_data=str(event.theater_event_id) + '|' +
-                          event.datetime_event.date().isoformat()
-        )
-        keyboard.append(button_tmp)
-
-        tmp_checked_event_by_type.append(event.datetime_event.date())
-    return keyboard
 
 
 async def create_kbd_schedule(enum_theater_events):
@@ -202,13 +169,7 @@ async def create_kbd_for_date_in_reserve(schedule_events: List[ScheduleEvent]):
             continue
         checked_event.append(date)
 
-        text_emoji = ''
-        if event.flag_gift:
-            text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
-        if event.flag_christmas_tree:
-            text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
-        if event.flag_santa:
-            text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
+        text_emoji = await get_emoji(event)
 
         date_event, time_event = await get_formatted_date_and_time_of_event(
             event)
@@ -221,6 +182,56 @@ async def create_kbd_for_date_in_reserve(schedule_events: List[ScheduleEvent]):
                           event.datetime_event.date().isoformat()
         )
         keyboard.append(button_tmp)
+    return keyboard
+
+
+async def create_kbd_unique_dates(schedule_events: List[ScheduleEvent]):
+    """
+    Создает список уникальных дат (без привязки к спектаклям) для выбранного месяца.
+    callback_data = ISO-дата (YYYY-MM-DD)
+    """
+    keyboard: List[InlineKeyboardButton] = []
+    seen_dates = []
+    for event in schedule_events:
+        d = event.datetime_event.date()
+        if d in seen_dates:
+            continue
+        seen_dates.append(d)
+        weekday = int(event.datetime_event.strftime('%w'))
+        text = d.strftime('%d.%m ') + f"({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})"
+        keyboard.append(InlineKeyboardButton(text=text, callback_data=d.isoformat()))
+    return keyboard
+
+
+async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum_theater_events):
+    """
+    Создает клавиатуру вариантов (спектакль + время) для выбранной даты.
+    Каждая кнопка соответствует конкретному событию расписания (schedule_event.id)
+    и отображает эмодзи спектакля, время и кол-во мест.
+    """
+    # Сопоставление спектакль -> индекс эмодзи
+    index_map = {}
+    for i, theater_event in enum_theater_events:
+        index_map[theater_event.id] = i
+
+    keyboard: List[InlineKeyboardButton] = []
+    for event in schedule_events:
+        # Эмодзи спектакля по индексу
+        idx = index_map.get(event.theater_event_id, 1)
+        prefix = DICT_OF_EMOJI_FOR_BUTTON.get(idx, '') + ' '
+
+        # Эмодзи подарков/ёлок/Дед Мороз
+        text_emoji = await get_emoji(event)
+
+        # Время + кол-во мест
+        time_txt = await get_time_with_timezone(event)
+        qty_child = max(int(event.qty_child_free_seat), 0)
+        qty_adult = max(int(event.qty_adult_free_seat), 0)
+        text = prefix + time_txt + text_emoji + f' | {qty_child} дет | {qty_adult} взр'
+
+        keyboard.append(
+            InlineKeyboardButton(text=text, callback_data=event.id)
+        )
     return keyboard
 
 
@@ -253,13 +264,7 @@ async def create_kbd_for_time_in_reserve(schedule_events):
         if int(qty_adult) < 0:
             qty_adult = 0
 
-        text_emoji = ''
-        if event.flag_gift:
-            text_emoji += f'{SUPPORT_DATA['Подарок'][0]}'
-        if event.flag_christmas_tree:
-            text_emoji += f'{SUPPORT_DATA['Елка'][0]}'
-        if event.flag_santa:
-            text_emoji += f'{SUPPORT_DATA['Дед'][0]}'
+        text_emoji = await get_emoji(event)
 
         text = await get_time_with_timezone(event)
         text += text_emoji
@@ -352,6 +357,57 @@ async def create_email_confirm_btn(text, email):
         email_confirm_btn = [
             InlineKeyboardButton('Да', callback_data='email_confirm')]
     return email_confirm_btn, text
+
+
+async def create_phone_confirm_btn(text, phone: str):
+    """
+    Если phone есть (10 цифр без +7), добавляет в текст сообщение о последнем
+    введенном телефоне и возвращает ряд кнопок с подтверждением.
+    'callback_data' содержит сам телефон: 'phone_confirm|{phone}'
+    """
+    phone_confirm_btn = None
+    if phone:
+        pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
+        text += f'Последний введенный телефон:\n<code>{pretty_phone}</code>\n\n'
+        text += 'Использовать последний введенный телефон?'
+        phone_confirm_btn = [
+            InlineKeyboardButton('Да', callback_data=f'phone_confirm|{phone}')
+        ]
+    return phone_confirm_btn, text
+
+
+async def create_adult_confirm_btn(text, adult: str):
+    """
+    Если adult есть, добавляет в текст сообщение о последнем
+    введенном телефоне и возвращает ряд кнопок с подтверждением.
+    callback_data содержит сам телефон: 'adult_confirm|{adult}'
+    """
+    adult_confirm_btn = None
+    if adult:
+        text += f'Последнее введенное имя взрослого:\n<code>{adult}</code>\n\n'
+        text += 'Использовать последнее введенное имя?'
+        adult_confirm_btn = [
+            InlineKeyboardButton('Да', callback_data=f'adult_confirm|{adult}')
+        ]
+    return adult_confirm_btn, text
+
+
+async def create_child_confirm_btn(text, child: str):
+    """
+    Если child есть, добавляет в текст сообщение о последнем
+    введенном телефоне и возвращает ряд кнопок с подтверждением.
+    callback_data содержит сам телефон: 'child_confirm|{child}'
+    """
+    child_confirm_btn = None
+    if child:
+        child_text = f'{child[0]} {str(child[1])[0]}'
+        text += f'Последнее введенное имя ребенка:\n'
+        text += f'<code>{child_text}</code>\n\n'
+        text += 'Использовать последнее введенное имя?\n\n'
+        child_confirm_btn = [
+            InlineKeyboardButton('Да', callback_data=f'child_confirm|{child_text}')
+        ]
+    return child_confirm_btn, text
 
 
 def create_kbd_with_number_btn(qty_btn):

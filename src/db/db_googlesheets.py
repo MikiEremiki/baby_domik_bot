@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from telegram.ext import ContextTypes
 
 from api.googlesheets import load_from_gspread, write_data_reserve
+from api.gspread_pub import publish_write_data_reserve
 from db import db_postgres
 from settings import parse_settings
 from utilities.schemas import (
@@ -89,6 +90,17 @@ def _process_row(
             return None
 
     return obj
+
+
+async def _publish_write_data_reserve(
+        event_id, numbers: List[int], option: int = 1):
+    try:
+        await publish_write_data_reserve(
+            sheet_id_domik, event_id, numbers, option)
+    except Exception as e:
+        db_googlesheets_logger.exception(
+            f"Failed to publish gspread task, fallback to direct call: {e}")
+        await write_data_reserve(sheet_id_domik, event_id, numbers, option)
 
 
 async def load_entities_from_sheet(
@@ -234,7 +246,7 @@ async def load_clients_wait_data(
 
 
 async def increase_free_and_decrease_nonconfirm_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -269,7 +281,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
     ]
 
     try:
-        await write_data_reserve(sheet_id_domik, event_id, numbers)
+        await _publish_write_data_reserve(event_id, numbers)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -289,7 +301,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
 
 
 async def decrease_free_and_increase_nonconfirm_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -324,7 +336,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
     ]
 
     try:
-        await write_data_reserve(sheet_id_domik, event_id, numbers)
+        await _publish_write_data_reserve(event_id, numbers)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -346,7 +358,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
 
 
 async def increase_free_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -373,7 +385,7 @@ async def increase_free_seat(
     ]
 
     try:
-        await write_data_reserve(sheet_id_domik, event_id, numbers, 3)
+        await _publish_write_data_reserve(event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -391,7 +403,7 @@ async def increase_free_seat(
 
 
 async def decrease_free_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -418,7 +430,7 @@ async def decrease_free_seat(
     ]
 
     try:
-        await write_data_reserve(sheet_id_domik, event_id, numbers, 3)
+        await _publish_write_data_reserve(event_id, numbers), 3
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -436,7 +448,7 @@ async def decrease_free_seat(
 
 
 async def decrease_nonconfirm_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id
 ):
@@ -463,7 +475,7 @@ async def decrease_nonconfirm_seat(
     ]
 
     try:
-        await write_data_reserve(sheet_id_domik, event_id, numbers, 2)
+        await _publish_write_data_reserve(event_id, numbers, 2)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
@@ -481,7 +493,7 @@ async def decrease_nonconfirm_seat(
 
 
 async def update_free_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         old_base_ticket_id,
         new_base_ticket_id
@@ -521,7 +533,7 @@ async def update_free_seat(
     ]
 
     try:
-        await write_data_reserve(sheet_id_domik, event_id, numbers, 3)
+        await _publish_write_data_reserve(event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),

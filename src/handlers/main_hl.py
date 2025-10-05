@@ -10,6 +10,7 @@ from telegram import (
 from telegram.constants import ChatType, ChatAction
 from telegram.error import BadRequest, TimedOut
 
+from api.gspread_pub import publish_update_ticket, publish_update_cme
 from db import db_postgres
 from db.enum import TicketStatus, CustomMadeStatus
 from handlers import check_user_db
@@ -26,14 +27,15 @@ from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
-    get_formatted_date_and_time_of_event
+    get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
+from schedule.worker_jobs import cancel_old_created_tickets
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
-async def start(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await check_user_db(update, context)
     await cancel_tickets_db_and_gspread(update, context)
     await clean_context(context)
@@ -69,7 +71,7 @@ async def start(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 
 async def send_approve_msg(update: Update,
-                           context: "ContextTypes.DEFAULT_TYPE"):
+                           context: 'ContextTypes.DEFAULT_TYPE'):
     if not context.args:
         text = (
             'Отправляет:\n'
@@ -110,7 +112,7 @@ async def send_approve_msg(update: Update,
     await update.effective_message.reply_text(text)
 
 
-async def send_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if not context.args:
         text = (
             'Отправить сообщение пользователю:\n'
@@ -159,7 +161,7 @@ async def send_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         f'Сообщение:\n{text}\nУспешно отправлено')
 
 
-async def update_ticket(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Справка по команде\n'
     text += '<code>/update_ticket 0 Слово Текст</code>\n\n'
     text += '0 - это номер билета\n'
@@ -326,18 +328,21 @@ async def update_ticket(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
                     pass
 
                 sheet_id_domik = context.config.sheets.sheet_id_domik
-                await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                               new_ticket_status.value)
+                try:
+                    await publish_update_ticket(
+                        sheet_id_domik,
+                        ticket_id,
+                        str(new_ticket_status.value),
+                    )
+                except Exception as e:
+                    main_handlers_logger.exception(
+                        f"Failed to publish gspread task, fallback to direct call: {e}")
+                    await update_ticket_in_gspread(
+                        sheet_id_domik, ticket_id, new_ticket_status.value)
                 data['status'] = new_ticket_status
             case 'Покупатель':
-                people = ticket.people
-                adult_str = ''
-                child_str = ''
-                for person in people:
-                    if hasattr(person.adult, 'phone'):
-                        adult_str = f'{person.name}\n+7{person.adult.phone}\n'
-                    elif hasattr(person.child, 'age'):
-                        child_str += f'{person.name} {person.child.age}\n'
+                adult_str, child_str = await get_child_and_adult_from_ticket(
+                    ticket)
                 people_str = adult_str + child_str
                 schedule_event_id = ticket.schedule_event_id
                 price = ticket.price
@@ -441,7 +446,7 @@ async def send_result_update_ticket(
         )
 
 
-async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         text = 'Не разрешенное действие: подтвердить бронь'
@@ -494,8 +499,17 @@ async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     ticket_status = TicketStatus.APPROVED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                       ticket_status.value)
+        try:
+            await publish_update_ticket(
+                sheet_id_domik,
+                ticket_id,
+                str(ticket_status.value),
+            )
+        except Exception as e:
+            main_handlers_logger.exception(
+                f"Failed to publish gspread task, fallback to direct call: {e}")
+            await update_ticket_in_gspread(
+                sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -568,7 +582,7 @@ async def send_reject_message(chat_id, context):
     await context.bot.send_message(text=text, chat_id=chat_id)
 
 
-async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
@@ -610,8 +624,17 @@ async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     ticket_status = TicketStatus.REJECTED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id,
-                                       ticket_status.value)
+        try:
+            await publish_update_ticket(
+                sheet_id_domik,
+                ticket_id,
+                str(ticket_status.value),
+            )
+        except Exception as e:
+            main_handlers_logger.exception(
+                f"Failed to publish gspread task, fallback to direct call: {e}")
+            await update_ticket_in_gspread(
+                sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
@@ -652,7 +675,7 @@ async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 
 async def confirm_birthday(update: Update,
-                           context: "ContextTypes.DEFAULT_TYPE"):
+                           context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
@@ -693,7 +716,16 @@ async def confirm_birthday(update: Update,
         main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
+    try:
+        await publish_update_cme(
+            sheet_id_cme,
+            int(cme_id),
+            str(cme_status.value),
+        )
+    except Exception as e:
+        main_handlers_logger.exception(
+            f"Failed to publish gspread task, fallback to direct call: {e}")
+        await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
 
@@ -761,7 +793,7 @@ async def confirm_birthday(update: Update,
         )
 
 
-async def reject_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
@@ -798,7 +830,16 @@ async def reject_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
-    await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
+    try:
+        await publish_update_cme(
+            sheet_id_cme,
+            int(cme_id),
+            str(cme_status.value),
+        )
+    except Exception as e:
+        main_handlers_logger.exception(
+            f"Failed to publish gspread task, fallback to direct call: {e}")
+        await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
         message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
 
@@ -837,7 +878,7 @@ async def reject_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         )
 
 
-async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     state = query.data.split('-')[1]
@@ -871,6 +912,14 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
             reply_markup=reply_markup,
             message_thread_id=message_thread_id
         )
+    elif state == 'MODE':
+        # Возврат к начальному экрану выбора режима: удаляем текущее сообщение (в т.ч. фото) и отправляем новое
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            message_thread_id=message_thread_id
+        )
     elif state == 'SHOW':
         try:
             await query.edit_message_caption(
@@ -887,14 +936,16 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
             )
     elif state == 'DATE' and command != 'birthday':
         try:
-            number_of_month_str = context.user_data['reserve_user_data'][
-                'number_of_month_str']
+            reserve_data = context.user_data.get('reserve_user_data', {})
+            number_of_month_str = reserve_data.get('number_of_month_str')
             await query.delete_message()
-            photo = (
-                context.bot_data
-                .get('afisha', {})
-                .get(int(number_of_month_str), False)
-            )
+            photo = None
+            if number_of_month_str is not None:
+                photo = (
+                    context.bot_data
+                    .get('afisha', {})
+                    .get(int(number_of_month_str), False)
+                )
             if (
                     update.effective_chat.type == ChatType.PRIVATE and
                     photo and
@@ -914,20 +965,11 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
                 )
         except BadRequest as e:
             main_handlers_logger.error(e)
-            await query.edit_message_text(
-                text=text,
-                reply_markup=reply_markup,
-            )
+            await query.edit_message_text(text=text, reply_markup=reply_markup)
     elif state == 'TIME':
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
     elif state == 'TICKET':
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
         try:
             message_id = context.user_data['reserve_user_data'].get(
                 'accept_message_id', False)
@@ -967,7 +1009,7 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def cancel(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     user = context.user_data['user']
@@ -1074,7 +1116,7 @@ async def cancel(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return ConversationHandler.END
 
 
-async def reset(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> int:
+async def reset(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> int:
     main_handlers_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
@@ -1090,7 +1132,7 @@ async def reset(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> int:
     return ConversationHandler.END
 
 
-async def help_command(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def help_command(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     main_handlers_logger.info(": ".join(
         [
             'Пользователь',
@@ -1110,7 +1152,7 @@ async def help_command(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 
 async def feedback_send_msg(update: Update,
-                            context: "ContextTypes.DEFAULT_TYPE"):
+                            context: 'ContextTypes.DEFAULT_TYPE'):
     main_handlers_logger.info('FEEDBACK')
     main_handlers_logger.info(update.effective_user)
     main_handlers_logger.info(update.message)
@@ -1145,7 +1187,7 @@ async def feedback_send_msg(update: Update,
 
 async def feedback_reply_msg(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     technical_info = update.effective_message.reply_to_message.text.split('\n')
     try:
@@ -1186,7 +1228,7 @@ async def feedback_reply_msg(
         )
 
 
-async def global_on_off(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def global_on_off(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Функция для обработки команды /global_on_off и вкл/выкл возможности
     использовать команды пользователями в личных чатах
@@ -1199,3 +1241,20 @@ async def global_on_off(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         context.bot_data['global_on_off'] = False
         await update.effective_chat.send_message(
             'Использование команд пользователями выключено')
+
+
+async def manual_cancel_old_created_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """
+    Ручной запуск обработчика автоотмены созданных билетов старше 30 минут.
+    Только для администраторов.
+    """
+    await update.effective_message.reply_text(
+        'Запускаю проверку созданных билетов старше 30 минут...')
+    try:
+        await cancel_old_created_tickets(context)
+        await update.effective_message.reply_text(
+            'Готово. Проверка и авто-отмена завершены.')
+    except Exception as e:
+        main_handlers_logger.exception(
+            f'Ошибка ручного запуска авто-отмены: {e}')
+        await update.effective_message.reply_text(f'Ошибка при выполнении: {e}')

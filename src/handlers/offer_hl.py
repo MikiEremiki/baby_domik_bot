@@ -8,7 +8,7 @@ from handlers.sub_hl import send_request_email
 from utilities.utl_func import set_back_context
 
 
-async def get_agreement(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def get_agreement(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await db_postgres.update_user(context.session,
                                   update.effective_chat.id,
                                   agreement_received=date.today())

@@ -10,7 +10,7 @@ from utilities.utl_kbd import (
 afisha_hl_logger = logging.getLogger('bot.afisha_hl')
 
 
-async def load_afisha(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def load_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     context.user_data['conv_hl_run'] = True
     afisha_hl_logger.info(f'Пользователь загружает афишу:'
                           f' {update.message.from_user}')
@@ -37,7 +37,7 @@ async def load_afisha(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def set_month(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def set_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     month = int(query.data)
@@ -60,7 +60,7 @@ async def set_month(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def skip(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def skip(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     month = context.user_data['month_afisha']
@@ -82,7 +82,7 @@ async def skip(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def show_data(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def show_data(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     await update.effective_chat.send_message(
@@ -96,7 +96,7 @@ async def show_data(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def check(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def check(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     month = context.user_data['month_afisha']
     file_id = update.message.photo[0].file_id
 

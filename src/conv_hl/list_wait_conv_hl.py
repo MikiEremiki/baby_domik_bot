@@ -10,11 +10,14 @@ from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
 states = {
     'MONTH': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.choice_show_or_date, pattern='^MONTH'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
+        CallbackQueryHandler(reserve_hl.choice_show, pattern='^MONTH'),
     ],
     'SHOW': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
+        CallbackQueryHandler(reserve_hl.choice_show, pattern='^SHOW_PAGE'),
         CallbackQueryHandler(reserve_hl.choice_date, pattern='^SHOW'),
     ],
     'LIST_WAIT': [

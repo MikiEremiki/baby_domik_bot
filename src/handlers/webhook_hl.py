@@ -6,23 +6,24 @@ from telegram.ext import TypeHandler, ContextTypes
 from yookassa.domain.notification import WebhookNotification
 
 from api.googlesheets import update_ticket_in_gspread
+from api.gspread_pub import publish_update_ticket
 from db import db_postgres
 from db.enum import TicketStatus
 from handlers.sub_hl import send_approve_reject_message_to_admin_in_webhook
-from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_GROUP
+from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP
 
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
+INVOICE_NUMBER = {
+    'Предоплата': '305862-32',
+    'Оплата': '305862-36'
+}
+
 
 async def webhook_update(update: WebhookNotification,
-                         context: "ContextTypes.DEFAULT_TYPE"):
+                         context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Платеж\n'
-    for k, v in dict(update).items():
-        if k == 'object':
-            for k1, v1 in v.items():
-                text += f'{k1}: {v1}\n'
-        else:
-            text += f'{k}: {v}\n'
+    text = await parsing_metadata(update, text)
     try:
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
     except BadRequest as e:
@@ -35,18 +36,23 @@ async def webhook_update(update: WebhookNotification,
     elif update.object.status == 'waiting_for_capture':
         pass  # Для двух стадийной оплаты
     elif update.object.status == 'succeeded':
-        prepaid_invoice_number = '305862-32'
-        invoice_original_number = update.object.metadata.get(
-            'dashboardInvoiceOriginalNumber', False)
-        if invoice_original_number == prepaid_invoice_number:
-           await processing_cme_prepaid(update, context)
-        elif update.object.metadata.get('command', False):
-            await processing_ticket_paid(update, context)
+        await processing_successful_payment(update, context)
     elif update.object.status == 'canceled':
+        # TODO Сделать основную отмену билетов по этому уведомлению от yookassa
         pass
 
 
-async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
+async def parsing_metadata(update: WebhookNotification, text: str) -> str:
+    for k, v in dict(update).items():
+        if k == 'object':
+            for k1, v1 in v.items():
+                text += f'{k1}: {v1}\n'
+        else:
+            text += f'{k}: {v}\n'
+    return text
+
+
+async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_id = update.object.metadata['message_id']
     chat_id = update.object.metadata['chat_id']
     ticket_ids = update.object.metadata['ticket_ids'].split('|')
@@ -68,10 +74,19 @@ async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
     ticket_status = TicketStatus.PAID
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
-        await update_ticket_in_gspread(sheet_id_domik, ticket_id, ticket_status.value)
-        await db_postgres.update_ticket(context.session,
-                                        ticket_id,
-                                        status=ticket_status)
+        try:
+            await publish_update_ticket(
+                sheet_id_domik,
+                ticket_id,
+                str(ticket_status.value),
+            )
+        except Exception as e:
+            webhook_hl_logger.exception(
+                f"Failed to publish gspread task, fallback to direct call: {e}")
+            await update_ticket_in_gspread(
+                sheet_id_domik, ticket_id, ticket_status.value)
+        await db_postgres.update_ticket(
+            context.session, ticket_id, status=ticket_status)
         text += f'<code>{ticket_id}</code> '
     text += '</b>\n\n'
     refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
@@ -84,9 +99,8 @@ async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
     try:
-        await context.bot.send_message(chat_id=chat_id,
-                                       text=text,
-                                       reply_markup=reply_markup)
+        await context.bot.send_message(
+            chat_id=chat_id, text=text, reply_markup=reply_markup)
     except BadRequest as e:
         webhook_hl_logger.error(e)
         webhook_hl_logger.error(
@@ -120,15 +134,31 @@ async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
 
 
+async def processing_successful_payment(update: WebhookNotification,
+                                        context: 'ContextTypes.DEFAULT_TYPE'):
+    invoice_original_number = update.object.metadata.get(
+        'dashboardInvoiceOriginalNumber', False)
+    if invoice_original_number in INVOICE_NUMBER.values():
+        await processing_cme_prepaid(update, context)
+    elif update.object.metadata.get('command', False):
+        await processing_ticket_paid(update, context)
+
+
 async def processing_cme_prepaid(update, context):
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Выездные мероприятия', None))
     try:
-        text = f'#Предоплата\n'
+        invoice_original_number = update.object.metadata.get(
+            'dashboardInvoiceOriginalNumber', False)
+        status = 'Неизвестный_счет'
+        for k, v in INVOICE_NUMBER.items():
+            if v == invoice_original_number:
+                status = k
+                break
+        text = f'#{status}\n'
         text += f'Платеж успешно обработан\n'
         customer_email = update.object.metadata['custEmail']
         customer_number = update.object.metadata['customerNumber']
-        invoice_original_number = update.object.metadata['dashboardInvoiceOriginalNumber']
         text += f'Покупатель: {customer_email}\n'
         text += f'Номер счета: {invoice_original_number}\n'
         if customer_number != customer_email:
@@ -137,7 +167,7 @@ async def processing_cme_prepaid(update, context):
         text += 'Ждем сообщения от пользователя с квитанцией и номером заявки'
 
         await context.bot.send_message(
-            chat_id=ADMIN_GROUP,
+            chat_id=ADMIN_CME_GROUP,
             text=text,
             message_thread_id=thread_id,
         )
