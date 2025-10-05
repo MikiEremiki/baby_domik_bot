@@ -17,7 +17,14 @@ states = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-REP_GROUP'),
         CallbackQueryHandler(ticket_hl.get_ticket, pattern='^TICKET'),
+        CallbackQueryHandler(reserve_hl.write_list_of_waiting,
+                                     pattern=r'^CHOOSING\|WAIT'),
     ],
     'OFFER': [
         cancel_callback_handler,
@@ -47,16 +54,29 @@ states = {
         CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
     ],
     'CHOOSING': [
-        MessageHandler(
-            filters.Regex('^(Выбрать другое время)$'),
-            reserve_hl.choice_month
-        ),
-        MessageHandler(
-            filters.Regex('^(Записаться в лист ожидания)$'),
-            reserve_hl.write_list_of_waiting
-        ),
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
+        CallbackQueryHandler(reserve_hl.choice_mode,
+                             pattern=r'^CHOOSING\|OTHER_TIME'),
+        CallbackQueryHandler(reserve_hl.write_list_of_waiting,
+                             pattern=r'^CHOOSING\|WAIT'),
+    ],
+    'MODE': [
+        cancel_callback_handler,
+        CallbackQueryHandler(reserve_hl.choice_month, pattern=r'^MODE\|DATE'),
+        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire,
+                             pattern=r'^MODE\|REPERTOIRE'),
+    ],
+    'REP_GROUP': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
+        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire,
+                             pattern='^REP_GROUP'),
     ],
     'PHONE_FOR_WAITING': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
+        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='^phone_confirm'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_phone_for_waiting),
     ],
@@ -71,9 +91,9 @@ states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
 
 reserve_conv_hl = ConversationHandler(
     entry_points=[
-        CommandHandler(COMMAND_DICT['RESERVE'][0], reserve_hl.choice_month),
+        CommandHandler(COMMAND_DICT['RESERVE'][0], reserve_hl.choice_mode),
         CommandHandler(COMMAND_DICT['LIST'][0],
-                       reserve_hl.choice_month,
+                       reserve_hl.choice_mode,
                        filter_list_cmd),
     ],
     states=states,

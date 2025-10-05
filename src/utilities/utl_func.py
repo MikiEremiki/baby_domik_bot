@@ -679,7 +679,7 @@ def _format_duration(duration: Optional[time]) -> str:
         parts.append(f'{minutes}мин')
     return ''.join(parts)
 
-def get_full_name_event(event: TheaterEvent):
+def get_full_name_event(event: TheaterEvent, add_note=False):
     name = event.name
     flag_premiere = event.flag_premier
     min_age_child = event.min_age_child
@@ -697,7 +697,7 @@ def get_full_name_event(event: TheaterEvent):
     duration_banner = _format_duration(duration)
     if duration_banner:
         full_name += duration_banner
-    if note:
+    if note and add_note:
         full_name += f'\n<i>{note}</i>'
     return full_name
 
@@ -852,14 +852,8 @@ async def add_clients_data_to_text(
         tickets_info: List[Tuple[BaseTicket, Ticket]]):
     text = ''
     for base_ticket, ticket in tickets_info:
-        people = ticket.people
-        adult_str = ''
-        child_str = ''
-        for person in people:
-            if hasattr(person.adult, 'phone'):
-                adult_str = f'{person.name}\n+7{person.adult.phone}\n'
-            elif hasattr(person.child, 'age'):
-                child_str += f'{person.name} {person.child.age}\n'
+        adult_str, child_str = await get_child_and_adult_from_ticket(
+            ticket)
 
         text += '\n__________\n'
         text += f'<code>{ticket.id}</code> | {base_ticket.name}'
@@ -869,6 +863,18 @@ async def add_clients_data_to_text(
         if ticket.notes:
             text += f'\nПримечание: {ticket.notes}'
     return text
+
+
+async def get_child_and_adult_from_ticket(ticket):
+    people = ticket.people
+    adult_str = ''
+    child_str = ''
+    for person in people:
+        if hasattr(person.adult, 'phone'):
+            adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+        elif hasattr(person.child, 'age'):
+            child_str += f'{person.name} {person.child.age}\n'
+    return adult_str, child_str
 
 
 async def add_qty_visitors_to_text(

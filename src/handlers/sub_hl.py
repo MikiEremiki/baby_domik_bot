@@ -29,7 +29,8 @@ from utilities.utl_func import (
     create_approve_and_reject_replay, set_back_context,
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
-from utilities.utl_kbd import create_email_confirm_btn, add_btn_back_and_cancel
+from utilities.utl_kbd import (
+    create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
 from utilities.utl_ticket import (
     create_tickets_and_people, cancel_ticket_db_when_end_handler)
 
@@ -571,18 +572,26 @@ async def send_breaf_message(update: Update,
         'сообщении.\n'
         'Вопросы будут приходить последовательно (их будет всего 3)</i>'
     )
-    keyboard = [add_btn_back_and_cancel(
+    await update.effective_chat.send_message(text_brief)
+    text_prompt = '<b>Напишите фамилию и имя (взрослого)</b>\n\n'
+    adult = await db_postgres.get_adult(context.session,
+                                        update.effective_user.id)
+    adult_confirm_btn, text_prompt = await create_adult_confirm_btn(text_prompt,
+                                                                    adult)
+
+    back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)]
+        add_back_btn=False)
+
+    if adult_confirm_btn:
+        keyboard = [adult_confirm_btn, back_and_cancel]
+    else:
+        keyboard = [back_and_cancel]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.effective_chat.send_message(
-        text=text_brief,
-        reply_markup=reply_markup
-    )
-    await update.effective_chat.send_message(
-        '<b>Напишите фамилию и имя (взрослого)</b>',
-    )
-    context.user_data['reserve_user_data']['message_id'] = message.message_id
+        text=text_prompt, reply_markup=reply_markup)
+    return message
 
 
 async def forward_message_to_admin(
@@ -718,14 +727,20 @@ async def send_message_about_list_waiting(update: Update, context):
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
     schedule_event = await db_postgres.get_schedule_event(
         context.session, schedule_event_id)
+    qty_child = schedule_event.qty_child_free_seat
+    qty_adult = schedule_event.qty_adult_free_seat
+    if int(qty_child) < 0:
+        qty_child = 0
+    if int(qty_adult) < 0:
+        qty_adult = 0
 
     text = reserve_user_data['text_select_event']
     if command == 'reserve':
         text += ('К сожалению места уже забронировали и свободных мест\n'
                  f' Осталось: '
-                 f'<i>{schedule_event.qty_adult_free_seat} взр</i>'
+                 f'<i>{qty_child} дет</i>'
                  f' | '
-                 f'<i>{schedule_event.qty_child_free_seat} дет</i>'
+                 f'<i>{qty_adult} взр</i>'
                  f'\n\n')
     text += ('⬇️Нажмите на одну из двух кнопок ниже, '
              'чтобы выбрать другое время '

@@ -165,3 +165,8 @@ async def migration_ticket(
     context.user_data['STATE'] = state
     await query.answer()
     return state
+
+
+async def update_ticket(update: Update, context:  'ContextTypes.DEFAULT_TYPE'):
+    """Обновление билета (Заглушка)"""
+    pass

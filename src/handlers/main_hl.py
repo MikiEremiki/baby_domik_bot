@@ -27,7 +27,7 @@ from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
-    get_formatted_date_and_time_of_event
+    get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
 from schedule.worker_jobs import cancel_old_created_tickets
@@ -341,14 +341,8 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                         sheet_id_domik, ticket_id, new_ticket_status.value)
                 data['status'] = new_ticket_status
             case 'Покупатель':
-                people = ticket.people
-                adult_str = ''
-                child_str = ''
-                for person in people:
-                    if hasattr(person.adult, 'phone'):
-                        adult_str = f'{person.name}\n+7{person.adult.phone}\n'
-                    elif hasattr(person.child, 'age'):
-                        child_str += f'{person.name} {person.child.age}\n'
+                adult_str, child_str = await get_child_and_adult_from_ticket(
+                    ticket)
                 people_str = adult_str + child_str
                 schedule_event_id = ticket.schedule_event_id
                 price = ticket.price
@@ -912,6 +906,14 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_thread_id = update.effective_message.message_thread_id
 
     if state == 'MONTH':
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            message_thread_id=message_thread_id
+        )
+    elif state == 'MODE':
+        # Возврат к начальному экрану выбора режима: удаляем текущее сообщение (в т.ч. фото) и отправляем новое
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
