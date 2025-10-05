@@ -14,6 +14,11 @@ from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP
 
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
+INVOICE_NUMBER = {
+    'Предоплата': '305862-32',
+    'Оплата': '305862-36'
+}
+
 
 async def webhook_update(update: WebhookNotification,
                          context: 'ContextTypes.DEFAULT_TYPE'):
@@ -31,13 +36,7 @@ async def webhook_update(update: WebhookNotification,
     elif update.object.status == 'waiting_for_capture':
         pass  # Для двух стадийной оплаты
     elif update.object.status == 'succeeded':
-        prepaid_invoice_number = '305862-32'
-        invoice_original_number = update.object.metadata.get(
-            'dashboardInvoiceOriginalNumber', False)
-        if invoice_original_number == prepaid_invoice_number:
-           await processing_cme_prepaid(update, context)
-        elif update.object.metadata.get('command', False):
-            await processing_ticket_paid(update, context)
+        await processing_successful_payment(update, context)
     elif update.object.status == 'canceled':
         # TODO Сделать основную отмену билетов по этому уведомлению от yookassa
         pass
@@ -135,15 +134,31 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
 
 
+async def processing_successful_payment(update: WebhookNotification,
+                                        context: 'ContextTypes.DEFAULT_TYPE'):
+    invoice_original_number = update.object.metadata.get(
+        'dashboardInvoiceOriginalNumber', False)
+    if invoice_original_number in INVOICE_NUMBER.values():
+        await processing_cme_prepaid(update, context)
+    elif update.object.metadata.get('command', False):
+        await processing_ticket_paid(update, context)
+
+
 async def processing_cme_prepaid(update, context):
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Выездные мероприятия', None))
     try:
-        text = f'#Предоплата\n'
+        invoice_original_number = update.object.metadata.get(
+            'dashboardInvoiceOriginalNumber', False)
+        status = 'Неизвестный_счет'
+        for k, v in INVOICE_NUMBER.items():
+            if v == invoice_original_number:
+                status = k
+                break
+        text = f'#{status}\n'
         text += f'Платеж успешно обработан\n'
         customer_email = update.object.metadata['custEmail']
         customer_number = update.object.metadata['customerNumber']
-        invoice_original_number = update.object.metadata['dashboardInvoiceOriginalNumber']
         text += f'Покупатель: {customer_email}\n'
         text += f'Номер счета: {invoice_original_number}\n'
         if customer_number != customer_email:
