@@ -9,20 +9,15 @@ from api.googlesheets import update_ticket_in_gspread
 from db import db_postgres
 from db.enum import TicketStatus
 from handlers.sub_hl import send_approve_reject_message_to_admin_in_webhook
-from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_GROUP
+from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP
 
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
 
 async def webhook_update(update: WebhookNotification,
-                         context: "ContextTypes.DEFAULT_TYPE"):
+                         context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Платеж\n'
-    for k, v in dict(update).items():
-        if k == 'object':
-            for k1, v1 in v.items():
-                text += f'{k1}: {v1}\n'
-        else:
-            text += f'{k}: {v}\n'
+    text = await parsing_metadata(update, text)
     try:
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
     except BadRequest as e:
@@ -43,10 +38,21 @@ async def webhook_update(update: WebhookNotification,
         elif update.object.metadata.get('command', False):
             await processing_ticket_paid(update, context)
     elif update.object.status == 'canceled':
+        # TODO Сделать основную отмену билетов по этому уведомлению от yookassa
         pass
 
 
-async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
+async def parsing_metadata(update: WebhookNotification, text: str) -> str:
+    for k, v in dict(update).items():
+        if k == 'object':
+            for k1, v1 in v.items():
+                text += f'{k1}: {v1}\n'
+        else:
+            text += f'{k}: {v}\n'
+    return text
+
+
+async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_id = update.object.metadata['message_id']
     chat_id = update.object.metadata['chat_id']
     ticket_ids = update.object.metadata['ticket_ids'].split('|')
@@ -84,9 +90,8 @@ async def processing_ticket_paid(update, context: "ContextTypes.DEFAULT_TYPE"):
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
     try:
-        await context.bot.send_message(chat_id=chat_id,
-                                       text=text,
-                                       reply_markup=reply_markup)
+        await context.bot.send_message(
+            chat_id=chat_id, text=text, reply_markup=reply_markup)
     except BadRequest as e:
         webhook_hl_logger.error(e)
         webhook_hl_logger.error(
@@ -137,7 +142,7 @@ async def processing_cme_prepaid(update, context):
         text += 'Ждем сообщения от пользователя с квитанцией и номером заявки'
 
         await context.bot.send_message(
-            chat_id=ADMIN_GROUP,
+            chat_id=ADMIN_CME_GROUP,
             text=text,
             message_thread_id=thread_id,
         )

@@ -16,7 +16,7 @@ from utilities.utl_func import (
 worker_logger = logging.getLogger('bot.worker')
 
 
-async def send_reminder(context: "ContextTypes.DEFAULT_TYPE") -> None:
+async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
     worker_logger.info('Начало выполнения job send_reminder')
     job = context.job
     event_id = job.data['event_id']
@@ -43,7 +43,7 @@ async def send_reminder(context: "ContextTypes.DEFAULT_TYPE") -> None:
             text += ('Задать вопросы можно в сообщениях группы\n'
                      'https://vk.com/baby_theater_domik')
             try:
-                await send_message(context, session, text, ticket)
+                await send_remainder_msg(context, session, text, ticket)
             except RetryAfter as e:
                 worker_logger.error(
                     f"RetryAfter for ticket {ticket.id}: {e}")
@@ -51,19 +51,19 @@ async def send_reminder(context: "ContextTypes.DEFAULT_TYPE") -> None:
                 if isinstance(e.retry_after, timedelta):
                     delay = e.retry_after.total_seconds()
                 await asyncio.sleep(delay)
-                await send_message(context, session, text, ticket)
+                await send_remainder_msg(context, session, text, ticket)
             except Exception as e:
                 worker_logger.error(
                     f"Failed to send reminder for ticket {ticket.id}: {e}")
                 worker_logger.info('Попытка повтора')
-                await send_message(context, session, text, ticket)
+                await send_remainder_msg(context, session, text, ticket)
         else:
             worker_logger.info(f"Ticket {ticket.id} already reminded")
     await session.close()
 
 
-async def send_message(
-        context: "ContextTypes.DEFAULT_TYPE",
+async def send_remainder_msg(
+        context: 'ContextTypes.DEFAULT_TYPE',
         session: AsyncSession,
         text: str,
         ticket: Ticket

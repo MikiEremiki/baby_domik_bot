@@ -11,11 +11,10 @@ from utilities.utl_googlesheets import write_to_return_seats_for_sale
 utl_ticket_logger = logging.getLogger('bot.utl_ticket')
 
 
-async def get_spec_ticket_price(context: "ContextTypes.DEFAULT_TYPE",
+async def get_spec_ticket_price(context: 'ContextTypes.DEFAULT_TYPE',
                                 ticket: BaseTicket,
-                                schedule_event,
-                                theater_event: TheaterEvent,
-                                date_for_price=None):
+                                schedule_event: ScheduleEvent,
+                                theater_event: TheaterEvent):
     reserve_user_data = context.user_data['reserve_user_data']
 
     option = get_option(schedule_event, theater_event)
@@ -86,7 +85,6 @@ async def get_ticket_and_price(context, base_ticket_id):
     reserve_user_data = context.user_data['reserve_user_data']
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
     theater_event_id = reserve_user_data['choose_theater_event_id']
-    date_for_price = reserve_user_data['date_for_price']
 
     schedule_event = await db_postgres.get_schedule_event(
         context.session, schedule_event_id)
@@ -94,11 +92,8 @@ async def get_ticket_and_price(context, base_ticket_id):
         context.session, theater_event_id)
 
     ticket = await db_postgres.get_base_ticket(context.session, base_ticket_id)
-    price, price_privilege = await get_spec_ticket_price(context,
-                                                         ticket,
-                                                         schedule_event,
-                                                         theater_event,
-                                                         date_for_price)
+    price, price_privilege = await get_spec_ticket_price(
+        context, ticket, schedule_event, theater_event)
     return ticket, price
 
 

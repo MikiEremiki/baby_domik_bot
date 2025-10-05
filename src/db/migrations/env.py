@@ -34,7 +34,7 @@ def run_migrations_offline() -> None:
 
     """
     url = config.get_main_option("sqlalchemy.url")
-    url = bot_config.postgres.db_url
+    url = str(bot_config.postgres.db_url)
     context.configure(
         url=url,
         target_metadata=target_metadata,

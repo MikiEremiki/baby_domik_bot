@@ -446,8 +446,8 @@ async def get_user(session: AsyncSession,
 
 
 async def get_persons(session: AsyncSession,
-                      user_id: int):
-    return await session.get(Person, user_id)
+                      person_id: int):
+    return await session.get(Person, person_id)
 
 
 async def get_base_ticket(session: AsyncSession,
@@ -535,7 +535,7 @@ async def get_custom_made_format(session: AsyncSession,
 
 
 async def get_custom_made_event(session: AsyncSession,
-                                 custom_made_event_id: int):
+                                custom_made_event_id: int):
     return await session.get(CustomMadeEvent, custom_made_event_id)
 
 

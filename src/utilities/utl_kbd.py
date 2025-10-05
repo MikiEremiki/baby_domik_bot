@@ -123,8 +123,7 @@ async def create_kbd_and_text_tickets_for_choice(
         text,
         base_tickets_filtered,
         schedule_event,
-        theater_event,
-        date_for_price
+        theater_event
 ):
     flag_indiv_cost_sep = False
     keyboard = []
@@ -132,11 +131,8 @@ async def create_kbd_and_text_tickets_for_choice(
         ticket: BaseTicket
         ticket_id = ticket.base_ticket_id
         name_ticket = ticket.name
-        price, price_privilege = await get_spec_ticket_price(context,
-                                                             ticket,
-                                                             schedule_event,
-                                                             theater_event,
-                                                             date_for_price)
+        price, price_privilege = await get_spec_ticket_price(
+            context, ticket, schedule_event, theater_event)
 
         if 8 > ticket_id // 100 >= 3 and not flag_indiv_cost_sep:
             text += "__________\n    Варианты со скидками:\n"

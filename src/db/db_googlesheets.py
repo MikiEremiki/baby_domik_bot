@@ -234,7 +234,7 @@ async def load_clients_wait_data(
 
 
 async def increase_free_and_decrease_nonconfirm_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -289,7 +289,7 @@ async def increase_free_and_decrease_nonconfirm_seat(
 
 
 async def decrease_free_and_increase_nonconfirm_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -346,7 +346,7 @@ async def decrease_free_and_increase_nonconfirm_seat(
 
 
 async def increase_free_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -391,7 +391,7 @@ async def increase_free_seat(
 
 
 async def decrease_free_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id,
 ):
@@ -436,7 +436,7 @@ async def decrease_free_seat(
 
 
 async def decrease_nonconfirm_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         chose_base_ticket_id
 ):
@@ -481,7 +481,7 @@ async def decrease_nonconfirm_seat(
 
 
 async def update_free_seat(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id,
         old_base_ticket_id,
         new_base_ticket_id

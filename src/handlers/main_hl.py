@@ -33,7 +33,7 @@ from utilities.utl_ticket import cancel_tickets_db_and_gspread
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
-async def start(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await check_user_db(update, context)
     await cancel_tickets_db_and_gspread(update, context)
     await clean_context(context)
@@ -69,7 +69,7 @@ async def start(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 
 async def send_approve_msg(update: Update,
-                           context: "ContextTypes.DEFAULT_TYPE"):
+                           context: 'ContextTypes.DEFAULT_TYPE'):
     if not context.args:
         text = (
             'Отправляет:\n'
@@ -110,7 +110,7 @@ async def send_approve_msg(update: Update,
     await update.effective_message.reply_text(text)
 
 
-async def send_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if not context.args:
         text = (
             'Отправить сообщение пользователю:\n'
@@ -159,7 +159,7 @@ async def send_msg(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         f'Сообщение:\n{text}\nУспешно отправлено')
 
 
-async def update_ticket(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Справка по команде\n'
     text += '<code>/update_ticket 0 Слово Текст</code>\n\n'
     text += '0 - это номер билета\n'
@@ -441,7 +441,7 @@ async def send_result_update_ticket(
         )
 
 
-async def confirm_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         text = 'Не разрешенное действие: подтвердить бронь'
@@ -568,7 +568,7 @@ async def send_reject_message(chat_id, context):
     await context.bot.send_message(text=text, chat_id=chat_id)
 
 
-async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
@@ -652,7 +652,7 @@ async def reject_reserve(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 
 async def confirm_birthday(update: Update,
-                           context: "ContextTypes.DEFAULT_TYPE"):
+                           context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
@@ -761,7 +761,7 @@ async def confirm_birthday(update: Update,
         )
 
 
-async def reject_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     if not is_admin(update):
         main_handlers_logger.warning(
@@ -837,7 +837,7 @@ async def reject_birthday(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
         )
 
 
-async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     state = query.data.split('-')[1]
@@ -914,20 +914,11 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
                 )
         except BadRequest as e:
             main_handlers_logger.error(e)
-            await query.edit_message_text(
-                text=text,
-                reply_markup=reply_markup,
-            )
+            await query.edit_message_text(text=text, reply_markup=reply_markup)
     elif state == 'TIME':
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
     elif state == 'TICKET':
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
         try:
             message_id = context.user_data['reserve_user_data'].get(
                 'accept_message_id', False)
@@ -967,7 +958,7 @@ async def back(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return state
 
 
-async def cancel(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     user = context.user_data['user']
@@ -1074,7 +1065,7 @@ async def cancel(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
     return ConversationHandler.END
 
 
-async def reset(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> int:
+async def reset(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> int:
     main_handlers_logger.info(
         f'{update.effective_user.id}: '
         f'{update.effective_user.full_name}\n'
@@ -1090,7 +1081,7 @@ async def reset(update: Update, context: "ContextTypes.DEFAULT_TYPE") -> int:
     return ConversationHandler.END
 
 
-async def help_command(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def help_command(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     main_handlers_logger.info(": ".join(
         [
             'Пользователь',
@@ -1110,7 +1101,7 @@ async def help_command(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 
 async def feedback_send_msg(update: Update,
-                            context: "ContextTypes.DEFAULT_TYPE"):
+                            context: 'ContextTypes.DEFAULT_TYPE'):
     main_handlers_logger.info('FEEDBACK')
     main_handlers_logger.info(update.effective_user)
     main_handlers_logger.info(update.message)
@@ -1145,7 +1136,7 @@ async def feedback_send_msg(update: Update,
 
 async def feedback_reply_msg(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     technical_info = update.effective_message.reply_to_message.text.split('\n')
     try:
@@ -1186,7 +1177,7 @@ async def feedback_reply_msg(
         )
 
 
-async def global_on_off(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def global_on_off(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Функция для обработки команды /global_on_off и вкл/выкл возможности
     использовать команды пользователями в личных чатах

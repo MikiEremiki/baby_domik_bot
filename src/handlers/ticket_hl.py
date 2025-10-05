@@ -1,6 +1,7 @@
 import logging
 
 from telegram import Update
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes, ConversationHandler
 
 from db import db_postgres
@@ -14,10 +15,13 @@ ticket_hl_logger = logging.getLogger('bot.ticket_hl')
 
 async def get_ticket(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
-    await query.edit_message_reply_markup()
+    try:
+        await query.edit_message_reply_markup()
+    except BadRequest as e:
+        ticket_hl_logger.error(e)
 
     _, callback_data = remove_intent_id(query.data)
     base_ticket_id = int(callback_data)
@@ -30,10 +34,7 @@ async def get_ticket(
         ticket_hl_logger.error(e)
         state = 'TIME'
         text, reply_markup, _ = await get_back_context(context, state)
-        await query.edit_message_text(
-            text=text,
-            reply_markup=reply_markup,
-        )
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
         return state
 
     reserve_user_data = context.user_data['reserve_user_data']

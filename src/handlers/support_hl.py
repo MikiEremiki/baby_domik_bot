@@ -60,7 +60,7 @@ def validate_value(value, option):
     return value
 
 
-async def start_settings(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def start_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await init_conv_hl_dialog(update, context)
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
     button_updates = InlineKeyboardButton(text='Обновление данных',
@@ -89,7 +89,7 @@ async def start_settings(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 async def choice_db_settings(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -125,10 +125,7 @@ async def choice_db_settings(
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = 'Выберите что хотите настроить'
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     state = 2
     await set_back_context(context, state, text, reply_markup)
@@ -138,7 +135,7 @@ async def choice_db_settings(
 
 
 async def get_updates_option(update: Update,
-                             _: "ContextTypes.DEFAULT_TYPE"):
+                             _: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     btn_update_base_ticket_data = InlineKeyboardButton(
@@ -177,10 +174,7 @@ async def get_updates_option(update: Update,
         f'{COMMAND_DICT['UP_TE_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_CMF_DATA'][1]}\n'
     )
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     await query.answer()
     return 'updates'
@@ -188,7 +182,7 @@ async def get_updates_option(update: Update,
 
 async def get_settings(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
     _, callback_data = remove_intent_id(query.data)
@@ -196,10 +190,7 @@ async def get_settings(
     reply_markup = create_kbd_crud(callback_data)
 
     text = 'Выберите что хотите настроить'
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     context.user_data['reply_markup'] = reply_markup
     await query.answer()
@@ -208,7 +199,7 @@ async def get_settings(
 
 async def theater_event_select(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -225,7 +216,7 @@ async def theater_event_select(
 
 async def schedule_event_select(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -242,7 +233,7 @@ async def schedule_event_select(
 
 async def theater_event_preview(
         update: Update,
-        _: "ContextTypes.DEFAULT_TYPE"
+        _: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -268,7 +259,7 @@ async def theater_event_preview(
 
 async def schedule_event_preview(
         update: Update,
-        _: "ContextTypes.DEFAULT_TYPE"
+        _: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -290,7 +281,7 @@ async def schedule_event_preview(
 
 async def theater_event_check(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
@@ -306,7 +297,7 @@ async def theater_event_check(
 
 async def schedule_event_check(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
@@ -322,7 +313,7 @@ async def schedule_event_check(
 
 async def theater_event_create(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -337,20 +328,18 @@ async def theater_event_create(
     context.user_data.pop('theater_event')
     await query.answer()
     if res:
-        await query.edit_message_text(
-            text=f'{theater_event['name']}\nУспешно добавлено',
-            reply_markup=reply_markup
-        )
+        text = f'{theater_event['name']}\nУспешно добавлено'
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
         return 3
     else:
-        await query.edit_message_text(
-            'Попробуйте еще раз или обратитесь в тех поддержку')
+        text = 'Попробуйте еще раз или обратитесь в тех поддержку'
+        await query.edit_message_text(text)
         return 41
 
 
 async def schedule_event_create(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -369,20 +358,18 @@ async def schedule_event_create(
         res = await db_postgres.get_theater_event(
             context.session,
             schedule_event['theater_event_id'])
-        await query.edit_message_text(
-            text=f'{res.name}\nУспешно добавлено',
-            reply_markup=reply_markup
-        )
+        text = f'{res.name}\nУспешно добавлено'
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
         return 3
     else:
-        await query.edit_message_text(
-            'Попробуйте еще раз или обратитесь в тех поддержку')
+        text = 'Попробуйте еще раз или обратитесь в тех поддержку'
+        await query.edit_message_text(text)
         return 42
 
 
 async def conversation_timeout(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ) -> int:
     """Informs the user that the operation has timed out,
     calls :meth:`remove_reply_markup` and ends the conversation.

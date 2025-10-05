@@ -150,9 +150,8 @@ async def choice_show_or_date(
 
     try:
         enum_theater_events, schedule_events_filter_by_month = await (
-            get_theater_and_schedule_events_by_month(context,
-                                                     schedule_events,
-                                                     number_of_month_str)
+            get_theater_and_schedule_events_by_month(
+                context, schedule_events, number_of_month_str)
         )
     except ValueError as e:
         reserve_hl_logger.error(e)
@@ -449,24 +448,14 @@ async def choice_option_of_reserve(
 
     base_tickets_filtered = []
     for i, ticket in enumerate(base_tickets):
-        check_ticket = check_available_ticket_by_free_seat(schedule_event,
-                                                           theater_event,
-                                                           type_event,
-                                                           ticket,
-                                                           only_child=only_child)
+        check_ticket = check_available_ticket_by_free_seat(
+            schedule_event, theater_event, type_event, ticket, only_child)
         if not ticket.flag_active or (check_command and not check_ticket):
             continue
         base_tickets_filtered.append(ticket)
 
-    date_for_price = datetime.today()
     keyboard, text = await create_kbd_and_text_tickets_for_choice(
-        context,
-        text,
-        base_tickets_filtered,
-        schedule_event,
-        theater_event,
-        date_for_price
-    )
+        context, text, base_tickets_filtered, schedule_event, theater_event)
 
     state = 'TICKET'
 
@@ -492,12 +481,7 @@ async def choice_option_of_reserve(
         await query.answer()
     except TimedOut as e:
         reserve_hl_logger.error(e)
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup
-    )
-
-    context.user_data['reserve_user_data']['date_for_price'] = date_for_price
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -549,11 +533,8 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         reserve_hl_logger.error(f'{only_child=}')
         raise ApplicationHandlerStop
 
-    check_ticket = check_available_ticket_by_free_seat(schedule_event,
-                                                       theater_event,
-                                                       type_event,
-                                                       chose_base_ticket,
-                                                       only_child=only_child)
+    check_ticket = check_available_ticket_by_free_seat(
+        schedule_event, theater_event, type_event, chose_base_ticket, only_child)
     if query:
         await query.answer()
         await query.delete_message()

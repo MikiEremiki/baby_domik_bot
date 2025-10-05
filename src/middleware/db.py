@@ -13,7 +13,7 @@ def add_db_handlers_middleware(application, config):
 
     async def open_session_handler(
             _: Update,
-            context: "ContextTypes.DEFAULT_TYPE"
+            context: 'ContextTypes.DEFAULT_TYPE'
     ):
         session = sessionmaker()
         context.session = session
@@ -22,7 +22,7 @@ def add_db_handlers_middleware(application, config):
 
     async def close_session_handler(
             _: Update,
-            context: "ContextTypes.DEFAULT_TYPE"
+            context: 'ContextTypes.DEFAULT_TYPE'
     ):
         await context.session.close()
 

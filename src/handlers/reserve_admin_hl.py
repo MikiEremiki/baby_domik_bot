@@ -29,7 +29,7 @@ reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
 
 async def event_selection_option(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await init_conv_hl_dialog(update, context)
     await check_user_db(update, context)
@@ -68,7 +68,7 @@ async def event_selection_option(
     return state
 
 
-async def enter_event_id(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
+async def enter_event_id(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     state = context.user_data['STATE']
 
@@ -91,10 +91,7 @@ async def enter_event_id(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
             add_back_btn=True
         )
     ])
-    message = await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup,
-    )
+    message = await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     context.user_data['message'] = message.id
 
@@ -107,7 +104,7 @@ async def enter_event_id(update: Update, context: "ContextTypes.DEFAULT_TYPE"):
 
 async def choice_option_of_reserve(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await context.bot.delete_message(
         update.effective_chat.id,
@@ -134,15 +131,8 @@ async def choice_option_of_reserve(
     text = text_select_event + text
     text += '<b>Выберите подходящий вариант бронирования:</b>\n'
 
-    date_for_price = datetime.today()
     keyboard, text = await create_kbd_and_text_tickets_for_choice(
-        context,
-        text,
-        base_tickets,
-        schedule_event,
-        theater_event,
-        date_for_price
-    )
+        context, text, base_tickets, schedule_event, theater_event)
     state = 'TICKET'
     reply_markup = await create_replay_markup(
         keyboard,
@@ -151,13 +141,11 @@ async def choice_option_of_reserve(
         postfix_for_back=1,
         size_row=5
     )
-    await message.edit_text(text=text,
-                            reply_markup=reply_markup)
+    await message.edit_text(text=text, reply_markup=reply_markup)
 
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['choose_schedule_event_id'] = schedule_event.id
     reserve_user_data['choose_theater_event_id'] = theater_event.id
-    context.user_data['reserve_user_data']['date_for_price'] = date_for_price
 
     context.user_data['STATE'] = state
     return state
@@ -165,7 +153,7 @@ async def choice_option_of_reserve(
 
 async def start_forma_info(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
     await query.answer()
@@ -219,7 +207,8 @@ async def start_forma_info(
                     '\nНеобходимо повторить перенос заново.')
                 await query.edit_message_text(text)
                 context.user_data['conv_hl_run'] = False
-                await clean_context_on_end_handler(reserve_admin_hl_logger, context)
+                await clean_context_on_end_handler(
+                    reserve_admin_hl_logger, context)
                 return ConversationHandler.END
             else:
                 reserve_user_data['changed_seat'] = True
@@ -291,10 +280,9 @@ async def start_forma_info(
             add_back_btn=False
         )]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        text = '<b>Напишите фамилию и имя (взрослого)</b>'
         message = await query.edit_message_text(
-            '<b>Напишите фамилию и имя (взрослого)</b>',
-            reply_markup=reply_markup
-        )
+            text=text, reply_markup=reply_markup)
 
         reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'

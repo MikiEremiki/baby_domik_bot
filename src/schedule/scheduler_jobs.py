@@ -21,7 +21,7 @@ def _compute_notification_times(datetime_event: datetime) -> tuple[datetime, dat
 
 
 def _remove_existing_reminders(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event_id: int
 ) -> bool:
     """
@@ -38,7 +38,7 @@ def _remove_existing_reminders(
 
 
 async def schedule_notification_job(
-        context: "ContextTypes.DEFAULT_TYPE",
+        context: 'ContextTypes.DEFAULT_TYPE',
         event: ScheduleEventDTO
 ) -> None:
     datetime_event = event.get_datetime_event()

@@ -16,7 +16,7 @@ transfer_admin_hl_logger = logging.getLogger('bot.transfer_admin_hl')
 
 async def enter_ticket_id(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await init_conv_hl_dialog(update, context)
 
@@ -55,7 +55,7 @@ async def enter_ticket_id(
 
 async def get_ticket_by_id(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     try:
         await context.bot.edit_message_reply_markup(
@@ -63,6 +63,7 @@ async def get_ticket_by_id(
             context.user_data['reserve_admin_data']['message_id']
         )
     except BadRequest as e:
+        transfer_admin_hl_logger.error(e)
         state = context.user_data['STATE']
         dict_back = context.user_data['reserve_user_data']['back'][state]
         del_message_ids = dict_back['del_message_ids']
@@ -140,7 +141,7 @@ async def get_ticket_by_id(
 
 async def migration_ticket(
         update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
+        context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
 
@@ -157,20 +158,10 @@ async def migration_ticket(
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await query.edit_message_text(
-        text=text,
-        reply_markup=reply_markup,
-    )
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     state = 1
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     await query.answer()
     return state
-
-
-async def update_ticket(
-        update: Update,
-        context: "ContextTypes.DEFAULT_TYPE"
-):
-    pass
