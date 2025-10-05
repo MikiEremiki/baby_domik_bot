@@ -101,6 +101,9 @@ def set_handlers(application, config):
         CommandHandler(COMMAND_DICT['ADM_CME_INFO'][0],
                        update_cme_admin_info,
                        filter_admin),
+        CommandHandler('cancel_old_created_tickets',
+                       main_hl.manual_cancel_old_created_tickets,
+                       filter_admin),
     ])
 
     application.add_handler(

@@ -12,6 +12,7 @@ from db.enum import TicketStatus
 from utilities.utl_db import open_session
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_full_name_event)
+from utilities.utl_googlesheets import cancel_ticket_and_return_seat_auto
 
 worker_logger = logging.getLogger('bot.worker')
 
@@ -60,6 +61,42 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
         else:
             worker_logger.info(f"Ticket {ticket.id} already reminded")
     await session.close()
+
+
+async def cancel_old_created_tickets(context: 'ContextTypes.DEFAULT_TYPE') -> None:
+    """
+    Ежечасный обработчик: отменяет билеты в статусе CREATED, если им > 30 минут.
+    Освобождает место и обновляет Google Sheets аналогично write_to_return_seats_for_sale.
+    """
+    worker_logger.info('Начало выполнения job cancel_old_created_tickets')
+    session = await open_session(context.config)
+    try:
+        now = datetime.now(timezone.utc)
+        threshold = now - timedelta(minutes=30)
+        tickets: List[Ticket] = await db_postgres.get_all_tickets_by_status(
+            session, TicketStatus.CREATED)
+        cnt_total = 0
+        cnt_canceled = 0
+        for t in tickets:
+            cnt_total += 1
+            created_at = getattr(t, 'created_at', None)
+            if not created_at:
+                continue
+            if created_at <= threshold:
+                context.session = session
+                try:
+                    text = await cancel_ticket_and_return_seat_auto(context, t.id)
+                    await context.bot.send_message(
+                        chat_id=context.config.bot.developer_chat_id,
+                        text=f'AutoCancel: {text}')
+                    cnt_canceled += 1
+                except Exception as e:
+                    worker_logger.exception(
+                        f'Ошибка авто-отмены билета {t.id}: {e}')
+        worker_logger.info(
+            f'Отмена просроченных билетов завершена: всего={cnt_total}, отменено={cnt_canceled}')
+    finally:
+        await session.close()
 
 
 async def send_remainder_msg(

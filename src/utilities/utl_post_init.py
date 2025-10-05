@@ -2,6 +2,7 @@ from telegram.ext import Application
 
 from settings.settings import ADDRESS_OFFICE
 from utilities.utl_func import set_menu, set_description
+from schedule.worker_jobs import cancel_old_created_tickets
 
 
 async def post_init(app: Application, config):
@@ -36,6 +37,15 @@ async def post_init(app: Application, config):
     app.bot_data.setdefault('dict_topics_name', {})
     app.bot_data.setdefault('global_on_off', True)
     app.context_types.context.config = config
+
+    # Планировщик авто-отмены созданных билетов старше 30 минут
+    app.job_queue.run_repeating(
+        cancel_old_created_tickets,
+        interval=3600,
+        first=60,
+        name='cancel_old_created_tickets',
+        job_kwargs={'replace_existing': True, 'id': 'cancel_old_created_tickets'}
+    )
 
     # TODO Сделать команду для настройки списков по интенсивам
     studio = {

@@ -1190,3 +1190,20 @@ async def global_on_off(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         context.bot_data['global_on_off'] = False
         await update.effective_chat.send_message(
             'Использование команд пользователями выключено')
+
+
+async def manual_cancel_old_created_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """
+    Ручной запуск обработчика автоотмены созданных билетов старше 30 минут.
+    Только для администраторов.
+    """
+    await update.effective_message.reply_text(
+        'Запускаю проверку созданных билетов старше 30 минут...')
+    try:
+        await cancel_old_created_tickets(context)
+        await update.effective_message.reply_text(
+            'Готово. Проверка и авто-отмена завершены.')
+    except Exception as e:
+        main_handlers_logger.exception(
+            f'Ошибка ручного запуска авто-отмены: {e}')
+        await update.effective_message.reply_text(f'Ошибка при выполнении: {e}')
