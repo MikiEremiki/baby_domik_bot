@@ -1764,7 +1764,7 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     client_data = reserve_user_data['client_data']
     client_data['data_children'] = processed_data_on_children
-    reserve_user_data['original_child_text'] = update.effective_message.text
+    reserve_user_data['original_child_text'] = child
 
     command = context.user_data.get('command', False)
     if '_admin' in command:
