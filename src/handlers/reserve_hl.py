@@ -1378,6 +1378,9 @@ async def get_child_text_and_reply(
         child,
         context: 'ContextTypes.DEFAULT_TYPE'
 ) -> tuple[str, InlineKeyboardMarkup]:
+    back_and_cancel = add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=False)
     if base_ticket.quality_of_children > 0:
         text = '<b>Напишите, имя и сколько полных лет ребенку</b>\n\n'
         text_help = """__________
@@ -1388,22 +1391,21 @@ __________
 <i> - Если детей несколько, напишите всех в одном сообщении
  - Один ребенок = одна строка
  - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>"""
-        back_and_cancel = add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False)
         keyboard = [back_and_cancel]
         if base_ticket.quality_of_children == 1:
-            child_confirm_btn, text = await create_child_confirm_btn(text,
-                                                                     child)
-            keyboard.insert(0, child_confirm_btn)
+            child_confirm_btn, text_child = await create_child_confirm_btn(
+                text, child)
+            if child_confirm_btn:
+                keyboard.insert(0, child_confirm_btn)
+                text = text_child
         text += text_help
     else:
         text = 'Нажмите <b>Далее</b>'
-        btn = InlineKeyboardButton(
+        next_btn = InlineKeyboardButton(
             'Далее',
             callback_data='Далее'
         )
-        keyboard = [[btn]]
+        keyboard = [[next_btn], [back_and_cancel]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     return text, reply_markup
