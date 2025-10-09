@@ -1,0 +1,8 @@
+pydantic_settings
+gspread
+gspread-asyncio
+python-telegram-bot[ext]
+PyYAML
+sqlalchemy
+faststream[cli]
+nats-py
