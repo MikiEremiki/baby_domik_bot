@@ -459,7 +459,11 @@ async def choice_show(
     )
 
     if is_pagination:
-        if update.effective_chat.type == ChatType.PRIVATE and photo:
+        if (
+                update.effective_chat.type == ChatType.PRIVATE and
+                photo and
+                update.effective_message.photo
+        ):
             try:
                 await query.edit_message_caption(
                     caption=text,
@@ -516,6 +520,10 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     Возвращает state TIME (в репертуаре) или DATE/LIST_WAIT в остальных случаях.
     """
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
 
     _, callback_data = remove_intent_id(query.data)
     theater_event_id = int(callback_data)
@@ -580,11 +588,6 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
                 text += f"{date_txt} {time_txt} — {qty_child} дет | {qty_adult} взр\n"
 
-        try:
-            await query.answer()
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-
         photo = False
         if number_of_month_str is not None and select_mode == 'DATE':
             try:
@@ -642,6 +645,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             postfix_for_back='SHOW',
             size_row=2
         )
+        state = 'TIME'
     else:
         # Обычные кнопки дат (далее выбор времени)
         keyboard = await create_kbd_for_date_in_reserve(schedule_events)
@@ -688,11 +692,6 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             qty_adult = sum(max(int(e.qty_adult_free_seat), 0) for e in evs)
             text += f"{d.strftime('%d.%m')} — {qty_child} дет | {qty_adult} взр\n"
 
-    try:
-        await query.answer()
-    except TimedOut as e:
-        reserve_hl_logger.error(e)
-
     photo = False
     if number_of_month_str is not None:
         try:
@@ -704,8 +703,9 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except (TypeError, ValueError):
             photo = False
     if update.effective_chat.type == ChatType.PRIVATE and photo:
-        await query.edit_message_caption(
-            caption=text, reply_markup=reply_markup)
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text, reply_markup=reply_markup)
     else:
         await query.edit_message_text(
             text=text, reply_markup=reply_markup)
@@ -859,6 +859,10 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     Возвращает state TIME (или LIST для команды list).
     """
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     _, callback_data = remove_intent_id(query.data)
 
     check_command_studio = check_entered_command(context, 'studio')
@@ -927,10 +931,6 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     else:
         text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
 
-    try:
-        await query.answer()
-    except TimedOut as e:
-        reserve_hl_logger.error(e)
     await query.delete_message()
     await update.effective_chat.send_message(
         text=text,
@@ -955,7 +955,10 @@ async def choice_option_of_reserve(
     :return: возвращает state ORDER
     """
     query = update.callback_query
-    await query.answer()
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
     message = await update.effective_chat.send_message(
         'Загружаю данные по билетам...')
 
@@ -1085,11 +1088,12 @@ async def choice_option_of_reserve(
              '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
     await message.delete()
-    try:
-        await query.answer()
-    except TimedOut as e:
-        reserve_hl_logger.error(e)
-    await query.edit_message_text(text=text, reply_markup=reply_markup)
+
+    if update.effective_message.photo:
+        await query.edit_message_caption(caption=text,
+                                         reply_markup=reply_markup)
+    else:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -1628,7 +1632,8 @@ async def write_list_of_waiting(
             add_back_btn=True,
             postfix_for_back=context.user_data['STATE']
         )
-        await query.edit_message_text(text=text_prompt, reply_markup=reply_markup)
+        await query.edit_message_text(text=text_prompt,
+                                      reply_markup=reply_markup)
     else:
         await query.edit_message_text(text=text_prompt)
 

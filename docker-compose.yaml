@@ -123,6 +123,7 @@ services:
     container_name: gspread_worker
     build:
       context: .
+      dockerfile: Dockerfile-gspread
     image: mikieremiki/baby_domik_gspread_worker
     restart: unless-stopped
     networks:
@@ -134,7 +135,6 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./config/settings.py:/app/src/settings/settings.py
-      - ./src/log/archive:/app/src/log/archive
     command: faststream run api.gspread_worker:fast_stream
 
   nginx:

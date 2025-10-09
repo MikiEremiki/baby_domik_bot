@@ -15,7 +15,7 @@ POSTGRES_LOG_FILENAME = pathlib.Path(pathlib.Path.joinpath(absolute_path,
 if not absolute_path.exists():
     os.mkdir(log_folder_name)
 
-bf = logging.Formatter('{asctime:16s}|{name:20s}|{levelname:8s}|{message}',
+bf = logging.Formatter('{asctime:16s}|{name:20s}|{lineno:4d}|{levelname:8s}|{message}',
                        datefmt='%y%m%d %H:%M:%S',
                        style='{')
 
