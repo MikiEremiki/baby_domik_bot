@@ -178,8 +178,7 @@ async def create_kbd_for_date_in_reserve(schedule_events: List[ScheduleEvent]):
 
         button_tmp = InlineKeyboardButton(
             text=text,
-            callback_data=str(event.theater_event_id) + '|' +
-                          event.datetime_event.date().isoformat()
+            callback_data=event.datetime_event.date().isoformat()
         )
         keyboard.append(button_tmp)
     return keyboard
