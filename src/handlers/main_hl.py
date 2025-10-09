@@ -1157,7 +1157,7 @@ async def feedback_send_msg(update: Update,
     main_handlers_logger.info(update.effective_user)
     main_handlers_logger.info(update.message)
 
-    user = context.user_data['user']
+    user = update.effective_user
 
     chat_id = ADMIN_GROUP
     if update.edited_message:
