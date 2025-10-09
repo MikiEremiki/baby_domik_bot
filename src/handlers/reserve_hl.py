@@ -459,7 +459,11 @@ async def choice_show(
     )
 
     if is_pagination:
-        if update.effective_chat.type == ChatType.PRIVATE and photo:
+        if (
+                update.effective_chat.type == ChatType.PRIVATE and
+                photo and
+                update.effective_message.photo
+        ):
             try:
                 await query.edit_message_caption(
                     caption=text,
@@ -698,8 +702,9 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except (TypeError, ValueError):
             photo = False
     if update.effective_chat.type == ChatType.PRIVATE and photo:
-        await query.edit_message_caption(
-            caption=text, reply_markup=reply_markup)
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text, reply_markup=reply_markup)
     else:
         await query.edit_message_text(
             text=text, reply_markup=reply_markup)
