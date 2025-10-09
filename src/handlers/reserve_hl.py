@@ -645,6 +645,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             postfix_for_back='SHOW',
             size_row=2
         )
+        state = 'TIME'
     else:
         # Обычные кнопки дат (далее выбор времени)
         keyboard = await create_kbd_for_date_in_reserve(schedule_events)
