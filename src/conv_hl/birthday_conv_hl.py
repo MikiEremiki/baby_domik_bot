@@ -92,7 +92,7 @@ birthday_paid_conv_hl = ConversationHandler(
         ConversationHandler.TIMEOUT: [birthday_hl.TIMEOUT_HANDLER]
     },
     fallbacks=common_fallbacks,
-    conversation_timeout=30 * 60,  # 30 мин
+    # conversation_timeout=30 * 60,  # 30 мин
     name='bd_paid',
     persistent=True,
     allow_reentry=True
