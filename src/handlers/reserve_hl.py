@@ -283,14 +283,16 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     # Устанавливаем режим выбора, если пришли из шага MODE (По календарю/По репертуару)
     if query:
         try:
-            intent_id_mode, payload = remove_intent_id(query.data)
+            intent_id_mode, callback_data = remove_intent_id(query.data)
         except Exception:
-            intent_id_mode, payload = (None, None)
+            intent_id_mode, callback_data = (None, None)
         if intent_id_mode == 'MODE':
-            # По календарю => далее после выбора месяца показываем даты
-            # По репертуару => далее после выбора месяца показываем спектакли
-            context.user_data[
-                'select_mode'] = 'DATE' if payload == 'DATE' else 'REPERTOIRE'
+            if callback_data == 'DATE':
+                # По календарю => далее после выбора месяца показываем даты
+                context.user_data['select_mode'] = 'DATE'
+            else:
+                # По репертуару => далее после выбора месяца показываем спектакли
+                context.user_data['select_mode'] = 'REPERTOIRE'
 
     type_event_ids = await get_type_event_ids_by_command(command)
     schedule_events = await db_postgres.get_schedule_events_by_type_actual(
@@ -712,8 +714,10 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Сохраним id событий выбранного спектакля для следующего шага
     schedule_event_ids = [item.id for item in schedule_events]
-    state_data = context.user_data['reserve_user_data'][state] = {}
+    state_data = reserve_user_data[state] = {}
     state_data['schedule_event_ids'] = schedule_event_ids
+
+    reserve_user_data['theater_event_id'] = theater_event_id
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state

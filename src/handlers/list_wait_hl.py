@@ -20,8 +20,12 @@ async def send_clients_wait_data(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     query = update.callback_query
+    await query.answer()
     _, callback_data = remove_intent_id(query.data)
-    theater_event_id, selected_date = callback_data.split('|')
+    selected_date = callback_data
+    reserved_user_data = context.user_data['reserve_user_data']
+    theater_event_id = reserved_user_data['theater_event_id']
+
 
     schedule_events, theater_event = await get_events_for_time_hl(
         theater_event_id, selected_date, context)
@@ -30,6 +34,7 @@ async def send_clients_wait_data(
         event_ids.append(schedule_event.id)
 
     await update.effective_chat.send_action(ChatAction.TYPING)
+    await query.edit_message_text('Через минуту данные загрузятся...')
 
     full_name = get_full_name_event(theater_event)
     date_event, time_event = await get_formatted_date_and_time_of_event(
@@ -60,6 +65,5 @@ async def send_clients_wait_data(
         await query.edit_message_text(text)
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    await query.answer()
     context.user_data['conv_hl_run'] = False
     return state
