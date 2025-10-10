@@ -37,7 +37,7 @@ list_wait_conv_hl = ConversationHandler(
     ],
     states=states,
     fallbacks=common_fallbacks,
-    conversation_timeout=RESERVE_TIMEOUT * 60,
+    # conversation_timeout=RESERVE_TIMEOUT * 60,
     name='list_wait',
     persistent=True,
     allow_reentry=True
