@@ -329,9 +329,6 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     state_data['schedule_event_ids'] = schedule_event_ids
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    if context.user_data.get('command', False) and query:
-        await query.answer()
-        await query.delete_message()
     return state
 
 
