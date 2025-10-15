@@ -1428,9 +1428,7 @@ async def send_msg_get_child(update: Update,
         base_ticket, child, context)
 
     message = await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup
-    )
+        text=text, reply_markup=reply_markup)
     return message
 
 

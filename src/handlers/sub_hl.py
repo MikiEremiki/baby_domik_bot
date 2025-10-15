@@ -574,10 +574,10 @@ async def send_breaf_message(update: Update,
     )
     await update.effective_chat.send_message(text_brief)
     text_prompt = '<b>Напишите фамилию и имя (взрослого)</b>\n\n'
-    adult = await db_postgres.get_adult(context.session,
-                                        update.effective_user.id)
+    adult_name = await db_postgres.get_adult_name(context.session,
+                                             update.effective_user.id)
     adult_confirm_btn, text_prompt = await create_adult_confirm_btn(text_prompt,
-                                                                    adult)
+                                                                    adult_name)
 
     back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',

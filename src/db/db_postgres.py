@@ -90,7 +90,7 @@ async def get_phone(session: AsyncSession, user_id):
     return phone or None
 
 
-async def get_adult(session: AsyncSession, user_id):
+async def get_adult_name(session: AsyncSession, user_id):
     """
     Возвращает последнее введенное имя взрослого пользователя, если оно есть.
     """
@@ -103,8 +103,8 @@ async def get_adult(session: AsyncSession, user_id):
         )
         .order_by(Person.id.desc())
     )
-    person = result.scalars().first()
-    return person or None
+    adult_name = result.scalars().first()
+    return adult_name or None
 
 
 async def get_child(session: AsyncSession, user_id):
@@ -121,8 +121,8 @@ async def get_child(session: AsyncSession, user_id):
         )
         .order_by(Person.id.desc())
     )
-    person = result.first()
-    return person or None
+    child = result.first()
+    return child or None
 
 
 async def create_people(
