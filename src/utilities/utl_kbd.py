@@ -386,7 +386,7 @@ async def create_adult_confirm_btn(text, adult_name: str):
         text += f'Последнее введенное имя взрослого:\n<code>{adult_name}</code>\n\n'
         text += 'Использовать последнее введенное имя?'
         adult_confirm_btn = [
-            InlineKeyboardButton('Да', callback_data=f'adult_confirm|{adult}')
+            InlineKeyboardButton('Да', callback_data=f'adult_confirm')
         ]
     return adult_confirm_btn, text
 

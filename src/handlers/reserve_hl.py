@@ -1652,11 +1652,6 @@ async def adult_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     await query.edit_message_text(update.effective_message.text + '\nДа')
 
-    data = query.data
-    adult = None
-    if '|' in data:
-        adult = data.split('|', maxsplit=1)[1]
-
     reserve_user_data = context.user_data['reserve_user_data']
     try:
         await context.bot.edit_message_reply_markup(
@@ -1668,7 +1663,6 @@ async def adult_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     message = await send_msg_get_phone(update, context)
 
-    reserve_user_data['client_data']['name_adult'] = adult
     reserve_user_data['message_id'] = message.message_id
     state = 'PHONE'
     context.user_data['STATE'] = state

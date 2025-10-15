@@ -585,6 +585,8 @@ async def send_breaf_message(update: Update,
 
     if adult_confirm_btn:
         keyboard = [adult_confirm_btn, back_and_cancel]
+        reserve_user_data = context.user_data['reserve_user_data']
+        reserve_user_data['client_data']['name_adult'] = adult_name
     else:
         keyboard = [back_and_cancel]
 
