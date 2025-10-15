@@ -375,23 +375,23 @@ async def create_phone_confirm_btn(text, phone: str):
     return phone_confirm_btn, text
 
 
-async def create_adult_confirm_btn(text, adult: str):
+async def create_adult_confirm_btn(text, adult_name: str):
     """
     Если adult есть, добавляет в текст сообщение о последнем
     введенном телефоне и возвращает ряд кнопок с подтверждением.
     callback_data содержит сам телефон: 'adult_confirm|{adult}'
     """
     adult_confirm_btn = None
-    if adult:
-        text += f'Последнее введенное имя взрослого:\n<code>{adult}</code>\n\n'
+    if adult_name:
+        text += f'Последнее введенное имя взрослого:\n<code>{adult_name}</code>\n\n'
         text += 'Использовать последнее введенное имя?'
         adult_confirm_btn = [
-            InlineKeyboardButton('Да', callback_data=f'adult_confirm|{adult}')
+            InlineKeyboardButton('Да', callback_data=f'adult_confirm')
         ]
     return adult_confirm_btn, text
 
 
-async def create_child_confirm_btn(text, child: str):
+async def create_child_confirm_btn(text, child):
     """
     Если child есть, добавляет в текст сообщение о последнем
     введенном телефоне и возвращает ряд кнопок с подтверждением.
