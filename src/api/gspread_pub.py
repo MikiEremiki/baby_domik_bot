@@ -76,7 +76,7 @@ async def publish_write_client_list_waiting(
     топик 'gspread'.
     """
     message: Dict[str, Any] = {
-        'action': 'write_data_reserve',
+        'action': 'write_client_list_waiting',
         'sheet_id': sheet_id,
         'context': context,
     }
