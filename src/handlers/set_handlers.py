@@ -4,8 +4,8 @@ from telegram.ext import (
     CommandHandler, CallbackQueryHandler, MessageHandler, filters,
 )
 
-import custom_filters
 from handlers import main_hl, reserve_hl
+from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
 from handlers.sub_hl import (
     update_admin_info, update_bd_price, update_cme_admin_info)
 from handlers.webhook_hl import WebhookHandler
@@ -67,8 +67,6 @@ def set_handlers(application, config):
         CallbackQueryHandler(reserve_hl.processing_successful_notification,
                              pattern='Next'))
 
-    filter_admin = custom_filters.filter_admin
-    filter_to_send_msg = custom_filters.filter_to_send_msg
     application.add_handlers([
         CommandHandler('clean_ud', clean_ud, filter_admin),
         CommandHandler('print_ud', print_ud, filter_admin),
@@ -123,7 +121,7 @@ def set_handlers(application, config):
         main_hl.feedback_send_msg),
     )
     application.add_handler(MessageHandler(
-        custom_filters.REPLY_IN_TOPIC_FROM_BOT,
+        REPLY_IN_TOPIC_FROM_BOT,
         main_hl.feedback_reply_msg))
 
     application.add_handler(WebhookHandler)
