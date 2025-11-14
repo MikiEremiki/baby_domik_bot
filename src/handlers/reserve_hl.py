@@ -143,15 +143,30 @@ async def choice_show_by_repertoire(update: Update,
             intent_id, payload = (None, None)
 
     # Шаг 1: показать выбор группы спектаклей
+    repertoire = 'REPERTOIRE'
+    new_years = 'NEW_YEARS'
+    invited = 'INVITED'
+    list_groups = [repertoire, new_years, invited]
     if (
             intent_id == 'MODE' or
             intent_id is None or
             intent_id == 'REP_GROUP' and payload in (None, '')
     ):
-        text = 'Выберите репертуарную группу'
+        text = (
+            '<b>Выберите репертуарную группу</b>\n\n'
+            'В нашем театре проводятся спектакли из 3х групп:\n'
+            '<code>Репертуарные</code> - круглогодично\n'
+            '<code>Новогодние</code> - только с декабря по январь\n'
+            '<code>Приглашенные</code> - по мере появления договоренностей\n\n'
+            '<i>Если какая-либо из кнопок не показывается, значит на текущий '
+            'момент спектаклей данной группы нет.</i>\n\n'
+            'За новостями можно следить в '
+            '<a href="https://t.me/theater_domik">Группе театра</a> в телеграм'
+        )
         kb = [
-            InlineKeyboardButton('Домика', callback_data='DOMIK'),
-            InlineKeyboardButton('Приглашенные', callback_data='INVITED'),
+            InlineKeyboardButton('Репертуарные', callback_data=repertoire),
+            InlineKeyboardButton('Новогодние', callback_data=new_years),
+            InlineKeyboardButton('Приглашенные', callback_data=invited),
         ]
         # Клавиатура: намеренно используем intent REP_GROUP, чтобы следующий клик обрабатывался здесь же
         reply_markup = await create_replay_markup(
@@ -177,10 +192,11 @@ async def choice_show_by_repertoire(update: Update,
                 reserve_hl_logger.error(e)
         return state
 
-    # Шаг 2: выбрана конкретная группа (DOMIK/INVITED) — формируем список спектаклей
+    # Шаг 2: выбрана конкретная группа (REPERTOIRE/NEW_YEAR/INVITED) —
+    # формируем список спектаклей
     # Сохраним выбор группы для Back
     group = payload or context.user_data.get('repertoire_group')
-    if payload in ('DOMIK', 'INVITED'):
+    if payload in list_groups:
         context.user_data['repertoire_group'] = payload
         group = payload
 
@@ -189,38 +205,49 @@ async def choice_show_by_repertoire(update: Update,
         context.session, type_event_ids)
     schedule_events = await filter_schedule_event_by_active(schedule_events)
 
-    # Фильтрация по группе: invited -> type_event_id == 14, Домика -> все, кроме 14
+    # Фильтрация по группе:
+    REPERTOIRE_TYPE_ID = 1
+    NEW_YEAR_TYPE_ID = 2
     INVITED_TYPE_ID = 14
-    if group == 'INVITED':
-        schedule_events = [ev for ev in schedule_events if
-                           ev.type_event_id == INVITED_TYPE_ID]
-        group_title = 'Приглашенные'
+    group_to_type_id = {
+        repertoire: [REPERTOIRE_TYPE_ID, 'Репертуарные'],
+        new_years: [NEW_YEAR_TYPE_ID, 'Новогодние'],
+        invited: [INVITED_TYPE_ID, 'Приглашенные'],
+    }
+
+    type_id = group_to_type_id[group][0]
+    schedule_events = [ev for ev in schedule_events if
+                       ev.type_event_id == type_id]
+    group_title = group_to_type_id[group][1]
+
+    if schedule_events:
+        # Собираем уникальные спектакли по порядку появления в расписании
+        theater_event_id_order = []
+        for ev in schedule_events:
+            if ev.theater_event_id not in theater_event_id_order:
+                theater_event_id_order.append(ev.theater_event_id)
+        theater_events = await db_postgres.get_theater_events_by_ids(
+            context.session, theater_event_id_order)
+        theater_events = sorted(
+            theater_events,
+            key=lambda e: theater_event_id_order.index(e.id)
+        )
+        enum_theater_events = tuple(enumerate(theater_events, start=1))
+
+        text_legend = context.bot_data['texts']['text_legend']
+        text = f'<b>{group_title}</b>\n\n'
+        text += '<b>Выберите мероприятие\n</b>' + text_legend
+        text = await create_event_names_text(enum_theater_events, text)
+
+        keyboard = await create_kbd_schedule(enum_theater_events)
     else:
-        schedule_events = [ev for ev in schedule_events if
-                           ev.type_event_id != INVITED_TYPE_ID]
-        group_title = 'Домика'
-
-    # Собираем уникальные спектакли по порядку появления в расписании
-    theater_event_id_order = []
-    for ev in schedule_events:
-        if ev.theater_event_id not in theater_event_id_order:
-            theater_event_id_order.append(ev.theater_event_id)
-    theater_events = await db_postgres.get_theater_events_by_ids(
-        context.session, theater_event_id_order)
-    theater_events = sorted(
-        theater_events,
-        key=lambda e: theater_event_id_order.index(e.id)
-    )
-    enum_theater_events = tuple(enumerate(theater_events, start=1))
-
-    text_legend = context.bot_data['texts']['text_legend']
-    text = f'<b>{group_title}</b>\n\n'
-    text += '<b>Выберите мероприятие\n</b>' + text_legend
-    text = await create_event_names_text(enum_theater_events, text)
+        text = f'<b>{group_title}</b>\n\n'
+        text += ('В данный момент спектакли отсутствуют.\n'
+                'Вернитесь "Назад" и посмотрите спектакли из других групп.')
+        keyboard = []
 
     state = 'SHOW'
 
-    keyboard = await create_kbd_schedule(enum_theater_events)
     reply_markup = await create_replay_markup(
         keyboard,
         intent_id=state,
