@@ -58,7 +58,7 @@ async def handle_gspread_task(data: Dict[str, Any], logger: Logger):
             log_text = f'{ticket_id=} {status=}'
 
         elif action == 'update_cme':
-            cme_id = int(data['ticket_id'])
+            cme_id = int(data['cme_id'])
             await update_cme_in_gspread(sheet_id, cme_id, status)
             log_text = f'{cme_id=} {status=}'
 
