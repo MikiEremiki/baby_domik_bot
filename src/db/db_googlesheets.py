@@ -430,7 +430,7 @@ async def decrease_free_seat(
     ]
 
     try:
-        await _publish_write_data_reserve(event_id, numbers), 3
+        await _publish_write_data_reserve(event_id, numbers, 3)
         await db_postgres.update_schedule_event(
             context.session,
             int(event_id),
