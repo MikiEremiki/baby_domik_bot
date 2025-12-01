@@ -20,7 +20,7 @@ class SalesReportData:
 def connect_to_nats(app: Application,
                     webhook_notification_factory: WebhookNotificationFactory):
     broker = NatsBroker(nats_url)
-    stream = JStream(name='baby_domik', max_msgs=100, max_age=60*60*24*7, declare=False)
+    stream = JStream(name='baby_domik', max_msgs=100, max_age=60*60*24*7)
 
     @broker.subscriber(
         subject='yookassa',

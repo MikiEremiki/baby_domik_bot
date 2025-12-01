@@ -83,7 +83,7 @@ services:
   nats:
     profiles: [ "all", "nats", "api" ]
     container_name: nats
-    image: nats:2.10.11-alpine
+    image: nats:latest
     restart: unless-stopped
     ports:
       - '6222:6222'
