@@ -27,7 +27,7 @@ async def post_notification(
         broker: NatsBroker
 ):
     logger.info(message)
-    await broker.publish(message, 'bot', stream="baby_domik")
+    await broker.publish(message, subject='yookassa', stream="baby_domik")
     return Response(status_code=200)
 
 
