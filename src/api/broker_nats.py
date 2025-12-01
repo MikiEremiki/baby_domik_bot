@@ -22,14 +22,7 @@ def connect_to_nats(app: Application,
     broker = NatsBroker(nats_url)
     stream = JStream(name='baby_domik', max_msgs=100, max_age=60*60*24*7, declare=False)
 
-    @broker.subscriber(
-        subject='bot',
-        durable='yookassa',
-        config=ConsumerConfig(ack_wait=10),
-        deliver_policy=DeliverPolicy.NEW,
-        pull_sub=PullSub(),
-        stream=stream,
-    )
+    @broker.subscriber('bot', stream=stream, durable='yookassa')
     async def yookassa_handler(
             data: dict,
             logger: Logger,
