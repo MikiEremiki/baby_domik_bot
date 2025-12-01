@@ -12,6 +12,11 @@ class GSpreadFailedData:
         self.data = data
 
 
+class SalesReportData:
+    def __init__(self, data: dict):
+        self.data = data
+
+
 def connect_to_nats(app: Application,
                     webhook_notification_factory: WebhookNotificationFactory):
     broker = NatsBroker(nats_url)
@@ -47,5 +52,20 @@ def connect_to_nats(app: Application,
     ):
         logger.info(f'{data=}')
         await app.update_queue.put(GSpreadFailedData(data))
+
+    @broker.subscriber(
+        subject='sales_report',
+        durable='sales_report',
+        config=ConsumerConfig(ack_wait=10),
+        deliver_policy=DeliverPolicy.NEW,
+        pull_sub=PullSub(),
+        stream=stream,
+    )
+    async def sales_report_handler(
+            data: dict,
+            logger: Logger,
+    ):
+        logger.info(f'sales_report {data=}')
+        await app.update_queue.put(SalesReportData(data))
 
     return broker

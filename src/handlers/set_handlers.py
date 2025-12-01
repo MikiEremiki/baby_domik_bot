@@ -11,6 +11,7 @@ from handlers.sub_hl import (
 from handlers.hooks import (
     YookassaHookHandler,
     GspreadHookHandler,
+    SalesHookHandler,
 )
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
@@ -22,6 +23,7 @@ from conv_hl import (
     afisha_conv_hl,
     support_conv_hl,
     migration_admin_conv_hl,
+    sales_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
@@ -61,6 +63,7 @@ def set_handlers(application, config):
         afisha_conv_hl,
         support_conv_hl,
         migration_admin_conv_hl,
+        sales_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
@@ -133,6 +136,7 @@ def set_handlers(application, config):
 
     application.add_handler(YookassaHookHandler)
     application.add_handler(GspreadHookHandler)
+    application.add_handler(SalesHookHandler)
 
     application.add_error_handler(error_handler)
 

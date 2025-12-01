@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger, Numeric
+from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -366,3 +366,70 @@ class CustomMadeEvent(BaseModelTimed):
         ForeignKey('theater_events.id'))
     ticket_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('tickets.id'))
+
+
+
+class SalesCampaign(BaseModelTimed):
+    __tablename__ = 'sales_campaigns'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    created_by_admin_id: Mapped[int] = mapped_column(BigInteger)
+    type: Mapped[str]
+    theater_event_id: Mapped[int] = mapped_column(ForeignKey('theater_events.id'))
+    title: Mapped[Optional[str]]
+    status: Mapped[str] = mapped_column(default='draft')  # draft|running|done|canceled|failed
+
+    # Message payload (no media groups)
+    message_kind: Mapped[Optional[str]]  # text|photo|video|animation
+    message_text: Mapped[Optional[str]]
+    message_entities: Mapped[Optional[dict]] = mapped_column(JSON)
+    caption_text: Mapped[Optional[str]]
+    caption_entities: Mapped[Optional[dict]] = mapped_column(JSON)
+    photo_file_id: Mapped[Optional[str]]
+    video_file_id: Mapped[Optional[str]]
+    animation_file_id: Mapped[Optional[str]]
+
+    extra_payload: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    theater_event: Mapped['TheaterEvent'] = relationship(lazy='selectin')
+    schedules: Mapped[List['SalesCampaignSchedule']] = relationship(
+        back_populates='campaign', lazy='selectin')
+    recipients: Mapped[List['SalesRecipient']] = relationship(
+        back_populates='campaign', lazy='selectin')
+
+
+class SalesCampaignSchedule(BaseModelTimed):
+    __tablename__ = 'sales_campaign_schedules'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(
+        ForeignKey('sales_campaigns.id', ondelete='CASCADE'))
+    schedule_event_id: Mapped[int] = mapped_column(
+        ForeignKey('schedule_events.id', ondelete='CASCADE'))
+
+    __table_args__ = (
+        UniqueConstraint('campaign_id', 'schedule_event_id'),
+    )
+
+    campaign: Mapped['SalesCampaign'] = relationship(back_populates='schedules', lazy='selectin')
+    schedule_event: Mapped['ScheduleEvent'] = relationship(lazy='selectin')
+
+
+class SalesRecipient(BaseModelTimed):
+    __tablename__ = 'sales_recipients'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(
+        ForeignKey('sales_campaigns.id', ondelete='CASCADE'))
+    user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='SET NULL'), nullable=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger)
+    status: Mapped[str] = mapped_column(default='pending')  # pending|sent|failed|blocked|no_chat
+    last_error: Mapped[Optional[str]]
+
+    __table_args__ = (
+        UniqueConstraint('campaign_id', 'chat_id'),
+    )
+
+    campaign: Mapped['SalesCampaign'] = relationship(back_populates='recipients', lazy='selectin')
