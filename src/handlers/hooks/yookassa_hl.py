@@ -20,8 +20,8 @@ INVOICE_NUMBER = {
 }
 
 
-async def webhook_update(update: WebhookNotification,
-                         context: 'ContextTypes.DEFAULT_TYPE'):
+async def yookassa_hook_update(update: WebhookNotification,
+                               context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Платеж\n'
     text = await parsing_metadata(update, text)
     try:
@@ -179,4 +179,4 @@ async def processing_cme_prepaid(update, context):
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
 
 
-WebhookHandler = TypeHandler(WebhookNotification, webhook_update)
+YookassaHookHandler = TypeHandler(WebhookNotification, yookassa_hook_update)

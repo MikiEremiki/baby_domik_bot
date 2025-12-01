@@ -8,8 +8,10 @@ from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM
 from handlers import main_hl, reserve_hl
 from handlers.sub_hl import (
     update_admin_info, update_bd_price, update_cme_admin_info)
-from handlers.webhook_hl import WebhookHandler
-from handlers.gspredhook_hl import GspreadhookHandler
+from handlers.hooks import (
+    YookassaHookHandler,
+    GspreadHookHandler,
+)
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
 from conv_hl import (
@@ -129,8 +131,8 @@ def set_handlers(application, config):
         REPLY_IN_TOPIC_FROM_BOT,
         main_hl.feedback_reply_msg))
 
-    application.add_handler(WebhookHandler)
-    application.add_handler(GspreadhookHandler)
+    application.add_handler(YookassaHookHandler)
+    application.add_handler(GspreadHookHandler)
 
     application.add_error_handler(error_handler)
 
