@@ -93,7 +93,7 @@ services:
       - ./config/server.conf:/etc/nats/server.conf
     networks:
       - network
-    command: 'nats-server -c /etc/nats/server.conf'
+    command: -c /etc/nats/server.conf
 
   nats-cli:
     profiles: [ "nats-cli" ]
