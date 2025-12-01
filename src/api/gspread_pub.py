@@ -8,7 +8,7 @@ from settings.settings import nats_url
 gspread_pub_logger = logging.getLogger('bot.gspread_pub')
 
 
-async def _publish_message(message: dict[str, Any]):
+async def _publish_message(message: Dict[str, Any]):
     async with NatsBroker(nats_url) as broker:
         await broker.publish(message, subject='gspread', stream='baby_domik')
         gspread_pub_logger.info(f'Published gspread task: {message}')

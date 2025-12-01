@@ -8,13 +8,22 @@ from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM
 from handlers import main_hl, reserve_hl
 from handlers.sub_hl import (
     update_admin_info, update_bd_price, update_cme_admin_info)
-from handlers.webhook_hl import WebhookHandler
-from handlers.gspredhook_hl import GspreadhookHandler
+from handlers.hooks import (
+    YookassaHookHandler,
+    GspreadHookHandler,
+    SalesHookHandler,
+)
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
 from conv_hl import (
-    reserve_conv_hl, reserve_admin_conv_hl, list_wait_conv_hl, birthday_conv_hl,
-    afisha_conv_hl, support_conv_hl, migration_admin_conv_hl,
+    reserve_conv_hl,
+    reserve_admin_conv_hl,
+    list_wait_conv_hl,
+    birthday_conv_hl,
+    afisha_conv_hl,
+    support_conv_hl,
+    migration_admin_conv_hl,
+    sales_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
@@ -54,6 +63,7 @@ def set_handlers(application, config):
         afisha_conv_hl,
         support_conv_hl,
         migration_admin_conv_hl,
+        sales_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
@@ -124,8 +134,9 @@ def set_handlers(application, config):
         REPLY_IN_TOPIC_FROM_BOT,
         main_hl.feedback_reply_msg))
 
-    application.add_handler(WebhookHandler)
-    application.add_handler(GspreadhookHandler)
+    application.add_handler(YookassaHookHandler)
+    application.add_handler(GspreadHookHandler)
+    application.add_handler(SalesHookHandler)
 
     application.add_error_handler(error_handler)
 

@@ -199,9 +199,7 @@ async def write_data_reserve(
                 data.append({
                     'range': range_sheet,
                     'majorDimension': major_dimension,
-                    'values': [[
-                        numbers[0]
-                    ]]
+                    'values': [[numbers[0]]]
                 })
                 col = dict_column_name['qty_adult_free_seat'] + 1
                 range_sheet = (
@@ -209,9 +207,7 @@ async def write_data_reserve(
                 data.append({
                     'range': range_sheet,
                     'majorDimension': major_dimension,
-                    'values': [[
-                        numbers[1]
-                    ]]
+                    'values': [[numbers[1]]]
                 })
 
         await _write_data_to_batch_update(

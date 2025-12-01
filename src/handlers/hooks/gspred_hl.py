@@ -1,18 +1,18 @@
 import logging
-from typing import Dict
 
 from telegram.error import BadRequest
 from telegram.ext import TypeHandler, ContextTypes
 
+from api.broker_nats import GSpreadFailedData
 from settings.settings import CHAT_ID_MIKIEREMIKI
 
 gspredhook_hl_logger = logging.getLogger('bot.gspredhook')
 
 
-async def gspreadhook_update(
-        update: dict, context: 'ContextTypes.DEFAULT_TYPE'):
+async def gspread_hook_update(
+        update: GSpreadFailedData, context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Не удачная попытка записи в гугл-таблицу\nИнфа по задаче:\n'
-    for k, v in dict(update).items():
+    for k, v in update.data.items():
         text += f'{k}: {v}\n'
     try:
         await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
@@ -21,4 +21,4 @@ async def gspreadhook_update(
         gspredhook_hl_logger.info(text)
 
 
-GspreadhookHandler = TypeHandler(Dict, gspreadhook_update)
+GspreadHookHandler = TypeHandler(GSpreadFailedData, gspread_hook_update)

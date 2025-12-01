@@ -8,6 +8,7 @@ from utilities.utl_kbd import add_btn_back_and_cancel
 commands = [
                 COMMAND_DICT['RESERVE'][0],
                 COMMAND_DICT['STUDIO'][0],
+                COMMAND_DICT['SALES'][0],
                 COMMAND_DICT['RESERVE_ADMIN'][0],
                 COMMAND_DICT['STUDIO_ADMIN'][0],
                 COMMAND_DICT['MIGRATION_ADMIN'][0],

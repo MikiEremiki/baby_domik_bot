@@ -137,6 +137,25 @@ services:
       - ./config/settings.py:/app/src/settings/settings.py
     command: faststream run api.gspread_worker:fast_stream
 
+  sales_worker:
+    profiles: [ "all", "sales" ]
+    container_name: sales_worker
+    build:
+      context: .
+      dockerfile: Dockerfile-sales
+    image: mikieremiki/baby_domik_sales_worker
+    restart: unless-stopped
+    networks:
+      - network
+    depends_on:
+      - nats
+    environment:
+      CONFIG_PATH: '/app/config/'
+    volumes:
+      - ./config:/app/config:ro
+      - ./config/settings.py:/app/src/settings/settings.py
+    command: faststream run api.sales_worker:fast_stream
+
   nginx:
     profiles: [ "all", "nginx", "api" ]
     container_name: nginx

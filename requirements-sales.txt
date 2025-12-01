@@ -1,0 +1,8 @@
+pydantic_settings
+psycopg
+psycopg-binary
+python-telegram-bot[ext]
+PyYAML
+sqlalchemy
+faststream[cli]
+nats-py
