@@ -2,3 +2,4 @@ uvicorn
 fastapi
 faststream
 nats-py
+pydantic
