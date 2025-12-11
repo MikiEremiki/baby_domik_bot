@@ -64,14 +64,14 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     Возвращает состояние MODE.
     """
     query = update.callback_query
-    if not (context.user_data.get('command', False) and query):
+    if query:
+        await query.answer()
+        await query.delete_message()
+    if not context.user_data.get('command', False):
         await init_conv_hl_dialog(update, context)
         await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
-        if context.user_data.get('command', False) and query:
-            await query.answer()
-            await query.delete_message()
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
             context.user_data['conv_hl_run'] = False
@@ -108,9 +108,6 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     state = 'MODE'
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    if context.user_data.get('command', False) and query:
-        await query.answer()
-        await query.delete_message()
     return state
 
 
@@ -271,11 +268,6 @@ async def choice_show_by_repertoire(update: Update,
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
 
-    if query:
-        try:
-            await query.delete_message()
-        except BadRequest as e:
-            reserve_hl_logger.error(e)
     return state
 
 
@@ -287,9 +279,15 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     :return: возвращает state MONTH
     """
     query = update.callback_query
-    if not (context.user_data.get('command', False) and query):
-        await init_conv_hl_dialog(update, context)
-        await check_user_db(update, context)
+    if query:
+        try:
+            await query.answer()
+            await query.delete_message()
+        except BadRequest as e:
+            reserve_hl_logger.error(e)
+        if not context.user_data.get('command', False):
+            await init_conv_hl_dialog(update, context)
+            await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
         if context.user_data.get('command', False) and query:
