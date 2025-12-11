@@ -109,7 +109,7 @@ services:
     container_name: fastapi
     build:
       context: .
-      dockerfile: Dockerfile-server
+      dockerfile: Dockerfile-fastapi
     image: mikieremiki/baby_domik_fastapi
     restart: unless-stopped
     networks:

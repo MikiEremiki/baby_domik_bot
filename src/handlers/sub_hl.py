@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import List, Union, Optional
 
+from requests import ConnectTimeout
 from telegram import (
     Update,
     InlineKeyboardMarkup, InlineKeyboardButton,
@@ -27,6 +28,7 @@ from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
+    clean_context_on_end_handler,
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
@@ -375,6 +377,15 @@ async def create_and_send_payment(
             context.user_data['STATE'] = state
             return state
         raise ValueError('Проблема с созданием платежа')
+    except ConnectTimeout as e:
+        sub_hl_logger.error(f'ConnectTimeout error: {e}')
+        await update.effective_chat.send_message(
+            f'Проблема с соединением. Напишите об этом в бота или напрямую '
+            f'администратору. Мы свяжемся с вами для индивидуального оформления брони.'
+        )
+        context.user_data['conv_hl_run'] = False
+        await clean_context_on_end_handler(sub_hl_logger, context)
+        return ConversationHandler.END
 
     await db_postgres.update_ticket(
         context.session,

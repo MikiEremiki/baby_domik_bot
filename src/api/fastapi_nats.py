@@ -1,15 +1,28 @@
 import asyncio
-from dataclasses import dataclass
+import logging
+from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Response
-from faststream.nats.fastapi import NatsRouter, Logger, NatsBroker
+from fastapi import FastAPI, Response, APIRouter
+from faststream.nats.fastapi import NatsBroker
+from pydantic import BaseModel
 
-router = NatsRouter('nats://nats:4222')
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("api")
+
+broker = NatsBroker('nats://nats:4222')
+router = APIRouter()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 3. Ручное управление подключением при старте приложения
+    await broker.connect()
+    yield
+    # Отключение при остановке
+    await broker.close()
 
 
-@dataclass
-class WebhookNotification:
+class WebhookNotification(BaseModel):
     type: str
     event: str
     object: dict
@@ -21,17 +34,13 @@ async def hello_http():
 
 
 @router.post("/yookassa")
-async def post_notification(
-        message: WebhookNotification,
-        logger: Logger,
-        broker: NatsBroker
-):
+async def post_notification(message: WebhookNotification):
     logger.info(message)
     await broker.publish(message, subject='yookassa', stream="baby_domik")
     return Response(status_code=200)
 
 
-app = FastAPI(lifespan=router.lifespan_context)
+app = FastAPI(lifespan=lifespan)
 app.include_router(router, tags=["main requests"])
 
 

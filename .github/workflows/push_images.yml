@@ -33,7 +33,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile-server
+          file: Dockerfile-fastapi
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_fastapi:latest
       -
