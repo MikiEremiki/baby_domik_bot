@@ -330,7 +330,6 @@ async def create_and_send_payment(
                 '\nПриносим извинения за предоставленные неудобства.'
                 '\nПовторите бронирование еще раз /reserve')
         await cancel_ticket_db_when_end_handler(update, context, text)
-        context.user_data['conv_hl_run'] = False
         return ConversationHandler.END
     else:
         reserve_user_data['changed_seat'] = True
@@ -383,7 +382,6 @@ async def create_and_send_payment(
             f'Проблема с соединением. Напишите об этом в бота или напрямую '
             f'администратору. Мы свяжемся с вами для индивидуального оформления брони.'
         )
-        context.user_data['conv_hl_run'] = False
         await clean_context_on_end_handler(sub_hl_logger, context)
         return ConversationHandler.END
 

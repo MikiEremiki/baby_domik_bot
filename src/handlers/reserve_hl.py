@@ -74,7 +74,6 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if update.effective_message.is_topic_message:
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
-            context.user_data['conv_hl_run'] = False
             return ConversationHandler.END
 
     command = context.user_data['command']
@@ -295,7 +294,6 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await query.delete_message()
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
-            context.user_data['conv_hl_run'] = False
             return ConversationHandler.END
 
     command = context.user_data['command']
@@ -1381,7 +1379,6 @@ async def get_children(
             except TimedOut as e:
                 reserve_hl_logger.error(e)
                 reserve_hl_logger.info(text)
-            context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
 
@@ -1394,7 +1391,6 @@ async def get_children(
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
-        context.user_data['conv_hl_run'] = False
     else:
         state = await create_and_send_payment(update, context)
         if state is None:
@@ -1510,7 +1506,6 @@ async def forward_photo_or_file(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -1522,7 +1517,6 @@ async def processing_successful_notification(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -1573,7 +1567,6 @@ async def conversation_timeout(
     await cancel_tickets_db_and_gspread(update, context)
 
     await clean_context(context)
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -1629,7 +1622,6 @@ async def send_clients_data(
         await query.answer()
     except NetworkError as e:
         reserve_hl_logger.error(e)
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -1737,7 +1729,6 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
         state = ConversationHandler.END
         context.user_data['STATE'] = state
-        context.user_data['conv_hl_run'] = False
         return state
 
     if state == 'PHONE':
@@ -1854,7 +1845,6 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             except TimedOut as e:
                 reserve_hl_logger.error(e)
                 reserve_hl_logger.info(text)
-            context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
 
@@ -1867,7 +1857,6 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
-        context.user_data['conv_hl_run'] = False
     else:
         state = await create_and_send_payment(update, context)
         if state is None:
@@ -1931,7 +1920,6 @@ async def get_phone_for_waiting(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 

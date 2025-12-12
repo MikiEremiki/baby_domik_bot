@@ -61,7 +61,6 @@ for key in states.keys():
     states[key].insert(0, cancel_callback_handler)
     if key != 'PLACE':
         states[key].insert(1, back_callback_handler)
-states[ConversationHandler.TIMEOUT] = [birthday_hl.TIMEOUT_HANDLER]
 
 birthday_conv_hl = ConversationHandler(
     entry_points=[
@@ -70,7 +69,6 @@ birthday_conv_hl = ConversationHandler(
     ],
     states=states,
     fallbacks=common_fallbacks,
-    conversation_timeout=30 * 60,  # 30 мин
     name='bd_order',
     persistent=True,
     allow_reentry=True
@@ -89,10 +87,8 @@ birthday_paid_conv_hl = ConversationHandler(
                 birthday_hl.forward_photo_or_file
             ),
         ],
-        ConversationHandler.TIMEOUT: [birthday_hl.TIMEOUT_HANDLER]
     },
     fallbacks=common_fallbacks,
-    # conversation_timeout=30 * 60,  # 30 мин
     name='bd_paid',
     persistent=True,
     allow_reentry=True

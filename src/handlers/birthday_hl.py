@@ -752,12 +752,10 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     await query.answer()
-    context.user_data['conv_hl_run'] = False
     return state
 
 
 async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    context.user_data['conv_hl_run'] = True
     state = 'START'
     context.user_data['STATE'] = state
 
@@ -866,7 +864,6 @@ async def forward_photo_or_file(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -903,7 +900,6 @@ async def conversation_timeout(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
     context.user_data['birthday_user_data'].clear()
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 

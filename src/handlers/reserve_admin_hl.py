@@ -206,7 +206,6 @@ async def start_forma_info(
                     '\nСтатус билета возвращен обратно.'
                     '\nНеобходимо повторить перенос заново.')
                 await query.edit_message_text(text)
-                context.user_data['conv_hl_run'] = False
                 await clean_context_on_end_handler(
                     reserve_admin_hl_logger, context)
                 return ConversationHandler.END
@@ -278,7 +277,6 @@ async def start_forma_info(
                      '\nСтарый билет будет учтен, что уже перенесен.'
                      '\nНеобходимо повторить перенос заново')
             await query.edit_message_text(text)
-            context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_admin_hl_logger, context)
             return ConversationHandler.END
         else:
@@ -292,7 +290,6 @@ async def start_forma_info(
         await query.edit_message_text(text)
 
         state = ConversationHandler.END
-        context.user_data['conv_hl_run'] = False
     else:
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
