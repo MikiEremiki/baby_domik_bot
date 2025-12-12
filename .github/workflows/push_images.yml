@@ -49,6 +49,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile-gspread
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_gspread_worker:latest
       -
@@ -56,5 +57,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile-sales
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_sales_worker:latest
