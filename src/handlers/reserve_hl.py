@@ -255,11 +255,7 @@ async def choice_show_by_repertoire(update: Update,
     )
 
     # Отправляем текст со списком спектаклей
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id,
-    )
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     # Сохраняем IDs всех событий, чтобы следующий шаг отобрал нужные по спектаклю
     schedule_event_ids = [item.id for item in schedule_events]
