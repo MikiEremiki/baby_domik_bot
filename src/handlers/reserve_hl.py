@@ -289,9 +289,6 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
-        if context.user_data.get('command', False) and query:
-            await query.answer()
-            await query.delete_message()
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
             return ConversationHandler.END
