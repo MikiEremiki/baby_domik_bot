@@ -284,9 +284,9 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await query.delete_message()
         except BadRequest as e:
             reserve_hl_logger.error(e)
-        if not context.user_data.get('command', False):
-            await init_conv_hl_dialog(update, context)
-            await check_user_db(update, context)
+    if not context.user_data.get('command', False):
+        await init_conv_hl_dialog(update, context)
+        await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
         is_correct_topic = await check_topic(update, context)
