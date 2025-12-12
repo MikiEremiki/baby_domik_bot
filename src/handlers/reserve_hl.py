@@ -38,7 +38,8 @@ from utilities.utl_func import (
     filter_schedule_event_by_active, get_unique_months,
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
-    get_schedule_event_ids_studio, clean_context_on_end_handler, get_emoji
+    get_schedule_event_ids_studio, clean_context_on_end_handler, get_emoji,
+    extract_command
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_ticket import (
@@ -67,7 +68,9 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if query:
         await query.answer()
         await query.delete_message()
-    if not context.user_data.get('command', False):
+    command = extract_command(update.effective_message.text)
+    save_command = context.user_data.get('command', False)
+    if not save_command or save_command != command:
         await init_conv_hl_dialog(update, context)
 
     if update.effective_message.is_topic_message:
@@ -283,7 +286,9 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await query.delete_message()
         except BadRequest as e:
             reserve_hl_logger.error(e)
-    if not context.user_data.get('command', False):
+    command = extract_command(update.effective_message.text)
+    save_command = context.user_data.get('command', False)
+    if not save_command or save_command != command:
         await init_conv_hl_dialog(update, context)
 
     if update.effective_message.is_topic_message:
@@ -559,7 +564,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Если репертуар и не лист ожидания — объединяем дату и время в один шаг
     if select_mode == 'REPERTOIRE' and context.user_data.get(
-            'command') != 'list_wait':
+            'command') not in ['list_wait', 'list']:
         # Кнопки: все показы выбранного спектакля (ДАТА ВРЕМЯ + флаги)
         schedule_events_sorted = sorted(schedule_events,
                                         key=lambda e: e.datetime_event)
