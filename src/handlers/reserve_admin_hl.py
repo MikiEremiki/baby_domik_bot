@@ -10,7 +10,7 @@ from db import db_postgres
 from db.enum import TicketStatus
 from db.db_googlesheets import increase_free_seat, decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
-from handlers import init_conv_hl_dialog, check_user_db
+from handlers import init_conv_hl_dialog
 from handlers.sub_hl import processing_successful_payment
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_func import (
@@ -32,7 +32,6 @@ async def event_selection_option(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await init_conv_hl_dialog(update, context)
-    await check_user_db(update, context)
 
     command = context.user_data['command']
     postfix_for_cancel = command

@@ -13,7 +13,7 @@ from telegram import (
 from telegram.constants import ChatAction
 
 from db import db_postgres
-from handlers import init_conv_hl_dialog, check_user_db
+from handlers import init_conv_hl_dialog
 from handlers.sub_hl import request_phone_number, send_message_to_admin
 from api.googlesheets import write_client_cme
 from settings.settings import (
@@ -46,7 +46,6 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     :return: возвращает state PLACE
     """
     await init_conv_hl_dialog(update, context)
-    await check_user_db(update, context)
 
     birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
                             f' {update.message.from_user}')

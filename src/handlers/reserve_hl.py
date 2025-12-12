@@ -16,7 +16,7 @@ from db import db_postgres, BaseTicket
 from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from db.enum import TicketStatus
-from handlers import init_conv_hl_dialog, check_user_db
+from handlers import init_conv_hl_dialog
 from handlers.email_hl import check_email_and_update_user
 from handlers.sub_hl import (
     request_phone_number,
@@ -69,7 +69,6 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await query.delete_message()
     if not context.user_data.get('command', False):
         await init_conv_hl_dialog(update, context)
-        await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
         is_correct_topic = await check_topic(update, context)
@@ -286,7 +285,6 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             reserve_hl_logger.error(e)
     if not context.user_data.get('command', False):
         await init_conv_hl_dialog(update, context)
-        await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
         is_correct_topic = await check_topic(update, context)

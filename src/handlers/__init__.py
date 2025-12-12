@@ -7,8 +7,8 @@ from utilities import clean_context, extract_command
 
 
 async def init_conv_hl_dialog(update, context: 'ContextTypes.DEFAULT_TYPE'):
+    await check_user_db(update, context)
     await clean_context(context)
-    context.user_data['conv_hl_run'] = True
     state = 'START'
     context.user_data['STATE'] = state
     command = extract_command(update.effective_message.text)
@@ -31,7 +31,7 @@ async def init_conv_hl_dialog(update, context: 'ContextTypes.DEFAULT_TYPE'):
     return state
 
 
-async def check_user_db(update, context):
+async def check_user_db(update, context: 'ContextTypes.DEFAULT_TYPE'):
     logger = logging.getLogger(__name__)
     res = await db_postgres.get_user(context.session, update.effective_user.id)
     if not res:
