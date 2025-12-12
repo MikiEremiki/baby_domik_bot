@@ -16,7 +16,7 @@ from db import db_postgres, BaseTicket
 from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from db.enum import TicketStatus
-from handlers import init_conv_hl_dialog, check_user_db
+from handlers import init_conv_hl_dialog
 from handlers.email_hl import check_email_and_update_user
 from handlers.sub_hl import (
     request_phone_number,
@@ -38,7 +38,8 @@ from utilities.utl_func import (
     filter_schedule_event_by_active, get_unique_months,
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
-    get_schedule_event_ids_studio, clean_context_on_end_handler, get_emoji
+    get_schedule_event_ids_studio, clean_context_on_end_handler, get_emoji,
+    extract_command
 )
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_ticket import (
@@ -67,14 +68,14 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if query:
         await query.answer()
         await query.delete_message()
-    if not context.user_data.get('command', False):
+    command = extract_command(update.effective_message.text)
+    save_command = context.user_data.get('command', False)
+    if not save_command or save_command != command:
         await init_conv_hl_dialog(update, context)
-        await check_user_db(update, context)
 
     if update.effective_message.is_topic_message:
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
-            context.user_data['conv_hl_run'] = False
             return ConversationHandler.END
 
     command = context.user_data['command']
@@ -285,17 +286,14 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await query.delete_message()
         except BadRequest as e:
             reserve_hl_logger.error(e)
-        if not context.user_data.get('command', False):
-            await init_conv_hl_dialog(update, context)
-            await check_user_db(update, context)
+    command = extract_command(update.effective_message.text)
+    save_command = context.user_data.get('command', False)
+    if not save_command or save_command != command:
+        await init_conv_hl_dialog(update, context)
 
     if update.effective_message.is_topic_message:
-        if context.user_data.get('command', False) and query:
-            await query.answer()
-            await query.delete_message()
         is_correct_topic = await check_topic(update, context)
         if not is_correct_topic:
-            context.user_data['conv_hl_run'] = False
             return ConversationHandler.END
 
     command = context.user_data['command']
@@ -566,7 +564,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Если репертуар и не лист ожидания — объединяем дату и время в один шаг
     if select_mode == 'REPERTOIRE' and context.user_data.get(
-            'command') != 'list_wait':
+            'command') not in ['list_wait', 'list']:
         # Кнопки: все показы выбранного спектакля (ДАТА ВРЕМЯ + флаги)
         schedule_events_sorted = sorted(schedule_events,
                                         key=lambda e: e.datetime_event)
@@ -1381,7 +1379,6 @@ async def get_children(
             except TimedOut as e:
                 reserve_hl_logger.error(e)
                 reserve_hl_logger.info(text)
-            context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
 
@@ -1394,7 +1391,6 @@ async def get_children(
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
-        context.user_data['conv_hl_run'] = False
     else:
         state = await create_and_send_payment(update, context)
         if state is None:
@@ -1510,7 +1506,6 @@ async def forward_photo_or_file(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -1522,7 +1517,6 @@ async def processing_successful_notification(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -1573,7 +1567,6 @@ async def conversation_timeout(
     await cancel_tickets_db_and_gspread(update, context)
 
     await clean_context(context)
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -1629,7 +1622,6 @@ async def send_clients_data(
         await query.answer()
     except NetworkError as e:
         reserve_hl_logger.error(e)
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -1737,7 +1729,6 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
         state = ConversationHandler.END
         context.user_data['STATE'] = state
-        context.user_data['conv_hl_run'] = False
         return state
 
     if state == 'PHONE':
@@ -1854,7 +1845,6 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             except TimedOut as e:
                 reserve_hl_logger.error(e)
                 reserve_hl_logger.info(text)
-            context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_hl_logger, context)
             return ConversationHandler.END
 
@@ -1867,7 +1857,6 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await processing_successful_payment(update, context)
 
         state = ConversationHandler.END
-        context.user_data['conv_hl_run'] = False
     else:
         state = await create_and_send_payment(update, context)
         if state is None:
@@ -1931,7 +1920,6 @@ async def get_phone_for_waiting(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 

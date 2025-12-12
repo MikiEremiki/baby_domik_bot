@@ -13,7 +13,7 @@ from conv_hl import (
     F_text_and_no_command, cancel_callback_handler, back_callback_handler,
     common_fallbacks
 )
-from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
+from settings.settings import COMMAND_DICT
 
 states = {
     1: [
@@ -59,7 +59,6 @@ states = {
         MessageHandler(F_text_and_no_command, support_hl.schedule_event_check),
         CallbackQueryHandler(support_hl.schedule_event_create, '^accept$'),
     ],
-    ConversationHandler.TIMEOUT: [support_hl.TIMEOUT_HANDLER]
 }
 
 
@@ -71,7 +70,6 @@ support_conv_hl = ConversationHandler(
     ],
     states=states,
     fallbacks=common_fallbacks,
-    # conversation_timeout=RESERVE_TIMEOUT * 60,
     name='support',
     persistent=True,
     allow_reentry=True

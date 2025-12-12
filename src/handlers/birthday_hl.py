@@ -13,7 +13,7 @@ from telegram import (
 from telegram.constants import ChatAction
 
 from db import db_postgres
-from handlers import init_conv_hl_dialog, check_user_db
+from handlers import init_conv_hl_dialog
 from handlers.sub_hl import request_phone_number, send_message_to_admin
 from api.googlesheets import write_client_cme
 from settings.settings import (
@@ -46,7 +46,6 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     :return: возвращает state PLACE
     """
     await init_conv_hl_dialog(update, context)
-    await check_user_db(update, context)
 
     birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
                             f' {update.message.from_user}')
@@ -752,12 +751,10 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     await query.answer()
-    context.user_data['conv_hl_run'] = False
     return state
 
 
 async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    context.user_data['conv_hl_run'] = True
     state = 'START'
     context.user_data['STATE'] = state
 
@@ -866,7 +863,6 @@ async def forward_photo_or_file(
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -903,7 +899,6 @@ async def conversation_timeout(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
     context.user_data['birthday_user_data'].clear()
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 

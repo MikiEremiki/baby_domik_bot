@@ -390,7 +390,6 @@ async def conversation_timeout(
             f'AFK уже {RESERVE_TIMEOUT} мин'
         ]
     ))
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 

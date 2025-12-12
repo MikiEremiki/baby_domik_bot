@@ -28,7 +28,6 @@ from conv_hl import (
 from middleware import (
     add_glob_on_off_middleware,
     add_db_handlers_middleware,
-    add_check_run_conv_hl_middleware
 )
 from utilities.utl_func import (
     echo, send_log, send_postgres_log,
@@ -44,7 +43,6 @@ set_handlers_logger = logging.getLogger('bot.set_handlers')
 def set_handlers(application, config):
     add_db_handlers_middleware(application, config)
     add_glob_on_off_middleware(application, config)
-    add_check_run_conv_hl_middleware(application)
 
     application.add_handlers([
         CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-reserve'),

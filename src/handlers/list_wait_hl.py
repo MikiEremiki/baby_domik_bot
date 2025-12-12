@@ -65,5 +65,4 @@ async def send_clients_wait_data(
         await query.edit_message_text(text)
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state

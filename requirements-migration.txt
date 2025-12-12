@@ -3,8 +3,7 @@ black
 psycopg
 psycopg-binary
 sqlalchemy
-python-telegram-bot[ext]~=20.8
-pydantic
+python-telegram-bot[ext]
 pydantic_core
 pydantic-settings
 PyYAML

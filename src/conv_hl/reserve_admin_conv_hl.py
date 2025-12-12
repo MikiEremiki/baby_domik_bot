@@ -36,8 +36,6 @@ for key in handlers_event_selection.keys():
 for key in handlers_client_data_selection.keys():
     states[key] = handlers_client_data_selection[key]
 
-states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
-
 reserve_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE_ADMIN'][0],
@@ -46,7 +44,6 @@ reserve_admin_conv_hl = ConversationHandler(
     ],
     states=states,
     fallbacks=common_fallbacks,
-    # conversation_timeout=RESERVE_TIMEOUT * 60,
     name='reserve_admin',
     persistent=True,
     allow_reentry=True

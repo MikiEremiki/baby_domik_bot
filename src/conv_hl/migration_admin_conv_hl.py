@@ -9,7 +9,7 @@ from conv_hl import (
     cancel_callback_handler, back_callback_handler,
     F_text_and_no_command, common_fallbacks
 )
-from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
+from settings.settings import COMMAND_DICT
 
 states = {
     0: [
@@ -44,8 +44,6 @@ for key in handlers_event_selection.keys():
 for key in handlers_client_data_selection.keys():
     states[key] = handlers_client_data_selection[key]
 
-states[ConversationHandler.TIMEOUT] = [reserve_hl.TIMEOUT_HANDLER]
-
 migration_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['MIGRATION_ADMIN'][0],
@@ -54,7 +52,6 @@ migration_admin_conv_hl = ConversationHandler(
     ],
     states=states,
     fallbacks=common_fallbacks,
-    # conversation_timeout=RESERVE_TIMEOUT * 60,
     name='migration_admin',
     persistent=True,
     allow_reentry=True

@@ -66,7 +66,6 @@ async def start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             url='https://t.me/theater_domik')
     )
 
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -1112,7 +1111,6 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
     await clean_context_on_end_handler(main_handlers_logger, context)
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -1128,7 +1126,6 @@ async def reset(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> int:
     )
     await cancel_tickets_db_and_gspread(update, context)
     await clean_context_on_end_handler(main_handlers_logger, context)
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 
@@ -1147,7 +1144,6 @@ async def help_command(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     )
     await cancel_tickets_db_and_gspread(update, context)
     await clean_context_on_end_handler(main_handlers_logger, context)
-    context.user_data['conv_hl_run'] = False
     return ConversationHandler.END
 
 

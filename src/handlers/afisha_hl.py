@@ -11,7 +11,6 @@ afisha_hl_logger = logging.getLogger('bot.afisha_hl')
 
 
 async def load_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    context.user_data['conv_hl_run'] = True
     afisha_hl_logger.info(f'Пользователь загружает афишу:'
                           f' {update.message.from_user}')
 
@@ -78,7 +77,6 @@ async def skip(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     state = ConversationHandler.END
     context.user_data['STATE'] = state
     await query.answer()
-    context.user_data['conv_hl_run'] = False
     return state
 
 
@@ -114,5 +112,4 @@ async def check(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
-    context.user_data['conv_hl_run'] = False
     return state

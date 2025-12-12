@@ -10,7 +10,7 @@ from db import db_postgres
 from db.enum import TicketStatus
 from db.db_googlesheets import increase_free_seat, decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
-from handlers import init_conv_hl_dialog, check_user_db
+from handlers import init_conv_hl_dialog
 from handlers.sub_hl import processing_successful_payment
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_func import (
@@ -32,7 +32,6 @@ async def event_selection_option(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     await init_conv_hl_dialog(update, context)
-    await check_user_db(update, context)
 
     command = context.user_data['command']
     postfix_for_cancel = command
@@ -206,7 +205,6 @@ async def start_forma_info(
                     '\nСтатус билета возвращен обратно.'
                     '\nНеобходимо повторить перенос заново.')
                 await query.edit_message_text(text)
-                context.user_data['conv_hl_run'] = False
                 await clean_context_on_end_handler(
                     reserve_admin_hl_logger, context)
                 return ConversationHandler.END
@@ -278,7 +276,6 @@ async def start_forma_info(
                      '\nСтарый билет будет учтен, что уже перенесен.'
                      '\nНеобходимо повторить перенос заново')
             await query.edit_message_text(text)
-            context.user_data['conv_hl_run'] = False
             await clean_context_on_end_handler(reserve_admin_hl_logger, context)
             return ConversationHandler.END
         else:
@@ -292,7 +289,6 @@ async def start_forma_info(
         await query.edit_message_text(text)
 
         state = ConversationHandler.END
-        context.user_data['conv_hl_run'] = False
     else:
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
