@@ -283,8 +283,7 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except BadRequest as e:
             reserve_hl_logger.error(e)
     command = extract_command(update.effective_message.text)
-    save_command = context.user_data.get('command', False)
-    if not save_command or save_command != command:
+    if command == 'list_wait':
         await init_conv_hl_dialog(update, context)
 
     if update.effective_message.is_topic_message:
