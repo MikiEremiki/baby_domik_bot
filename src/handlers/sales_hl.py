@@ -178,7 +178,7 @@ async def show_build_audience(update: Update,
     if not theater_ids:
         # fallback to main selected theater
         theater_ids = [int(sales_state['theater_event_id'])]
-    campaign_id = sales_state.get('campaign_id')
+    campaign_id = await _ensure_campaign_and_schedules(update, context)
 
     # Take a snapshot from DB
     rows = await _select_audience_rows(session, theater_ids)
@@ -516,9 +516,6 @@ async def pick_scope(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = (await session.execute(stmt)).mappings().all()
     schedule_ids = [r['id'] for r in rows]
     context.user_data['sales']['schedule_ids'] = schedule_ids
-
-    # Ensure a campaign exists and persist schedules
-    await _ensure_campaign_and_schedules(update, context)
 
     # Proceed to choose theater(s) for audience filter
     return await show_pick_audience_theater(update, context)
