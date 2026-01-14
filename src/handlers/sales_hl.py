@@ -178,7 +178,7 @@ async def show_build_audience(update: Update,
     if not theater_ids:
         # fallback to main selected theater
         theater_ids = [int(sales_state['theater_event_id'])]
-    campaign_id = await _ensure_campaign_and_schedules(update, context)
+    campaign_id = sales_state.get('campaign_id')
 
     # Take a snapshot from DB
     rows = await _select_audience_rows(session, theater_ids)
@@ -1003,18 +1003,19 @@ async def handle_admin_message(update: Update,
     return await show_preview(update, context)
 
 
-async def _format_availability_block(session, schedule_ids: List[int]) -> str:
+async def _availability_block(session, schedule_ids: List[int]) -> str:
     if not schedule_ids:
         return 'Внимание: не выбраны сеансы.'
     free = await get_free_places(session, schedule_ids)
     if not free:
         return 'Кол-во свободных мест: нет данных.'
-    # need datetime
+
     rows = (await session.execute(
         sa.select(ScheduleEvent.id, ScheduleEvent.datetime_event)
         .where(ScheduleEvent.id.in_(list(map(int, schedule_ids))))
         .order_by(ScheduleEvent.datetime_event)
     )).all()
+
     lines = ['Кол-во свободных мест:', '⬇️Дата Время — Детских | Взрослых⬇️']
     for sid, dt in rows:
         dt_local = dt.astimezone(TZ)
@@ -1039,14 +1040,13 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     campaign: SalesCampaign = await session.get(SalesCampaign, campaign_id)
     schedule_ids: List[int] = context.user_data['sales'].get('schedule_ids', [])
 
-    theater_event_id = sales_state['theater_event_id']
     theater_event = await db_postgres.get_theater_event(
-        session, theater_event_id)
+        session, campaign.theater_event_id)
 
     full_name = get_full_name_event(theater_event)
 
     # Availability block
-    availability_block = await _format_availability_block(session, schedule_ids)
+    availability_block = await _availability_block(session, schedule_ids)
 
     # Recipients' count
     pending_cnt = (await session.execute(

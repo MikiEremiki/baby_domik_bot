@@ -11,3 +11,4 @@ RUN --mount=type=bind,source=requirements-sales.txt,target=requirements-sales.tx
 COPY /src/api ./api
 COPY /src/db ./db
 COPY /src/settings ./settings
+COPY /src/utilities ./utilities
