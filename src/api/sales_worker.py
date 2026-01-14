@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Tuple
 
+import pytz
 import sqlalchemy as sa
 from faststream import FastStream, Depends, Logger
 from faststream.nats import JStream, NatsBroker, PullSub, NatsMessage
@@ -11,16 +12,14 @@ from telegram import Bot, MessageEntity
 from telegram.error import Forbidden, RetryAfter, BadRequest, TimedOut, \
     NetworkError
 
-from db import create_sessionmaker_and_engine
-from db.models import (
-    SalesCampaign, SalesCampaignSchedule, SalesRecipient, ScheduleEvent,
-)
+from db import create_sessionmaker_and_engine, db_postgres
+from db.models import SalesCampaign, SalesCampaignSchedule, ScheduleEvent
 from db.sales_crud import (
     iter_recipients_for_send, mark_recipient_status, get_free_places,
 )
 from settings.config_loader import parse_settings
-from settings.settings import URL_BOT, DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, \
-    nats_url
+from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, nats_url
+from utilities.utl_func import get_full_name_event
 
 sales_worker_logger = logging.getLogger('bot.sales_worker')
 
@@ -33,6 +32,7 @@ stream = JStream(name='baby_domik', max_msgs=100, max_age=60 * 60 * 24 * 7,
 MSG_PROCESSING_TIME = 300  # allow long processing
 BATCH_SIZE = 30
 RATE_DELAY = 0.1  # seconds, ~10 msg/sec
+TZ = pytz.timezone('Europe/Moscow')
 
 _bot: Bot | None = None
 
@@ -44,22 +44,19 @@ def _get_bot() -> Bot:
     return _bot
 
 
-async def _availability_block(session: AsyncSession, campaign_id: int) -> Tuple[
-    str, List[int]]:
-    # Get schedules for campaign
+async def _availability_block(session: AsyncSession, campaign_id: int) -> str:
     rows = (await session.execute(
         sa.select(SalesCampaignSchedule.schedule_event_id)
         .where(SalesCampaignSchedule.campaign_id == campaign_id)
     )).all()
     schedule_ids = [r[0] for r in rows]
     if not schedule_ids:
-        return 'Внимание: не выбраны сеансы.', []
+        return 'Внимание: не выбраны сеансы.'
 
     free = await get_free_places(session, schedule_ids)
     if not free:
-        return 'Кол-во свободных мест: нет данных.', schedule_ids
+        return 'Кол-во свободных мест: нет данных.'
 
-    # Need datetimes for ordering
     info = (await session.execute(
         sa.select(ScheduleEvent.id, ScheduleEvent.datetime_event)
         .where(ScheduleEvent.id.in_(list(map(int, schedule_ids))))
@@ -68,13 +65,14 @@ async def _availability_block(session: AsyncSession, campaign_id: int) -> Tuple[
 
     lines = ['Кол-во свободных мест:', '⬇️Дата Время — Детских | Взрослых⬇️']
     for sid, dt in info:
-        weekday = int(dt.strftime('%w'))
-        date_txt = dt.strftime('%d.%m ')
-        time_txt = dt.strftime('%H:%M')
+        dt_local = dt.astimezone(TZ)
+        weekday = int(dt_local.strftime('%w'))
+        date_txt = dt_local.strftime('%d.%m ')
+        time_txt = dt_local.strftime('%H:%M')
         fc, fa = free.get(int(sid), (0, 0))
         lines.append(
             f"{date_txt}({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]}) {time_txt} — {fc} дет | {fa} взр")
-    return '\n'.join(lines), schedule_ids
+    return '\n'.join(lines)
 
 
 def _deserialize_entities(raw) -> List[MessageEntity]:
@@ -84,13 +82,22 @@ def _deserialize_entities(raw) -> List[MessageEntity]:
         return []
 
 
-async def _send_to_chat(bot: Bot, campaign: SalesCampaign, chat_id: int,
-                        availability_block: str, reserve_text: str) -> None:
+async def _send_to_chat(
+        bot: Bot,
+        campaign: SalesCampaign,
+        chat_id: int,
+        full_name: str,
+        availability_block: str,
+        reserve_text: str
+) -> None:
     kind = campaign.message_kind
     if kind == 'text':
-        base_text = campaign.message_text or ''
-        # Append availability and a plain DeepLink URL (auto-linkified).
-        text = base_text + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        text = (campaign.message_text or '')
+        print(text)
+        text += '\n\n' + full_name
+        print(text)
+        text += '\n\n' + availability_block + f"\n\n{reserve_text}"
+        print(text)
         await bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -98,8 +105,9 @@ async def _send_to_chat(bot: Bot, campaign: SalesCampaign, chat_id: int,
             disable_web_page_preview=True
         )
     elif kind == 'photo' and campaign.photo_file_id:
-        base_caption = campaign.caption_text or ''
-        caption = base_caption + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption = (campaign.caption_text or '')
+        caption += '\n\n' + full_name
+        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await bot.send_photo(
             chat_id=chat_id,
             photo=campaign.photo_file_id,
@@ -108,8 +116,9 @@ async def _send_to_chat(bot: Bot, campaign: SalesCampaign, chat_id: int,
             parse_mode='HTML'
         )
     elif kind == 'video' and campaign.video_file_id:
-        base_caption = campaign.caption_text or ''
-        caption = base_caption + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption = (campaign.caption_text or '')
+        caption += '\n\n' + full_name
+        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await bot.send_video(
             chat_id=chat_id,
             video=campaign.video_file_id,
@@ -118,8 +127,9 @@ async def _send_to_chat(bot: Bot, campaign: SalesCampaign, chat_id: int,
             parse_mode='HTML'
         )
     elif kind == 'animation' and campaign.animation_file_id:
-        base_caption = campaign.caption_text or ''
-        caption = base_caption + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption = (campaign.caption_text or '')
+        caption += '\n\n' + full_name
+        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await bot.send_animation(
             chat_id=chat_id,
             animation=campaign.animation_file_id,
@@ -129,8 +139,9 @@ async def _send_to_chat(bot: Bot, campaign: SalesCampaign, chat_id: int,
         )
     else:
         # fallback to text if no proper payload
-        base_text = campaign.message_text or ''
-        text = base_text + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        text = (campaign.message_text or '')
+        text += '\n\n' + full_name
+        text += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -180,19 +191,29 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
         total_blocked = 0
 
         while True:
-            recipients = await iter_recipients_for_send(session, campaign_id,
-                                                        batch_size=BATCH_SIZE)
+            recipients = await iter_recipients_for_send(
+                session, campaign_id, batch_size=BATCH_SIZE)
             if not recipients:
                 break
 
+            theater_event = await db_postgres.get_theater_event(
+                session, campaign.theater_event_id)
+
+            full_name = get_full_name_event(theater_event)
+
             # Recalculate availability before batch
-            availability_block, _ = await _availability_block(session,
-                                                              campaign_id)
+            availability_block = await _availability_block(session, campaign_id)
 
             for r in recipients:
                 try:
-                    await _send_to_chat(bot, campaign, int(r.chat_id),
-                                        availability_block, reserve_text)
+                    await _send_to_chat(
+                        bot,
+                        campaign,
+                        int(r.chat_id),
+                        full_name,
+                        availability_block,
+                        reserve_text
+                    )
                     await mark_recipient_status(session, r.id, 'sent')
                     total_sent += 1
                 except Forbidden as e:
@@ -203,8 +224,13 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
                     await asyncio.sleep(float(getattr(e, 'retry_after', 1)))
                     # simple retry once
                     try:
-                        await _send_to_chat(bot, campaign, int(r.chat_id),
-                                            availability_block, reserve_text)
+                        await _send_to_chat(
+                            bot, campaign,
+                            int(r.chat_id),
+                            full_name,
+                            availability_block,
+                            reserve_text
+                        )
                         await mark_recipient_status(session, r.id, 'sent')
                         total_sent += 1
                     except Exception as e2:
