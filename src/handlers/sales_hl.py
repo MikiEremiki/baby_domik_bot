@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List
 
 import sqlalchemy as sa
@@ -9,7 +9,8 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.error import BadRequest
 
 from db import (
-    TheaterEvent, ScheduleEvent, User, Ticket, SalesRecipient, SalesCampaign)
+    TheaterEvent, ScheduleEvent, User, Ticket, SalesRecipient, SalesCampaign,
+    db_postgres)
 from db.enum import TicketStatus
 from db.models import UserTicket
 from db.sales_crud import (
@@ -18,11 +19,11 @@ from db.sales_crud import (
 )
 from api.sales_pub import publish_sales
 from handlers import init_conv_hl_dialog
-from utilities.utl_func import set_back_context
+from utilities.utl_func import set_back_context, get_full_name_event
 from utilities.utl_kbd import (
     create_replay_markup, remove_intent_id, add_intent_id, adjust_kbd,
     add_btn_back_and_cancel)
-from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, URL_BOT
+from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
 
 sales_logger = logging.getLogger('bot.sales')
 
@@ -133,8 +134,7 @@ async def _select_audience_rows(session, theater_event_ids: List[int]) -> List[
     if not theater_event_ids:
         return []
     now = datetime.now(timezone.utc)
-    year_start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
-    next_year_start = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+    start_period = now - timedelta(days=365)
 
     t = Ticket.__table__
     ut = UserTicket.__table__
@@ -151,8 +151,8 @@ async def _select_audience_rows(session, theater_event_ids: List[int]) -> List[
                      .join(se, t.c.schedule_event_id == se.c.id))
         .where(t.c.status.in_(statuses))
         .where(se.c.theater_event_id.in_(list(map(int, theater_event_ids))))
-        .where(se.c.datetime_event >= year_start)
-        .where(se.c.datetime_event < next_year_start)
+        .where(se.c.datetime_event >= start_period)
+        .where(se.c.datetime_event < now)
         .where(u.c.chat_id.isnot(None))
     )
     rows = (await session.execute(stmt)).all()
@@ -1039,6 +1039,12 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     campaign: SalesCampaign = await session.get(SalesCampaign, campaign_id)
     schedule_ids: List[int] = context.user_data['sales'].get('schedule_ids', [])
 
+    theater_event_id = sales_state['theater_event_id']
+    theater_event = await db_postgres.get_theater_event(
+        session, theater_event_id)
+
+    full_name = get_full_name_event(theater_event)
+
     # Availability block
     availability_block = await _format_availability_block(session, schedule_ids)
 
@@ -1066,25 +1072,29 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kind = campaign.message_kind
     if kind == 'text':
         text = (campaign.message_text or '')
-        text = text + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        text += '\n\n' + full_name
+        text += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await update.effective_chat.send_message(text=text,
                                                  reply_markup=reply_markup,
                                                  disable_web_page_preview=True)
     elif kind == 'photo' and campaign.photo_file_id:
         caption = (campaign.caption_text or '')
-        caption = caption + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption += '\n\n' + full_name
+        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await update.effective_chat.send_photo(photo=campaign.photo_file_id,
                                                caption=caption,
                                                reply_markup=reply_markup)
     elif kind == 'video' and campaign.video_file_id:
         caption = (campaign.caption_text or '')
-        caption = caption + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption += '\n\n' + full_name
+        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await update.effective_chat.send_video(video=campaign.video_file_id,
                                                caption=caption,
                                                reply_markup=reply_markup)
     elif kind == 'animation' and campaign.animation_file_id:
         caption = (campaign.caption_text or '')
-        caption = caption + '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption += '\n\n' + full_name
+        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
         await update.effective_chat.send_animation(
             animation=campaign.animation_file_id,
             caption=caption,
@@ -1105,10 +1115,10 @@ async def _safe_edit_message(query, text: str):
         msg = getattr(query, 'message', None)
         # If original message was media with caption, edit caption; else edit text
         if msg is not None and (
-                getattr(msg, 'photo', None) or getattr(msg, 'video',
-                                                       None) or getattr(msg,
-                                                                        'animation',
-                                                                        None)):
+                getattr(msg, 'photo', None) or
+                getattr(msg, 'video', None) or
+                getattr(msg, 'animation', None)
+        ):
             await query.edit_message_caption(caption=text)
         else:
             await query.edit_message_text(text=text)
