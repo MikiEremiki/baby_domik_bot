@@ -5,7 +5,7 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
-from handlers import main_hl, reserve_hl
+from handlers import main_hl, reserve_hl, profile_hl
 from handlers.sub_hl import (
     update_admin_info, update_bd_price, update_cme_admin_info)
 from handlers.hooks import (
@@ -24,6 +24,7 @@ from conv_hl import (
     support_conv_hl,
     migration_admin_conv_hl,
     sales_conv_hl,
+    profile_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
@@ -62,6 +63,7 @@ def set_handlers(application, config):
         support_conv_hl,
         migration_admin_conv_hl,
         sales_conv_hl,
+        profile_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
@@ -69,6 +71,7 @@ def set_handlers(application, config):
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
         CommandHandler('reset', main_hl.reset),
         CommandHandler('echo', echo),
+        CommandHandler('tickets', profile_hl.show_tickets),
     ])
 
     application.add_handler(

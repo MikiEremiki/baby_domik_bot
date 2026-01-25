@@ -15,3 +15,4 @@ from .afisha_conv_hl import afisha_conv_hl
 from .support_conv_hl import support_conv_hl
 from .migration_admin_conv_hl import migration_admin_conv_hl
 from .sales_conv_hl import sales_conv_hl
+from .profile_conv_hl import profile_conv_hl
