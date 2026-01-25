@@ -34,7 +34,7 @@ from utilities.utl_func import (
     echo, send_log, send_postgres_log,
     get_location, get_contact, request_contact_location,
     print_ud, clean_ud, clean_bd,
-    create_or_connect_topic, del_topic, update_config,
+    create_or_connect_topic, del_topic, update_config, update_settings,
 )
 from settings.settings import COMMAND_DICT
 
@@ -82,6 +82,7 @@ def set_handlers(application, config):
         CommandHandler('print_ud', print_ud, filter_admin),
         CommandHandler('clean_bd', clean_bd, filter_admin),
         CommandHandler('update_config', update_config, filter_admin),
+        CommandHandler('update_settings', update_settings, filter_admin),
         CommandHandler('send_approve_msg',
                        main_hl.send_approve_msg,
                        filter_admin),

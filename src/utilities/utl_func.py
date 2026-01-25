@@ -563,6 +563,23 @@ async def update_config(_: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         'Параметры из settings.yml загружены')
 
 
+async def update_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    from utilities.settings_parser import sync_settings_to_db, load_bot_settings
+    from utilities.utl_db import open_session
+
+    session = await open_session(context.config)
+    try:
+        await sync_settings_to_db(session)
+        await load_bot_settings(context.application)
+        await update.effective_chat.send_message(
+            "Настройки синхронизированы из файла и загружены в бота.")
+    except Exception as e:
+        await update.effective_chat.send_message(
+            f"Ошибка при синхронизации настроек: {e}")
+    finally:
+        await session.close()
+
+
 def check_phone_number(phone):
     if len(phone) != 10 or phone[0] != '9':
         return True
