@@ -433,3 +433,44 @@ class SalesRecipient(BaseModelTimed):
     )
 
     campaign: Mapped['SalesCampaign'] = relationship(back_populates='recipients', lazy='selectin')
+
+
+class TelegramUpdate(BaseModelTimed):
+    __tablename__ = 'tg_updates'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    update_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+
+    message: Mapped[Optional[dict]] = mapped_column(JSON)
+    edited_message: Mapped[Optional[dict]] = mapped_column(JSON)
+    channel_post: Mapped[Optional[dict]] = mapped_column(JSON)
+    edited_channel_post: Mapped[Optional[dict]] = mapped_column(JSON)
+    inline_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    chosen_inline_result: Mapped[Optional[dict]] = mapped_column(JSON)
+    callback_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    shipping_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    pre_checkout_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    poll: Mapped[Optional[dict]] = mapped_column(JSON)
+    poll_answer: Mapped[Optional[dict]] = mapped_column(JSON)
+    my_chat_member: Mapped[Optional[dict]] = mapped_column(JSON)
+    chat_member: Mapped[Optional[dict]] = mapped_column(JSON)
+    chat_join_request: Mapped[Optional[dict]] = mapped_column(JSON)
+    chat_boost: Mapped[Optional[dict]] = mapped_column(JSON)
+    removed_chat_boost: Mapped[Optional[dict]] = mapped_column(JSON)
+    message_reaction: Mapped[Optional[dict]] = mapped_column(JSON)
+    message_reaction_count: Mapped[Optional[dict]] = mapped_column(JSON)
+    business_connection: Mapped[Optional[dict]] = mapped_column(JSON)
+    business_message: Mapped[Optional[dict]] = mapped_column(JSON)
+    edited_business_message: Mapped[Optional[dict]] = mapped_column(JSON)
+    deleted_business_messages: Mapped[Optional[dict]] = mapped_column(JSON)
+    purchased_paid_media: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    full_update: Mapped[dict] = mapped_column(JSON)
+
+
+class BotSettings(BaseModelTimed):
+    __tablename__ = 'bot_settings'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(unique=True)
+    value: Mapped[Optional[dict | list | str | int | float | bool]] = mapped_column(JSON)
