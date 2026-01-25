@@ -3,6 +3,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from telegram.ext import Application
 from db import db_postgres
+from utilities.utl_db import open_session
 from settings import settings
 
 logger = logging.getLogger('bot.settings_parser')
@@ -18,8 +19,6 @@ async def sync_settings_to_db(session: AsyncSession):
     settings_to_save = {}
     for name, value in inspect.getmembers(settings):
         if name.isupper() and not name.startswith('_'):
-            # Проверяем, что значение можно сериализовать в JSON (базовая проверка)
-            # В нашем случае settings.py содержит простые типы, списки и словари
             settings_to_save[name] = value
     
     count = 0
@@ -38,7 +37,6 @@ async def load_bot_settings(app: Application):
     """
     Загружает настройки из БД в app.bot_data['settings'].
     """
-    from utilities.utl_db import open_session
     logger.info("Loading settings from DB to bot_data")
     session = await open_session(app.context_types.context.config)
     try:
