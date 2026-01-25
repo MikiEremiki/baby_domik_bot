@@ -908,3 +908,21 @@ async def del_promotion(session: AsyncSession, promotion_id: int):
     await session.delete(result)
     await session.commit()
     return result
+
+
+async def update_bot_setting(session: AsyncSession, key, value):
+    stmt = select(BotSettings).where(BotSettings.key == key)
+    result = await session.execute(stmt)
+    setting = result.scalar_one_or_none()
+    if setting:
+        setting.value = value
+    else:
+        setting = BotSettings(key=key, value=value)
+        session.add(setting)
+    await session.commit()
+
+
+async def get_bot_settings(session: AsyncSession):
+    stmt = select(BotSettings)
+    result = await session.execute(stmt)
+    return result.scalars().all()
