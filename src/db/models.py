@@ -467,6 +467,13 @@ class TelegramUpdate(BaseModelTimed):
 
     full_update: Mapped[dict] = mapped_column(JSON)
 
+    user_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    chat_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    text: Mapped[Optional[str]]
+    message_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    reply_to_message_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    message_thread_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+
 
 class BotSettings(BaseModelTimed):
     __tablename__ = 'bot_settings'

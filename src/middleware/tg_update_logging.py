@@ -54,6 +54,19 @@ class TGUpdateLoggingMiddleware:
                 if val is not None:
                     data[field] = val
 
+            if update.effective_user:
+                data["user_id"] = update.effective_user.id
+            if update.effective_chat:
+                data["chat_id"] = update.effective_chat.id
+
+            message = update.effective_message
+            if message:
+                data["message_id"] = message.message_id
+                data["text"] = message.text or message.caption
+                data["message_thread_id"] = message.message_thread_id
+                if message.reply_to_message:
+                    data["reply_to_message_id"] = message.reply_to_message.message_id
+
             async with self.sessionmaker() as session:
                 stmt = pg_insert(TelegramUpdate).values(**data).on_conflict_do_nothing(
                     index_elements=['update_id']
