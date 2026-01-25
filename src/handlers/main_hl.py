@@ -20,7 +20,8 @@ from db.db_googlesheets import (
     increase_free_and_decrease_nonconfirm_seat, update_free_seat,
 )
 from settings.settings import (
-    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN, FILE_ID_RULES
+    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN, FILE_ID_RULES,
+    REFUND_INFO
 )
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_func import (
@@ -357,8 +358,8 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                                              f'{int(price)}руб\n\n')
                 text += 'На кого оформлен:\n'
                 text += people_str + '\n\n'
-                refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-                text += refund
+                refund = context.bot_data.get('settings', {}).get('REFUND_INFO', REFUND_INFO)
+                text += refund + '\n\n'
 
                 await update.message.reply_text(
                     text, reply_to_message_id=reply_to_msg_id)
@@ -566,8 +567,8 @@ async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     approve_text = (f'<b>Ваша бронь\n'
                     f'{text}'
                     f'подтверждена, ждем вас на мероприятии.</b>\n\n')
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text = approve_text + address + refund + description + ask_question + command
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', REFUND_INFO)
+    text = approve_text + address + refund + '\n\n' + description + ask_question + command
     await context.bot.send_message(text=text, chat_id=chat_id)
 
 

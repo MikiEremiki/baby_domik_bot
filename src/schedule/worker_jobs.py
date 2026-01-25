@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 
 from db import db_postgres, Ticket
 from db.enum import TicketStatus
+from settings.settings import REFUND_INFO
 from utilities.utl_db import open_session
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_full_name_event)
@@ -39,8 +40,8 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
                     f'{time_event}</b>\n'
                     f'<b>Номер вашего билета <code>{ticket.id}</code></b>\n')
             text += f'__________\n'
-            refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-            text += refund
+            refund = context.bot_data.get('settings', {}).get('REFUND_INFO', REFUND_INFO)
+            text += refund + '\n\n'
             text += ('Задать вопросы можно в сообщениях группы\n'
                      'https://vk.com/baby_theater_domik')
             try:

@@ -24,7 +24,7 @@ from db.db_googlesheets import (
     decrease_free_and_increase_nonconfirm_seat,
 )
 from schedule.scheduler_jobs import schedule_notification_job
-from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
+from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER, REFUND_INFO
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
@@ -404,9 +404,10 @@ async def create_and_send_payment(
     keyboard.append([button_payment])
     keyboard.append(button_cancel)
     reply_markup = InlineKeyboardMarkup(keyboard)
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', REFUND_INFO)
     await message.edit_text(
         text=f"""Бронь билета осуществляется по 100% оплате.
-❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
+{refund}
 ❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
@@ -650,8 +651,8 @@ async def send_by_ticket_info(update, context):
     text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
     text += context.user_data['common_data']['text_for_notification_massage']
     text += f'__________\n'
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text += refund
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', REFUND_INFO)
+    text += refund + '\n\n'
     text += ('Задать вопросы можно в сообщениях группы\n'
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(

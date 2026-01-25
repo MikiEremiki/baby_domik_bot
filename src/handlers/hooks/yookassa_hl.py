@@ -10,7 +10,8 @@ from api.gspread_pub import publish_update_ticket
 from db import db_postgres
 from db.enum import TicketStatus
 from handlers.sub_hl import send_approve_reject_message_to_admin_in_webhook
-from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP
+from settings.settings import (
+    CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP, REFUND_INFO)
 
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
@@ -89,8 +90,8 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             context.session, ticket_id, status=ticket_status)
         text += f'<code>{ticket_id}</code> '
     text += '</b>\n\n'
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text += refund
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', REFUND_INFO)
+    text += refund + '\n\n'
     text += (
         'Платеж успешно обработан\n\n'
         'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
