@@ -1,2 +1,3 @@
 from .db import add_db_handlers_middleware
 from .glob_usage_users import add_glob_on_off_middleware
+from .tg_update_logging import add_tg_update_logging_middleware
