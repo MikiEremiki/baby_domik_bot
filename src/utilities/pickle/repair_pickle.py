@@ -42,7 +42,12 @@ with open(path, "rb") as file:
         try:
             objects = _BotUnpickler(file).load()
         except EOFError:
+            print("Достигнут конец файла, загрузка завершена.")
             break
+        except pickle.UnpicklingError as e:
+            # print("Ошибка при загрузке объекта:", e)
+            break
+print(objects)
 
 exclude = []
 if exclude_broke_user_data:
@@ -80,4 +85,5 @@ if flag_exclude_all:
     objects['bot_data'].pop('dict_show_data', None)
 
 with new_path.open("wb") as file:
+    objects.pop('user_data', None)
     _BotPickler(file).dump(objects)

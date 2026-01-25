@@ -404,10 +404,11 @@ async def create_and_send_payment(
     keyboard.append([button_payment])
     keyboard.append(button_cancel)
     reply_markup = InlineKeyboardMarkup(keyboard)
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
     await message.edit_text(
         text=f"""Бронь билета осуществляется по 100% оплате.
-❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
-❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
+
+{refund}
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
 - Если вы согласны с правилами, то переходите к оплате:
@@ -417,7 +418,7 @@ async def create_and_send_payment(
 
 - Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
 - Если вы уже сделали оплату
- или подтверждение факта оплаты не пришло в течении 5-10 минут
+ и подтверждение факта оплаты не пришло в течении 10 минут
  <b>отправьте квитанцию об оплате файлом или картинкой.</b>""",
         reply_markup=reply_markup,
         disable_web_page_preview=True
@@ -650,8 +651,8 @@ async def send_by_ticket_info(update, context):
     text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
     text += context.user_data['common_data']['text_for_notification_massage']
     text += f'__________\n'
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text += refund
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    text += refund + '\n\n'
     text += ('Задать вопросы можно в сообщениях группы\n'
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(

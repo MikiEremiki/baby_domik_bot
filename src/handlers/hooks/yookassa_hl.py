@@ -89,8 +89,8 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             context.session, ticket_id, status=ticket_status)
         text += f'<code>{ticket_id}</code> '
     text += '</b>\n\n'
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text += refund
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    text += refund + '\n\n'
     text += (
         'Платеж успешно обработан\n\n'
         'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '

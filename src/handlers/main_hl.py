@@ -357,8 +357,8 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                                              f'{int(price)}руб\n\n')
                 text += 'На кого оформлен:\n'
                 text += people_str + '\n\n'
-                refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-                text += refund
+                refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+                text += refund + '\n\n'
 
                 await update.message.reply_text(
                     text, reply_to_message_id=reply_to_msg_id)
@@ -566,8 +566,8 @@ async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     approve_text = (f'<b>Ваша бронь\n'
                     f'{text}'
                     f'подтверждена, ждем вас на мероприятии.</b>\n\n')
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text = approve_text + address + refund + description + ask_question + command
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    text = approve_text + address + refund + '\n\n' + description + ask_question + command
     await context.bot.send_message(text=text, chat_id=chat_id)
 
 
@@ -1173,7 +1173,9 @@ async def feedback_send_msg(update: Update,
             reply_to_message_id=message.message_id,
             message_thread_id=message.message_thread_id
         )
-        text = 'Ваше сообщение принято.\n\n'
+        text = ('Обратная связь через бота временно приостановлена.\n'
+                'Свяжитесь, пожалуйста, с Администратором:\n'
+                f'{context.bot_data['admin']['contacts']}')
         await update.effective_chat.send_message(text)
     else:
         await update.effective_message.reply_text(
