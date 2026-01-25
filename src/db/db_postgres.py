@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
-    ScheduleEvent, BaseTicket, Promotion, TypeEvent)
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus)
 from db.models import CustomMadeFormat, CustomMadeEvent
