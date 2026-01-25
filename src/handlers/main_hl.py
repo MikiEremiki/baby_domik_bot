@@ -1173,7 +1173,9 @@ async def feedback_send_msg(update: Update,
             reply_to_message_id=message.message_id,
             message_thread_id=message.message_thread_id
         )
-        text = 'Ваше сообщение принято.\n\n'
+        text = ('Обратная связь через бота временно приостановлена.\n'
+                'Свяжитесь, пожалуйста, с Администратором:\n'
+                f'{context.bot_data['admin']['contacts']}')
         await update.effective_chat.send_message(text)
     else:
         await update.effective_message.reply_text(
