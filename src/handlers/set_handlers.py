@@ -6,6 +6,7 @@ from telegram.ext import (
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
 from handlers import main_hl, reserve_hl
+from handlers import support_hl as handlers_support_hl
 from handlers.sub_hl import (
     update_admin_info, update_bd_price, update_cme_admin_info)
 from handlers.hooks import (
@@ -55,6 +56,7 @@ def set_handlers(application, config):
         CallbackQueryHandler(main_hl.reject_reserve, '^reject-studio'),
         CallbackQueryHandler(main_hl.confirm_birthday, '^confirm-birthday'),
         CallbackQueryHandler(main_hl.reject_birthday, '^reject-birthday'),
+        CallbackQueryHandler(handlers_support_hl.user_status_help, '^user_status_help'),
     ])
 
     conversation_handlers = [
@@ -115,6 +117,9 @@ def set_handlers(application, config):
                        filter_admin),
         CommandHandler('cancel_old_created_tickets',
                        main_hl.manual_cancel_old_created_tickets,
+                       filter_admin),
+        CommandHandler('set_user_status',
+                       main_hl.set_user_status,
                        filter_admin),
     ])
 

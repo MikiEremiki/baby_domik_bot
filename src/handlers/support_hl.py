@@ -18,6 +18,23 @@ from utilities.utl_kbd import (
 support_hl_logger = logging.getLogger('bot.support_hl')
 
 
+async def user_status_help(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    query = update.callback_query
+    text = (
+        'Изменение статуса пользователя\n\n'
+        'Используйте команду:\n'
+        '<code>/set_user_status &lt;user_id&gt; [role=&lt;пользователь|администратор|разработчик|суперпользователь&gt;] '
+        '[blacklist=on|off] [block_admin=on|off]</code>\n\n'
+        'Примеры:\n'
+        '<code>/set_user_status 454342281 role=администратор</code>\n'
+        '<code>/set_user_status 454342281 blacklist=on</code>\n'
+        '<code>/set_user_status 454342281 block_admin=on</code>\n'
+        '<code>/set_user_status 454342281 block_admin=off</code>'
+    )
+    await query.answer()
+    await query.edit_message_text(text)
+
+
 def get_validated_data(string, option):
     query = string.split('\n')
     data = {}
@@ -65,11 +82,14 @@ async def start_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
     button_updates = InlineKeyboardButton(text='Обновление данных',
                                           callback_data='update_data')
+    button_user_status = InlineKeyboardButton(text='Статусы пользователей',
+                                              callback_data='user_status_help')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
     keyboard = [
         [button_db, ],
         [button_updates, ],
+        [button_user_status, ],
         [*button_cancel, ],
     ]
 

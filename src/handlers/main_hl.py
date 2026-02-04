@@ -12,7 +12,7 @@ from telegram.error import BadRequest, TimedOut
 
 from api.gspread_pub import publish_update_ticket, publish_update_cme
 from db import db_postgres
-from db.enum import TicketStatus, CustomMadeStatus
+from db.enum import TicketStatus, CustomMadeStatus, UserRole
 from handlers import check_user_db
 from db.db_googlesheets import (
     decrease_nonconfirm_seat,
@@ -1256,3 +1256,88 @@ async def manual_cancel_old_created_tickets(update: Update, context: 'ContextTyp
         main_handlers_logger.exception(
             f'Ошибка ручного запуска авто-отмены: {e}')
         await update.effective_message.reply_text(f'Ошибка при выполнении: {e}')
+
+
+async def set_user_status(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """
+    Админ-команда:
+    /set_user_status <user_id> [role=<роль>] [blacklist=on|off] [block_admin=on|off]
+
+    Примеры:
+    /set_user_status 454342281 role=администратор
+    /set_user_status 454342281 blacklist=on
+    /set_user_status 454342281 block_admin=on
+    /set_user_status 454342281 block_admin=off
+    """
+    if not context.args:
+        help_text = (
+            'Сменить статус пользователя\n\n'
+            '<code>/set_user_status &lt;user_id&gt; [role=&lt;пользователь|администратор|разработчик|суперпользователь&gt;] '
+            '[blacklist=on|off] [block_admin=on|off]</code>\n\n'
+            'Примеры:\n'
+            '<code>/set_user_status 454342281 role=администратор</code>\n'
+            '<code>/set_user_status 454342281 blacklist=on</code>\n'
+            '<code>/set_user_status 454342281 block_admin=on</code>\n'
+            '<code>/set_user_status 454342281 block_admin=off</code>'
+        )
+        await update.effective_message.reply_text(help_text)
+        return
+
+    try:
+        uid = int(context.args[0])
+    except ValueError:
+        await update.effective_message.reply_text('Первый аргумент должен быть user_id (число)')
+        return
+
+    # default no changes
+    data = {}
+
+    mapping = {
+        'пользователь': UserRole.USER,
+        'администратор': UserRole.ADMIN,
+        'разработчик': UserRole.DEVELOPER,
+        'суперпользователь': UserRole.SUPERUSER,
+    }
+
+    for token in context.args[1:]:
+        if '=' not in token:
+            await update.effective_message.reply_text(f'Некорректный параметр: {token}')
+            return
+        key, value = token.split('=', 1)
+        key = key.lower()
+        value = value.lower()
+        if key == 'role':
+            role = mapping.get(value)
+            if role is None:
+                await update.effective_message.reply_text('Неверная роль. Допустимые: пользователь, администратор, разработчик, суперпользователь')
+                return
+            data['role'] = role
+        elif key == 'blacklist':
+            if value not in ('on', 'off'):
+                await update.effective_message.reply_text('blacklist ожидает on|off')
+                return
+            data['is_blacklisted'] = (value == 'on')
+        elif key == 'block_admin':
+            if value not in ('on', 'off'):
+                await update.effective_message.reply_text('block_admin ожидает on|off')
+                return
+            data['is_blocked_by_admin'] = (value == 'on')
+            data['blocked_by_admin_id'] = update.effective_user.id if value == 'on' else None
+        else:
+            await update.effective_message.reply_text(f'Неизвестный параметр: {key}')
+            return
+
+    status = await db_postgres.update_user_status(context.session, uid, **data)
+
+    def _role_str(r: UserRole | None):
+        return r.value if isinstance(r, UserRole) else str(r)
+
+    text = (
+        'Статус пользователя обновлён:\n\n'
+        f'user_id: <code>{uid}</code>\n'
+        f'роль: <b>{_role_str(status.role)}</b>\n'
+        f'ЧС: <b>{"да" if status.is_blacklisted else "нет"}</b>\n'
+        f'Заблокирован админом: <b>{"да" if status.is_blocked_by_admin else "нет"}</b>\n'
+        f'Кем заблокирован: <code>{status.blocked_by_admin_id or "-"}</code>'
+    )
+    await update.effective_message.reply_text(text)
