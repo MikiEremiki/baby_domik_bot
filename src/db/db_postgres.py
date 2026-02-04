@@ -7,9 +7,9 @@ from sqlalchemy.orm import selectinload
 
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
-    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings)
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus)
 from db.enum import (
-    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus)
+    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent
 
 
@@ -926,3 +926,23 @@ async def get_bot_settings(session: AsyncSession):
     stmt = select(BotSettings)
     result = await session.execute(stmt)
     return result.scalars().all()
+
+# ===== User status helpers =====
+async def get_or_create_user_status(session: AsyncSession, user_id: int) -> UserStatus:
+    status = await session.get(UserStatus, user_id)
+    if status is None:
+        status = UserStatus(user_id=user_id, role=UserRole.USER)
+        session.add(status)
+        await session.commit()
+        # refresh to get defaults
+        await session.refresh(status)
+    return status
+
+
+async def update_user_status(session: AsyncSession, user_id: int, **kwargs) -> UserStatus:
+    status = await get_or_create_user_status(session, user_id)
+    for key, value in kwargs.items():
+        if hasattr(status, key):
+            setattr(status, key, value)
+    await session.commit()
+    return status
