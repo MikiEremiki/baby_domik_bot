@@ -76,7 +76,7 @@ states = {
     'PHONE_FOR_WAITING': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
-        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='^phone_confirm'),
+        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='phone_confirm'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_phone_for_waiting),
     ],

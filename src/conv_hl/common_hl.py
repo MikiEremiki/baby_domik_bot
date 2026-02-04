@@ -45,19 +45,19 @@ handlers_event_selection  = {
 handlers_client_data_selection = {
     'FORMA': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.adult_confirm, pattern='^adult_confirm'),
+        CallbackQueryHandler(reserve_hl.adult_confirm, pattern='adult_confirm'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_adult),
     ],
     'PHONE': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='^phone_confirm'),
+        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='phone_confirm'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_phone),
     ],
     'CHILDREN': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.child_confirm, pattern='^child_confirm'),
+        CallbackQueryHandler(reserve_hl.child_confirm, pattern='child_confirm'),
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_children),
         CallbackQueryHandler(reserve_hl.get_children, pattern='^Далее'),
