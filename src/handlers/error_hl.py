@@ -6,7 +6,7 @@ from pprint import pformat
 
 from requests import HTTPError
 from telegram import Update
-from telegram.error import TimedOut, NetworkError, BadRequest
+from telegram.error import TimedOut, NetworkError, BadRequest, Forbidden
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from utilities.utl_db import open_session
@@ -14,6 +14,7 @@ from utilities.utl_func import (
     clean_context, clean_context_on_end_handler, split_message,
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
+from db.db_postgres import update_user_status
 
 error_hl_logger = logging.getLogger('bot.error_hl')
 
@@ -51,6 +52,19 @@ async def error_handler(update: Update,
     context.session = await open_session(context.config)
 
     chat_id = context.config.bot.developer_chat_id
+
+    # Mark user as "blocked by user" if Forbidden occurs due to user blocking the bot
+    if isinstance(context.error, Forbidden):
+        try:
+            msg = getattr(context.error, 'message', str(context.error)).lower()
+            if 'bot was blocked by the user' in msg:
+                if update and update.effective_user:
+                    await update_user_status(context.session, update.effective_user.id, is_blocked_by_user=True)
+                raise ApplicationHandlerStop
+        except ApplicationHandlerStop:
+            raise
+        except Exception as e:
+            error_hl_logger.error(e)
 
     if isinstance(context.error, HTTPError):
         await context.bot.send_message(chat_id=chat_id,
