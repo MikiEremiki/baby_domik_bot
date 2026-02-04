@@ -672,6 +672,13 @@ async def get_schedule_events_by_type_actual(
     return result.scalars().all()
 
 
+async def get_last_schedule_update_time(session: AsyncSession) -> datetime:
+    """Возвращает время последнего изменения любого события в расписании."""
+    stmt = select(func.max(ScheduleEvent.updated_at))
+    result = await session.execute(stmt)
+    return result.scalar() or datetime.min
+
+
 async def get_schedule_events_by_theater_ids_actual(
         session: AsyncSession, theater_event_ids: List[int]):
     query = select(ScheduleEvent).where(

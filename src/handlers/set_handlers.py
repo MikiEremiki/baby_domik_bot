@@ -30,6 +30,7 @@ from middleware import (
     add_db_handlers_middleware,
     add_tg_update_logging_middleware,
 )
+from middleware.reserve_check import add_reserve_check_middleware
 from utilities.utl_func import (
     echo, send_log, send_postgres_log,
     get_location, get_contact, request_contact_location,
@@ -44,6 +45,7 @@ set_handlers_logger = logging.getLogger('bot.set_handlers')
 def set_handlers(application, config):
     add_tg_update_logging_middleware(application, config)
     add_db_handlers_middleware(application, config)
+    add_reserve_check_middleware(application)
     add_glob_on_off_middleware(application, config)
 
     application.add_handlers([
