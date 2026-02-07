@@ -3,6 +3,7 @@ import uuid
 from typing import List, Union, Optional
 
 from requests import ConnectTimeout
+from sqlalchemy.exc import IntegrityError
 from telegram import (
     Update,
     InlineKeyboardMarkup, InlineKeyboardButton,
@@ -206,8 +207,15 @@ async def update_schedule_event_data(update: Update,
     except TimedOut as e:
         sub_hl_logger.error(e)
     schedule_event_list = await load_schedule_events(False, True)
-    await db_postgres.update_schedule_events_from_googlesheets(
-        context.session, schedule_event_list)
+    try:
+        await db_postgres.update_schedule_events_from_googlesheets(
+            context.session, schedule_event_list)
+    except IntegrityError as e:
+        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        await context.session.rollback()
+        text = "Сначала, выполните обновление репертуара"
+        await update.effective_chat.send_message(text)
+        return 'updates'
 
     for event in schedule_event_list:
         await schedule_notification_job(context, event)

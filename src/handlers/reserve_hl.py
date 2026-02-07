@@ -1697,9 +1697,10 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await query.edit_message_text(update.effective_message.text + '\nДа')
 
     data = query.data
+    _, callback_data = remove_intent_id(data)
     phone = None
-    if '|' in data:
-        phone = data.split('|', maxsplit=1)[1]
+    if '|' in callback_data:
+        phone = callback_data.split('|', maxsplit=1)[1]
 
     state = context.user_data.get('STATE')
     reserve_user_data = context.user_data['reserve_user_data']
