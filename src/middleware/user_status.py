@@ -25,8 +25,11 @@ def add_user_status_middleware(application, config):
 
             if status.is_blocked_by_admin:
                 # inform user and stop processing
+                admin_contacts = context.bot_data.get('admin', {}).get('contacts', '')
                 await update.effective_message.reply_text(
-                    'Бот не может обработать от вас запросы. Для решения свяжитесь с администратором.'
+                    'Бот не может обработать от вас запросы.\n\n'
+                    f'Для решения свяжитесь с Администратором:\n'
+                    f'{admin_contacts}'
                 )
                 raise ApplicationHandlerStop
         except ApplicationHandlerStop:
