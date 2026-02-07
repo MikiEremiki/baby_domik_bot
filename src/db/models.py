@@ -321,10 +321,15 @@ class Promotion(BaseModelTimed):
         ForeignKey('schedule_events.id'))
 
     for_who_discount: Mapped[GroupOfPeopleByDiscountType]
+    discount_type: Mapped[PromotionDiscountType] = mapped_column(
+        default=PromotionDiscountType.fixed)
 
     flag_active: Mapped[bool] = mapped_column(default=True)
+    is_visible_as_option: Mapped[bool] = mapped_column(default=False)
     count_of_usage: Mapped[int] = mapped_column(default=0)
     max_count_of_usage: Mapped[int] = mapped_column(default=0)
+    min_purchase_sum: Mapped[int] = mapped_column(default=0)
+    description_user: Mapped[Optional[str]]
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
 
