@@ -621,6 +621,12 @@ async def get_all_promotions(session: AsyncSession):
     return result.scalars().all()
 
 
+async def increment_promotion_usage(session: AsyncSession, promotion_id: int):
+    promo = await session.get(Promotion, promotion_id)
+    if promo:
+        promo.count_of_usage = (promo.count_of_usage or 0) + 1
+        await session.commit()
+
 async def get_all_custom_made_format(session: AsyncSession):
     query = select(CustomMadeFormat)
     result = await session.execute(query)

@@ -285,6 +285,7 @@ async def create_and_send_payment(
 
     reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
+    price_to_pay = reserve_user_data.get('discounted_price', chose_price)
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
     theater_event_id = reserve_user_data['choose_theater_event_id']
@@ -363,7 +364,7 @@ async def create_and_send_payment(
     name_for_desc = name[:len_for_name]
     description = f'Билет на мероприятие {name_for_desc} {date_event} в {time_event}'
     param = create_param_payment(
-        price=chose_price,
+        price=price_to_pay,
         description=' '.join([description, ticket_name_for_desc]),
         email=email,
         payment_method_type=context.config.yookassa.payment_method_type,
@@ -372,7 +373,8 @@ async def create_and_send_payment(
         ticket_ids='|'.join(str(v) for v in ticket_ids),
         choose_schedule_event_ids='|'.join(
             str(v) for v in choose_schedule_event_ids),
-        command=command
+        command=command,
+        promo_id=reserve_user_data.get('applied_promo_id')
     )
     idempotency_id = uuid.uuid4()
     try:
