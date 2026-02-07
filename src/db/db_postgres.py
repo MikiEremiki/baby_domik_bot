@@ -3,7 +3,7 @@ from typing import Collection, List
 
 from sqlalchemy import select, func, DATE, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Mapped
 
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
@@ -512,17 +512,17 @@ async def get_ticket(session: AsyncSession,
 
 
 async def get_type_event(session: AsyncSession,
-                         type_event_id: int):
+                         type_event_id: Mapped[int]):
     return await session.get(TypeEvent, type_event_id)
 
 
 async def get_theater_event(session: AsyncSession,
-                            theater_event_id: int):
+                            theater_event_id: Mapped[int]):
     return await session.get(TheaterEvent, theater_event_id)
 
 
 async def get_schedule_event(session: AsyncSession,
-                             schedule_event_id: int):
+                             schedule_event_id: Mapped[int]):
     return await session.get(ScheduleEvent, schedule_event_id)
 
 
