@@ -180,6 +180,25 @@ async def update_custom_made_format_data(
     return 'updates'
 
 
+async def update_promotion_data(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    promotions = await load_promotions()
+    await update_promotions_from_googlesheets(context.session, promotions)
+
+    text = 'Промокоды обновлены'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+
+    try:
+        await update.callback_query.answer()
+        return 'updates'
+    except Exception:
+        return ConversationHandler.END
+
+
 async def update_theater_event_data(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'

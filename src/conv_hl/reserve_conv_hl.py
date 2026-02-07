@@ -80,6 +80,16 @@ states = {
         MessageHandler(F_text_and_no_command,
                        reserve_hl.get_phone_for_waiting),
     ],
+    'CONFIRM_RESERVATION': [
+        cancel_callback_handler,
+        CallbackQueryHandler(reserve_hl.confirm_go_pay, pattern='^PAY$'),
+        CallbackQueryHandler(reserve_hl.ask_promo_code, pattern='^PROMO$'),
+        CallbackQueryHandler(reserve_hl.apply_option_promo, pattern='^PROMO_OPTION'),
+    ],
+    'PROMOCODE_INPUT': [
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command, reserve_hl.handle_promo_code_input),
+    ],
 }
 
 for key in handlers_event_selection.keys():
