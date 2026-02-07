@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
-    GroupOfPeopleByDiscountType, CustomMadeStatus)
+    GroupOfPeopleByDiscountType, PromotionDiscountType, CustomMadeStatus)
 
 
 class User(BaseModelTimed):
