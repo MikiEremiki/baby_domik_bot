@@ -23,26 +23,22 @@ states = {
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-REP_GROUP'),
         CallbackQueryHandler(ticket_hl.get_ticket, pattern='^TICKET'),
-        CallbackQueryHandler(reserve_hl.write_list_of_waiting,
-                                     pattern=r'^CHOOSING\|WAIT'),
+        CallbackQueryHandler(reserve_hl.write_list_of_waiting, pattern=r'^CHOOSING\|WAIT'),
     ],
     'OFFER': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
-        MessageHandler(Text(('Принимаю',)),
-                       offer_hl.get_agreement),
+        MessageHandler(Text(('Принимаю',)), offer_hl.get_agreement),
     ],
     'EMAIL': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
         CallbackQueryHandler(reserve_hl.get_email, pattern='email_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_email),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_email),
     ],
     'PAID': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.processing_successful_notification,
-                             pattern='Next'),
+        CallbackQueryHandler(reserve_hl.processing_successful_notification, pattern='Next'),
         MessageHandler(
             filters.PHOTO | filters.ATTACHMENT,
             reserve_hl.forward_photo_or_file
@@ -56,29 +52,24 @@ states = {
     'CHOOSING': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
-        CallbackQueryHandler(reserve_hl.choice_mode,
-                             pattern=r'^CHOOSING\|OTHER_TIME'),
-        CallbackQueryHandler(reserve_hl.write_list_of_waiting,
-                             pattern=r'^CHOOSING\|WAIT'),
+        CallbackQueryHandler(reserve_hl.choice_mode, pattern=r'^CHOOSING\|OTHER_TIME'),
+        CallbackQueryHandler(reserve_hl.write_list_of_waiting, pattern=r'^CHOOSING\|WAIT'),
     ],
     'MODE': [
         cancel_callback_handler,
         CallbackQueryHandler(reserve_hl.choice_month, pattern=r'^MODE\|DATE'),
-        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire,
-                             pattern=r'^MODE\|REPERTOIRE'),
+        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^MODE\|REPERTOIRE'),
     ],
     'REP_GROUP': [
         cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
-        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire,
-                             pattern='^REP_GROUP'),
+        CallbackQueryHandler(main_hl.back, pattern=r'^Назад-MODE'),
+        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^REP_GROUP'),
     ],
     'PHONE_FOR_WAITING': [
         cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
-        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='phone_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_phone_for_waiting),
+        CallbackQueryHandler(main_hl.back, pattern=r'^Назад-TICKET'),
+        CallbackQueryHandler(reserve_hl.phone_confirm, pattern=r'.*phone_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_phone_for_waiting),
     ],
 }
 

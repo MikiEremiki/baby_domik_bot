@@ -37,30 +37,26 @@ handlers_event_selection  = {
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
-        CallbackQueryHandler(reserve_hl.choice_option_of_reserve,
-                             pattern='^TIME'),
+        CallbackQueryHandler(reserve_hl.choice_option_of_reserve, pattern='^TIME'),
     ],
 }
 
 handlers_client_data_selection = {
     'FORMA': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.adult_confirm, pattern='adult_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_adult),
+        CallbackQueryHandler(reserve_hl.adult_confirm, pattern=r'.*adult_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_adult),
     ],
     'PHONE': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='phone_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_phone),
+        CallbackQueryHandler(reserve_hl.phone_confirm, pattern=r'.*phone_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_phone),
     ],
     'CHILDREN': [
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.child_confirm, pattern='child_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_children),
-        CallbackQueryHandler(reserve_hl.get_children, pattern='^Далее'),
+        CallbackQueryHandler(reserve_hl.child_confirm, pattern=r'.*child_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_children),
+        CallbackQueryHandler(reserve_hl.get_children, pattern=r'^Далее'),
     ],
 }
 
@@ -70,6 +66,6 @@ common_fallbacks=[
         CommandHandler('reset', main_hl.reset),
     ]
 
-filterwarnings(action="ignore",
-               message=r".*CallbackQueryHandler",
+filterwarnings(action='ignore',
+               message=r'.*CallbackQueryHandler',
                category=PTBUserWarning)
