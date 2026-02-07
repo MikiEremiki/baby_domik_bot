@@ -577,7 +577,7 @@ async def get_schedule_events_by_ids(session: AsyncSession,
 
 async def get_promotion(session: AsyncSession,
                         promotion_id: int):
-    return await session.get(ScheduleEvent, promotion_id)
+    return await session.get(Promotion, promotion_id)
 
 
 async def get_custom_made_format(session: AsyncSession,
@@ -615,8 +615,18 @@ async def get_all_schedule_events(session: AsyncSession):
     return result.scalars().all()
 
 
-async def get_all_promotions(session: AsyncSession):
-    query = select(Promotion)
+async def get_promotion_by_code(session: AsyncSession,
+                               code: str):
+    query = select(Promotion).where(Promotion.code == code)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_active_promotions_as_options(session: AsyncSession):
+    query = select(Promotion).where(
+        Promotion.flag_active == True,
+        Promotion.is_visible_as_option == True
+    )
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -626,6 +636,16 @@ async def increment_promotion_usage(session: AsyncSession, promotion_id: int):
     if promo:
         promo.count_of_usage = (promo.count_of_usage or 0) + 1
         await session.commit()
+
+
+async def update_promotions_from_googlesheets(session: AsyncSession, promotions):
+    for _promotion in promotions:
+        dto_model = _promotion.to_dto()
+        # Обработка списков ID, если они приходят как строки или списки
+        # В модели они Mapped[Optional[List[int]]]
+        await session.merge(Promotion(**dto_model))
+    await session.commit()
+
 
 async def get_all_custom_made_format(session: AsyncSession):
     query = select(CustomMadeFormat)

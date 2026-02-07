@@ -22,6 +22,7 @@ from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
     load_schedule_events, load_theater_events, load_custom_made_format,
     decrease_free_and_increase_nonconfirm_seat,
+    load_promotions,
 )
 from schedule.scheduler_jobs import schedule_notification_job
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
@@ -33,6 +34,7 @@ from utilities.utl_func import (
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
+from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
     create_tickets_and_people, cancel_ticket_db_when_end_handler)
 
