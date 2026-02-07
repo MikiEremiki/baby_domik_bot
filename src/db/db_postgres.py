@@ -137,7 +137,11 @@ async def create_people(
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    user: User = await session.get(User, user_id)
+    user: User | None = await session.get(User, user_id)
+
+    if user is None:
+        raise ValueError(f"User with ID {user_id} does not exist")
+
     query = (
         select(Person)
         .where(
@@ -218,6 +222,10 @@ async def create_user(
 
 async def create_person(session: AsyncSession, user_id, name, age_type):
     user: User | None = await session.get(User, user_id)
+
+    if user is None:
+        raise ValueError(f"User with ID {user_id} does not exist")
+
     person = Person(name=name, age_type=age_type)
     user.people.append(person)
 
@@ -927,14 +935,12 @@ async def get_bot_settings(session: AsyncSession):
     result = await session.execute(stmt)
     return result.scalars().all()
 
-# ===== User status helpers =====
 async def get_or_create_user_status(session: AsyncSession, user_id: int) -> UserStatus:
     status = await session.get(UserStatus, user_id)
     if status is None:
         status = UserStatus(user_id=user_id, role=UserRole.USER)
         session.add(status)
         await session.commit()
-        # refresh to get defaults
         await session.refresh(status)
     return status
 
