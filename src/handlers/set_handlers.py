@@ -2,6 +2,7 @@ import logging
 
 from telegram.ext import (
     CommandHandler, CallbackQueryHandler, MessageHandler, filters,
+    ChatMemberHandler, Application,
 )
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
@@ -42,9 +43,13 @@ from settings.settings import COMMAND_DICT
 set_handlers_logger = logging.getLogger('bot.set_handlers')
 
 
-def set_handlers(application, config):
+def set_handlers(application: Application, config):
     add_tg_update_logging_middleware(application, config)
     add_db_handlers_middleware(application, config)
+    application.add_handler(
+        ChatMemberHandler(main_hl.on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER),
+        group=-80
+    )
     add_user_status_middleware(application, config)
     add_glob_on_off_middleware(application, config)
 
