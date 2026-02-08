@@ -11,8 +11,8 @@ from utilities.schemas import (
     kv_name_attr_schedule_event, kv_name_attr_theater_event)
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
-    create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel, add_intent_id,
-    remove_intent_id,
+    create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel,
+    add_intent_id, remove_intent_id,
 )
 
 support_hl_logger = logging.getLogger('bot.support_hl')
@@ -65,11 +65,14 @@ async def start_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
     button_updates = InlineKeyboardButton(text='Обновление данных',
                                           callback_data='update_data')
+    button_user_status = InlineKeyboardButton(text='Статусы пользователей',
+                                              callback_data='user_status_help')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
     keyboard = [
         [button_db, ],
         [button_updates, ],
+        [button_user_status, ],
         [*button_cancel, ],
     ]
 
@@ -206,7 +209,7 @@ async def theater_event_select(
     res = await db_postgres.get_all_theater_events(context.session)
     text = ''
     for row in res:
-        text += str(row[0]) + '\n'
+        text += f'{row[0]}\n'
 
     reply_markup = context.user_data['reply_markup']
     await query.edit_message_text(text, reply_markup=reply_markup)
@@ -223,7 +226,7 @@ async def schedule_event_select(
     res = await db_postgres.get_all_schedule_events(context.session)
     text = ''
     for row in res:
-        text += str(row[0]) + '\n'
+        text += f'{row[0]}\n'
 
     reply_markup = context.user_data['reply_markup']
     await query.edit_message_text(text, reply_markup=reply_markup)

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
-    GroupOfPeopleByDiscountType, CustomMadeStatus)
+    GroupOfPeopleByDiscountType, CustomMadeStatus, UserRole)
 
 
 class User(BaseModelTimed):
@@ -27,6 +27,9 @@ class User(BaseModelTimed):
         back_populates='user', secondary='users_tickets', lazy='selectin')
     custom_made_events: Mapped[List['CustomMadeEvent']] = relationship(
         lazy='selectin')
+
+    status: Mapped[Optional['UserStatus']] = relationship(
+        back_populates='user', uselist=False, lazy='selectin')
 
 
 class Person(BaseModelTimed):
@@ -481,3 +484,19 @@ class BotSettings(BaseModelTimed):
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(unique=True)
     value: Mapped[Optional[dict | list | str | int | float | bool]] = mapped_column(JSON)
+
+
+class UserStatus(BaseModelTimed):
+    __tablename__ = 'user_statuses'
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
+
+    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
+    is_blocked_by_user: Mapped[bool] = mapped_column(default=False)
+    is_blacklisted: Mapped[bool] = mapped_column(default=False)
+
+    is_blocked_by_admin: Mapped[bool] = mapped_column(default=False)
+    blocked_by_admin_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+
+    user: Mapped['User'] = relationship(back_populates='status', lazy='selectin')

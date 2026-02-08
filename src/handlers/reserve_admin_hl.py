@@ -126,9 +126,9 @@ async def choice_option_of_reserve(
             f'{schedule_event.qty_adult_free_seat} взр'
             f' | '
             f'{schedule_event.qty_child_free_seat} дет'
-            f'</i>\n')
-    text = text_select_event + text
-    text += '<b>Выберите подходящий вариант бронирования:</b>\n'
+            f'</i><br>')
+    text = f'{text_select_event}{text}'
+    text += '<b>Выберите подходящий вариант бронирования:</b><br>'
 
     keyboard, text = await create_kbd_and_text_tickets_for_choice(
         context, text, base_tickets, schedule_event, theater_event)

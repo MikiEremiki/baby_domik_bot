@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db import TelegramUpdate, create_sessionmaker_and_engine
 
-logger = logging.getLogger(__name__)
+tg_update_md_logger = logging.getLogger('bot.md.tg_update')
 
 
 class TGUpdateLoggingMiddleware:
@@ -74,7 +74,7 @@ class TGUpdateLoggingMiddleware:
                 await session.execute(stmt)
                 await session.commit()
         except Exception as e:
-            logger.error(f"Error logging telegram update: {e}", exc_info=True)
+            tg_update_md_logger.error(f"Error logging telegram update: {e}", exc_info=True)
 
 
 def add_tg_update_logging_middleware(application, config):

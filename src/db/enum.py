@@ -52,3 +52,10 @@ class CustomMadeStatus(enum.Enum):
     REJECTED = 'Отклонен'
     REFUNDED = 'Возвращен'
     CANCELED = 'Отменен'
+
+
+class UserRole(enum.Enum):
+    USER = 'Пользователь'
+    ADMIN = 'Администратор'
+    DEVELOPER = 'Разработчик'
+    SUPERUSER = 'Суперпользователь'

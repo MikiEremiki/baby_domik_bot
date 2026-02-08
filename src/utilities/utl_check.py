@@ -1,6 +1,10 @@
 import re
 import logging
 
+from telegram.ext import ContextTypes
+
+from db import db_postgres
+
 utl_check_logger = logging.getLogger('bot.utl_check')
 
 
@@ -88,4 +92,23 @@ async def check_input_text(text):
 def is_skip_ticket(ticket_status):
     if ticket_status.value == 'Создан' or ticket_status.value == 'Отменен':
         return True
+    return False
+
+
+async def is_user_blocked(
+        context: 'ContextTypes.DEFAULT_TYPE',
+        chat_id,
+        action_description: str = "sending message") -> bool:
+    """Проверяет, заблокирован ли пользователь. Возвращает True, если сообщение отправлять не нужно."""
+    try:
+        target_uid = int(chat_id)
+        status = await db_postgres.get_or_create_user_status(context.session, target_uid)
+        if status.is_blocked_by_admin or status.is_blacklisted or status.is_blocked_by_user:
+            utl_check_logger.info(f"Skip {action_description} to {chat_id} due to status: "
+                                      f"admin_blocked={status.is_blocked_by_admin}, "
+                                      f"blacklisted={status.is_blacklisted}, "
+                                      f"user_blocked={status.is_blocked_by_user}")
+            return True
+    except (ValueError, TypeError):
+        pass
     return False

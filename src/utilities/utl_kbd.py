@@ -267,8 +267,8 @@ async def create_kbd_for_time_in_reserve(schedule_events):
 
         text = await get_time_with_timezone(event)
         text += text_emoji
-        text += ' | ' + str(qty_child) + ' дет'
-        text += ' | ' + str(qty_adult) + ' взр'
+        text += f' | {qty_child} дет'
+        text += f' | {qty_adult} взр'
 
         callback_data = event.id
         button_tmp = InlineKeyboardButton(
