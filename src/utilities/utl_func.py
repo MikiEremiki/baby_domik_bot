@@ -434,7 +434,7 @@ async def create_or_connect_topic(
                 utilites_logger.error(e)
                 text_bad_topic += f'\n{name}: {topic_id}'
         if text_bad_topic != '\n\nНе рабочие топики:':
-            text = f"{text}{text_bad_topic}"
+            text = f'{text}{text_bad_topic}'
         await update.effective_message.reply_text(
             text=text,
             reply_to_message_id=update.message.id,
