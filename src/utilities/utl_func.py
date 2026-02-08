@@ -46,17 +46,17 @@ async def echo(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:
     user_id = str(user.id)
     is_forum = str(chat.is_forum)
 
-    text = 'chat_id = <code>' + chat_id + '</code>\n'
-    text += 'user_id = <code>' + user_id + '</code>\n'
-    text += 'is_forum = <code>' + is_forum + '</code>\n'
+    text = f'chat_id = <code>{chat_id}</code>\n'
+    text += f'user_id = <code>{user_id}</code>\n'
+    text += f'is_forum = <code>{is_forum}</code>\n'
 
     try:
         message = update.effective_message
         message_thread_id = str(message.message_thread_id)
         topic_name = str(message.reply_to_message.forum_topic_created.name)
 
-        text += 'message_thread_id = <code>' + message_thread_id + '</code>\n'
-        text += 'topic_name = <code>' + topic_name + '</code>\n'
+        text += f'message_thread_id = <code>{message_thread_id}</code>\n'
+        text += f'topic_name = <code>{topic_name}</code>\n'
 
         message_thread_id = message.message_thread_id
     except (AttributeError, BadRequest):
@@ -352,14 +352,9 @@ async def get_contact(
 
 
 def is_admin(update: Update):
-    is_admin_flag = update.effective_user.id in ADMIN_ID
-    text = ": ".join(
-        [
-            'Пользователь',
-            str(update.effective_user.id),
-            str(update.effective_user.full_name),
-        ],
-    )
+    user = update.effective_user
+    is_admin_flag = user.id in ADMIN_ID
+    text = f'Пользователь: {user.id}: {user.full_name}'
     if is_admin_flag:
         text += ': Является администратором'
     else:
@@ -418,7 +413,7 @@ async def create_or_connect_topic(
                 utilites_logger.error(e)
                 text_bad_topic += f'\n{name}: {topic_id}'
         if text_bad_topic != '\n\nНе рабочие топики:':
-            text = text + text_bad_topic
+            text = f"{text}{text_bad_topic}"
         await update.effective_message.reply_text(
             text=text,
             reply_to_message_id=update.message.id,
@@ -542,17 +537,17 @@ async def split_message(context, message: str):
             if i == len(message) // max_text_len:
                 await context.bot.send_message(
                     chat_id=CHAT_ID_MIKIEREMIKI,
-                    text='<pre>' + message[start:] + '</pre>',
+                    text=f'<pre>{message[start:]}</pre>',
                 )
                 break
             await context.bot.send_message(
                 chat_id=CHAT_ID_MIKIEREMIKI,
-                text='<pre>' + message[start:end] + '</pre>',
+                text=f'<pre>{message[start:end]}</pre>',
             )
     else:
         await context.bot.send_message(
             chat_id=CHAT_ID_MIKIEREMIKI,
-            text='<pre>' + message + '</pre>',
+            text=f'<pre>{message}</pre>',
         )
 
 
@@ -635,7 +630,7 @@ async def render_text_for_choice_time(theater_event, schedule_events):
     full_name = get_full_name_event(theater_event)
     event = schedule_events[0]
     weekday = int(event.datetime_event.strftime('%w'))
-    date_event = (event.datetime_event.strftime('%d.%m ') +
+    date_event = (f'{event.datetime_event.strftime('%d.%m ')}'
                   f'({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})')
     text = (f'Вы выбрали:\n'
             f'<b>{full_name}\n'
@@ -670,9 +665,9 @@ def get_unique_months(events: Sequence[ScheduleEvent]):
 def _format_age_banner(min_age_child: int, max_age_child: Optional[int]) -> str:
     banner = ''
     if min_age_child > 0:
-        banner += '👶🏼' + str(min_age_child)
+        banner += f'👶🏼{min_age_child}'
     if max_age_child is not None and max_age_child > 0:
-        banner += '-' + str(max_age_child)
+        banner += f'-{max_age_child}'
     elif min_age_child > 0:
         # если есть минимальный возраст, но нет максимального
         banner += '+'
@@ -729,7 +724,7 @@ async def get_formatted_date_and_time_of_event(
         schedule_event: ScheduleEvent) -> Tuple[str, str]:
     event = schedule_event
     weekday = int(event.datetime_event.strftime('%w'))
-    date_event = (event.datetime_event.strftime('%d.%m ') +
+    date_event = (f'{event.datetime_event.strftime('%d.%m ')}'
                   f'({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})')
     time_event = await get_time_with_timezone(event)
     return date_event, time_event
@@ -872,13 +867,13 @@ async def add_clients_data_to_text(
         adult_str, child_str = await get_child_and_adult_from_ticket(
             ticket)
 
-        text += '\n__________\n'
+        text += '<br>__________<br>'
         text += f'<code>{ticket.id}</code> | {base_ticket.name}'
-        text += f'\n<b>{adult_str}</b>'
+        text += f'<br><b>{adult_str}</b>'
         text += f'Дети: {child_str}'
         text += f'Статус билета: {ticket.status.value}'
         if ticket.notes:
-            text += f'\nПримечание: {ticket.notes}'
+            text += f'<br>Примечание: {ticket.notes}'
     return text
 
 
@@ -888,9 +883,9 @@ async def get_child_and_adult_from_ticket(ticket):
     child_str = ''
     for person in people:
         if hasattr(person.adult, 'phone'):
-            adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+            adult_str = f'{person.name}<br>+7{person.adult.phone}<br>'
         elif hasattr(person.child, 'age'):
-            child_str += f'{person.name} {person.child.age}\n'
+            child_str += f'{person.name} {person.child.age}<br>'
     return adult_str, child_str
 
 
@@ -919,11 +914,11 @@ async def create_str_info_by_schedule_event_id(context, choice_event_id):
         schedule_event)
     full_name = get_full_name_event(theater_event)
     text_emoji = await get_emoji(schedule_event)
-    text_select_event = (f'Мероприятие:\n'
-                         f'<b>{full_name}\n'
-                         f'{date_event}\n'
-                         f'{time_event}</b>\n')
-    text_select_event += f'{text_emoji}\n' if text_emoji else ''
+    text_select_event = (f'Мероприятие:<br>'
+                         f'<b>{full_name}<br>'
+                         f'{date_event}<br>'
+                         f'{time_event}</b><br>')
+    text_select_event += f'{text_emoji}<br>' if text_emoji else ''
     return text_select_event
 
 
@@ -943,3 +938,16 @@ async def get_schedule_event_ids_studio(context):
 
     reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
     return choose_schedule_event_ids
+
+def extract_status_change(chat_member_update: ChatMemberUpdated) -> Optional[Tuple[bool, bool]]:
+    Takes a ChatMemberUpdated instance and returns whether the status of the bot changed.
+    """
+    old_is_member, new_is_member = chat_member_update.difference().get("is_member", (None, None))
+    if status_change is None:
+
+    was_member = old_status in [
+        ChatMember.OWNER,
+    ] or (old_status is ChatMember.LEFT and old_is_member is True)
+        ChatMember.MEMBER,
+        ChatMember.ADMINISTRATOR,
+

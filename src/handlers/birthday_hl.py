@@ -657,7 +657,7 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 item = (f'{custom_made_format.name}\n'
                         f'<i>Стоимость:</i> {custom_made_format.price} руб')
             case 'phone':
-                item = '+7' + item
+                item = f'+7{item}'
         try:
             text += f'\n<i>{birthday_data[key]}:</i> {item}'
         except KeyError as e:
@@ -666,7 +666,7 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if query:
         await query.answer()
     message_1 = await update.effective_chat.send_message(
-        text=text_header + text,
+        text=f'{text_header}{text}',
     )
     await append_message_ids_back_context(
         context, [message_1.message_id])

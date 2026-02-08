@@ -71,7 +71,7 @@ async def processing_admin_info(
             admin_info['name'] = ' '.join(context.args[0:2])
             admin_info['username'] = context.args[2]
             admin_info['phone'] = context.args[3]
-            admin_info['contacts'] = '\n'.join(
+            admin_info['contacts'] = '<br>'.join(
                 [admin_info['name'],
                  'telegram ' + admin_info['username'],
                  'телефон ' + admin_info['phone']]
@@ -406,9 +406,9 @@ async def create_and_send_payment(
         callback_data=f'payment|{payment.id}',
         url=payment.confirmation.confirmation_url
     )
+    postfix_for_cancel = f'{context.user_data['postfix_for_cancel']}|'
     button_cancel = add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
+        postfix_for_cancel=postfix_for_cancel, add_back_btn=False)
     keyboard.append([button_payment])
     keyboard.append(button_cancel)
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -489,15 +489,12 @@ async def processing_successful_payment(
         text += f'#event_id <code>{event_id}</code>\n'
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
-        text += theater_event.name
-        text += '\n' + date_event
-        text += ' в ' + time_event
-        text += '\n' + chose_base_ticket.name + ' ' + str(chose_price) + 'руб'
-        text += '\n'
+        text += f'{theater_event.name}\n{date_event} в {time_event}\n'
+        text += f'{chose_base_ticket.name} {chose_price}руб\n'
 
         text += '\n'.join([
             client_data['name_adult'],
-            '+7' + client_data['phone'],
+            f'+7{client_data['phone']}',
             original_child_text,
         ])
         text += '\n\n'
@@ -807,14 +804,9 @@ async def send_message_to_admin(
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
-        sub_hl_logger.info(": ".join(
-            [
-                'Для пользователя',
-                str(context.user_data['user'].id),
-                str(context.user_data['user'].full_name),
-                'сообщение на которое нужно ответить, удалено'
-            ],
-        ))
+        user = context.user_data['user']
+        sub_hl_logger.info(f"Для пользователя: {user.id}: {user.full_name}: "
+                           f"сообщение на которое нужно ответить, удалено")
         message = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -850,7 +842,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
 
     text += '\n'.join([
         client_data['name_adult'],
-        '+7' + client_data['phone'],
+        f"+7{client_data['phone']}",
         original_child_text,
     ])
     text += '\n\n'
