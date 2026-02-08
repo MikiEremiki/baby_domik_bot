@@ -6,6 +6,7 @@ from datetime import time
 from pprint import pformat
 from typing import List, Sequence, Tuple, Optional
 
+from sulguk import transform_html
 import pytz
 from telegram import (
     Update,
@@ -13,7 +14,7 @@ from telegram import (
     BotCommandScopeChat, BotCommandScopeChatAdministrators,
     ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton,
     InlineKeyboardButton, InlineKeyboardMarkup,
-    constants,
+    constants, ChatMemberUpdated, ChatMember,
 )
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ExtBot
@@ -31,6 +32,26 @@ from settings.settings import (
 from utilities.schemas import context_user_data
 
 utilites_logger = logging.getLogger('bot.utilites')
+
+
+async def reply_html(update: Update, html_text: str, **kwargs):
+    result = transform_html(html_text)
+    return await update.effective_message.reply_text(
+        text=result.text,
+        entities=result.entities,
+        parse_mode=None,
+        **kwargs
+    )
+
+
+async def edit_message_html(query, html_text: str, **kwargs):
+    result = transform_html(html_text)
+    return await query.edit_message_text(
+        text=result.text,
+        entities=result.entities,
+        parse_mode=None,
+        **kwargs
+    )
 
 
 async def echo(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:
@@ -939,15 +960,28 @@ async def get_schedule_event_ids_studio(context):
     reserve_user_data['choose_schedule_event_ids'] = choose_schedule_event_ids
     return choose_schedule_event_ids
 
+
 def extract_status_change(chat_member_update: ChatMemberUpdated) -> Optional[Tuple[bool, bool]]:
-    Takes a ChatMemberUpdated instance and returns whether the status of the bot changed.
     """
+    Takes a ChatMemberUpdated instance and returns whether the status of the bot changed.
+    Based on PTB example: https://docs.python-telegram-bot.org/en/stable/examples.chatmemberbot.html
+    """
+    status_change = chat_member_update.difference().get("status")
     old_is_member, new_is_member = chat_member_update.difference().get("is_member", (None, None))
+
     if status_change is None:
+        return None
 
+    old_status, new_status = status_change
     was_member = old_status in [
-        ChatMember.OWNER,
-    ] or (old_status is ChatMember.LEFT and old_is_member is True)
         ChatMember.MEMBER,
+        ChatMember.OWNER,
         ChatMember.ADMINISTRATOR,
+    ] or (old_status is ChatMember.LEFT and old_is_member is True)
+    is_member = new_status in [
+        ChatMember.MEMBER,
+        ChatMember.OWNER,
+        ChatMember.ADMINISTRATOR,
+    ] or (new_status is ChatMember.LEFT and new_is_member is True)
 
+    return was_member, is_member
