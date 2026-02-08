@@ -11,28 +11,11 @@ from utilities.schemas import (
     kv_name_attr_schedule_event, kv_name_attr_theater_event)
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
-    create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel, add_intent_id,
-    remove_intent_id,
+    create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel,
+    add_intent_id, remove_intent_id,
 )
 
 support_hl_logger = logging.getLogger('bot.support_hl')
-
-
-async def user_status_help(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    query = update.callback_query
-    text = (
-        'Изменение статуса пользователя\n\n'
-        'Используйте команду:\n'
-        '<code>/set_user_status &lt;user_id&gt; [role=&lt;пользователь|администратор|разработчик|суперпользователь&gt;] '
-        '[blacklist=on|off] [block_admin=on|off]</code>\n\n'
-        'Примеры:\n'
-        '<code>/set_user_status 454342281 role=администратор</code>\n'
-        '<code>/set_user_status 454342281 blacklist=on</code>\n'
-        '<code>/set_user_status 454342281 block_admin=on</code>\n'
-        '<code>/set_user_status 454342281 block_admin=off</code>'
-    )
-    await query.answer()
-    await query.edit_message_text(text)
 
 
 def get_validated_data(string, option):
