@@ -451,6 +451,8 @@ async def processing_successful_payment(
 
     reserve_user_data = context.user_data['reserve_user_data']
     command = context.user_data['command']
+    # TODO Можно положить в callback_data кнопки "ДАЛЕЕ" после Next ticket_id
+    #  и достать все данные из бд по нему
     ticket_ids = reserve_user_data['ticket_ids']
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
     if ticket.status == TicketStatus.CREATED:
