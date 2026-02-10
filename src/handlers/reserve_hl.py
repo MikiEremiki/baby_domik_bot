@@ -1706,7 +1706,7 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     _, callback_data = remove_intent_id(data)
     phone = None
     if '|' in callback_data:
-        phone = callback_data.split('|', maxsplit=1)[1]
+        phone = callback_data.split('|', maxsplit=2)[-1]
 
     state = context.user_data.get('STATE')
     reserve_user_data = context.user_data['reserve_user_data']
