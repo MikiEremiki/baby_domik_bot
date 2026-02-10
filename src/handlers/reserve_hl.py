@@ -1019,7 +1019,7 @@ async def choice_option_of_reserve(
             f'{schedule_event.qty_child_free_seat} дет'
             f' | '
             f'{schedule_event.qty_adult_free_seat} взр'
-            f'</i>\n')
+            f'</i><br>')
 
     check_command_studio = check_entered_command(context, 'studio')
     if check_command_studio:
@@ -1027,7 +1027,7 @@ async def choice_option_of_reserve(
         text = (f'Кол-во свободных мест: '
                 f'<i>'
                 f'{schedule_event.qty_child_free_seat} дет'
-                f'</i>\n')
+                f'</i><br>')
 
     check_command = check_command_reserve or check_command_studio
     check_seats = check_available_seats(schedule_event, only_child=only_child)
@@ -1039,11 +1039,11 @@ async def choice_option_of_reserve(
 
         no_seats_text = (
                 text_select_event +
-                '\nК сожалению, на выбранное время свободных мест нет.\n'
+                '<br>К сожалению, на выбранное время свободных мест нет.<br>'
                 'Запишитесь в лист ожидания, иногда случаются переносы или '
-                'отмены!\n'
+                'отмены!<br>'
                 'Если это случится вам поступит уведомление от бота или с вами '
-                'свяжется администратор\n\n'
+                'свяжется администратор<br><br>'
                 '<b>Выберите дальнейшие действия:</b>'
         )
 
@@ -1073,7 +1073,7 @@ async def choice_option_of_reserve(
     await message.edit_text('Формирую список доступных билетов...')
 
     text = f"{text_select_event}{text}"
-    text += '\n<b>Выберите подходящий вариант бронирования:</b>\n'
+    text += '<br><b>Выберите подходящий вариант бронирования:</b><br>'
 
     base_tickets_filtered = []
     for i, ticket in enumerate(base_tickets):
@@ -1103,13 +1103,13 @@ async def choice_option_of_reserve(
     )
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text += ('__________\n'
+    text += ('__________<br>'
              '<i>Если вы хотите оформить несколько билетов, '
-             'то каждая бронь оформляется отдельно.</i>\n'
-             '__________\n'
-             '<i>МНОГОДЕТНЫМ:\n'
-             '1. Пришлите удостоверение многодетной семьи администратору\n'
-             '2. Дождитесь ответа\n'
+             'то каждая бронь оформляется отдельно.</i><br>'
+             '__________<br>'
+             '<i>МНОГОДЕТНЫМ:<br>'
+             '1. Пришлите удостоверение многодетной семьи администратору<br>'
+             '2. Дождитесь ответа<br>'
              '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
 
     await message.delete()
@@ -1138,9 +1138,10 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
-    text = (f'{text_select_event}Вариант бронирования:\n'
+    text = (f'{text_select_event}<br>'
+            f'Вариант бронирования:<br>'
             f'{chose_base_ticket.name} '
-            f'{int(price)}руб\n')
+            f'{int(price)}руб<br>')
 
     context.user_data['common_data']['text_for_notification_massage'] = text
 
@@ -1456,7 +1457,7 @@ async def send_msg_get_child(update: Update,
 
 async def send_msg_get_phone(update: Update,
                              context: 'ContextTypes.DEFAULT_TYPE') -> Message:
-    text_prompt = '<b>Напишите номер телефона</b>\n\n'
+    text_prompt = '<b>Напишите номер телефона</b><br><br>'
     phone = await db_postgres.get_phone(context.session,
                                         update.effective_user.id)
     phone_confirm_btn, text_prompt = await create_phone_confirm_btn(
@@ -1539,11 +1540,11 @@ async def conversation_timeout(
         )
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, бронь отменена, '
-            'пожалуйста выполните новый запрос\n'
+            'пожалуйста выполните новый запрос<br>'
             'Если вы уже сделали оплату, но не отправили чек об оплате, '
-            'выполните оформление повторно и приложите данный чек\n'
-            f'/{COMMAND_DICT['RESERVE'][0]}\n\n'
-            'Если свободных мест не будет свяжитесь с Администратором:\n'
+            'выполните оформление повторно и приложите данный чек<br>'
+            f'/{COMMAND_DICT['RESERVE'][0]}<br><br>'
+            'Если свободных мест не будет свяжитесь с Администратором:<br>'
             f'{context.bot_data['admin']['contacts']}'
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
@@ -1634,7 +1635,7 @@ async def write_list_of_waiting(
     await query.answer()
 
     # Предложим последний введенный телефон (если есть)
-    text_prompt = '<b>Напишите номер телефона</b>\n\n'
+    text_prompt = '<b>Напишите номер телефона</b><br><br>'
     phone = await db_postgres.get_phone(context.session,
                                         update.effective_user.id)
     phone_confirm_btn, text_prompt = await create_phone_confirm_btn(text_prompt,
@@ -1934,9 +1935,9 @@ async def send_admin_info_add_list_wait(context: 'ContextTypes.DEFAULT_TYPE',
     user = context.user_data['user']
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Лист ожидания', None))
-    text = (f'#Лист_ожидания\n'
-            f'Пользователь @{user.username} {user.full_name}\n'
-            f'Запросил добавление в лист ожидания\n{text}')
+    text = (f'#Лист_ожидания<br>'
+            f'Пользователь @{user.username} {user.full_name}<br>'
+            f'Запросил добавление в лист ожидания<br>{text}')
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
         text=text,

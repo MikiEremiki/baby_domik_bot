@@ -653,12 +653,12 @@ async def send_by_ticket_info(update, context):
     )
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
-    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
+    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b><br><br>'
     text += context.user_data['common_data']['text_for_notification_massage']
-    text += f'__________\n'
+    text += f'__________<br>'
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
-    text += refund + '\n\n'
-    text += ('Задать вопросы можно в сообщениях группы\n'
+    text += refund + '<br><br>'
+    text += ('Задать вопросы можно в сообщениях группы<br>'
              'https://vk.com/baby_theater_domik')
     message = await update.effective_chat.send_message(
         text=text,
@@ -758,7 +758,7 @@ async def send_message_about_list_waiting(update: Update, context):
                  f'<i>{qty_child} дет</i>'
                  f' | '
                  f'<i>{qty_adult} взр</i>'
-                 f'\n\n')
+                 f'<br><br>')
     text += ('⬇️Нажмите на одну из двух кнопок ниже, '
              'чтобы выбрать другое время '
              'или записаться в лист ожидания на эту дату и время⬇️')
@@ -777,7 +777,7 @@ async def send_message_about_list_waiting(update: Update, context):
 
 async def send_info_about_individual_ticket(update, context):
     query = update.callback_query
-    text = ('Для оформления данного варианта обратитесь к Администратору:\n'
+    text = ('Для оформления данного варианта обратитесь к Администратору:<br>'
             f'{context.bot_data['admin']['contacts']}')
     await query.edit_message_text(text)
     sub_hl_logger.info(
@@ -831,21 +831,21 @@ async def send_approve_reject_message_to_admin_in_webhook(
     original_child_text = reserve_user_data['original_child_text']
     event_id = reserve_user_data['choose_schedule_event_id']
 
-    text = f'#Бронирование\n'
-    text += f'Платеж успешно обработан\n'
+    text = f'#Бронирование<br>'
+    text += f'Платеж успешно обработан<br>'
     text += f'Покупатель: @{user.username} {user.full_name}'
-    text += '\n\n'
+    text += '<br><br>'
 
-    text += f'#event_id <code>{event_id}</code>\n'
+    text += f'#event_id <code>{event_id}</code><br>'
     text += user_data['common_data']['text_for_notification_massage']
-    text += '\n'
+    text += '<br>'
 
-    text += '\n'.join([
+    text += '<br>'.join([
         client_data['name_adult'],
-        f"+7{client_data['phone']}",
+        f'+7{client_data['phone']}',
         original_child_text,
     ])
-    text += '\n\n'
+    text += '<br><br>'
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
 

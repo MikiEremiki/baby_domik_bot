@@ -643,7 +643,7 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await del_keyboard_messages(update, context)
     del_message_ids = []
 
-    text_header = '<b>Заявка:</b>\n'
+    text_header = '<b>Заявка:</b><br>'
     text = ''
     for key, item in context.user_data['birthday_user_data'].items():
         match key:
@@ -656,12 +656,12 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             case 'custom_made_format_id':
                 custom_made_format = await db_postgres.get_custom_made_format(
                     context.session, item)
-                item = (f'{custom_made_format.name}\n'
+                item = (f'{custom_made_format.name}<br>'
                         f'<i>Стоимость:</i> {custom_made_format.price} руб')
             case 'phone':
                 item = f'+7{item}'
         try:
-            text += f'\n<i>{birthday_data[key]}:</i> {item}'
+            text += f'<br><i>{birthday_data[key]}:</i> {item}'
         except KeyError as e:
             birthday_hl_logger.error(e)
 
@@ -726,9 +726,9 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     )
 
     user = context.user_data['user']
-    text = ('#День_рождения\n'
-            f'Запрос пользователя @{user.username} {user.full_name}\n')
-    text += f'Номер заявки: {custom_made_event.id}\n\n'
+    text = ('#День_рождения<br>'
+            f'Запрос пользователя @{user.username} {user.full_name}<br>')
+    text += f'Номер заявки: {custom_made_event.id}<br><br>'
     text += context.user_data['common_data'][
         'text_for_notification_massage']
     thread_id = (context.bot_data['dict_topics_name']
@@ -766,15 +766,15 @@ async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     keyboard.append([button_cancel])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = ('    Внесите предоплату 5000 руб\n\n'
-            'Оплатить можно:\n'
+    text = ('    Внесите предоплату 5000 руб<br><br>'
+            'Оплатить можно:<br>'
             ' - Переводом на карту Сбербанка по номеру телефона'
-            '+79159383529 Татьяна Александровна Б.\n\n'
-            'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)\n'
+            '+79159383529 Татьяна Александровна Б.<br><br>'
+            'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)<br>'
             'Пожалуйста внесите оплату в течении 30 минут или нажмите '
-            'отмена и повторите в другое удобное для вас время\n\n'
-            '__________\n'
-            'В случае переноса или отмены свяжитесь с Администратором:\n'
+            'отмена и повторите в другое удобное для вас время<br><br>'
+            '__________<br>'
+            'В случае переноса или отмены свяжитесь с Администратором:<br>'
             f'{context.bot_data['cme_admin']['contacts']}')
 
     message = await update.effective_chat.send_message(

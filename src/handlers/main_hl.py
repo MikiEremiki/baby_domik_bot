@@ -635,18 +635,18 @@ async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     address = context.bot_data['texts']['address']
     ask_question = context.bot_data['texts']['ask_question']
     command = (
-        'Для продолжения работы используйте команды:\n'
-        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль\n'
+        'Для продолжения работы используйте команды:<br>'
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль<br>'
     )
     text = ''
     for ticket_id in ticket_ids:
-        text += f'Билет {ticket_id}\n'
-    approve_text = (f'<b>Ваша бронь\n'
+        text += f'Билет {ticket_id}<br>'
+    approve_text = (f'<b>Ваша бронь<br>'
                     f'{text}'
-                    f'подтверждена, ждем вас на мероприятии.</b>\n\n')
+                    f'подтверждена, ждем вас на мероприятии.</b><br><br>')
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
-    text = f'{approve_text}{address}{refund}\n\n{description}{ask_question}{command}'
-    await context.bot.send_message(text=text, chat_id=chat_id)
+    text = f'{approve_text}{address}{refund}<br><br>{description}{ask_question}{command}'
+
 
 
 async def send_reject_message(chat_id, context):
@@ -654,9 +654,9 @@ async def send_reject_message(chat_id, context):
         return
 
     text = (
-        'Ваша бронь отклонена.\n\n'
+        'Ваша бронь отклонена.<br><br>'
         'Если это произошло по ошибке, пожалуйста, '
-        'напишите в ЛС или позвоните Администратору:\n'
+        'напишите в ЛС или позвоните Администратору:<br>'
         f'{context.bot_data['admin']['contacts']}'
     )
     await context.bot.send_message(text=text, chat_id=chat_id)
