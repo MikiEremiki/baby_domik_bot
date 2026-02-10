@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from sulguk import transform_html
 from telegram.ext import (
     ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram import (
@@ -29,7 +30,7 @@ from utilities.utl_func import (
     clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket,
-    reply_html, extract_status_change
+    extract_status_change
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
 from schedule.worker_jobs import cancel_old_created_tickets
@@ -269,20 +270,35 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     reply_to_msg_id = update.message.message_id
 
     if not context.args:
-        await reply_html(update, help_text, reply_to_message_id=reply_to_msg_id)
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
 
     try:
         ticket_id = int(context.args[0])
     except ValueError:
-        await reply_html(update, f'Задан не номер {help_id_number}',
-                         reply_to_message_id=reply_to_msg_id)
+        text = f'Задан не номер {help_id_number}'
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
 
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
-        await reply_html(update, 'Проверь номер билета',
-                         reply_to_message_id=reply_to_msg_id)
+        text = 'Проверь номер билета'
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
     try:
         await update.effective_chat.send_action(
@@ -322,7 +338,12 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f'{people_str}'
             f'Примечание: {ticket.notes}<br>'
         )
-        await reply_html(update, text, reply_to_message_id=reply_to_msg_id)
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
     else:
         data = {}
@@ -333,8 +354,8 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     data['notes'] = new_ticket_notes
                 else:
                     text = 'Не задан текст примечания'
-                    await reply_html(
-                        update, text, reply_to_message_id=reply_to_msg_id)
+                    await update.effective_message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
                     return
             case 'Статус':
                 try:
@@ -344,14 +365,23 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     text += 'Возможные статусы:<br>'
                     text += get_ticket_status_name()
                     text += '<br><br> Для подробной справки нажми /update_ticket'
-                    await reply_html(
-                        update, text, reply_to_message_id=reply_to_msg_id)
+
+                    res_text = transform_html(text)
+                    await update.effective_message.reply_text(
+                        res_text.text,
+                        entities=res_text.entities,
+                        parse_mode=None,
+                        reply_to_message_id=reply_to_msg_id)
                     return
                 except IndexError:
                     text = '<b>>>>Не задано новое значение статуса</b><br><br>'
                     text += help_text
-                    await reply_html(
-                        update, text, reply_to_message_id=reply_to_msg_id)
+                    res_text = transform_html(text)
+                    await update.effective_message.reply_text(
+                        res_text.text,
+                        entities=res_text.entities,
+                        parse_mode=None,
+                        reply_to_message_id=reply_to_msg_id)
                     return
 
                 schedule_event_id = ticket.schedule_event_id
@@ -433,7 +463,12 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
                 text += refund + '<br><br>'
 
-                await reply_html(update, text, reply_to_message_id=reply_to_msg_id)
+                res_text = transform_html(text)
+                await update.effective_message.reply_text(
+                    res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                    reply_to_message_id=reply_to_msg_id)
                 return
             case 'Базовый':
                 try:
@@ -441,21 +476,21 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     old_base_ticket_id = int(ticket.base_ticket_id)
                 except ValueError:
                     text = 'Задан не номер базового билета'
-                    await reply_html(
-                        update, text, reply_to_message_id=reply_to_msg_id)
+                    await update.effective_message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
                     return
                 new_base_ticket = await db_postgres.get_base_ticket(
                     context.session, new_base_ticket_id)
                 if not new_base_ticket:
                     text = 'Проверь номер базового билета'
-                    await reply_html(
-                        update, text, reply_to_message_id=reply_to_msg_id)
+                    await update.effective_message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
                     return
                 if new_base_ticket_id == old_base_ticket_id:
                     text = (f'Билету {ticket_id} уже присвоен '
                             f'базовый билет {new_base_ticket_id}')
-                    await reply_html(
-                        update, text, reply_to_message_id=reply_to_msg_id)
+                    await update.effective_message.reply_text(
+                        text, reply_to_message_id=reply_to_msg_id)
                     return
 
                 data['base_ticket_id'] = new_base_ticket_id
@@ -468,8 +503,13 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             case _:
                 text = 'Не задано ключевое слово или оно написано с ошибкой\n\n'
                 text += help_key_word_text
-                await reply_html(
-                    update, text, reply_to_message_id=reply_to_msg_id)
+
+                res_text = transform_html(text)
+                await update.effective_message.reply_text(
+                    res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                    reply_to_message_id=reply_to_msg_id)
                 return
 
     await db_postgres.update_ticket(context.session, ticket_id, **data)
@@ -647,6 +687,13 @@ async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
     text = f'{approve_text}{address}{refund}<br><br>{description}{ask_question}{command}'
 
+    res_text = transform_html(text)
+    await context.bot.send_message(
+        text=res_text.text,
+        entities=res_text.entities,
+        chat_id=chat_id,
+        parse_mode=None
+    )
 
 
 async def send_reject_message(chat_id, context):
@@ -659,11 +706,18 @@ async def send_reject_message(chat_id, context):
         'напишите в ЛС или позвоните Администратору:<br>'
         f'{context.bot_data['admin']['contacts']}'
     )
-    await context.bot.send_message(text=text, chat_id=chat_id)
+    res_text = transform_html(text)
+    await context.bot.send_message(
+        text=res_text.text,
+        entities=res_text.entities,
+        chat_id=chat_id,
+        parse_mode=None
+    )
 
 
 async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
         await query.answer()
     except TimedOut as e:
         main_handlers_logger.error(e)
@@ -1061,7 +1115,11 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     elif state == 'TIME':
         await query.edit_message_text(text=text, reply_markup=reply_markup)
     elif state == 'TICKET':
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        res_text = transform_html(text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            reply_markup=reply_markup)
         try:
             message_id = context.user_data['reserve_user_data'].get(
                 'accept_message_id', False)
@@ -1094,15 +1152,15 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if message:
         await append_message_ids_back_context(
             context, [message.message_id])
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     return state
 
 
 async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     user = context.user_data['user']
     state = context.user_data.get('STATE')
@@ -1199,10 +1257,6 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     await clean_context_on_end_handler(main_handlers_logger, context)
     return ConversationHandler.END
 
@@ -1369,7 +1423,11 @@ async def set_user_status(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             '<li><code>/set_user_status 454342281 block_admin=off</code></li>'
             '</ul>'
         )
-        await reply_html(update, help_text)
+        res_text = transform_html(help_text)
+        await update.effective_message.reply_text(
+            res_text.text,
+            entities=res_text.entities,
+            parse_mode=None)
         return
 
     try:

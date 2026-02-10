@@ -1,8 +1,9 @@
+from sulguk import transform_html
 from telegram import Update
 from telegram.ext import ContextTypes, TypeHandler, ApplicationHandlerStop
 
 from settings.settings import CHAT_ID_KOCHETKOVA
-from utilities.utl_func import is_admin, reply_html
+from utilities.utl_func import is_admin
 
 
 def add_glob_on_off_middleware(application, config):
@@ -26,7 +27,12 @@ def add_glob_on_off_middleware(application, config):
                 '<li><a href="https://vk.com/baby_theater_domik">ВКонтакте</a></li>'
                 '</ul>'
             )
-            await reply_html(update, text)
+            res_text = transform_html(text)
+            return await update.effective_message.reply_text(
+                text=res_text.text,
+                entities=res_text.entities,
+                parse_mode=None,
+            )
             raise ApplicationHandlerStop
 
     application.add_handler(TypeHandler(Update, check_permissions), group=-50)

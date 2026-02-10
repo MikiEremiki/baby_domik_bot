@@ -1,10 +1,11 @@
 import logging
+
+from sulguk import transform_html
 from telegram import Update
 from telegram.ext import (
     ContextTypes, TypeHandler, ApplicationHandlerStop, Application)
 
 from db.db_postgres import get_or_create_user_status
-from utilities.utl_func import reply_html
 
 user_status_md_logger = logging.getLogger('bot.md.user_status')
 
@@ -30,7 +31,12 @@ def add_user_status_middleware(application: Application, config):
                     'Для решения свяжитесь с Администратором:<br>'
                     f'{admin_contacts}'
                 )
-                await reply_html(update, text)
+                res_text = transform_html(text)
+                await update.effective_message.reply_text(
+                    text=res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                )
                 raise ApplicationHandlerStop
         except ApplicationHandlerStop:
             raise

@@ -1,5 +1,7 @@
 import logging
 
+from sulguk import transform_html
+
 from telegram.ext import (
     ContextTypes,
     ConversationHandler,
@@ -733,11 +735,15 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         'text_for_notification_massage']
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Выездные мероприятия', None))
+
+    res_text = transform_html(text)
     message = await context.bot.send_message(
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
         chat_id=ADMIN_CME_GROUP,
         reply_markup=reply_markup,
-        message_thread_id=thread_id
+        message_thread_id=thread_id,
+        parse_mode=None
     )
 
     context.user_data['common_data'][
@@ -777,9 +783,12 @@ async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             'В случае переноса или отмены свяжитесь с Администратором:<br>'
             f'{context.bot_data['cme_admin']['contacts']}')
 
+    res_text = transform_html(text)
     message = await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
     )
 
     context.user_data['common_data']['message_id_buy_info'] = message.message_id

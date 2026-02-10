@@ -1,5 +1,6 @@
 import logging
 
+from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ConversationHandler
@@ -140,7 +141,13 @@ async def choice_option_of_reserve(
         postfix_for_back=1,
         size_row=5
     )
-    await message.edit_text(text=text, reply_markup=reply_markup)
+
+    res_text = transform_html(text)
+    await message.edit_text(
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None,
+        reply_markup=reply_markup)
 
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['choose_schedule_event_id'] = schedule_event.id

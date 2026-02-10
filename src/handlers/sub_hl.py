@@ -4,6 +4,7 @@ from typing import List, Union, Optional
 
 from requests import ConnectTimeout
 from sqlalchemy.exc import IntegrityError
+from sulguk import transform_html
 from telegram import (
     Update,
     InlineKeyboardMarkup, InlineKeyboardButton,
@@ -76,17 +77,23 @@ async def processing_admin_info(
                  'telegram ' + admin_info['username'],
                  'телефон ' + admin_info['phone']]
             )
+            text = f'Зафиксировано: {admin_info}'
+            res_text = transform_html(text)
             await update.effective_chat.send_message(
-                f'Зафиксировано: {admin_info}')
+                text=res_text.text, entities=res_text.entities, parse_mode=None)
         else:
+            text = (f'Должно быть 4 параметра, а передано {len(context.args)}<br>'
+                    'Формат:<br><code>Имя Фамилия @username +79991234455</code>')
+            res_text = transform_html(text)
             await update.effective_chat.send_message(
-                f'Должно быть 4 параметра, а передано {len(context.args)}\n'
-                'Формат:\n<code>Имя Фамилия @username +79991234455</code>')
+                text=res_text.text, entities=res_text.entities, parse_mode=None)
     else:
+        text = ('Не заданы параметры к команде<br>'
+                'Текущие контакты администратора:<br>'
+                f'{admin_info}')
+        res_text = transform_html(text)
         await update.effective_chat.send_message(
-            'Не заданы параметры к команде\n'
-            'Текущие контакты администратора:\n'
-            f'{admin_info}')
+            text=res_text.text, entities=res_text.entities, parse_mode=None)
 
 
 async def update_admin_info(update: Update,
@@ -662,9 +669,9 @@ async def send_by_ticket_info(update, context):
     text += refund + '<br><br>'
     text += ('Задать вопросы можно в сообщениях группы<br>'
              'https://vk.com/baby_theater_domik')
+    res_text = transform_html(text)
     message = await update.effective_chat.send_message(
-        text=text,
-    )
+            res_text.text, entities=res_text.entities, parse_mode=None)
     await message.pin()
 
     command = context.user_data['command']
@@ -773,15 +780,24 @@ async def send_message_about_list_waiting(update: Update, context):
         resize_keyboard=True,
         one_time_keyboard=True
     )
+
+    res_text = transform_html(text)
     await update.effective_chat.send_message(
-        text=text, reply_markup=reply_markup)
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None,
+        reply_markup=reply_markup
+    )
 
 
 async def send_info_about_individual_ticket(update, context):
     query = update.callback_query
     text = ('Для оформления данного варианта обратитесь к Администратору:<br>'
             f'{context.bot_data['admin']['contacts']}')
-    await query.edit_message_text(text)
+
+    res_text = transform_html(text)
+    await query.edit_message_text(
+        text=res_text.text, entities=res_text.entities, parse_mode=None)
     sub_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
@@ -855,9 +871,12 @@ async def send_approve_reject_message_to_admin_in_webhook(
         callback_name,
         f'{chat_id} {message_id}'
     )
+    res_text = transform_html(text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
         message_thread_id=thread_id,
         reply_markup=reply_markup,
+        parse_mode=None
     )

@@ -6,7 +6,6 @@ from datetime import time
 from pprint import pformat
 from typing import List, Sequence, Tuple, Optional
 
-from sulguk import transform_html
 import pytz
 from telegram import (
     Update,
@@ -32,26 +31,6 @@ from settings.settings import (
 from utilities.schemas import context_user_data
 
 utilites_logger = logging.getLogger('bot.utilites')
-
-
-async def reply_html(update: Update, html_text: str, **kwargs):
-    result = transform_html(html_text)
-    return await update.effective_message.reply_text(
-        text=result.text,
-        entities=result.entities,
-        parse_mode=None,
-        **kwargs
-    )
-
-
-async def edit_message_html(query, html_text: str, **kwargs):
-    result = transform_html(html_text)
-    return await query.edit_message_text(
-        text=result.text,
-        entities=result.entities,
-        parse_mode=None,
-        **kwargs
-    )
 
 
 async def echo(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:

@@ -2,6 +2,7 @@ import logging
 import pprint
 from datetime import datetime
 
+from sulguk import transform_html
 from telegram import (
     Update, InlineKeyboardMarkup, InlineKeyboardButton, Message,
 )
@@ -1061,8 +1062,12 @@ async def choice_option_of_reserve(
             size_row=1,
         )
 
-        # Показываем экран выбора действий
-        await query.edit_message_text(no_seats_text, reply_markup=reply_markup)
+        res_text = transform_html(no_seats_text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup)
 
         # Сохраняем состояние и контекст для возврата Назад
         state = 'CHOOSING'
@@ -1115,10 +1120,18 @@ async def choice_option_of_reserve(
     await message.delete()
 
     if update.effective_message.photo:
-        await query.edit_message_caption(caption=text,
+        res_text = transform_html(text)
+        await query.edit_message_caption(caption=res_text.text,
+                                         entities=res_text.entities,
+                                         parse_mode=None,
                                          reply_markup=reply_markup)
     else:
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        res_text = transform_html(text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup)
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -1145,7 +1158,9 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     context.user_data['common_data']['text_for_notification_massage'] = text
 
-    await update.effective_chat.send_message(text=text)
+    res_text = transform_html(text)
+    await update.effective_chat.send_message(
+        text=res_text.text, entities=res_text.entities, parse_mode=None)
     message = await update.effective_chat.send_message(
         'Проверяю наличие свободных мест...')
     await update.effective_chat.send_action(ChatAction.TYPING)
@@ -1463,19 +1478,28 @@ async def send_msg_get_phone(update: Update,
     phone_confirm_btn, text_prompt = await create_phone_confirm_btn(
         text_prompt, phone)
 
-    back_and_cancel = add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
-
     if phone_confirm_btn:
-        keyboard = [phone_confirm_btn, back_and_cancel]
+        reply_markup = await create_replay_markup(
+            phone_confirm_btn,
+            'PHONE',
+            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+            add_back_btn=False,
+        )
     else:
-        keyboard = [back_and_cancel]
+        keyboard = [
+            add_btn_back_and_cancel(
+                postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+                add_back_btn=False)
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    res_text = transform_html(text_prompt)
     message = await update.effective_chat.send_message(
-        text=text_prompt,
-        reply_markup=reply_markup
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
     )
     return message
 
@@ -1487,7 +1511,7 @@ async def check_children_names(update: Update,
     result = await check_input_text(update.effective_message.text)
     if not result:
         keyboard = [add_btn_back_and_cancel(
-            context.user_data['postfix_for_cancel'] + '|',
+            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
             add_back_btn=False)]
         reply_markup = InlineKeyboardMarkup(keyboard)
         message = await update.effective_chat.send_message(
@@ -1538,7 +1562,7 @@ async def conversation_timeout(
             chat_id=update.effective_chat.id,
             message_id=context.user_data['common_data']['message_id_buy_info']
         )
-        await update.effective_chat.send_message(
+        text = (
             'От Вас долго не было ответа, бронь отменена, '
             'пожалуйста выполните новый запрос<br>'
             'Если вы уже сделали оплату, но не отправили чек об оплате, '
@@ -1546,6 +1570,12 @@ async def conversation_timeout(
             f'/{COMMAND_DICT['RESERVE'][0]}<br><br>'
             'Если свободных мест не будет свяжитесь с Администратором:<br>'
             f'{context.bot_data['admin']['contacts']}'
+        )
+        res_text = transform_html(text)
+        await update.effective_chat.send_message(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None
         )
         reserve_hl_logger.info(pprint.pformat(context.user_data))
 
@@ -1556,15 +1586,8 @@ async def conversation_timeout(
             message_thread_id=update.effective_message.message_thread_id
         )
 
-    reserve_hl_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{user}',
-            f'AFK уже {RESERVE_TIMEOUT} мин'
-        ]
-    ))
-    reserve_hl_logger.info(
-        f'Обработчик завершился на этапе {context.user_data['STATE']}')
+    reserve_hl_logger.info(f'Пользователь: {user}: AFK уже {RESERVE_TIMEOUT} мин')
+    reserve_hl_logger.info(f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     await cancel_tickets_db_and_gspread(update, context)
 
@@ -1616,7 +1639,12 @@ async def send_clients_data(
 
     text += await add_clients_data_to_text(base_ticket_and_tickets)
 
-    await query.edit_message_text(text)
+    res_text = transform_html(text)
+    await query.edit_message_text(
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None
+    )
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state
@@ -1638,10 +1666,11 @@ async def write_list_of_waiting(
     text_prompt = '<b>Напишите номер телефона</b><br><br>'
     phone = await db_postgres.get_phone(context.session,
                                         update.effective_user.id)
-    phone_confirm_btn, text_prompt = await create_phone_confirm_btn(text_prompt,
-                                                                    phone)
+    phone_confirm_btn, text_prompt = await create_phone_confirm_btn(
+        text_prompt, phone)
 
     state = 'PHONE_FOR_WAITING'
+    res_text = transform_html(text_prompt)
     if phone_confirm_btn:
         reply_markup = await create_replay_markup(
             phone_confirm_btn,
@@ -1650,10 +1679,18 @@ async def write_list_of_waiting(
             add_back_btn=True,
             postfix_for_back=context.user_data['STATE']
         )
-        await query.edit_message_text(text=text_prompt,
-                                      reply_markup=reply_markup)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            reply_markup=reply_markup,
+            parse_mode=None
+        )
     else:
-        await query.edit_message_text(text=text_prompt)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None
+        )
 
     context.user_data['STATE'] = state
     return state
@@ -1669,7 +1706,9 @@ async def adult_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
-    await query.edit_message_text(update.effective_message.text + '\nДа')
+    text = f'{update.effective_message.text}\n\nДа'
+    entities = update.effective_message.entities
+    await query.edit_message_text(text, entities=entities)
 
     reserve_user_data = context.user_data['reserve_user_data']
     try:
@@ -1701,7 +1740,9 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
-    await query.edit_message_text(f"{update.effective_message.text}\nДа")
+    text = f'{update.effective_message.text}\nДа'
+    entities = update.effective_message.entities
+    await query.edit_message_text(text, entities=entities)
 
     data = query.data
     _, callback_data = remove_intent_id(data)
@@ -1766,7 +1807,9 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
-    await query.edit_message_text(f'{update.effective_message.text}\nДа')
+    text = f'{update.effective_message.text}\n\nДа'
+    entities = update.effective_message.entities
+    await query.edit_message_text(text, entities=entities)
 
     data = query.data
     child = None
@@ -1938,9 +1981,13 @@ async def send_admin_info_add_list_wait(context: 'ContextTypes.DEFAULT_TYPE',
     text = (f'#Лист_ожидания<br>'
             f'Пользователь @{user.username} {user.full_name}<br>'
             f'Запросил добавление в лист ожидания<br>{text}')
+
+    res_text = transform_html(text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None,
         message_thread_id=thread_id
     )
     sheet_id_domik = context.config.sheets.sheet_id_domik
