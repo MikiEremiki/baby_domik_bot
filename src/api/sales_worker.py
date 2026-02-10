@@ -206,6 +206,15 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
 
             for r in recipients:
                 try:
+                    # Check user status before sending
+                    if r.user_id:
+                        status = await db_postgres.get_or_create_user_status(session, int(r.user_id))
+                        if status.is_blacklisted or status.is_blocked_by_admin or status.is_blocked_by_user:
+                            reason = "blacklisted" if status.is_blacklisted else "blocked_by_admin" if status.is_blocked_by_admin else "blocked_by_user"
+                            await mark_recipient_status(session, r.id, 'blocked', last_error=f"User is {reason}")
+                            total_blocked += 1
+                            continue
+
                     await _send_to_chat(
                         bot,
                         campaign,

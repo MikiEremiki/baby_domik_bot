@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from sulguk import transform_html
 from telegram.ext import (
     ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram import (
@@ -8,11 +9,11 @@ from telegram import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 from telegram.constants import ChatType, ChatAction
-from telegram.error import BadRequest, TimedOut
+from telegram.error import BadRequest, TimedOut, Forbidden
 
 from api.gspread_pub import publish_update_ticket, publish_update_cme
 from db import db_postgres
-from db.enum import TicketStatus, CustomMadeStatus
+from db.enum import TicketStatus, CustomMadeStatus, UserRole
 from handlers import check_user_db
 from db.db_googlesheets import (
     decrease_nonconfirm_seat,
@@ -23,11 +24,13 @@ from settings.settings import (
     COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN, FILE_ID_RULES
 )
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
+from utilities.utl_check import is_user_blocked
 from utilities.utl_func import (
     is_admin, get_back_context, clean_context,
     clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
-    get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket
+    get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket,
+    extract_status_change
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
 from schedule.worker_jobs import cancel_old_created_tickets
@@ -60,7 +63,7 @@ async def start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         '\n\n'
     )
     await update.effective_chat.send_message(
-        text=start_text + description + command + address + ask_question,
+        text=f"{start_text}{description}{command}{address}{ask_question}",
         reply_markup=ReplyKeyboardRemove(),
         link_preview_options=LinkPreviewOptions(
             url='https://t.me/theater_domik')
@@ -84,11 +87,10 @@ async def send_approve_msg(update: Update,
             text, reply_to_message_id=update.message.message_id)
         return
     text = ''
-    ticket_id = context.args[0]
+    ticket_id = int(context.args[0])
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
-        text = (f'Проверь номер билета\n'
-                f'Введено: {ticket_id}')
+        text = f'Проверь номер билета\nВведено: {ticket_id}'
         await update.effective_message.reply_text(
             text, reply_to_message_id=update.message.message_id)
         return
@@ -111,6 +113,52 @@ async def send_approve_msg(update: Update,
     await update.effective_message.reply_text(text)
 
 
+async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Обработчик обновлений статуса бота в чатах (my_chat_member).
+    Используется для отслеживания блокировки бота пользователем в личных сообщениях,
+    а также для логирования вступления/выхода из групп.
+    """
+    result = extract_status_change(update.my_chat_member)
+    if result is None:
+        return
+    was_member, is_member = result
+
+    cause_name = update.effective_user.full_name if update.effective_user else 'Unknown'
+    chat = update.effective_chat
+
+    # Обработка личных чатов (блокировка/разблокировка)
+    if chat.type == ChatType.PRIVATE:
+        if was_member and not is_member:
+            main_handlers_logger.info(f'{cause_name} заблокировал бота')
+            await db_postgres.update_user_status(
+                context.session, chat.id, is_blocked_by_user=True)
+        elif not was_member and is_member:
+            main_handlers_logger.info(f'{cause_name} разблокировал бота')
+            await db_postgres.update_user_status(
+                context.session, chat.id, is_blocked_by_user=False)
+
+    # Логирование для групп и каналов
+    elif chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+        if was_member and not is_member:
+            main_handlers_logger.info(
+                f'Бот был удален из группы {chat.title} ({chat.id}) пользователем {cause_name}'
+            )
+        elif not was_member and is_member:
+            main_handlers_logger.info(
+                f'Бот был добавлен в группу {chat.title} ({chat.id}) пользователем {cause_name}'
+            )
+    elif chat.type == ChatType.CHANNEL:
+        if was_member and not is_member:
+            main_handlers_logger.info(
+                f'Бот был удален из канала {chat.title} ({chat.id}) пользователем {cause_name}'
+            )
+        elif not was_member and is_member:
+            main_handlers_logger.info(
+                f'Бот был добавлен в канал {chat.title} ({chat.id}) пользователем {cause_name}'
+            )
+
+
 async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if not context.args:
         text = (
@@ -123,11 +171,12 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await update.message.reply_text(
             text, reply_to_message_id=update.message.message_id)
         return
+
     type_enter_chat_id = context.args[0]
-    text = ' '.join(context.args[2:])
+
     match type_enter_chat_id:
         case 'Билет':
-            ticket_id = context.args[1]
+            ticket_id = int(context.args[1])
             ticket = await db_postgres.get_ticket(context.session, ticket_id)
             if not ticket:
                 text = 'Проверь номер билета'
@@ -136,9 +185,8 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 return
             chat_id = ticket.user.chat_id
         case 'Заявка':
-            cme_id = context.args[1]
-            cme = await db_postgres.get_custom_made_event(context.session,
-                                                          cme_id)
+            cme_id = int(context.args[1])
+            cme = await db_postgres.get_custom_made_event(context.session, cme_id)
             if not cme:
                 text = 'Проверь номер заявки'
                 await update.message.reply_text(
@@ -155,60 +203,102 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await update.message.reply_text(
                 text, reply_to_message_id=update.message.message_id)
             return
-    await context.bot.send_message(text=text, chat_id=chat_id)
-    await update.effective_message.reply_text(
-        f'Сообщение:\n{text}\nУспешно отправлено')
+
+    parts = update.effective_message.text.strip().split(maxsplit=3)
+    if len(parts) < 4:
+        await update.message.reply_text(
+            'Неверный формат. Используйте:\n'
+            '<code>/send_msg Тип 0 Сообщение</code>',
+            reply_to_message_id=update.message.message_id)
+        return
+    text = parts[3]
+
+    try:
+        await context.bot.send_message(text=text, chat_id=chat_id)
+        await update.effective_message.reply_text(
+            f'Сообщение:\n{text}\nУспешно отправлено')
+    except Forbidden as e:
+        if 'bot was blocked by the user' in str(e).lower():
+            target_uid = int(chat_id)
+            await db_postgres.update_user_status(
+                context.session, target_uid, is_blocked_by_user=True)
+            await update.effective_message.reply_text(
+                f'Ошибка: Бот заблокирован пользователем {target_uid}. '
+                f'Статус в базе обновлен.'
+            )
+        else:
+            await update.effective_message.reply_text(
+                f'Ошибка при отправке сообщения: {e}'
+            )
 
 
 async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    text = 'Справка по команде\n'
-    text += '<code>/update_ticket 0 Слово Текст</code>\n\n'
-    text += '0 - это номер билета\n'
+    text = 'Справка по команде<br>'
+    text += '<code>/update_ticket 0 Слово Текст</code><br><br>'
+    text += '0 - это номер билета<br>'
     text += ('<i>Если написать только номер, то будет отправлена информация по '
-             'билету</i>\n')
+             'билету</i><br>')
     help_id_number = text
-    text += 'Слово - может быть:\n'
-    text += ('<code>Статус</code>\n'
-             '<code>Примечание</code>\n'
-             '<code>Базовый</code>\n'
-             '<code>Покупатель</code>\n\n')
+    text += 'Слово - может быть:<br>'
+    text += ('<ul>'
+             '<li><code>Статус</code></li>'
+             '<li><code>Примечание</code></li>'
+             '<li><code>Базовый</code></li>'
+             '<li><code>Покупатель</code></li>'
+             '</ul><br>')
     help_key_word_text = text
-    text += 'Для <code>Примечание</code> просто пишем Текст примечания\n\n'
-    text += 'Для <code>Базовый</code> Текст это номер базового билета\n\n'
-    text += 'Для <code>Статус</code> Текст может быть:\n'
+    text += 'Для <code>Примечание</code> просто пишем Текст примечания<br><br>'
+    text += 'Для <code>Базовый</code> Текст это номер базового билета<br><br>'
+    text += 'Для <code>Статус</code> Текст может быть:<br>'
     text += get_ticket_status_name()
-    text += '\nПовлияют на расписание\n'
-    text += '<i>Сейчас -> Станет:</i>\n'
-    text += 'Создан -> Подтвержден|Отклонен|Отменен\n'
-    text += 'Оплачен -> Подтвержден|Отклонен|Возвращен\n'
-    text += ('Подтвержден -> '
-             'Отклонен|Возвращен|Передан|Перенесен|Отменен\n\n')
-    text += 'Остальные направления не повлияют на расписание\n'
-    text += 'если билет Сейчас:\n'
-    text += 'Отклонен|Передан|Возвращен|Перенесен|Отменен\n'
-    text += ('Это финальные статусы, если нужно сменить, '
-             'то используем новый билет\n')
+    text += '<br>Повлияют на расписание<br>'
+    text += '<i>Сейчас -> Станет:</i><br>'
+    text += ('<ul>'
+             '<li>Создан -> Подтвержден|Отклонен|Отменен</li>'
+             '<li>Оплачен -> Подтвержден|Отклонен|Возвращен</li>'
+             '<li>Подтвержден -> '
+             'Отклонен|Возвращен|Передан|Перенесен|Отменен</li>'
+             '</ul>')
+    text += 'Остальные направления не повлияют на расписание<br><br>'
+    text += 'если билет Сейчас:<br>'
+    text += ('<ul>'
+             '<li>Отклонен|Передан|Возвращен|Перенесен|Отменен</li>'
+             '</ul>')
+    text += ('тогда это финальные статусы.<br>Если нужно их сменить, '
+             'то используем новый билет<br>')
     help_text = text
     reply_to_msg_id = update.message.message_id
 
     if not context.args:
-        await update.message.reply_text(
-            help_text, reply_to_message_id=reply_to_msg_id)
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
 
     try:
         ticket_id = int(context.args[0])
     except ValueError:
-        text = 'Задан не номер' + help_id_number
-        await update.message.reply_text(
-            text, reply_to_message_id=reply_to_msg_id)
+        text = f'Задан не номер {help_id_number}'
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
 
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
         text = 'Проверь номер билета'
-        await update.message.reply_text(
-            text, reply_to_message_id=reply_to_msg_id)
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
     try:
         await update.effective_chat.send_action(
@@ -231,25 +321,29 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         child_str = ''
         for person in people:
             if hasattr(person.adult, 'phone'):
-                adult_str = f'{person.name}\n+7{person.adult.phone}\n'
+                adult_str = f'{person.name}<br>+7{person.adult.phone}<br>'
             elif hasattr(person.child, 'age'):
-                child_str += f'{person.name} {person.child.age}\n'
+                child_str += f'{person.name} {person.child.age}<br>'
         people_str = adult_str + child_str
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
         text = (
-            f'Техническая информация по билету {ticket_id}\n\n'
-            f'Событие {schedule_event.id}: {theater_event.name}\n'
-            f'{date_event} в {time_event}\n\n'
-            f'Привязан к профилю: {user.user_id}\n'
-            f'Билет: {base_ticket.name}\n'
-            f'Стоимость: {ticket.price}\n'
-            f'Статус: {ticket.status.value}\n'
+            f'Техническая информация по билету {ticket_id}<br><br>'
+            f'Событие {schedule_event.id}: {theater_event.name}<br>'
+            f'{date_event} в {time_event}<br><br>'
+            f'Привязан к профилю: {user.user_id}<br>'
+            f'Билет: {base_ticket.name}<br>'
+            f'Стоимость: {ticket.price}<br>'
+            f'Статус: {ticket.status.value}<br>'
             f'{people_str}'
-            f'Примечание: {ticket.notes}\n'
+            f'Примечание: {ticket.notes}<br>'
         )
-        await update.message.reply_text(
-            text, reply_to_message_id=reply_to_msg_id)
+        res_text = transform_html(text)
+        await update.effective_message.reply_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_to_message_id=reply_to_msg_id)
         return
     else:
         data = {}
@@ -260,25 +354,34 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     data['notes'] = new_ticket_notes
                 else:
                     text = 'Не задан текст примечания'
-                    await update.message.reply_text(
+                    await update.effective_message.reply_text(
                         text, reply_to_message_id=reply_to_msg_id)
                     return
             case 'Статус':
                 try:
                     new_ticket_status = TicketStatus(context.args[2])
                 except ValueError:
-                    text = 'Неверный статус билета\n'
-                    text += 'Возможные статусы:\n'
+                    text = 'Неверный статус билета<br>'
+                    text += 'Возможные статусы:<br>'
                     text += get_ticket_status_name()
-                    text += '\n\n Для подробной справки нажми /update_ticket'
-                    await update.message.reply_text(
-                        text, reply_to_message_id=reply_to_msg_id)
+                    text += '<br><br> Для подробной справки нажми /update_ticket'
+
+                    res_text = transform_html(text)
+                    await update.effective_message.reply_text(
+                        res_text.text,
+                        entities=res_text.entities,
+                        parse_mode=None,
+                        reply_to_message_id=reply_to_msg_id)
                     return
                 except IndexError:
-                    text = '<b>>>>Не задано новое значение статуса</b>\n\n'
+                    text = '<b>>>>Не задано новое значение статуса</b><br><br>'
                     text += help_text
-                    await update.message.reply_text(
-                        text, reply_to_message_id=reply_to_msg_id)
+                    res_text = transform_html(text)
+                    await update.effective_message.reply_text(
+                        res_text.text,
+                        entities=res_text.entities,
+                        parse_mode=None,
+                        reply_to_message_id=reply_to_msg_id)
                     return
 
                 schedule_event_id = ticket.schedule_event_id
@@ -351,38 +454,42 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 text_select_event = await create_str_info_by_schedule_event_id(
                     context, schedule_event_id)
 
-                text = f'<b>Номер билета <code>{ticket_id}</code></b>\n\n'
-                text += text_select_event + (f'\nВариант бронирования:\n'
+                text = f'<b>Номер билета <code>{ticket_id}</code></b><br><br>'
+                text += text_select_event + (f'<br>Вариант бронирования:<br>'
                                              f'{base_ticket.name} '
-                                             f'{int(price)}руб\n\n')
-                text += 'На кого оформлен:\n'
-                text += people_str + '\n\n'
+                                             f'{int(price)}руб<br><br>')
+                text += 'На кого оформлен:<br>'
+                text += people_str + '<br><br>'
                 refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
-                text += refund + '\n\n'
+                text += refund + '<br><br>'
 
-                await update.message.reply_text(
-                    text, reply_to_message_id=reply_to_msg_id)
+                res_text = transform_html(text)
+                await update.effective_message.reply_text(
+                    res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                    reply_to_message_id=reply_to_msg_id)
                 return
             case 'Базовый':
                 try:
                     new_base_ticket_id = int(context.args[2])
-                    old_base_ticket_id = ticket.base_ticket_id
+                    old_base_ticket_id = int(ticket.base_ticket_id)
                 except ValueError:
                     text = 'Задан не номер базового билета'
-                    await update.message.reply_text(
+                    await update.effective_message.reply_text(
                         text, reply_to_message_id=reply_to_msg_id)
                     return
                 new_base_ticket = await db_postgres.get_base_ticket(
                     context.session, new_base_ticket_id)
                 if not new_base_ticket:
                     text = 'Проверь номер базового билета'
-                    await update.message.reply_text(
+                    await update.effective_message.reply_text(
                         text, reply_to_message_id=reply_to_msg_id)
                     return
                 if new_base_ticket_id == old_base_ticket_id:
                     text = (f'Билету {ticket_id} уже присвоен '
                             f'базовый билет {new_base_ticket_id}')
-                    await update.message.reply_text(
+                    await update.effective_message.reply_text(
                         text, reply_to_message_id=reply_to_msg_id)
                     return
 
@@ -396,8 +503,13 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             case _:
                 text = 'Не задано ключевое слово или оно написано с ошибкой\n\n'
                 text += help_key_word_text
-                await update.message.reply_text(
-                    text, reply_to_message_id=reply_to_msg_id)
+
+                res_text = transform_html(text)
+                await update.effective_message.reply_text(
+                    res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                    reply_to_message_id=reply_to_msg_id)
                 return
 
     await db_postgres.update_ticket(context.session, ticket_id, **data)
@@ -406,9 +518,10 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 
 def get_ticket_status_name():
-    text = ''
+    text = '<ul>'
     for status in TicketStatus:
-        text += f'<code>{status.value}</code>\n'
+        text += f'<li><code>{status.value}</code></li>'
+    text += '</ul>'
     return text
 
 
@@ -420,15 +533,16 @@ async def send_result_update_ticket(
 ):
     text = f'Билет <code>{ticket_id}</code> обновлен\n'
     status = data.get('status', None)
-    text += ('Статус: ' + status.value) if status else ''
+    if status:
+        text += f'Статус: {status.value}'
     base_ticket_id = data.get('base_ticket_id', None)
-    text += ('Новый базовый билет: '
-             + str(base_ticket_id)
-             + '\nВ Расписании обновлено, а в клиентской базе данную '
-               'информацию надо поменять в ручную'
-             ) if base_ticket_id else ''
+    if base_ticket_id:
+        text += (f'Новый базовый билет: {base_ticket_id}\n'
+                 f'В Расписании обновлено, а в клиентской базе данную '
+                 f'информацию надо поменять в ручную')
     notes = data.get('notes', None)
-    text += ('Примечание: ' + notes) if notes else ''
+    if notes:
+        text += f'Примечание: {notes}'
     message_thread_id = update.effective_message.message_thread_id
     if bool(update.message.reply_to_message):
         await context.bot.send_message(
@@ -447,6 +561,11 @@ async def send_result_update_ticket(
 
 async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         text = 'Не разрешенное действие: подтвердить бронь'
         main_handlers_logger.warning(text)
@@ -476,19 +595,15 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         )
 
     chat_id = query.data.split('|')[1].split()[0]
-    message_id_buy_info = query.data.split('|')[1].split()[1]
+    message_id_buy_info = int(query.data.split('|')[1].split()[1])
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         await decrease_nonconfirm_seat(
             context, ticket.schedule_event_id, ticket.base_ticket_id)
 
-    text = message.text + f'\nСписаны неподтвержденные места...'
+    text = f'{message.text}\nСписаны неподтвержденные места...'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -518,7 +633,7 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    text = message.text + f'\nОбновлен статус билета: {ticket_status.value}...'
+    text = f'{message.text}\nОбновлен статус билета: {ticket_status.value}...'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -526,7 +641,7 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.info(text)
 
     await send_approve_message(chat_id, context, ticket_ids)
-    text = message.text + f'\nОтправлено сообщение о подтверждении бронирования...'
+    text = f'{message.text}\nОтправлено сообщение о подтверждении бронирования...'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -535,7 +650,7 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     text = f'Бронь подтверждена\n'
     for ticket_id in ticket_ids:
-        text += 'Билет ' + str(ticket_id) + '\n'
+        text += f'Билет {ticket_id}\n'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -553,36 +668,60 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 
 async def send_approve_message(chat_id, context, ticket_ids: List[int]):
+    if await is_user_blocked(context, chat_id, 'sending approve message'):
+        return
+
     description = context.bot_data['texts']['description']
     address = context.bot_data['texts']['address']
     ask_question = context.bot_data['texts']['ask_question']
     command = (
-        'Для продолжения работы используйте команды:\n'
-        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль\n'
+        'Для продолжения работы используйте команды:<br>'
+        f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль<br>'
     )
     text = ''
     for ticket_id in ticket_ids:
-        text += 'Билет ' + str(ticket_id) + '\n'
-    approve_text = (f'<b>Ваша бронь\n'
+        text += f'Билет {ticket_id}<br>'
+    approve_text = (f'<b>Ваша бронь<br>'
                     f'{text}'
-                    f'подтверждена, ждем вас на мероприятии.</b>\n\n')
+                    f'подтверждена, ждем вас на мероприятии.</b><br><br>')
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
-    text = approve_text + address + refund + '\n\n' + description + ask_question + command
-    await context.bot.send_message(text=text, chat_id=chat_id)
+    text = f'{approve_text}{address}{refund}<br><br>{description}{ask_question}{command}'
+
+    res_text = transform_html(text)
+    await context.bot.send_message(
+        text=res_text.text,
+        entities=res_text.entities,
+        chat_id=chat_id,
+        parse_mode=None
+    )
 
 
 async def send_reject_message(chat_id, context):
+    if await is_user_blocked(context, chat_id, 'sending reject message'):
+        return
+
     text = (
-        'Ваша бронь отклонена.\n\n'
+        'Ваша бронь отклонена.<br><br>'
         'Если это произошло по ошибке, пожалуйста, '
-        'напишите в ЛС или позвоните Администратору:\n'
+        'напишите в ЛС или позвоните Администратору:<br>'
         f'{context.bot_data['admin']['contacts']}'
     )
-    await context.bot.send_message(text=text, chat_id=chat_id)
+    res_text = transform_html(text)
+    await context.bot.send_message(
+        text=res_text.text,
+        entities=res_text.entities,
+        chat_id=chat_id,
+        parse_mode=None
+    )
 
 
 async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
@@ -601,19 +740,15 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     )
 
     chat_id = query.data.split('|')[1].split()[0]
-    message_id_buy_info = query.data.split('|')[1].split()[1]
+    message_id_buy_info = int(query.data.split('|')[1].split()[1])
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         await increase_free_and_decrease_nonconfirm_seat(
             context, ticket.schedule_event_id, ticket.base_ticket_id)
 
-    text = message.text + f'\nВозвращены места в продажу...'
+    text = f'{message.text}\nВозвращены места в продажу...'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -639,7 +774,7 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                                         status=ticket_status)
 
     await query.edit_message_reply_markup()
-    text = message.text + f'\nОбновлен статус билета: {ticket_status.value}...'
+    text = f'{message.text}\nОбновлен статус билета: {ticket_status.value}...'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -647,7 +782,7 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.info(text)
 
     await send_reject_message(chat_id, context)
-    text = message.text + f'\nОтправлено сообщение об отклонении бронирования...'
+    text = f'{message.text}\nОтправлено сообщение об отклонении бронирования...'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -656,7 +791,7 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     text = f'Бронь отклонена\n'
     for ticket_id in ticket_ids:
-        text += 'Билет ' + str(ticket_id) + '\n'
+        text += f'Билет {ticket_id}\n'
     try:
         await message.edit_text(text)
     except TimedOut as e:
@@ -676,6 +811,11 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 async def confirm_birthday(update: Update,
                            context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
@@ -695,7 +835,7 @@ async def confirm_birthday(update: Update,
     )
 
     chat_id = query.data.split('|')[1].split()[0]
-    message_id_for_reply = query.data.split('|')[1].split()[1]
+    message_id_for_reply = int(query.data.split('|')[1].split()[1])
     cme_id = query.data.split('|')[1].split()[2]
 
     step = query.data.split('|')[0][-1]
@@ -709,11 +849,6 @@ async def confirm_birthday(update: Update,
         case '2':
             cme_status = CustomMadeStatus.PREPAID
 
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
-
     sheet_id_cme = context.config.sheets.sheet_id_cme
     try:
         await publish_update_cme(
@@ -726,11 +861,11 @@ async def confirm_birthday(update: Update,
             f"Failed to publish gspread task, fallback to direct call: {e}")
         await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
-        message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
+        f'{message.text}\nОбновил статус в гугл-таблице {cme_status.value}')
 
     await db_postgres.update_custom_made_event(
         context.session, cme_id, status=cme_status)
-    await message.edit_text(message.text + f'и бд {cme_status.value}')
+    await message.edit_text(f'{message.text} и бд {cme_status.value}')
 
     await query.edit_message_reply_markup()
     reply_markup = None
@@ -777,6 +912,10 @@ async def confirm_birthday(update: Update,
             text = f'Ваша бронь по заявке {cme_id} подтверждена\n'
             text += 'До встречи в Домике'
 
+    if await is_user_blocked(
+            context, chat_id, 'sending confirm birthday message'):
+        return
+
     try:
         await context.bot.send_message(
             text=text,
@@ -794,6 +933,11 @@ async def confirm_birthday(update: Update,
 
 async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
@@ -813,7 +957,7 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     )
 
     chat_id = query.data.split('|')[1].split()[0]
-    message_id_for_reply = query.data.split('|')[1].split()[1]
+    message_id_for_reply = int(query.data.split('|')[1].split()[1])
     cme_id = query.data.split('|')[1].split()[2]
 
     step = query.data.split('|')[0][-1]
@@ -822,11 +966,6 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f'{context.bot_data['cme_admin']['contacts']}')
 
     cme_status = CustomMadeStatus.REJECTED
-
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
     try:
@@ -840,11 +979,11 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f"Failed to publish gspread task, fallback to direct call: {e}")
         await update_cme_in_gspread(sheet_id_cme, cme_id, cme_status.value)
     await message.edit_text(
-        message.text + f'\nОбновил статус в гугл-таблице {cme_status.value}')
+        f'{message.text}\nОбновил статус в гугл-таблице {cme_status.value}')
 
     await db_postgres.update_custom_made_event(
         context.session, cme_id, status=cme_status)
-    await message.edit_text(message.text + f'и бд {cme_status.value}')
+    await message.edit_text(f'{message.text} и бд {cme_status.value}')
 
     await query.edit_message_reply_markup()
     match step:
@@ -863,6 +1002,10 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     text += ('При возникновении вопросов, свяжитесь с Администратором:\n'
              f'{context.bot_data['cme_admin']['contacts']}')
+    if await is_user_blocked(
+            context, chat_id, 'sending reject birthday message'):
+        return
+
     try:
         await context.bot.send_message(
             text=text,
@@ -879,6 +1022,10 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     state = query.data.split('-')[1]
     if state.isdigit():
@@ -968,7 +1115,11 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     elif state == 'TIME':
         await query.edit_message_text(text=text, reply_markup=reply_markup)
     elif state == 'TICKET':
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        res_text = transform_html(text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            reply_markup=reply_markup)
         try:
             message_id = context.user_data['reserve_user_data'].get(
                 'accept_message_id', False)
@@ -1001,15 +1152,15 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if message:
         await append_message_ids_back_context(
             context, [message.message_id])
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     return state
 
 
 async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     user = context.user_data['user']
     state = context.user_data.get('STATE')
@@ -1106,10 +1257,6 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.info(f'Пользователь {user}: Не '
                                   f'оформил заявку, а сразу использовал '
                                   f'команду /{COMMAND_DICT['BD_PAID'][0]}')
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     await clean_context_on_end_handler(main_handlers_logger, context)
     return ConversationHandler.END
 
@@ -1130,13 +1277,7 @@ async def reset(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> int:
 
 
 async def help_command(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    main_handlers_logger.info(": ".join(
-        [
-            'Пользователь',
-            f'{update.effective_user}',
-            'Вызвал help',
-        ]
-    ))
+    main_handlers_logger.info(f"Пользователь: {update.effective_user}: Вызвал help")
     # TODO Прописать логику использования help
     await update.effective_chat.send_message(
         'Текущая операция сброшена.\nМожете выполните новую команду',
@@ -1256,3 +1397,94 @@ async def manual_cancel_old_created_tickets(update: Update, context: 'ContextTyp
         main_handlers_logger.exception(
             f'Ошибка ручного запуска авто-отмены: {e}')
         await update.effective_message.reply_text(f'Ошибка при выполнении: {e}')
+
+
+async def set_user_status(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """
+    Админ-команда:
+    /set_user_status <user_id> [role=<роль>] [blacklist=on|off] [block_admin=on|off]
+
+    Примеры:
+    /set_user_status 454342281 role=администратор
+    /set_user_status 454342281 blacklist=on
+    /set_user_status 454342281 block_admin=on
+    /set_user_status 454342281 block_admin=off
+    """
+    if not context.args:
+        help_text = (
+            'Сменить статус пользователя<br><br>'
+            '<code>/set_user_status &lt;user_id&gt; [role=&lt;пользователь|администратор|разработчик|суперпользователь&gt;] '
+            '[blacklist=on|off] [block_admin=on|off]</code><br><br>'
+            'Примеры:<br>'
+            '<ul>'
+            '<li><code>/set_user_status 454342281 role=администратор</code></li>'
+            '<li><code>/set_user_status 454342281 blacklist=on</code></li>'
+            '<li><code>/set_user_status 454342281 block_admin=on</code></li>'
+            '<li><code>/set_user_status 454342281 block_admin=off</code></li>'
+            '</ul>'
+        )
+        res_text = transform_html(help_text)
+        await update.effective_message.reply_text(
+            res_text.text,
+            entities=res_text.entities,
+            parse_mode=None)
+        return
+
+    try:
+        uid = int(context.args[0])
+    except ValueError:
+        await update.effective_message.reply_text('Первый аргумент должен быть user_id (число)')
+        return
+
+    # default no changes
+    data = {}
+
+    mapping = {
+        'пользователь': UserRole.USER,
+        'администратор': UserRole.ADMIN,
+        'разработчик': UserRole.DEVELOPER,
+        'суперпользователь': UserRole.SUPERUSER,
+    }
+
+    for token in context.args[1:]:
+        if '=' not in token:
+            await update.effective_message.reply_text(f'Некорректный параметр: {token}')
+            return
+        key, value = token.split('=', 1)
+        key = key.lower()
+        value = value.lower()
+        if key == 'role':
+            role = mapping.get(value)
+            if role is None:
+                await update.effective_message.reply_text('Неверная роль. Допустимые: пользователь, администратор, разработчик, суперпользователь')
+                return
+            data['role'] = role
+        elif key == 'blacklist':
+            if value not in ('on', 'off'):
+                await update.effective_message.reply_text('blacklist ожидает on|off')
+                return
+            data['is_blacklisted'] = (value == 'on')
+        elif key == 'block_admin':
+            if value not in ('on', 'off'):
+                await update.effective_message.reply_text('block_admin ожидает on|off')
+                return
+            data['is_blocked_by_admin'] = (value == 'on')
+            data['blocked_by_admin_id'] = update.effective_user.id if value == 'on' else None
+        else:
+            await update.effective_message.reply_text(f'Неизвестный параметр: {key}')
+            return
+
+    status = await db_postgres.update_user_status(context.session, uid, **data)
+
+    def _role_str(r: UserRole | None):
+        return r.value if isinstance(r, UserRole) else str(r)
+
+    text = (
+        'Статус пользователя обновлён:\n\n'
+        f'user_id: <code>{uid}</code>\n'
+        f'роль: <b>{_role_str(status.role)}</b>\n'
+        f'ЧС: <b>{"да" if status.is_blacklisted else "нет"}</b>\n'
+        f'Заблокирован админом: <b>{"да" if status.is_blocked_by_admin else "нет"}</b>\n'
+        f'Кем заблокирован: <code>{status.blocked_by_admin_id or "-"}</code>'
+    )
+    await update.effective_message.reply_text(text)

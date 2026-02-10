@@ -3,13 +3,13 @@ from typing import Collection, List
 
 from sqlalchemy import select, func, DATE, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Mapped
 
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
-    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings)
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus)
 from db.enum import (
-    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus)
+    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent
 
 
@@ -137,7 +137,11 @@ async def create_people(
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    user: User = await session.get(User, user_id)
+    user: User | None = await session.get(User, user_id)
+
+    if user is None:
+        raise ValueError(f"User with ID {user_id} does not exist")
+
     query = (
         select(Person)
         .where(
@@ -218,6 +222,10 @@ async def create_user(
 
 async def create_person(session: AsyncSession, user_id, name, age_type):
     user: User | None = await session.get(User, user_id)
+
+    if user is None:
+        raise ValueError(f"User with ID {user_id} does not exist")
+
     person = Person(name=name, age_type=age_type)
     user.people.append(person)
 
@@ -512,17 +520,17 @@ async def get_ticket(session: AsyncSession,
 
 
 async def get_type_event(session: AsyncSession,
-                         type_event_id: int):
+                         type_event_id: Mapped[int]):
     return await session.get(TypeEvent, type_event_id)
 
 
 async def get_theater_event(session: AsyncSession,
-                            theater_event_id: int):
+                            theater_event_id: Mapped[int]):
     return await session.get(TheaterEvent, theater_event_id)
 
 
 async def get_schedule_event(session: AsyncSession,
-                             schedule_event_id: int):
+                             schedule_event_id: Mapped[int]):
     return await session.get(ScheduleEvent, schedule_event_id)
 
 
@@ -696,6 +704,13 @@ async def get_schedule_events_by_type_actual(
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     return result.scalars().all()
+
+
+async def get_last_schedule_update_time(session: AsyncSession) -> datetime:
+    """Возвращает время последнего изменения любого события в расписании."""
+    stmt = select(func.max(ScheduleEvent.updated_at))
+    result = await session.execute(stmt)
+    return result.scalar() or datetime.min
 
 
 async def get_schedule_events_by_theater_ids_actual(
@@ -952,3 +967,21 @@ async def get_bot_settings(session: AsyncSession):
     stmt = select(BotSettings)
     result = await session.execute(stmt)
     return result.scalars().all()
+
+async def get_or_create_user_status(session: AsyncSession, user_id: int) -> UserStatus:
+    status = await session.get(UserStatus, user_id)
+    if status is None:
+        status = UserStatus(user_id=user_id, role=UserRole.USER)
+        session.add(status)
+        await session.commit()
+        await session.refresh(status)
+    return status
+
+
+async def update_user_status(session: AsyncSession, user_id: int, **kwargs) -> UserStatus:
+    status = await get_or_create_user_status(session, user_id)
+    for key, value in kwargs.items():
+        if hasattr(status, key):
+            setattr(status, key, value)
+    await session.commit()
+    return status

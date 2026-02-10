@@ -12,6 +12,9 @@ context_user_data: Dict = {
     'command': str,
     'postfix_for_cancel': str,
     'user': User,
+    'last_interaction_time': datetime,
+    'select_mode': str,
+    'repertoire_group': str,
     'common_data': {
         'dict_of_shows': dict,
         'message_id_buy_info': Message.message_id,
@@ -77,4 +80,12 @@ context_user_data: Dict = {
     'theater_event': dict,
     'schedule_event': dict,
     'last_update': Update,
+    'message': int,
+    'sales': {
+        'dev_mode': bool,
+        'type': str,
+        'type_map': dict,
+        'theater_event_id': int,
+        'schedule_ids': List[int],
+    },
 }

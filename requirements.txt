@@ -17,6 +17,7 @@ sqlalchemy
 typing_extensions
 yookassa
 uvicorn
+sulguk
 fastapi
 faststream[cli]
 nats-py

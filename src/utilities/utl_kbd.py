@@ -135,11 +135,11 @@ async def create_kbd_and_text_tickets_for_choice(
             context, ticket, schedule_event, theater_event)
 
         if 8 > ticket_id // 100 >= 3 and not flag_indiv_cost_sep:
-            text += "__________\n    Варианты со скидками:\n"
+            text += "__________<br>    Варианты со скидками:<br>"
             flag_indiv_cost_sep = True
 
         text += (f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]} {name_ticket} | '
-                 f'{price} руб\n')
+                 f'{price} руб<br>')
 
         button_tmp = InlineKeyboardButton(
             text=f'{DICT_OF_EMOJI_FOR_BUTTON[i + 1]}',
@@ -267,8 +267,8 @@ async def create_kbd_for_time_in_reserve(schedule_events):
 
         text = await get_time_with_timezone(event)
         text += text_emoji
-        text += ' | ' + str(qty_child) + ' дет'
-        text += ' | ' + str(qty_adult) + ' взр'
+        text += f' | {qty_child} дет'
+        text += f' | {qty_adult} взр'
 
         callback_data = event.id
         button_tmp = InlineKeyboardButton(
@@ -367,7 +367,7 @@ async def create_phone_confirm_btn(text, phone: str):
     phone_confirm_btn = None
     if phone:
         pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
-        text += f'Последний введенный телефон:\n<code>{pretty_phone}</code>\n\n'
+        text += f'Последний введенный телефон:<br><code>{pretty_phone}</code><br><br>'
         text += 'Использовать последний введенный телефон?'
         phone_confirm_btn = [
             InlineKeyboardButton('Да', callback_data=f'phone_confirm|{phone}')

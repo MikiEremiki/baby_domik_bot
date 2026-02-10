@@ -3,6 +3,8 @@ import uuid
 from typing import List, Union, Optional
 
 from requests import ConnectTimeout
+from sqlalchemy.exc import IntegrityError
+from sulguk import transform_html
 from telegram import (
     Update,
     InlineKeyboardMarkup, InlineKeyboardButton,
@@ -72,22 +74,28 @@ async def processing_admin_info(
             admin_info['name'] = ' '.join(context.args[0:2])
             admin_info['username'] = context.args[2]
             admin_info['phone'] = context.args[3]
-            admin_info['contacts'] = '\n'.join(
+            admin_info['contacts'] = '<br>'.join(
                 [admin_info['name'],
                  'telegram ' + admin_info['username'],
                  'телефон ' + admin_info['phone']]
             )
+            text = f'Зафиксировано: {admin_info}'
+            res_text = transform_html(text)
             await update.effective_chat.send_message(
-                f'Зафиксировано: {admin_info}')
+                text=res_text.text, entities=res_text.entities, parse_mode=None)
         else:
+            text = (f'Должно быть 4 параметра, а передано {len(context.args)}<br>'
+                    'Формат:<br><code>Имя Фамилия @username +79991234455</code>')
+            res_text = transform_html(text)
             await update.effective_chat.send_message(
-                f'Должно быть 4 параметра, а передано {len(context.args)}\n'
-                'Формат:\n<code>Имя Фамилия @username +79991234455</code>')
+                text=res_text.text, entities=res_text.entities, parse_mode=None)
     else:
+        text = ('Не заданы параметры к команде<br>'
+                'Текущие контакты администратора:<br>'
+                f'{admin_info}')
+        res_text = transform_html(text)
         await update.effective_chat.send_message(
-            'Не заданы параметры к команде\n'
-            'Текущие контакты администратора:\n'
-            f'{admin_info}')
+            text=res_text.text, entities=res_text.entities, parse_mode=None)
 
 
 async def update_admin_info(update: Update,
@@ -227,8 +235,15 @@ async def update_schedule_event_data(update: Update,
     except TimedOut as e:
         sub_hl_logger.error(e)
     schedule_event_list = await load_schedule_events(False, True)
-    await db_postgres.update_schedule_events_from_googlesheets(
-        context.session, schedule_event_list)
+    try:
+        await db_postgres.update_schedule_events_from_googlesheets(
+            context.session, schedule_event_list)
+    except IntegrityError as e:
+        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        await context.session.rollback()
+        text = "Сначала, выполните обновление репертуара"
+        await update.effective_chat.send_message(text)
+        return 'updates'
 
     for event in schedule_event_list:
         await schedule_notification_job(context, event)
@@ -421,9 +436,9 @@ async def create_and_send_payment(
         callback_data=f'payment|{payment.id}',
         url=payment.confirmation.confirmation_url
     )
+    postfix_for_cancel = f'{context.user_data['postfix_for_cancel']}|'
     button_cancel = add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
+        postfix_for_cancel=postfix_for_cancel, add_back_btn=False)
     keyboard.append([button_payment])
     keyboard.append(button_cancel)
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -466,6 +481,8 @@ async def processing_successful_payment(
 
     reserve_user_data = context.user_data['reserve_user_data']
     command = context.user_data['command']
+    # TODO Можно положить в callback_data кнопки "ДАЛЕЕ" после Next ticket_id
+    #  и достать все данные из бд по нему
     ticket_ids = reserve_user_data['ticket_ids']
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
     if ticket.status == TicketStatus.CREATED:
@@ -504,15 +521,12 @@ async def processing_successful_payment(
         text += f'#event_id <code>{event_id}</code>\n'
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
-        text += theater_event.name
-        text += '\n' + date_event
-        text += ' в ' + time_event
-        text += '\n' + chose_base_ticket.name + ' ' + str(chose_price) + 'руб'
-        text += '\n'
+        text += f'{theater_event.name}\n{date_event} в {time_event}\n'
+        text += f'{chose_base_ticket.name} {chose_price}руб\n'
 
         text += '\n'.join([
             client_data['name_adult'],
-            '+7' + client_data['phone'],
+            f'+7{client_data['phone']}',
             original_child_text,
         ])
         text += '\n\n'
@@ -671,16 +685,16 @@ async def send_by_ticket_info(update, context):
     )
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
-    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
+    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b><br><br>'
     text += context.user_data['common_data']['text_for_notification_massage']
-    text += f'__________\n'
+    text += f'__________<br>'
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
-    text += refund + '\n\n'
-    text += ('Задать вопросы можно в сообщениях группы\n'
+    text += refund + '<br><br>'
+    text += ('Задать вопросы можно в сообщениях группы<br>'
              'https://vk.com/baby_theater_domik')
+    res_text = transform_html(text)
     message = await update.effective_chat.send_message(
-        text=text,
-    )
+            res_text.text, entities=res_text.entities, parse_mode=None)
     await message.pin()
 
     command = context.user_data['command']
@@ -776,7 +790,7 @@ async def send_message_about_list_waiting(update: Update, context):
                  f'<i>{qty_child} дет</i>'
                  f' | '
                  f'<i>{qty_adult} взр</i>'
-                 f'\n\n')
+                 f'<br><br>')
     text += ('⬇️Нажмите на одну из двух кнопок ниже, '
              'чтобы выбрать другое время '
              'или записаться в лист ожидания на эту дату и время⬇️')
@@ -789,15 +803,24 @@ async def send_message_about_list_waiting(update: Update, context):
         resize_keyboard=True,
         one_time_keyboard=True
     )
+
+    res_text = transform_html(text)
     await update.effective_chat.send_message(
-        text=text, reply_markup=reply_markup)
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None,
+        reply_markup=reply_markup
+    )
 
 
 async def send_info_about_individual_ticket(update, context):
     query = update.callback_query
-    text = ('Для оформления данного варианта обратитесь к Администратору:\n'
+    text = ('Для оформления данного варианта обратитесь к Администратору:<br>'
             f'{context.bot_data['admin']['contacts']}')
-    await query.edit_message_text(text)
+
+    res_text = transform_html(text)
+    await query.edit_message_text(
+        text=res_text.text, entities=res_text.entities, parse_mode=None)
     sub_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
@@ -822,14 +845,9 @@ async def send_message_to_admin(
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
-        sub_hl_logger.info(": ".join(
-            [
-                'Для пользователя',
-                str(context.user_data['user'].id),
-                str(context.user_data['user'].full_name),
-                'сообщение на которое нужно ответить, удалено'
-            ],
-        ))
+        user = context.user_data['user']
+        sub_hl_logger.info(f"Для пользователя: {user.id}: {user.full_name}: "
+                           f"сообщение на которое нужно ответить, удалено")
         message = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -854,21 +872,21 @@ async def send_approve_reject_message_to_admin_in_webhook(
     original_child_text = reserve_user_data['original_child_text']
     event_id = reserve_user_data['choose_schedule_event_id']
 
-    text = f'#Бронирование\n'
-    text += f'Платеж успешно обработан\n'
+    text = f'#Бронирование<br>'
+    text += f'Платеж успешно обработан<br>'
     text += f'Покупатель: @{user.username} {user.full_name}'
-    text += '\n\n'
+    text += '<br><br>'
 
-    text += f'#event_id <code>{event_id}</code>\n'
+    text += f'#event_id <code>{event_id}</code><br>'
     text += user_data['common_data']['text_for_notification_massage']
-    text += '\n'
+    text += '<br>'
 
-    text += '\n'.join([
+    text += '<br>'.join([
         client_data['name_adult'],
-        '+7' + client_data['phone'],
+        f'+7{client_data['phone']}',
         original_child_text,
     ])
-    text += '\n\n'
+    text += '<br><br>'
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
 
@@ -876,9 +894,12 @@ async def send_approve_reject_message_to_admin_in_webhook(
         callback_name,
         f'{chat_id} {message_id}'
     )
+    res_text = transform_html(text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
         message_thread_id=thread_id,
         reply_markup=reply_markup,
+        parse_mode=None
     )

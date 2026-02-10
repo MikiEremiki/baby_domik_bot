@@ -1,5 +1,6 @@
 import logging
 
+from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ConversationHandler
@@ -126,9 +127,9 @@ async def choice_option_of_reserve(
             f'{schedule_event.qty_adult_free_seat} взр'
             f' | '
             f'{schedule_event.qty_child_free_seat} дет'
-            f'</i>\n')
-    text = text_select_event + text
-    text += '<b>Выберите подходящий вариант бронирования:</b>\n'
+            f'</i><br>')
+    text = f'{text_select_event}{text}'
+    text += '<b>Выберите подходящий вариант бронирования:</b><br>'
 
     keyboard, text = await create_kbd_and_text_tickets_for_choice(
         context, text, base_tickets, schedule_event, theater_event)
@@ -140,7 +141,13 @@ async def choice_option_of_reserve(
         postfix_for_back=1,
         size_row=5
     )
-    await message.edit_text(text=text, reply_markup=reply_markup)
+
+    res_text = transform_html(text)
+    await message.edit_text(
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None,
+        reply_markup=reply_markup)
 
     reserve_user_data = context.user_data['reserve_user_data']
     reserve_user_data['choose_schedule_event_id'] = schedule_event.id
