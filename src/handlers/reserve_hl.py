@@ -84,7 +84,7 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     context.user_data['postfix_for_cancel'] = postfix_for_cancel
 
     # Фиксируем время загрузки актуальных данных
-    context.user_data['last_data_load'] = datetime.now()
+    context.user_data['last_interaction_time'] = datetime.now()
 
     user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор режима подбора: {user}')
@@ -300,7 +300,7 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     context.user_data['postfix_for_cancel'] = postfix_for_cancel
 
     # Фиксируем время загрузки актуальных данных
-    context.user_data['last_data_load'] = datetime.now()
+    context.user_data['last_interaction_time'] = datetime.now()
 
     user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')

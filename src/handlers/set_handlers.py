@@ -52,8 +52,8 @@ def set_handlers(application: Application, config):
         group=-80
     )
     add_user_status_middleware(application, config)
-    add_reserve_check_middleware(application)
     add_glob_on_off_middleware(application, config)
+    add_reserve_check_middleware(application, config)
 
     application.add_handlers([
         CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-reserve'),

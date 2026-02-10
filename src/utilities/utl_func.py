@@ -485,21 +485,6 @@ async def set_back_context(
     dict_back['del_message_ids'] = del_message_ids if del_message_ids else []
 
 
-async def get_actual_last_update_time(context: ContextTypes.DEFAULT_TYPE) -> datetime.datetime:
-    """Получает время последнего обновления расписания из БД с кешированием на 10 мин."""
-    now = datetime.datetime.now()
-    last_check = context.bot_data.get('last_db_check_time')
-
-    # Проверка кеша (600 секунд = 10 минут)
-    if last_check and (now - last_check).total_seconds() < 600:
-        return context.bot_data.get('last_schedule_update_db', datetime.datetime.min)
-
-    last_update = await db_postgres.get_last_schedule_update_time(context.session)
-    context.bot_data['last_schedule_update_db'] = last_update
-    context.bot_data['last_db_check_time'] = now
-    return last_update
-
-
 async def get_back_context(
         context: 'ContextTypes.DEFAULT_TYPE',
         state,
