@@ -628,7 +628,9 @@ async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
-    if not query:
+    if query:
+        await query.answer()
+    else:
         note = update.effective_message.text
         text = f'<b>Прочая информация:</b> {note}'
         message = await update.effective_chat.send_message(text)
@@ -663,8 +665,6 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except KeyError as e:
             birthday_hl_logger.error(e)
 
-    if query:
-        await query.answer()
     message_1 = await update.effective_chat.send_message(
         text=f'{text_header}{text}',
     )

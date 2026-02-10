@@ -521,6 +521,11 @@ async def send_result_update_ticket(
 
 async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         text = 'Не разрешенное действие: подтвердить бронь'
         main_handlers_logger.warning(text)
@@ -553,10 +558,6 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_id_buy_info = int(query.data.split('|')[1].split()[1])
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         await decrease_nonconfirm_seat(
@@ -663,6 +664,10 @@ async def send_reject_message(chat_id, context):
 
 async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
@@ -684,10 +689,6 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_id_buy_info = int(query.data.split('|')[1].split()[1])
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         await increase_free_and_decrease_nonconfirm_seat(
@@ -756,6 +757,11 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 async def confirm_birthday(update: Update,
                            context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
@@ -788,11 +794,6 @@ async def confirm_birthday(update: Update,
             cme_status = CustomMadeStatus.APPROVED
         case '2':
             cme_status = CustomMadeStatus.PREPAID
-
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
     try:
@@ -878,6 +879,11 @@ async def confirm_birthday(update: Update,
 
 async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+
     if not is_admin(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
@@ -906,11 +912,6 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f'{context.bot_data['cme_admin']['contacts']}')
 
     cme_status = CustomMadeStatus.REJECTED
-
-    try:
-        await query.answer()
-    except TimedOut as e:
-        main_handlers_logger.error(e)
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
     try:
@@ -967,6 +968,10 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        main_handlers_logger.error(e)
 
     state = query.data.split('-')[1]
     if state.isdigit():
