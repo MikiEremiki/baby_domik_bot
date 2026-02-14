@@ -48,3 +48,17 @@ class PromotionDTO(BaseModel):
             "description_user": self.description_user,
             "discount_type": self.discount_type,
         }
+
+
+kv_name_attr_promotion = {
+    'name': 'Название акции',
+    'code': 'Промокод',
+    'discount': 'Скидка',
+    'discount_type': 'Тип (fixed|percentage)',
+    'start_date': 'Дата начала (ГГГГ-ММ-ДД)',
+    'expire_date': 'Дата окончания (ГГГГ-ММ-ДД)',
+    'is_visible_as_option': 'Показывать как кнопку (Да|Нет)',
+    'min_purchase_sum': 'Мин. сумма заказа',
+    'max_count_of_usage': 'Макс. кол-во (0-беск)',
+    'description_user': 'Описание для пользователя',
+}
