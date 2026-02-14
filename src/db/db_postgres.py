@@ -419,43 +419,6 @@ async def create_schedule_event(
     return schedule_event
 
 
-async def create_promotion(
-        session: AsyncSession,
-        name,
-        code,
-        discount,
-        for_who_discount,
-        *,
-        start_date=None,
-        expire_date=None,
-        base_ticket_ids=None,
-        type_event_ids=None,
-        theater_event_ids=None,
-        schedule_event_ids=None,
-        flag_active=True,
-        count_of_usage=0,
-        max_count_of_usage=0,
-):
-    promo = Promotion(
-        name=name,
-        code=code,
-        discount=discount,
-        start_date=start_date,
-        expire_date=expire_date,
-        base_ticket_ids=base_ticket_ids,
-        type_event_ids=type_event_ids,
-        theater_event_ids=theater_event_ids,
-        schedule_event_ids=schedule_event_ids,
-        for_who_discount=for_who_discount,
-        flag_active=flag_active,
-        count_of_usage=count_of_usage,
-        max_count_of_usage=max_count_of_usage,
-    )
-    session.add(promo)
-    await session.commit()
-    return promo
-
-
 async def create_custom_made_event(
         session: AsyncSession,
         place,
@@ -653,6 +616,51 @@ async def update_promotions_from_googlesheets(session: AsyncSession, promotions)
         # В модели они Mapped[Optional[List[int]]]
         await session.merge(Promotion(**dto_model))
     await session.commit()
+
+
+async def get_all_promotions(session: AsyncSession):
+    query = select(Promotion).order_by(Promotion.id)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def create_promotion(session: AsyncSession, promotion_data: dict):
+    promotion = Promotion(**promotion_data)
+    session.add(promotion)
+    await session.commit()
+    await session.refresh(promotion)
+    return promotion
+
+
+async def update_promotion(session: AsyncSession, promotion_id: int, promotion_data: dict):
+    promotion = await session.get(Promotion, promotion_id)
+    if promotion:
+        if 'code' in promotion_data:
+            promotion_data['code'] = promotion_data['code'].strip().upper()
+
+        for key, value in promotion_data.items():
+            setattr(promotion, key, value)
+        await session.commit()
+        await session.refresh(promotion)
+    return promotion
+
+
+async def toggle_promotion_active(session: AsyncSession, promotion_id: int):
+    promotion = await session.get(Promotion, promotion_id)
+    if promotion:
+        promotion.flag_active = not promotion.flag_active
+        await session.commit()
+        await session.refresh(promotion)
+    return promotion
+
+
+async def toggle_promotion_visible(session: AsyncSession, promotion_id: int):
+    promotion = await session.get(Promotion, promotion_id)
+    if promotion:
+        promotion.is_visible_as_option = not promotion.is_visible_as_option
+        await session.commit()
+        await session.refresh(promotion)
+    return promotion
 
 
 async def get_all_custom_made_format(session: AsyncSession):
