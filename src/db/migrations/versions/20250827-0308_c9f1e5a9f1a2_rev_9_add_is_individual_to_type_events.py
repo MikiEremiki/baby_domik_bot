@@ -1,4 +1,4 @@
-"""rev9
+"""rev_9_add_is_individual_to_type_events
 
 Revision ID: c9f1e5a9f1a2
 Revises: 06fcbbb514eb

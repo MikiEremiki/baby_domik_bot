@@ -1,4 +1,4 @@
-"""rev3
+"""rev_3_add_ticket_types
 
 Revision ID: 198ac35f2c79
 Revises: fb82523175ba

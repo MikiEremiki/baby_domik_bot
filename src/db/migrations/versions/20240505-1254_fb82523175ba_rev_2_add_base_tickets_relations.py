@@ -1,4 +1,4 @@
-"""rev2
+"""rev_2_add_base_tickets_relations
 
 Revision ID: fb82523175ba
 Revises: 0cfd834f030e
