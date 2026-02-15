@@ -467,7 +467,7 @@ async def get_user(session: AsyncSession,
     return await session.get(User, user_id)
 
 
-async def get_persons(session: AsyncSession,
+async def get_person(session: AsyncSession,
                       person_id: int):
     return await session.get(Person, person_id)
 
@@ -505,8 +505,8 @@ async def get_users_by_ids(session: AsyncSession,
     return result.scalars().all()
 
 
-async def get_persons_by_ids(session: AsyncSession,
-                             user_id: Collection[int]):
+async def get_persons_by_user_ids(session: AsyncSession,
+                                  user_id: Collection[int]):
     query = select(Person).where(
         Person.user_id.in_(user_id))
     result = await session.execute(query)
@@ -813,7 +813,7 @@ async def update_type_event(
         type_event_id,
         **kwargs
 ):
-    type_event = await session.get(TheaterEvent, type_event_id)
+    type_event = await session.get(TypeEvent, type_event_id)
     for key, value in kwargs.items():
         setattr(type_event, key, value)
     await session.commit()
@@ -842,18 +842,6 @@ async def update_schedule_event(
         setattr(schedule_event, key, value)
     await session.commit()
     return schedule_event
-
-
-async def update_promotion(
-        session: AsyncSession,
-        promotion_id,
-        **kwargs
-):
-    promotion = await session.get(Promotion, promotion_id)
-    for key, value in kwargs.items():
-        setattr(promotion, key, value)
-    await session.commit()
-    return promotion
 
 
 async def update_custom_made_event(
