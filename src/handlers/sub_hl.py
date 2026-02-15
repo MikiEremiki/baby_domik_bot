@@ -112,36 +112,6 @@ async def update_cme_admin_info(update: Update,
     await processing_admin_info(update, context, 'cme_admin')
 
 
-async def update_bd_price(update: Update,
-                          context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    birthday_price = context.bot_data.setdefault('birthday_price', {})
-    if context.args:
-        if context.args[0] == 'clean':
-            context.bot_data['birthday_price'] = {}
-            await update.effective_chat.send_message(
-                f'Зафиксировано: {context.bot_data['birthday_price']}')
-            return
-        if len(context.args) % 2 == 0:
-            for i in range(0, len(context.args), 2):
-                birthday_price[int(context.args[i])] = int(context.args[i + 1])
-            await update.effective_chat.send_message(
-                f'Зафиксировано: {context.bot_data['birthday_price']}')
-        else:
-            await update.effective_chat.send_message(
-                f'Должно быть четное кол-во параметров\n'
-                f'Передано {len(context.args)}\n'
-                'Формат: 1 15000 2 20000\n'
-                'В качестве разделителей только пробелы')
-    else:
-        await update.effective_chat.send_message(
-            'Не заданы параметры к команде\n'
-            '1 - Спектакль (40 минут) + аренда комнаты под чаепитие (1 час)\n'
-            '2 - Спектакль (40 минут) + аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
-            '3 - Спектакль (40 минут) + Свободная игра с персонажами и фотосессия (20 минут)\n'
-            'Текущие цены заказных мероприятий:\n'
-            f'{birthday_price}')
-
-
 async def update_base_ticket_data(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
@@ -153,7 +123,10 @@ async def update_base_ticket_data(
     text = 'Билеты обновлены'
     await update.effective_chat.send_message(text)
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -169,7 +142,10 @@ async def update_special_ticket_price(
     for item in context.bot_data['special_ticket_price']:
         sub_hl_logger.info(f'{str(item)}')
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -186,7 +162,10 @@ async def update_custom_made_format_data(
 
     sub_hl_logger.info(text)
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -222,7 +201,10 @@ async def update_theater_event_data(
 
     sub_hl_logger.info(text)
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -232,7 +214,7 @@ async def update_schedule_event_data(update: Update,
     text = 'Начато обновление расписания'
     try:
         await query.answer(text=text)
-    except TimedOut as e:
+    except (TimedOut, BadRequest) as e:
         sub_hl_logger.error(e)
     schedule_event_list = await load_schedule_events(False, True)
     try:
