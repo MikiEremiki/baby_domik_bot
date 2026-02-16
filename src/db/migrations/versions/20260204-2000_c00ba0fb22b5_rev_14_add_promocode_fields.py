@@ -46,7 +46,7 @@ def upgrade() -> None:
     )
     op.add_column(
         "promotions",
-        sa.Column("min_purchase_sum", sa.BIGINT(), nullable=True),
+        sa.Column("min_purchase_sum", sa.BIGINT(), nullable=False, server_default="0"),
     )
     op.add_column(
         "promotions", sa.Column("description_user", sa.String(), nullable=True)

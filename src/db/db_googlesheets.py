@@ -263,6 +263,8 @@ async def load_promotions() -> List[PromotionDTO]:
     col_start = dict_column_name.get('Начало') or dict_column_name.get('start')
     col_expire = dict_column_name.get('Срок действия') or dict_column_name.get('expire')
     col_visible = dict_column_name.get('Показывать как кнопку') or dict_column_name.get('visible')
+    col_verify = dict_column_name.get('Требует подтверждения') or dict_column_name.get('verify')
+    col_vtext = dict_column_name.get('Текст верификации') or dict_column_name.get('verification_text')
     col_min_sum = dict_column_name.get('Мин. сумма заказа') or dict_column_name.get('min_sum')
     col_desc = dict_column_name.get('Описание') or dict_column_name.get('description')
 
@@ -285,6 +287,8 @@ async def load_promotions() -> List[PromotionDTO]:
                 start_date=_parse_datetime(row[col_start]) if col_start is not None else None,
                 expire_date=_parse_datetime(row[col_expire]) if col_expire is not None else None,
                 is_visible_as_option=_parse_bool(row[col_visible]) if col_visible is not None else False,
+                requires_verification=_parse_bool(row[col_verify]) if col_verify is not None else False,
+                verification_text=str(row[col_vtext]).strip() if col_vtext is not None and row[col_vtext] else None,
                 min_purchase_sum=_parse_int(row[col_min_sum], 0) if col_min_sum is not None else 0,
                 description_user=str(row[col_desc]).strip() if col_desc is not None and row[col_desc] else None,
             )

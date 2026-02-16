@@ -3,6 +3,8 @@ from typing import Optional, List
 
 from pydantic import BaseModel
 
+from db.enum import GroupOfPeopleByDiscountType
+
 
 class PromotionDTO(BaseModel):
     id: Optional[int] = None
@@ -18,7 +20,7 @@ class PromotionDTO(BaseModel):
     theater_event_ids: Optional[List[int]] = None
     schedule_event_ids: Optional[List[int]] = None
 
-    for_who_discount: int = 0  # GroupOfPeopleByDiscountType.all
+    for_who_discount: GroupOfPeopleByDiscountType = GroupOfPeopleByDiscountType.all
 
     flag_active: bool = True
     is_visible_as_option: bool = False
@@ -26,6 +28,8 @@ class PromotionDTO(BaseModel):
     max_count_of_usage: int = 0
     min_purchase_sum: int = 0
     description_user: Optional[str] = None
+    requires_verification: bool = False
+    verification_text: Optional[str] = None
 
     def to_dto(self) -> dict:
         return {
@@ -46,6 +50,8 @@ class PromotionDTO(BaseModel):
             "max_count_of_usage": self.max_count_of_usage,
             "min_purchase_sum": self.min_purchase_sum,
             "description_user": self.description_user,
+            "requires_verification": self.requires_verification,
+            "verification_text": self.verification_text,
             "discount_type": self.discount_type,
         }
 
@@ -58,6 +64,8 @@ kv_name_attr_promotion = {
     'start_date': 'Дата начала (ГГГГ-ММ-ДД)',
     'expire_date': 'Дата окончания (ГГГГ-ММ-ДД)',
     'is_visible_as_option': 'Показывать как кнопку (Да|Нет)',
+    'requires_verification': 'Требует подтверждения (Да|Нет)',
+    'verification_text': 'Текст при запросе документа',
     'min_purchase_sum': 'Мин. сумма заказа',
     'max_count_of_usage': 'Макс. кол-во (0-беск)',
     'description_user': 'Описание для пользователя',
