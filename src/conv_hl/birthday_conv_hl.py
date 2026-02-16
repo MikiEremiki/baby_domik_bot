@@ -49,7 +49,7 @@ states = {
         MessageHandler(F_text_and_no_command, birthday_hl.get_phone),
     ],
     'NOTE': [
-        CallbackQueryHandler(birthday_hl.get_note, pattern='Next'),
+        CallbackQueryHandler(birthday_hl.get_note, pattern='^bd\|Next$'),
         MessageHandler(F_text_and_no_command, birthday_hl.get_note),
     ],
     'CONFIRM': [
