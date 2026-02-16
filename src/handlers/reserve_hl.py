@@ -1124,7 +1124,7 @@ async def choice_option_of_reserve(
     if update.effective_message.photo:
         res_text = transform_html(text)
         await query.edit_message_caption(caption=res_text.text,
-                                         entities=res_text.entities,
+                                         caption_entities=res_text.entities,
                                          parse_mode=None,
                                          reply_markup=reply_markup)
     else:
