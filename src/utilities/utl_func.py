@@ -123,8 +123,6 @@ async def set_menu(bot: ExtBot) -> None:
                    COMMAND_DICT['AFISHA'][1]),
         BotCommand(COMMAND_DICT['ADM_INFO'][0],
                    COMMAND_DICT['ADM_INFO'][1]),
-        BotCommand(COMMAND_DICT['UP_BD_PRICE'][0],
-                   COMMAND_DICT['UP_BD_PRICE'][1]),
         BotCommand(COMMAND_DICT['CB_TW'][0],
                    COMMAND_DICT['CB_TW'][1]),
         BotCommand(COMMAND_DICT['SETTINGS'][0],
@@ -337,7 +335,7 @@ async def get_location(
         'Вы можете выбрать другую команду',
         reply_markup=ReplyKeyboardRemove()
     )
-    print(update.message.location)
+    print(update.effective_message.location)
 
 
 async def get_contact(
@@ -348,7 +346,7 @@ async def get_contact(
         'Вы можете выбрать другую команду',
         reply_markup=ReplyKeyboardRemove()
     )
-    print(update.message.contact)
+    print(update.effective_message.contact)
 
 
 def is_admin(update: Update):
@@ -364,6 +362,19 @@ def is_admin(update: Update):
     return is_admin_flag
 
 
+def is_dev(update: Update):
+    user = update.effective_user
+    is_dev_flag = user.id in SUPERADMIN_CHAT_ID
+    text = f'Пользователь: {user.id}: {user.full_name}'
+    if is_dev_flag:
+        text += ': Является разработчиком'
+    else:
+        text += ': Не является разработчиком'
+    utilites_logger.info(text)
+
+    return is_dev_flag
+
+
 async def _bot_is_admin(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
@@ -373,7 +384,7 @@ async def _bot_is_admin(
     if context.bot.id not in admins:
         await update.effective_message.reply_text(
             text='Предоставьте боту права на управление темами',
-            reply_to_message_id=update.message.id,
+            reply_to_message_id=update.effective_message.id,
             message_thread_id=update.effective_message.message_thread_id
         )
         return False
@@ -416,7 +427,7 @@ async def create_or_connect_topic(
             text = f'{text}{text_bad_topic}'
         await update.effective_message.reply_text(
             text=text,
-            reply_to_message_id=update.message.id,
+            reply_to_message_id=update.effective_message.id,
             message_thread_id=update.effective_message.message_thread_id
         )
     elif context.args[0] == 'create' and len(dict_topics_name) == 0:

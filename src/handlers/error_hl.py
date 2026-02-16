@@ -100,7 +100,6 @@ async def _error_handler_logic(update: Update,
           not isinstance(context.error, BadRequest)):
         error_hl_logger.error(context.error.message)
         error_hl_logger.error('Выполнение запроса занимает много времени')
-        context.user_data['last_update'] = None
         text = ('Пожалуйста, подождите 3 секунды и повторите последнее '
                 'действие, если проблема остается, вызовите /start и '
                 'повторите запрос заново.')
