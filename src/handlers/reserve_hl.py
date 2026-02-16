@@ -13,10 +13,10 @@ from telegram.constants import ChatType, ChatAction
 
 from api.gspread_pub import (
     publish_write_client_reserve, publish_write_client_list_waiting)
-from db import db_postgres, BaseTicket
+from db import db_postgres, BaseTicket, Promotion
 from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
-from db.enum import TicketStatus
+from db.enum import TicketStatus, PromotionDiscountType
 from handlers import init_conv_hl_dialog
 from handlers.email_hl import check_email_and_update_user
 from handlers.sub_hl import (
@@ -25,6 +25,7 @@ from handlers.sub_hl import (
     remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment,
     get_theater_and_schedule_events_by_month,
+    forward_message_to_admin,
 )
 from api.googlesheets import write_client_list_waiting, write_client_reserve
 from utilities.utl_check import (
@@ -36,6 +37,7 @@ from utilities.utl_func import (
     get_full_name_event, get_formatted_date_and_time_of_event,
     create_event_names_text, get_type_event_ids_by_command, clean_context,
     add_clients_data_to_text, add_qty_visitors_to_text,
+    add_reserve_clients_data_to_text,
     filter_schedule_event_by_active, get_unique_months,
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
@@ -51,7 +53,7 @@ from utilities.utl_kbd import (
     create_kbd_for_date_in_reserve, create_kbd_with_months,
     adjust_kbd, remove_intent_id, add_intent_id,
     create_kbd_unique_dates, create_kbd_for_time_by_date,
-    create_phone_confirm_btn, create_child_confirm_btn,
+    create_phone_confirm_btn, create_kbd_edit_children,
 )
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT, SUPPORT_DATA, RESERVE_TIMEOUT
@@ -85,6 +87,9 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Фиксируем время загрузки актуальных данных
     context.user_data['last_interaction_time'] = datetime.now()
+
+    if not query:
+        await init_conv_hl_dialog(update, context)
 
     user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор режима подбора: {user}')
@@ -1112,10 +1117,7 @@ async def choice_option_of_reserve(
              '<i>Если вы хотите оформить несколько билетов, '
              'то каждая бронь оформляется отдельно.</i><br>'
              '__________<br>'
-             '<i>МНОГОДЕТНЫМ:<br>'
-             '1. Пришлите удостоверение многодетной семьи администратору<br>'
-             '2. Дождитесь ответа<br>'
-             '3. Оплатите билет со скидкой 10% от цены, которая указана выше</i>')
+             '<i>Скидки и промокоды вы вводите на последнем шаге подтверждения бронирования.</i>')
 
     await message.delete()
 
@@ -1140,7 +1142,15 @@ async def choice_option_of_reserve(
 
 async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
+    reserve_user_data = context.user_data['reserve_user_data']
     if not query:
+        try:
+            await context.bot.edit_message_reply_markup(
+                update.effective_chat.id,
+                message_id=reserve_user_data['message_id']
+            )
+        except Exception:
+            pass
         await check_email_and_update_user(update, context)
 
     reserve_user_data = context.user_data['reserve_user_data']
@@ -1189,8 +1199,14 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     check_ticket = check_available_ticket_by_free_seat(
         schedule_event, theater_event, type_event, chose_base_ticket, only_child)
     if query:
-        await query.answer()
-        await query.delete_message()
+        try:
+            await query.answer()
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
+
+        text = f'{query.message.text}\n\nДа'
+        entities = query.message.entities
+        await query.edit_message_text(text, entities=entities)
     if check_command and not check_ticket:
         await message.delete()
         await send_message_about_list_waiting(update, context)
@@ -1258,78 +1274,20 @@ async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     return state
 
 
-async def get_children(
+async def _finish_get_children(
         update: Update,
-        context: 'ContextTypes.DEFAULT_TYPE'
+        context: 'ContextTypes.DEFAULT_TYPE',
+        processed_data_on_children,
+        original_child_text
 ):
     reserve_user_data = context.user_data['reserve_user_data']
-
-    await context.bot.edit_message_reply_markup(
-        update.effective_chat.id,
-        message_id=reserve_user_data['message_id']
-    )
-    await update.effective_chat.send_action(ChatAction.TYPING)
-
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
 
-    if chose_base_ticket.quality_of_children > 0:
-        wrong_input_data_text = (
-            'Проверьте, что указали возраст правильно\n'
-            'Например:\n'
-            'Сергей 2\n'
-            'Юля 3\n'
-            '__________\n'
-            '<i> - Если детей несколько, напишите всех в одном сообщении\n'
-            ' - Один ребенок = одна строка\n'
-            ' - Не используйте дополнительные слова и пунктуацию, '
-            'кроме тех, что указаны в примерах</i>'
-        )
-        text = update.effective_message.text
-        keyboard = [add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False)]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        result = await check_children_names(
-            update, context, wrong_input_data_text)
-        if not result:
-            return context.user_data['STATE']
-        reserve_hl_logger.info('Проверка пройдена успешно')
-
-        processed_data_on_children = [item.split() for item in text.split('\n')]
-
-        if not isinstance(processed_data_on_children[0], list):
-            message = await update.effective_chat.send_message(
-                text=f'Вы ввели:\n{text}{wrong_input_data_text}',
-                reply_markup=reply_markup
-            )
-            reserve_user_data['message_id'] = message.message_id
-            state = 'CHILDREN'
-            context.user_data['STATE'] = state
-            return state
-
-        if len(processed_data_on_children) != chose_base_ticket.quality_of_children:
-            message = await update.effective_chat.send_message(
-                text=f'Кол-во детей, которое определено: '
-                     f'{len(processed_data_on_children)}\n'
-                     f'Кол-во детей, согласно выбранному билету: '
-                     f'{chose_base_ticket.quality_of_children}\n'
-                     f'Повторите ввод еще раз, проверьте что каждый ребенок на '
-                     f'отдельной строке.\n\nНапример:\nИван 1\nМарина 3',
-                reply_markup=reply_markup
-            )
-            reserve_user_data['message_id'] = message.message_id
-            state = 'CHILDREN'
-            context.user_data['STATE'] = state
-            return state
-    else:
-        processed_data_on_children = [['0', '0']]
-
     client_data = reserve_user_data['client_data']
     client_data['data_children'] = processed_data_on_children
-    reserve_user_data['original_child_text'] = update.effective_message.text
+    reserve_user_data['original_child_text'] = original_child_text
 
     command = context.user_data.get('command', False)
     if '_admin' in command:
@@ -1370,34 +1328,33 @@ async def get_children(
                                              chat_id,
                                              base_ticket_dto,
                                              ticket_status_value)
-            if res == 0:
-                await context.bot.send_message(
-                    chat_id=context.config.bot.developer_chat_id,
-                    text=f'Не записался билет {ticket_ids} в клиентскую базу')
-
-        text += '\nУменьшаю кол-во свободных мест...'
-        try:
+            if res:
+                text += '\nЗапись успешно создана'
+            else:
+                text += '\nОшибка при создании записи'
             await message.edit_text(text)
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-            reserve_hl_logger.info(text)
-        result = await decrease_free_seat(
-            context, schedule_event_id, chose_base_ticket_id)
-        if not result:
-            for ticket_id in ticket_ids:
-                await update_ticket_db_and_gspread(context,
-                                                   ticket_id,
-                                                   status=TicketStatus.CANCELED)
-            text += ('\nНе уменьшились свободные места'
-                     '\nНовый билет отменен'
-                     '\nНеобходимо повторить резервирование заново')
-            try:
-                await message.edit_text(text)
-            except TimedOut as e:
-                reserve_hl_logger.error(e)
-                reserve_hl_logger.info(text)
-            await clean_context_on_end_handler(reserve_hl_logger, context)
-            return ConversationHandler.END
+
+        for ticket_id in ticket_ids:
+            result = await decrease_free_seat(
+                context, schedule_event_id, chose_base_ticket_id)
+            if not result:
+                for t_id in ticket_ids:
+                    await update_ticket_db_and_gspread(context,
+                                                       t_id,
+                                                       status=TicketStatus.CANCELED)
+                text += ('\nНе уменьшились свободные места'
+                         '\nНовый билет отменен'
+                         '\nНеобходимо повторить резервирование заново')
+                try:
+                    await message.edit_text(text)
+                except TimedOut as e:
+                    reserve_hl_logger.error(e)
+                    reserve_hl_logger.info(text)
+                await clean_context_on_end_handler(reserve_hl_logger, context)
+                return ConversationHandler.END
+
+            await update_ticket_db_and_gspread(
+                update, context, ticket_id, TicketStatus.PAID)
 
         text += '\nПоследняя проверка...'
         try:
@@ -1407,41 +1364,583 @@ async def get_children(
             reserve_hl_logger.info(text)
         await processing_successful_payment(update, context)
 
+        await update.effective_chat.send_message(
+            'Билеты успешно созданы и оплачены')
+
         state = ConversationHandler.END
+        context.user_data['STATE'] = state
+        return state
     else:
-        state = await create_and_send_payment(update, context)
-        if state is None:
-            state = 'PAID'
+        return await show_reservation_summary(update, context)
+
+
+
+
+async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data
+    reserve_user_data = context.user_data['reserve_user_data']
+    children = reserve_user_data.get('children', [])
+
+    if data == 'CHLD_EDIT':
+        reserve_user_data['is_editing_children'] = True
+        reserve_user_data['is_adding_child'] = False
+        reserve_user_data['is_editing_child_data'] = False
+        # Сброс на первую страницу
+        reserve_user_data['children_page'] = 0
+    elif data == 'CHLD_ADD':
+        reserve_user_data['is_adding_child'] = True
+        text = '<b>Добавление ребенка</b>\n\nНапишите имя и сколько полных лет ребенку в формате: <code>Имя Возраст</code>\nНапример: <code>Сергей 2</code>'
+        # Кнопка отмены возвращает в основное меню
+        keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        return 'CHILDREN'
+    elif data.startswith('CHLD_EDIT_ONE|'):
+        index = int(data.split('|')[1])
+        reserve_user_data['edit_child_index'] = index
+        reserve_user_data['is_editing_child_data'] = True
+        child = children[index]
+        text = f'<b>Редактирование: {child[0]} {int(child[1])}</b>\n\nНапишите новое имя и сколько полных лет ребенку в формате: <code>Имя Возраст</code>\nНапример: <code>Сергей 3</code>'
+        keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        return 'CHILDREN'
+    elif data.startswith('CHLD_EDIT_PAGE|'):
+        page = int(data.split('|')[1])
+        reserve_user_data['children_page'] = page
+    elif data.startswith('CHLD_DEL|'):
+        person_id = int(data.split('|')[1])
+        await db_postgres.delete_person(context.session, person_id)
+        # Обновляем список детей в контексте
+        children = await db_postgres.get_children(context.session, update.effective_user.id)
+        reserve_user_data['children'] = children
+        # Сбрасываем выбранных детей, так как список изменился
+        reserve_user_data['selected_children'] = []
+        selected_children = []
+
+    # Обновляем сообщение для всех случаев (EDIT, PAGE, DEL)
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    chose_base_ticket = await db_postgres.get_base_ticket(context.session, chose_base_ticket_id)
+    text, reply_markup = await get_child_text_and_reply(chose_base_ticket, children, context)
+    try:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise e
+
+    return 'CHILDREN'
+
+
+async def _handle_chld_selection_callback(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        chose_base_ticket
+):
+    query = update.callback_query
+    data = query.data
+    reserve_user_data = context.user_data['reserve_user_data']
+    children = reserve_user_data.get('children', [])
+
+    if data.startswith('CHLD_SEL|'):
+        index = int(data.split('|')[1])
+        selected = reserve_user_data.get('selected_children', [])
+        if index in selected:
+            selected.remove(index)
+        else:
+            if len(selected) < chose_base_ticket.quality_of_children:
+                selected.append(index)
+            else:
+                await query.answer(f"Выбрано максимум детей: {chose_base_ticket.quality_of_children}", show_alert=True)
+                return 'CHILDREN'
+        reserve_user_data['selected_children'] = selected
+    elif data.startswith('CHLD_PAGE|'):
+        page = int(data.split('|')[1])
+        reserve_user_data['children_page'] = page
+    elif data == 'CHLD_CONFIRM':
+        selected = reserve_user_data.get('selected_children', [])
+        processed_data_on_children = []
+        original_text_parts = []
+        for index in selected:
+            child = children[index]
+            processed_data_on_children.append([child[0], str(child[1])])
+            original_text_parts.append(f"{child[0]} {int(child[1])}")
+
+        await query.edit_message_reply_markup()
+        return await _finish_get_children(update, context, processed_data_on_children, "\n".join(original_text_parts))
+    elif data == 'Далее':
+        await query.edit_message_reply_markup()
+        return await _finish_get_children(update, context, [['0', '0']], 'Далее')
+    # Обновляем сообщение для SEL и PAGE
+    text, reply_markup = await get_child_text_and_reply(
+        chose_base_ticket, children, context)
+    try:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise e
+    return 'CHILDREN'
+
+
+async def get_children(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    query = update.callback_query
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+
+    if query:
+        try:
+            await query.answer()
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
+        data = query.data
+
+        if data.startswith('CHLD_EDIT') or data.startswith('CHLD_DEL') or data == 'CHLD_ADD':
+            return await _handle_chld_edit_callback(update, context)
+
+        if data.startswith('CHLD_') or data == 'Далее':
+            return await _handle_chld_selection_callback(update, context, chose_base_ticket)
+
+        return 'CHILDREN'
+
+    await context.bot.edit_message_reply_markup(
+        update.effective_chat.id,
+        message_id=reserve_user_data['message_id']
+    )
+    await update.effective_chat.send_action(ChatAction.TYPING)
+
+    if reserve_user_data.get('is_adding_child', False) or reserve_user_data.get('is_editing_child_data', False):
+        text = update.effective_message.text
+        parts = text.split()
+        if len(parts) >= 2 and parts[-1].replace('.', '', 1).replace(',', '', 1).isdigit():
+            name = " ".join(parts[:-1])
+            try:
+                age = float(parts[-1].replace(',', '.'))
+            except ValueError:
+                age = 0
+
+            is_editing = reserve_user_data.get('is_editing_child_data', False)
+            if is_editing:
+                index = reserve_user_data['edit_child_index']
+                person_id = reserve_user_data['children'][index][2]
+                await db_postgres.update_person(context.session, person_id, name=name)
+                await db_postgres.update_child_by_person_id(context.session, person_id, age=age)
+                text_success = f'<b>Ребенок {name} {int(age)} обновлен!</b>'
+            else:
+                await db_postgres.create_child(context.session, update.effective_user.id, name, age)
+                text_success = f'<b>Ребенок {name} {int(age)} добавлен!</b>'
+
+            # Обновляем список детей
+            children = await db_postgres.get_children(context.session, update.effective_user.id)
+            reserve_user_data['children'] = children
+            reserve_user_data['is_adding_child'] = False
+            reserve_user_data['is_editing_child_data'] = False
+
+            # Сообщаем об успехе и показываем меню настроек
+            selected_children = reserve_user_data.get('selected_children', [])
+            limit = chose_base_ticket.quality_of_children
+            keyboard = create_kbd_edit_children(
+                children,
+                selected_children=selected_children,
+                limit=limit
+            )
+            keyboard.append(add_btn_back_and_cancel(
+                postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+                add_back_btn=True,
+                postfix_for_back='PHONE'))
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            selected_count = len(selected_children)
+            text_success += f'\n\nНужно выбрать: {limit}\nВыбрано: {selected_count} из {limit}\n\nУкажите детей из списка ниже (используя ☑️).\nЕсли ребенка нет в списке, нажмите <b>➕ Добавить ребенка</b>.'
+            message = await update.effective_chat.send_message(text=text_success, reply_markup=reply_markup)
+            reserve_user_data['message_id'] = message.message_id
+            return 'CHILDREN'
+        else:
+            text_error = '<b>Неверный формат!</b>\n\nНапишите имя и возраст через пробел.\nНапример: <code>Сергей 2</code>'
+            keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            message = await update.effective_chat.send_message(text=text_error, reply_markup=reply_markup)
+            reserve_user_data['message_id'] = message.message_id
+            return 'CHILDREN'
+
+    # Если мы не в режиме добавления/редактирования, игнорируем текстовый ввод
+    text_notice = 'Пожалуйста, используйте кнопки для выбора детей или нажмите <b>➕ Добавить ребенка</b> для ввода новых данных.'
+    message = await update.effective_chat.send_message(text=text_notice)
+    # Удаляем предыдущую клавиатуру и переотправляем актуальную, чтобы она была внизу
+    try:
+        await context.bot.delete_message(update.effective_chat.id, reserve_user_data['message_id'])
+    except Exception:
+        pass
+
+    children = await db_postgres.get_children(context.session, update.effective_user.id)
+    reserve_user_data['children'] = children
+    text, reply_markup = await get_child_text_and_reply(chose_base_ticket, children, context)
+    message = await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+    reserve_user_data['message_id'] = message.message_id
+
+    return 'CHILDREN'
+
+
+async def reset_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    reserve_user_data.pop('applied_promo_id', None)
+    reserve_user_data.pop('applied_promo_code', None)
+    reserve_user_data.pop('discounted_price', None)
+
+    return await show_reservation_summary(update, context)
+
+
+async def compute_discounted_price(price: int, promo: Promotion) -> int:
+    if promo.discount_type == PromotionDiscountType.percentage:
+        new_price = price * (100 - promo.discount) / 100
+    else:
+        new_price = price - promo.discount
+
+    # Округление до 10 рублей
+    # 1761 -> 1760, 1768 -> 1770
+    rounded_price = int(round(new_price / 10) * 10)
+    return max(rounded_price, 10)
+
+
+async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    chose_price = reserve_user_data['chose_price']
+    discounted_price = reserve_user_data.get('discounted_price')
+    applied_promo_code = reserve_user_data.get('applied_promo_code')
+
+    # Сбор данных о мероприятии
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    schedule_event = await db_postgres.get_schedule_event(context.session, schedule_event_id)
+    theater_event = await db_postgres.get_theater_event(context.session, schedule_event.theater_event_id)
+
+    full_name_event = get_full_name_event(theater_event)
+    date_event, time_event = await get_formatted_date_and_time_of_event(schedule_event)
+
+    text = (
+        f"<b>Подтверждение бронирования</b><br><br>"
+        f"<b>Мероприятие:</b> {full_name_event}<br>"
+        f"<b>Дата и время:</b> {date_event} в {time_event}<br>"
+    )
+
+    # Добавляем инфу о гостях
+    text = add_reserve_clients_data_to_text(text, reserve_user_data)
+
+    text += "<br>"
+    price_to_pay = discounted_price if discounted_price else chose_price
+    if discounted_price:
+        text += (
+            f"<b>Стоимость:</b> <s>{int(chose_price)}</s> {int(discounted_price)} руб.<br>"
+            f"✅ Применен промокод: <code>{applied_promo_code}</code>"
+        )
+        # Проверяем, требует ли промокод верификации
+        applied_promo_id = reserve_user_data.get('applied_promo_id')
+        if applied_promo_id:
+            promo = await db_postgres.get_promotion(context.session, applied_promo_id)
+            if promo and promo.requires_verification:
+                v_text = promo.verification_text or ("Фото документа, подтверждающего право на льготу, "
+                                                     "вы сможете прикрепить после оплаты. Без него билет "
+                                                     "может быть отклонен, а средства возвращены.")
+                text += f"<br><br><b>Внимание!</b><br>{v_text}"
+    else:
+        text += f"<b>Стоимость:</b> {int(chose_price)} руб."
+
+    text += "<br><br>Если вас всё устраивает, вы можете переходить к оплате."
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    if refund:
+        text += f"<br><br>{refund}"
+
+    # Обновляем текст для уведомления админа и пользователя
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+    text_select_event = reserve_user_data['text_select_event']
+    notification_text = (f'{text_select_event}<br>'
+                         f'Вариант бронирования:<br>'
+                         f'{chose_base_ticket.name} '
+                         f'{int(price_to_pay)}руб<br>')
+    if applied_promo_code:
+        notification_text += f'Применен промокод: <code>{applied_promo_code}</code><br>'
+    context.user_data['common_data']['text_for_notification_massage'] = notification_text
+
+    # Клавиатура
+    keyboard = []
+    keyboard.append([InlineKeyboardButton("💳 Перейти к оплате", callback_data='PAY')])
+    
+    if applied_promo_code:
+        keyboard.append([InlineKeyboardButton("❌ Сбросить промокод", callback_data='RESET_PROMO')])
+    else:
+        keyboard.append([InlineKeyboardButton("🎟 Ввести промокод", callback_data='PROMO')])
+
+    # Льготы (is_visible_as_option=True)
+    promos_as_options = await db_postgres.get_active_promotions_as_options(context.session)
+    for promo in promos_as_options:
+        # Проверяем условия применимости (min_purchase_sum)
+        if chose_price < promo.min_purchase_sum:
+            continue
+
+        btn_text = promo.description_user or promo.name or f"Льгота: {promo.code}"
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f'PROMO_OPTION|{promo.id}')])
+
+    # Назад / Отмена
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=True,
+        postfix_for_back='CHILDREN'
+    ))
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    res_text = transform_html(text)
+
+    if query:
+        try:
+            message = await query.edit_message_text(
+                text=res_text.text,
+                entities=res_text.entities,
+                parse_mode=None,
+                reply_markup=reply_markup
+            )
+        except BadRequest:
+            message = await update.effective_chat.send_message(
+                text=res_text.text,
+                entities=res_text.entities,
+                parse_mode=None,
+                reply_markup=reply_markup
+            )
+    else:
+        message = await update.effective_chat.send_message(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup
+        )
+
+    reserve_user_data['message_id'] = message.message_id
+    state = 'CONFIRM_RESERVATION'
+    await set_back_context(context, state, res_text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
 
+async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    # Удаляем клавиатуру из текущего сообщения
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except BadRequest:
+        pass
+
+    # Переходим к стандартному созданию платежа
+    state = await create_and_send_payment(update, context)
+    if state is None:
+        state = 'PAID'
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_receipt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Стандартная обработка платежа (пересылка админу и т.д.)
+    from handlers.sub_hl import processing_successful_payment
+    
+    reserve_user_data = context.user_data['reserve_user_data']
+    promo_id = reserve_user_data.get('applied_promo_id')
+
+    requires_verify = False
+    if promo_id:
+        promo = await db_postgres.get_promotion(context.session, promo_id)
+        if promo and promo.requires_verification:
+            requires_verify = True
+
+    # Если верификация нужна, временно отключаем автоматическую отправку финального сообщения
+    # Она будет вызвана в handle_certificate_file
+    original_flag = reserve_user_data.get('flag_send_ticket_info', False)
+    if requires_verify:
+        reserve_user_data['flag_send_ticket_info'] = False
+
+    await processing_successful_payment(update, context)
+
+    if requires_verify:
+        v_text = ("Отправьте файл или фото, подтверждающее ваше право "
+                  "воспользоваться выбранной скидкой/акцией.")
+        await update.effective_chat.send_message(v_text)
+        context.user_data['STATE'] = 'WAIT_DOCUMENT'
+        # Восстанавливаем флаг для следующего шага
+        reserve_user_data['flag_send_ticket_info'] = original_flag
+        return 'WAIT_DOCUMENT'
+
+    # Если верификация не нужна, завершаем
+    context.user_data['STATE'] = ConversationHandler.END
+    return ConversationHandler.END
+
+
+async def handle_certificate_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Пересылаем удостоверение админу
+    await forward_message_to_admin(update, context, doc_type="Подтверждение льготы")
+
+    await update.effective_chat.send_message(
+        "Спасибо! Документ получен и передан администратору."
+    )
+
+    # Теперь отправляем финальное сообщение с правилами
+    from handlers.sub_hl import send_by_ticket_info
+    reserve_user_data = context.user_data['reserve_user_data']
+    if reserve_user_data.get('flag_send_ticket_info'):
+        await send_by_ticket_info(update, context)
+
+    context.user_data['STATE'] = ConversationHandler.END
+    return ConversationHandler.END
+
+
+async def ask_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    text = "Введите промокод:"
+    keyboard = [add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=True,
+        postfix_for_back='CONFIRM_RESERVATION'
+    )]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
+
+    state = 'PROMOCODE_INPUT'
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reserve_user_data = context.user_data['reserve_user_data']
+    try:
+        await context.bot.edit_message_reply_markup(
+            update.effective_chat.id,
+            message_id=reserve_user_data['message_id']
+        )
+    except Exception:
+        pass
+
+    code = update.effective_message.text.strip().upper()
+    chose_price = reserve_user_data['chose_price']
+
+    promo = await db_postgres.get_promotion_by_code(context.session, code)
+
+    if not promo or not promo.flag_active:
+        await update.effective_chat.send_message("Промокод не найден или неактивен. Попробуйте другой или продолжите без него.")
+        return await show_reservation_summary(update, context)
+
+    # Проверка даты
+    now = datetime.now()
+    if promo.start_date and now < promo.start_date:
+        await update.effective_chat.send_message("Срок действия этого промокода еще не начался.")
+        return await show_reservation_summary(update, context)
+    if promo.expire_date and now > promo.expire_date:
+        await update.effective_chat.send_message("Срок действия этого промокода истек.")
+        return await show_reservation_summary(update, context)
+
+    # Проверка лимита использования
+    if promo.max_count_of_usage > 0 and promo.count_of_usage >= promo.max_count_of_usage:
+        await update.effective_chat.send_message("Лимит использований этого промокода исчерпан.")
+        return await show_reservation_summary(update, context)
+
+    # Проверка минимальной суммы
+    if chose_price < promo.min_purchase_sum:
+        await update.effective_chat.send_message(f"Этот промокод действует при сумме заказа от {promo.min_purchase_sum} руб.")
+        return await show_reservation_summary(update, context)
+
+    # Применение
+    discounted_price = await compute_discounted_price(chose_price, promo)
+    reserve_user_data['applied_promo_id'] = promo.id
+    reserve_user_data['applied_promo_code'] = promo.code
+    reserve_user_data['discounted_price'] = discounted_price
+
+    return await show_reservation_summary(update, context)
+
+
+async def apply_option_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    promo_id = int(query.data.split('|')[1])
+    promo = await db_postgres.get_promotion(context.session, promo_id)
+    reserve_user_data = context.user_data['reserve_user_data']
+    chose_price = reserve_user_data['chose_price']
+
+    if promo and promo.flag_active:
+        discounted_price = await compute_discounted_price(chose_price, promo)
+        reserve_user_data['applied_promo_id'] = promo.id
+        reserve_user_data['applied_promo_code'] = promo.code
+        reserve_user_data['discounted_price'] = discounted_price
+
+    return await show_reservation_summary(update, context)
+
+
 async def get_child_text_and_reply(
         base_ticket: BaseTicket,
-        child,
+        children,
         context: 'ContextTypes.DEFAULT_TYPE'
 ) -> tuple[str, InlineKeyboardMarkup]:
+    reserve_user_data = context.user_data['reserve_user_data']
+
+    # Принудительно ставим флаг редактирования, так как теперь это основной режим
+    reserve_user_data['is_editing_children'] = True
+
     back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
+        add_back_btn=True,
+        postfix_for_back='PHONE')
+
     if base_ticket.quality_of_children > 0:
-        text = '<b>Напишите, имя и сколько полных лет ребенку</b>\n\n'
-        text_help = """__________
-Например:
-Сергей 2
-Юля 3
-__________
-<i> - Если детей несколько, напишите всех в одном сообщении
- - Один ребенок = одна строка
- - Не используйте дополнительные слова и пунктуацию, кроме тех, что указаны в примерах</i>"""
-        keyboard = [back_and_cancel]
-        if base_ticket.quality_of_children == 1:
-            child_confirm_btn, text_child = await create_child_confirm_btn(
-                text, child)
-            if child_confirm_btn:
-                keyboard.insert(0, child_confirm_btn)
-                text = text_child
-        text += text_help
+        # Инициализируем данные для выбора, если их нет
+        if 'selected_children' not in reserve_user_data:
+            reserve_user_data['selected_children'] = []
+        if 'children_page' not in reserve_user_data:
+            reserve_user_data['children_page'] = 0
+
+        # Корректировка списка выбранных детей, если лимит изменился или список детей обновился
+        limit = base_ticket.quality_of_children
+        current_selected = reserve_user_data['selected_children']
+
+        # Убираем индексы, которые выходят за пределы текущего списка детей
+        current_selected = [i for i in current_selected if i < len(children)]
+
+        # Если количество выбранных всё еще больше лимита, обрезаем
+        if len(current_selected) > limit:
+            current_selected = current_selected[:limit]
+
+        reserve_user_data['selected_children'] = current_selected
+
+        selected_count = len(reserve_user_data['selected_children'])
+
+        text = '<b>Укажите детей для бронирования</b>\n\n'
+        text += f'Нужно выбрать: {limit}\n'
+        text += f'Выбрано: {selected_count} из {limit}\n\n'
+        text += ('Используйте ☑️ для выбора детей (кнопка слева от имени).\n'
+                 'Нажмите на имя, чтобы изменить данные ребенка.\n'
+                 'Нажмите на ❌, чтобы удалить ребенка из списка навсегда.\n'
+                 'Если ребенка нет в списке, нажмите <b>➕ Добавить ребенка</b>.')
+
+        keyboard = create_kbd_edit_children(
+            children,
+            page=reserve_user_data['children_page'],
+            selected_children=reserve_user_data['selected_children'],
+            limit=limit
+        )
+        keyboard.append(back_and_cancel)
     else:
         text = 'Нажмите <b>Далее</b>'
         next_btn = InlineKeyboardButton(
@@ -1460,13 +1959,15 @@ async def send_msg_get_child(update: Update,
     base_ticket_id = reserve_user_data['chose_base_ticket_id']
     base_ticket = await db_postgres.get_base_ticket(context.session,
                                                     base_ticket_id)
-    child = await db_postgres.get_child(context.session,
-                                        update.effective_user.id)
+    children = await db_postgres.get_children(context.session,
+                                              update.effective_user.id)
+    reserve_user_data['children'] = children
     text, reply_markup = await get_child_text_and_reply(
-        base_ticket, child, context)
+        base_ticket, children, context)
 
     message = await update.effective_chat.send_message(
         text=text, reply_markup=reply_markup)
+    await set_back_context(context, 'CHILDREN', text, reply_markup)
     return message
 
 
@@ -1483,13 +1984,15 @@ async def send_msg_get_phone(update: Update,
             phone_confirm_btn,
             'PHONE',
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False,
+            add_back_btn=True,
+            postfix_for_back='FORMA'
         )
     else:
         keyboard = [
             add_btn_back_and_cancel(
                 postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-                add_back_btn=False)
+                add_back_btn=True,
+                postfix_for_back='FORMA')
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -1501,6 +2004,7 @@ async def send_msg_get_phone(update: Update,
         reply_markup=reply_markup,
         parse_mode=None
     )
+    await set_back_context(context, 'PHONE', text_prompt, reply_markup)
     return message
 
 
@@ -1528,9 +2032,35 @@ async def forward_photo_or_file(
 ):
     await remove_button_from_last_message(update, context)
 
+    reserve_user_data = context.user_data['reserve_user_data']
+    promo_id = reserve_user_data.get('applied_promo_id')
+
+    requires_verify = False
+    promo = None
+    if promo_id:
+        promo = await db_postgres.get_promotion(context.session, promo_id)
+        if promo and promo.requires_verification:
+            requires_verify = True
+
+    # Если верификация нужна, временно отключаем автоматическую отправку финального сообщения
+    original_flag = reserve_user_data.get('flag_send_ticket_info', False)
+    if requires_verify:
+        reserve_user_data['flag_send_ticket_info'] = False
+
     await processing_successful_payment(update, context)
 
-    state = ConversationHandler.END
+    if requires_verify:
+        v_text = ("Отправьте файл или фото, подтверждающее ваше право "
+                  "воспользоваться выбранной скидкой/акцией.")
+        await update.effective_chat.send_message(v_text)
+        context.user_data['STATE'] = 'WAIT_DOCUMENT'
+        # Восстанавливаем флаг для следующего шага
+        reserve_user_data['flag_send_ticket_info'] = original_flag
+        return 'WAIT_DOCUMENT'
+
+    state = context.user_data.get('STATE', ConversationHandler.END)
+    if state == 'PAID':
+        state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state
 
@@ -1541,7 +2071,26 @@ async def processing_successful_notification(
 ):
     await processing_successful_payment(update, context)
 
-    state = ConversationHandler.END
+    reserve_user_data = context.user_data['reserve_user_data']
+    promo_id = reserve_user_data.get('applied_promo_id')
+
+    requires_verify = False
+    promo = None
+    if promo_id:
+        promo = await db_postgres.get_promotion(context.session, promo_id)
+        if promo and promo.requires_verification:
+            requires_verify = True
+
+    if requires_verify:
+        v_text = ("Отправьте файл или фото, подтверждающее ваше право "
+                  "воспользоваться выбранной скидкой/акцией.")
+        await update.effective_chat.send_message(v_text)
+        context.user_data['STATE'] = 'WAIT_DOCUMENT'
+        return 'WAIT_DOCUMENT'
+
+    state = context.user_data.get('STATE', ConversationHandler.END)
+    if state == 'PAID':
+        state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state
 
@@ -1675,6 +2224,7 @@ async def write_list_of_waiting(
 ):
     query = update.callback_query
     await query.answer()
+    reserve_user_data = context.user_data['reserve_user_data']
 
     # Предложим последний введенный телефон (если есть)
     text_prompt = '<b>Напишите номер телефона</b><br><br>'
@@ -1693,18 +2243,20 @@ async def write_list_of_waiting(
             add_back_btn=True,
             postfix_for_back=context.user_data['STATE']
         )
-        await query.edit_message_text(
+        message = await query.edit_message_text(
             text=res_text.text,
             entities=res_text.entities,
             reply_markup=reply_markup,
             parse_mode=None
         )
+        reserve_user_data['message_id'] = message.message_id
     else:
-        await query.edit_message_text(
+        message = await query.edit_message_text(
             text=res_text.text,
             entities=res_text.entities,
             parse_mode=None
         )
+        reserve_user_data['message_id'] = message.message_id
 
     context.user_data['STATE'] = state
     return state
@@ -1831,98 +2383,7 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         child = data.split('|', maxsplit=1)[1]
     processed_data_on_children = [item.split() for item in child.split('\n')]
 
-    reserve_user_data = context.user_data['reserve_user_data']
-    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    chose_base_ticket = await db_postgres.get_base_ticket(
-        context.session, chose_base_ticket_id)
-
-    client_data = reserve_user_data['client_data']
-    client_data['data_children'] = processed_data_on_children
-    reserve_user_data['original_child_text'] = child
-
-    command = context.user_data.get('command', False)
-    if '_admin' in command:
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
-        await get_schedule_event_ids_studio(context)
-        await update.effective_chat.send_action(ChatAction.TYPING)
-
-        text = 'Создаю новые билеты в бд...'
-        reserve_hl_logger.info(text)
-        message = await update.effective_chat.send_message(text)
-        ticket_ids = await create_tickets_and_people(
-            update, context, TicketStatus.CREATED)
-
-        text += '\nЗаписываю новый билет в клиентскую базу...'
-        try:
-            await message.edit_text(text)
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-            reserve_hl_logger.info(text)
-        sheet_id_domik = context.config.sheets.sheet_id_domik
-        chat_id = update.effective_chat.id
-        base_ticket_dto = chose_base_ticket.to_dto()
-        ticket_status_value = str(TicketStatus.CREATED.value)
-        reserve_user_data = context.user_data['reserve_user_data']
-        try:
-            await publish_write_client_reserve(
-                sheet_id_domik,
-                reserve_user_data,
-                chat_id,
-                base_ticket_dto,
-                ticket_status_value
-            )
-        except Exception as e:
-            reserve_hl_logger.exception(
-                f'Failed to publish gspread task, fallback to direct call: {e}')
-            res = await write_client_reserve(sheet_id_domik,
-                                             reserve_user_data,
-                                             chat_id,
-                                             base_ticket_dto,
-                                             ticket_status_value)
-            if res == 0:
-                await context.bot.send_message(
-                    chat_id=context.config.bot.developer_chat_id,
-                    text=f'Не записался билет {ticket_ids} в клиентскую базу')
-
-        text += '\nУменьшаю кол-во свободных мест...'
-        try:
-            await message.edit_text(text)
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-            reserve_hl_logger.info(text)
-        result = await decrease_free_seat(
-            context, schedule_event_id, chose_base_ticket_id)
-        if not result:
-            for ticket_id in ticket_ids:
-                await update_ticket_db_and_gspread(context,
-                                                   ticket_id,
-                                                   status=TicketStatus.CANCELED)
-            text += ('\nНе уменьшились свободные места'
-                     '\nНовый билет отменен'
-                     '\nНеобходимо повторить резервирование заново')
-            try:
-                await message.edit_text(text)
-            except TimedOut as e:
-                reserve_hl_logger.error(e)
-                reserve_hl_logger.info(text)
-            await clean_context_on_end_handler(reserve_hl_logger, context)
-            return ConversationHandler.END
-
-        text += '\nПоследняя проверка...'
-        try:
-            await message.edit_text(text)
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-            reserve_hl_logger.info(text)
-        await processing_successful_payment(update, context)
-
-        state = ConversationHandler.END
-    else:
-        state = await create_and_send_payment(update, context)
-        if state is None:
-            state = 'PAID'
-    context.user_data['STATE'] = state
-    return state
+    return await _finish_get_children(update, context, processed_data_on_children, child)
 
 
 async def _publish_write_client_list_waiting(sheet_id_domik,
@@ -1954,6 +2415,13 @@ async def get_phone_for_waiting(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     reserve_user_data = context.user_data['reserve_user_data']
+    try:
+        await context.bot.edit_message_reply_markup(
+            update.effective_chat.id,
+            message_id=reserve_user_data['message_id']
+        )
+    except Exception:
+        pass
 
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
