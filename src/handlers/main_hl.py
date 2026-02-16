@@ -1227,12 +1227,7 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         f'записи без подтверждения\n')
     bd_order_text = (f'/{COMMAND_DICT['BD_ORDER'][0]} - для повторной '
                      f'отправки заявки на проведение Дня рождения\n')
-    bd_paid_text = (f'/{COMMAND_DICT['BD_PAID'][0]} - для повторного '
-                    f'запуска процедуры внесения предоплаты, если ваша заявка '
-                    f'была одобрена\n')
-
-    explanation_text = ('\nОзнакомится более подробно с театром можно по '
-                        'ссылкам:\n')
+    
     description = context.bot_data['texts']['description']
     address = context.bot_data['texts']['address']
     ask_question = context.bot_data['texts']['ask_question']
