@@ -89,14 +89,6 @@ async def clean_context_on_end_handler(logger, context):
         context.user_data.pop('reserve_admin_data')
 
 
-async def delete_message_for_job_in_callback(
-        context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    await context.bot.delete_message(
-        chat_id=context.job.chat_id,
-        message_id=context.job.data
-    )
-
-
 async def set_menu(bot: ExtBot) -> None:
     utilites_logger.info('Начало настройки команд')
     default_commands = [
