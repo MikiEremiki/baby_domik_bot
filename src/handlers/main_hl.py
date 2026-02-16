@@ -1060,10 +1060,23 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     message = None
     message_thread_id = update.effective_message.message_thread_id
 
+    entities = None
+    if isinstance(text, str) and '<br>' in text:
+        res_text = transform_html(text)
+        entities = res_text.entities
+        text = res_text.text
+    elif isinstance(text, RenderResult):
+        entities = text.entities
+        text = text.text
+
+    parse_mode = None if entities else ParseMode.HTML
+
     if state == 'MONTH':
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
+            parse_mode=parse_mode,
+            entities=entities,
             reply_markup=reply_markup,
             message_thread_id=message_thread_id
         )
@@ -1072,6 +1085,8 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
+            parse_mode=parse_mode,
+            entities=entities,
             reply_markup=reply_markup,
             message_thread_id=message_thread_id
         )
@@ -1079,13 +1094,17 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         try:
             await query.edit_message_caption(
                 caption=text,
+                parse_mode=parse_mode,
                 reply_markup=reply_markup,
+                caption_entities=entities,
             )
         except BadRequest as e:
             main_handlers_logger.error(e)
             await query.delete_message()
             await update.effective_chat.send_message(
                 text=text,
+                parse_mode=parse_mode,
+                entities=entities,
                 reply_markup=reply_markup,
                 message_thread_id=message_thread_id
             )
@@ -1109,25 +1128,39 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 await update.effective_chat.send_photo(
                     photo=photo,
                     caption=text,
+                    parse_mode=parse_mode,
+                    caption_entities=entities,
                     reply_markup=reply_markup,
                     message_thread_id=message_thread_id
                 )
             else:
                 await update.effective_chat.send_message(
                     text=text,
+                    parse_mode=parse_mode,
+                    entities=entities,
                     reply_markup=reply_markup,
                     message_thread_id=message_thread_id
                 )
         except BadRequest as e:
             main_handlers_logger.error(e)
-            await query.edit_message_text(text=text, reply_markup=reply_markup)
+            await query.edit_message_text(
+                text=text,
+                parse_mode=parse_mode,
+                entities=entities,
+                reply_markup=reply_markup
+            )
     elif state == 'TIME':
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
-    elif state == 'TICKET':
-        res_text = transform_html(text)
         await query.edit_message_text(
-            text=res_text.text,
-            entities=res_text.entities,
+            text=text,
+            parse_mode=parse_mode,
+            entities=entities,
+            reply_markup=reply_markup
+        )
+    elif state == 'TICKET':
+        await query.edit_message_text(
+            text=text,
+            parse_mode=parse_mode,
+            entities=entities,
             reply_markup=reply_markup)
         try:
             message_id = context.user_data['reserve_user_data'].get(
@@ -1144,6 +1177,8 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         try:
             message = await query.edit_message_text(
                 text=text,
+                parse_mode=parse_mode,
+                entities=entities,
                 reply_markup=reply_markup,
             )
         except BadRequest as e:
@@ -1154,6 +1189,8 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 main_handlers_logger.error(e)
             message = await update.effective_chat.send_message(
                 text=text,
+                parse_mode=parse_mode,
+                entities=entities,
                 reply_markup=reply_markup,
                 message_thread_id=message_thread_id
             )
