@@ -1,5 +1,11 @@
+"""rev_15_add on delete cascade to link tables
+
+Revision ID: b1c6e14dc666
+Revises: c00ba0fb22b5
+Create Date: 2026-02-16 00:35:00.000000
+
+"""
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "b1c6e14dc666"
@@ -11,17 +17,17 @@ depends_on = None
 def upgrade() -> None:
     # --- users_tickets ---
     op.drop_constraint(
-        "fk__users_tickets__user_id__users",
+        op.f("fk__users_tickets__user_id__users"),
         "users_tickets",
         type_="foreignkey",
     )
     op.drop_constraint(
-        "fk__users_tickets__ticket_id__tickets",
+        op.f("fk__users_tickets__ticket_id__tickets"),
         "users_tickets",
         type_="foreignkey",
     )
     op.create_foreign_key(
-        "fk__users_tickets__user_id__users",
+        op.f("fk__users_tickets__user_id__users"),
         "users_tickets",
         "users",
         ["user_id"],
@@ -29,7 +35,7 @@ def upgrade() -> None:
         ondelete="CASCADE",
     )
     op.create_foreign_key(
-        "fk__users_tickets__ticket_id__tickets",
+        op.f("fk__users_tickets__ticket_id__tickets"),
         "users_tickets",
         "tickets",
         ["ticket_id"],
@@ -39,17 +45,17 @@ def upgrade() -> None:
 
     # --- people_tickets ---
     op.drop_constraint(
-        "fk__people_tickets__person_id__people",
+        op.f("fk__people_tickets__person_id__people"),
         "people_tickets",
         type_="foreignkey",
     )
     op.drop_constraint(
-        "fk__people_tickets__ticket_id__tickets",
+        op.f("fk__people_tickets__ticket_id__tickets"),
         "people_tickets",
         type_="foreignkey",
     )
     op.create_foreign_key(
-        "fk__people_tickets__person_id__people",
+        op.f("fk__people_tickets__person_id__people"),
         "people_tickets",
         "people",
         ["person_id"],
@@ -57,7 +63,7 @@ def upgrade() -> None:
         ondelete="CASCADE",
     )
     op.create_foreign_key(
-        "fk__people_tickets__ticket_id__tickets",
+        op.f("fk__people_tickets__ticket_id__tickets"),
         "people_tickets",
         "tickets",
         ["ticket_id"],
@@ -69,24 +75,24 @@ def upgrade() -> None:
 def downgrade() -> None:
     # --- people_tickets ---
     op.drop_constraint(
-        "fk__people_tickets__ticket_id__tickets",
+        op.f("fk__people_tickets__ticket_id__tickets"),
         "people_tickets",
         type_="foreignkey",
     )
     op.drop_constraint(
-        "fk__people_tickets__person_id__people",
+        op.f("fk__people_tickets__person_id__people"),
         "people_tickets",
         type_="foreignkey",
     )
     op.create_foreign_key(
-        "fk__people_tickets__person_id__people",
+        op.f("fk__people_tickets__person_id__people"),
         "people_tickets",
         "people",
         ["person_id"],
         ["id"],
     )
     op.create_foreign_key(
-        "fk__people_tickets__ticket_id__tickets",
+        op.f("fk__people_tickets__ticket_id__tickets"),
         "people_tickets",
         "tickets",
         ["ticket_id"],
@@ -95,24 +101,24 @@ def downgrade() -> None:
 
     # --- users_tickets ---
     op.drop_constraint(
-        "fk__users_tickets__ticket_id__tickets",
+        op.f("fk__users_tickets__ticket_id__tickets"),
         "users_tickets",
         type_="foreignkey",
     )
     op.drop_constraint(
-        "fk__users_tickets__user_id__users",
+        op.f("fk__users_tickets__user_id__users"),
         "users_tickets",
         type_="foreignkey",
     )
     op.create_foreign_key(
-        "fk__users_tickets__ticket_id__tickets",
+        op.f("fk__users_tickets__ticket_id__tickets"),
         "users_tickets",
         "tickets",
         ["ticket_id"],
         ["id"],
     )
     op.create_foreign_key(
-        "fk__users_tickets__user_id__users",
+        op.f("fk__users_tickets__user_id__users"),
         "users_tickets",
         "users",
         ["user_id"],
