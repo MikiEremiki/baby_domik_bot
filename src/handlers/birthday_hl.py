@@ -604,7 +604,7 @@ async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     text = 'Напишите прочую дополнительную информацию или нажмите Далее'
     keyboard = [
-        [InlineKeyboardButton('Далее', callback_data='Next')],
+        [InlineKeyboardButton('Далее', callback_data='bd|Next')],
         add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'],
             postfix_for_back=context.user_data['STATE']
