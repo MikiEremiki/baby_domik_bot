@@ -5,8 +5,8 @@ import traceback
 from pprint import pformat
 
 from requests import HTTPError
-from telegram import Update
-from telegram.error import TimedOut, NetworkError, BadRequest
+from telegram import Update, constants
+from telegram.error import TimedOut, NetworkError, BadRequest, Forbidden
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from utilities.utl_db import open_session
@@ -14,11 +14,12 @@ from utilities.utl_func import (
     clean_context, clean_context_on_end_handler, split_message,
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
+from db.db_postgres import update_user_status
+from middleware.db import active_sessions
 
 error_hl_logger = logging.getLogger('bot.error_hl')
 
-outdated_err_msg = (
-    'Query is too old and response timeout expired or query id is invalid')
+outdated_err_msg = 'Query is too old and response timeout expired or query id is invalid'
 del_err_msg = "Message can't be deleted for everyone"
 
 
@@ -31,8 +32,8 @@ async def _send_text_after_bad_request(update: Update, text: str) -> None:
 
 async def _reply_or_fallback(update: Update, text: str) -> None:
     """Попытаться отправить ответ в ветке сообщения, иначе отправить текст в чат."""
-    message_thread_id = getattr(update.effective_message,
-                                "message_thread_id", None)
+    message_thread_id = getattr(
+        update.effective_message, 'message_thread_id', None)
     try:
         await update.effective_message.reply_text(
             text=text, message_thread_id=message_thread_id)
@@ -45,12 +46,42 @@ async def error_handler(update: Update,
                         context: 'ContextTypes.DEFAULT_TYPE') -> None:
     """Log the error and send a telegram message to notify the developer."""
     error_hl_logger.error(f'UPDATE: {update}')
-    error_hl_logger.error("Exception while handling an update:",
+    error_hl_logger.error('Exception while handling an update:',
                           exc_info=context.error)
 
-    context.session = await open_session(context.config)
+    # Пытаемся получить существующую сессию
+    session = getattr(context, 'session', None)
+    if session is None and update:
+        session = active_sessions.get(id(update))
 
+    own_session = False
+    if session is None:
+        session = await open_session(context.config)
+        own_session = True
+
+    context.session = session
+
+    try:
+        await _error_handler_logic(update, context)
+    finally:
+        if own_session:
+            await session.close()
+
+
+async def _error_handler_logic(update: Update,
+                               context: 'ContextTypes.DEFAULT_TYPE') -> None:
     chat_id = context.config.bot.developer_chat_id
+
+    if isinstance(context.error, Forbidden):
+        try:
+            msg = getattr(context.error, 'message', str(context.error)).lower()
+            if 'bot was blocked by the user' in msg:
+                error_hl_logger.error(f"Bot was blocked by user: {msg}")
+                raise ApplicationHandlerStop
+        except ApplicationHandlerStop:
+            raise
+        except Exception as e:
+            error_hl_logger.error(e)
 
     if isinstance(context.error, HTTPError):
         await context.bot.send_message(chat_id=chat_id,
@@ -69,7 +100,6 @@ async def error_handler(update: Update,
           not isinstance(context.error, BadRequest)):
         error_hl_logger.error(context.error.message)
         error_hl_logger.error('Выполнение запроса занимает много времени')
-        context.user_data['last_update'] = None
         text = ('Пожалуйста, подождите 3 секунды и повторите последнее '
                 'действие, если проблема остается, вызовите /start и '
                 'повторите запрос заново.')
@@ -118,5 +148,3 @@ async def error_handler(update: Update,
     message = pformat(context.user_data)
     error_hl_logger.info('user_data')
     error_hl_logger.info(message)
-
-    await context.session.close()

@@ -7,7 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
-    GroupOfPeopleByDiscountType, CustomMadeStatus)
+    GroupOfPeopleByDiscountType, CustomMadeStatus,
+    UserRole, PromotionDiscountType)
 
 
 class User(BaseModelTimed):
@@ -28,6 +29,9 @@ class User(BaseModelTimed):
     custom_made_events: Mapped[List['CustomMadeEvent']] = relationship(
         lazy='selectin')
 
+    status: Mapped[Optional['UserStatus']] = relationship(
+        back_populates='user', uselist=False, lazy='selectin')
+
 
 class Person(BaseModelTimed):
     __tablename__ = 'people'
@@ -39,8 +43,10 @@ class Person(BaseModelTimed):
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
 
-    child: Mapped['Child'] = relationship(lazy='selectin')
-    adult: Mapped['Adult'] = relationship(lazy='selectin')
+    child: Mapped['Child'] = relationship(
+        cascade="all, delete-orphan", lazy='selectin')
+    adult: Mapped['Adult'] = relationship(
+        cascade="all, delete-orphan", lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
 
@@ -70,18 +76,18 @@ class UserTicket(BaseModelTimed):
     __tablename__ = 'users_tickets'
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.user_id'), primary_key=True)
+        ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
     ticket_id: Mapped[int] = mapped_column(
-        ForeignKey('tickets.id'), primary_key=True)
+        ForeignKey('tickets.id', ondelete='CASCADE'), primary_key=True)
 
 
 class PersonTicket(BaseModelTimed):
     __tablename__ = 'people_tickets'
 
     person_id: Mapped[int] = mapped_column(
-        ForeignKey('people.id'), primary_key=True)
+        ForeignKey('people.id', ondelete='CASCADE'), primary_key=True)
     ticket_id: Mapped[int] = mapped_column(
-        ForeignKey('tickets.id'), primary_key=True)
+        ForeignKey('tickets.id', ondelete='CASCADE'), primary_key=True)
 
 
 class BaseTicket(BaseModelTimed):
@@ -321,10 +327,17 @@ class Promotion(BaseModelTimed):
         ForeignKey('schedule_events.id'))
 
     for_who_discount: Mapped[GroupOfPeopleByDiscountType]
+    discount_type: Mapped[PromotionDiscountType] = mapped_column(
+        default=PromotionDiscountType.fixed)
 
     flag_active: Mapped[bool] = mapped_column(default=True)
+    is_visible_as_option: Mapped[bool] = mapped_column(default=False)
     count_of_usage: Mapped[int] = mapped_column(default=0)
     max_count_of_usage: Mapped[int] = mapped_column(default=0)
+    min_purchase_sum: Mapped[int] = mapped_column(default=0)
+    description_user: Mapped[Optional[str]]
+    requires_verification: Mapped[bool] = mapped_column(default=False)
+    verification_text: Mapped[Optional[str]]
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
 
@@ -433,3 +446,86 @@ class SalesRecipient(BaseModelTimed):
     )
 
     campaign: Mapped['SalesCampaign'] = relationship(back_populates='recipients', lazy='selectin')
+
+
+class TelegramUpdate(BaseModelTimed):
+    __tablename__ = 'tg_updates'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    update_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+
+    message: Mapped[Optional[dict]] = mapped_column(JSON)
+    edited_message: Mapped[Optional[dict]] = mapped_column(JSON)
+    channel_post: Mapped[Optional[dict]] = mapped_column(JSON)
+    edited_channel_post: Mapped[Optional[dict]] = mapped_column(JSON)
+    inline_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    chosen_inline_result: Mapped[Optional[dict]] = mapped_column(JSON)
+    callback_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    shipping_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    pre_checkout_query: Mapped[Optional[dict]] = mapped_column(JSON)
+    poll: Mapped[Optional[dict]] = mapped_column(JSON)
+    poll_answer: Mapped[Optional[dict]] = mapped_column(JSON)
+    my_chat_member: Mapped[Optional[dict]] = mapped_column(JSON)
+    chat_member: Mapped[Optional[dict]] = mapped_column(JSON)
+    chat_join_request: Mapped[Optional[dict]] = mapped_column(JSON)
+    chat_boost: Mapped[Optional[dict]] = mapped_column(JSON)
+    removed_chat_boost: Mapped[Optional[dict]] = mapped_column(JSON)
+    message_reaction: Mapped[Optional[dict]] = mapped_column(JSON)
+    message_reaction_count: Mapped[Optional[dict]] = mapped_column(JSON)
+    business_connection: Mapped[Optional[dict]] = mapped_column(JSON)
+    business_message: Mapped[Optional[dict]] = mapped_column(JSON)
+    edited_business_message: Mapped[Optional[dict]] = mapped_column(JSON)
+    deleted_business_messages: Mapped[Optional[dict]] = mapped_column(JSON)
+    purchased_paid_media: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    full_update: Mapped[dict] = mapped_column(JSON)
+
+    user_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    chat_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    text: Mapped[Optional[str]]
+    message_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    reply_to_message_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+    message_thread_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+
+
+class BotSettings(BaseModelTimed):
+    __tablename__ = 'bot_settings'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(unique=True)
+    value: Mapped[Optional[dict | list | str | int | float | bool]] = mapped_column(JSON)
+
+
+class UserStatus(BaseModelTimed):
+    __tablename__ = 'user_statuses'
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
+
+    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
+    is_blocked_by_user: Mapped[bool] = mapped_column(default=False)
+    is_blacklisted: Mapped[bool] = mapped_column(default=False)
+
+    is_blocked_by_admin: Mapped[bool] = mapped_column(default=False)
+    blocked_by_admin_id: Mapped[Optional[int]] = mapped_column(BigInteger)
+
+    user: Mapped['User'] = relationship(back_populates='status', lazy='selectin')
+
+
+class FeedbackTopic(BaseModelTimed):
+    __tablename__ = 'feedback_topics'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'), unique=True)
+    topic_id: Mapped[int] = mapped_column()
+
+
+class FeedbackMessage(BaseModelTimed):
+    __tablename__ = 'feedback_messages'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
+    user_message_id: Mapped[int] = mapped_column(BigInteger)
+    admin_message_id: Mapped[int] = mapped_column(BigInteger)

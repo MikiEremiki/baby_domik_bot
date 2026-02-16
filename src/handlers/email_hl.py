@@ -7,10 +7,6 @@ from utilities.utl_check import check_email
 
 
 async def check_email_and_update_user(update, context: 'ContextTypes.DEFAULT_TYPE'):
-    await context.bot.delete_message(
-        chat_id=update.effective_chat.id,
-        message_id=context.user_data['reserve_user_data']['message_id']
-    )
     email = update.effective_message.text
     if not check_email(email):
         await retry_get_email(update, context)

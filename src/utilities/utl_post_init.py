@@ -2,6 +2,7 @@ from telegram.ext import Application
 
 from settings.settings import ADDRESS_OFFICE
 from utilities.utl_func import set_menu, set_description
+from utilities.settings_parser import load_bot_settings
 from schedule.worker_jobs import cancel_old_created_tickets
 
 
@@ -37,6 +38,13 @@ async def post_init(app: Application, config):
     app.bot_data.setdefault('dict_topics_name', {})
     app.bot_data.setdefault('global_on_off', True)
     app.context_types.context.config = config
+
+    await load_bot_settings(app)
+
+    app.bot_data['feedback_group_id'] = app.bot_data['settings'].get(
+        'FEEDBACK_GROUP_ID',
+        app.bot_data['settings'].get('CHAT_ID_GROUP_ADMIN')
+    )
 
     # Планировщик авто-отмены созданных билетов старше 30 минут
     app.job_queue.run_repeating(

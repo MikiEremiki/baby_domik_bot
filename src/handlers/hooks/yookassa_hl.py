@@ -24,14 +24,15 @@ async def yookassa_hook_update(update: WebhookNotification,
                                context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Платеж\n'
     text = await parsing_metadata(update, text)
+    chat_dev = context.config.bot.developer_chat_id
     try:
-        await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+        await context.bot.send_message(chat_dev, text)
     except BadRequest as e:
         webhook_hl_logger.error(e)
         webhook_hl_logger.info(text)
 
     if update.object.status == 'pending':
-        await context.bot.send_message(CHAT_ID_MIKIEREMIKI,
+        await context.bot.send_message(chat_dev,
                                        'Платеж ожидает оплаты')
     elif update.object.status == 'waiting_for_capture':
         pass  # Для двух стадийной оплаты
@@ -73,6 +74,10 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     text = f'<b>Номер вашего билета '
     ticket_status = TicketStatus.PAID
     sheet_id_domik = context.config.sheets.sheet_id_domik
+
+    promo_id_raw = update.object.metadata.get('promo_id')
+    promo_id = int(promo_id_raw) if promo_id_raw else None
+
     for ticket_id in ticket_ids:
         try:
             await publish_update_ticket(
@@ -86,16 +91,41 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             await update_ticket_in_gspread(
                 sheet_id_domik, ticket_id, ticket_status.value)
         await db_postgres.update_ticket(
-            context.session, ticket_id, status=ticket_status)
+            context.session, ticket_id, status=ticket_status,
+            promo_id=promo_id)
         text += f'<code>{ticket_id}</code> '
+
+    if promo_id:
+        try:
+            await db_postgres.increment_promotion_usage(context.session, promo_id)
+        except Exception as e:
+            webhook_hl_logger.exception(f'Не удалось увеличить счетчик промо {promo_id}: {e}')
     text += '</b>\n\n'
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text += refund
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    text += refund + '\n\n'
+    text += 'Платеж успешно обработан\n\n'
+
+    promo = None
+    if promo_id:
+        promo = await db_postgres.get_promotion(context.session, promo_id)
+
+    user_data = context.application.user_data.get(int(chat_id))
+
+    if user_data is not None:
+        user_data['STATE'] = 'PAID'
+        # Пытаемся принудительно установить состояние в разговоре
+        key = (int(chat_id), int(chat_id))
+        try:
+            await context.application.persistence.update_conversation('reserve', key, 'PAID')
+        except Exception as e:
+            webhook_hl_logger.error(f"Не удалось обновить состояние в persistence: {e}")
+
     text += (
-        'Платеж успешно обработан\n\n'
         'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
         'подробной информации\n\n'
-        '<i>Или отправьте квитанцию/чек об оплате</i>')
+        '<i>Или отправьте квитанцию/чек об оплате</i>'
+    )
+
     reply_markup = InlineKeyboardMarkup(
         [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
     try:

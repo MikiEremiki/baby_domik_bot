@@ -43,7 +43,7 @@ async def enter_ticket_id(
     message = await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id
     )
 
     context.user_data['reserve_admin_data']['message_id'] = message.message_id
@@ -73,7 +73,7 @@ async def get_ticket_by_id(
                 del_message_ids[0]
             )
     client_data = context.user_data['reserve_user_data']['client_data']
-    ticket_id = int(update.message.text)
+    ticket_id = int(update.effective_message.text)
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if ticket:
         user = ticket.user

@@ -1,5 +1,7 @@
 import logging
 
+from sulguk import transform_html
+
 from telegram.ext import (
     ContextTypes,
     ConversationHandler,
@@ -48,7 +50,7 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await init_conv_hl_dialog(update, context)
 
     birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
-                            f' {update.message.from_user}')
+                            f' {update.effective_user.full_name}')
 
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
@@ -628,7 +630,9 @@ async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
-    if not query:
+    if query:
+        await query.answer()
+    else:
         note = update.effective_message.text
         text = f'<b>Прочая информация:</b> {note}'
         message = await update.effective_chat.send_message(text)
@@ -641,7 +645,7 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await del_keyboard_messages(update, context)
     del_message_ids = []
 
-    text_header = '<b>Заявка:</b>\n'
+    text_header = '<b>Заявка:</b><br>'
     text = ''
     for key, item in context.user_data['birthday_user_data'].items():
         match key:
@@ -654,19 +658,17 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             case 'custom_made_format_id':
                 custom_made_format = await db_postgres.get_custom_made_format(
                     context.session, item)
-                item = (f'{custom_made_format.name}\n'
+                item = (f'{custom_made_format.name}<br>'
                         f'<i>Стоимость:</i> {custom_made_format.price} руб')
             case 'phone':
-                item = '+7' + item
+                item = f'+7{item}'
         try:
-            text += f'\n<i>{birthday_data[key]}:</i> {item}'
+            text += f'<br><i>{birthday_data[key]}:</i> {item}'
         except KeyError as e:
             birthday_hl_logger.error(e)
 
-    if query:
-        await query.answer()
     message_1 = await update.effective_chat.send_message(
-        text=text_header + text,
+        text=f'{text_header}{text}',
     )
     await append_message_ids_back_context(
         context, [message_1.message_id])
@@ -726,18 +728,22 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     )
 
     user = context.user_data['user']
-    text = ('#День_рождения\n'
-            f'Запрос пользователя @{user.username} {user.full_name}\n')
-    text += f'Номер заявки: {custom_made_event.id}\n\n'
+    text = ('#День_рождения<br>'
+            f'Запрос пользователя @{user.username} {user.full_name}<br>')
+    text += f'Номер заявки: {custom_made_event.id}<br><br>'
     text += context.user_data['common_data'][
         'text_for_notification_massage']
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Выездные мероприятия', None))
+
+    res_text = transform_html(text)
     message = await context.bot.send_message(
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
         chat_id=ADMIN_CME_GROUP,
         reply_markup=reply_markup,
-        message_thread_id=thread_id
+        message_thread_id=thread_id,
+        parse_mode=None
     )
 
     context.user_data['common_data'][
@@ -766,20 +772,23 @@ async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     keyboard.append([button_cancel])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = ('    Внесите предоплату 5000 руб\n\n'
-            'Оплатить можно:\n'
+    text = ('    Внесите предоплату 5000 руб<br><br>'
+            'Оплатить можно:<br>'
             ' - Переводом на карту Сбербанка по номеру телефона'
-            '+79159383529 Татьяна Александровна Б.\n\n'
-            'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)\n'
+            '+79159383529 Татьяна Александровна Б.<br><br>'
+            'ВАЖНО! Прислать сюда электронный чек об оплате (или скриншот)<br>'
             'Пожалуйста внесите оплату в течении 30 минут или нажмите '
-            'отмена и повторите в другое удобное для вас время\n\n'
-            '__________\n'
-            'В случае переноса или отмены свяжитесь с Администратором:\n'
+            'отмена и повторите в другое удобное для вас время<br><br>'
+            '__________<br>'
+            'В случае переноса или отмены свяжитесь с Администратором:<br>'
             f'{context.bot_data['cme_admin']['contacts']}')
 
+    res_text = transform_html(text)
     message = await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
     )
 
     context.user_data['common_data']['message_id_buy_info'] = message.message_id
@@ -819,33 +828,26 @@ async def forward_photo_or_file(
         )
         await update.effective_chat.pin_message(message_id_for_reply)
 
-        text = f'Квитанция покупателя @{user.username} {user.full_name}\n'
-        message_id_for_admin = context.user_data['common_data'][
-            'message_id_for_admin']
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Выездные мероприятия', None))
-        await send_message_to_admin(ADMIN_CME_GROUP,
-                                    text,
-                                    message_id_for_admin,
-                                    context,
-                                    thread_id)
-
-        await update.effective_message.forward(
-            chat_id=ADMIN_CME_GROUP,
-            message_thread_id=thread_id
-        )
+        message_id_for_admin = context.user_data['common_data'][
+            'message_id_for_admin']
 
         reply_markup = create_approve_and_reject_replay(
             'birthday-2',
             f'{update.effective_user.id} {message_id} {cme_id}'
         )
 
-        await context.bot.send_message(
+        caption = (f'Квитанция покупателя @{user.username} {user.full_name}\n'
+                   f'Запросил подтверждение брони на сумму 5000 руб\n'
+                   f'Номер заявки: {cme_id}')
+
+        await update.effective_message.copy(
             chat_id=ADMIN_CME_GROUP,
-            text=f'Пользователь @{user.username} {user.full_name}\n'
-                 f'Запросил подтверждение брони на сумму 5000 руб\n',
+            caption=caption,
             reply_markup=reply_markup,
-            message_thread_id=thread_id
+            message_thread_id=thread_id,
+            reply_to_message_id=message_id_for_admin
         )
 
     except KeyError as err:

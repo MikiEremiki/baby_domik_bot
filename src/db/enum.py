@@ -44,6 +44,11 @@ class GroupOfPeopleByDiscountType(enum.Enum):
     non_privilege = 2
 
 
+class PromotionDiscountType(enum.Enum):
+    percentage = 'percentage'
+    fixed = 'fixed'
+
+
 class CustomMadeStatus(enum.Enum):
     CREATED = 'Создан'
     APPROVED = 'Подтвержден'
@@ -52,3 +57,10 @@ class CustomMadeStatus(enum.Enum):
     REJECTED = 'Отклонен'
     REFUNDED = 'Возвращен'
     CANCELED = 'Отменен'
+
+
+class UserRole(enum.Enum):
+    USER = 'Пользователь'
+    ADMIN = 'Администратор'
+    DEVELOPER = 'Разработчик'
+    SUPERUSER = 'Суперпользователь'

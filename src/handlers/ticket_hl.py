@@ -41,6 +41,10 @@ async def get_ticket(
     reserve_user_data['chose_price'] = price
     reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 
+    # Сбрасываем выбор детей при смене билета
+    reserve_user_data.pop('selected_children', None)
+    reserve_user_data.pop('children_page', None)
+
     if chose_base_ticket.flag_individual:
         await send_info_about_individual_ticket(update, context)
         state = ConversationHandler.END

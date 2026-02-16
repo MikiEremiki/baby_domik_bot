@@ -3,10 +3,12 @@ import uuid
 from typing import List, Union, Optional
 
 from requests import ConnectTimeout
+from sqlalchemy.exc import IntegrityError
+from sulguk import transform_html
 from telegram import (
     Update,
     InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton, Message
+    ReplyKeyboardMarkup, KeyboardButton, MessageId
 )
 from telegram.constants import ChatAction
 from telegram.error import BadRequest, TimedOut, NetworkError
@@ -22,6 +24,7 @@ from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
     load_schedule_events, load_theater_events, load_custom_made_format,
     decrease_free_and_increase_nonconfirm_seat,
+    load_promotions,
 )
 from schedule.scheduler_jobs import schedule_notification_job
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
@@ -33,8 +36,10 @@ from utilities.utl_func import (
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
+from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
-    create_tickets_and_people, cancel_ticket_db_when_end_handler)
+    create_tickets_and_people, cancel_ticket_db_when_end_handler
+)
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -70,22 +75,28 @@ async def processing_admin_info(
             admin_info['name'] = ' '.join(context.args[0:2])
             admin_info['username'] = context.args[2]
             admin_info['phone'] = context.args[3]
-            admin_info['contacts'] = '\n'.join(
+            admin_info['contacts'] = '<br>'.join(
                 [admin_info['name'],
                  'telegram ' + admin_info['username'],
                  'телефон ' + admin_info['phone']]
             )
+            text = f'Зафиксировано: {admin_info}'
+            res_text = transform_html(text)
             await update.effective_chat.send_message(
-                f'Зафиксировано: {admin_info}')
+                text=res_text.text, entities=res_text.entities, parse_mode=None)
         else:
+            text = (f'Должно быть 4 параметра, а передано {len(context.args)}<br>'
+                    'Формат:<br><code>Имя Фамилия @username +79991234455</code>')
+            res_text = transform_html(text)
             await update.effective_chat.send_message(
-                f'Должно быть 4 параметра, а передано {len(context.args)}\n'
-                'Формат:\n<code>Имя Фамилия @username +79991234455</code>')
+                text=res_text.text, entities=res_text.entities, parse_mode=None)
     else:
+        text = ('Не заданы параметры к команде<br>'
+                'Текущие контакты администратора:<br>'
+                f'{admin_info}')
+        res_text = transform_html(text)
         await update.effective_chat.send_message(
-            'Не заданы параметры к команде\n'
-            'Текущие контакты администратора:\n'
-            f'{admin_info}')
+            text=res_text.text, entities=res_text.entities, parse_mode=None)
 
 
 async def update_admin_info(update: Update,
@@ -102,36 +113,6 @@ async def update_cme_admin_info(update: Update,
     await processing_admin_info(update, context, 'cme_admin')
 
 
-async def update_bd_price(update: Update,
-                          context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    birthday_price = context.bot_data.setdefault('birthday_price', {})
-    if context.args:
-        if context.args[0] == 'clean':
-            context.bot_data['birthday_price'] = {}
-            await update.effective_chat.send_message(
-                f'Зафиксировано: {context.bot_data['birthday_price']}')
-            return
-        if len(context.args) % 2 == 0:
-            for i in range(0, len(context.args), 2):
-                birthday_price[int(context.args[i])] = int(context.args[i + 1])
-            await update.effective_chat.send_message(
-                f'Зафиксировано: {context.bot_data['birthday_price']}')
-        else:
-            await update.effective_chat.send_message(
-                f'Должно быть четное кол-во параметров\n'
-                f'Передано {len(context.args)}\n'
-                'Формат: 1 15000 2 20000\n'
-                'В качестве разделителей только пробелы')
-    else:
-        await update.effective_chat.send_message(
-            'Не заданы параметры к команде\n'
-            '1 - Спектакль (40 минут) + аренда комнаты под чаепитие (1 час)\n'
-            '2 - Спектакль (40 минут) + аренда комнаты под чаепитие + серебряная дискотека (1 час)\n'
-            '3 - Спектакль (40 минут) + Свободная игра с персонажами и фотосессия (20 минут)\n'
-            'Текущие цены заказных мероприятий:\n'
-            f'{birthday_price}')
-
-
 async def update_base_ticket_data(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
@@ -143,7 +124,10 @@ async def update_base_ticket_data(
     text = 'Билеты обновлены'
     await update.effective_chat.send_message(text)
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -159,7 +143,10 @@ async def update_special_ticket_price(
     for item in context.bot_data['special_ticket_price']:
         sub_hl_logger.info(f'{str(item)}')
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -176,8 +163,30 @@ async def update_custom_made_format_data(
 
     sub_hl_logger.info(text)
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
+
+
+async def update_promotion_data(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    promotions = await load_promotions()
+    await update_promotions_from_googlesheets(context.session, promotions)
+
+    text = 'Промокоды обновлены'
+    await update.effective_chat.send_message(text)
+
+    sub_hl_logger.info(text)
+
+    try:
+        await update.callback_query.answer()
+        return 'updates'
+    except Exception:
+        return ConversationHandler.END
 
 
 async def update_theater_event_data(
@@ -193,7 +202,10 @@ async def update_theater_event_data(
 
     sub_hl_logger.info(text)
 
-    await update.callback_query.answer()
+    try:
+        await update.callback_query.answer()
+    except BadRequest:
+        pass
     return 'updates'
 
 
@@ -203,11 +215,18 @@ async def update_schedule_event_data(update: Update,
     text = 'Начато обновление расписания'
     try:
         await query.answer(text=text)
-    except TimedOut as e:
+    except (TimedOut, BadRequest) as e:
         sub_hl_logger.error(e)
     schedule_event_list = await load_schedule_events(False, True)
-    await db_postgres.update_schedule_events_from_googlesheets(
-        context.session, schedule_event_list)
+    try:
+        await db_postgres.update_schedule_events_from_googlesheets(
+            context.session, schedule_event_list)
+    except IntegrityError as e:
+        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        await context.session.rollback()
+        text = "Сначала, выполните обновление репертуара"
+        await update.effective_chat.send_message(text)
+        return 'updates'
 
     for event in schedule_event_list:
         await schedule_notification_job(context, event)
@@ -266,6 +285,7 @@ async def create_and_send_payment(
 
     reserve_user_data = context.user_data['reserve_user_data']
     chose_price = reserve_user_data['chose_price']
+    price_to_pay = reserve_user_data.get('discounted_price', chose_price)
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
     theater_event_id = reserve_user_data['choose_theater_event_id']
@@ -344,7 +364,7 @@ async def create_and_send_payment(
     name_for_desc = name[:len_for_name]
     description = f'Билет на мероприятие {name_for_desc} {date_event} в {time_event}'
     param = create_param_payment(
-        price=chose_price,
+        price=price_to_pay,
         description=' '.join([description, ticket_name_for_desc]),
         email=email,
         payment_method_type=context.config.yookassa.payment_method_type,
@@ -353,7 +373,8 @@ async def create_and_send_payment(
         ticket_ids='|'.join(str(v) for v in ticket_ids),
         choose_schedule_event_ids='|'.join(
             str(v) for v in choose_schedule_event_ids),
-        command=command
+        command=command,
+        promo_id=reserve_user_data.get('applied_promo_id')
     )
     idempotency_id = uuid.uuid4()
     try:
@@ -398,16 +419,33 @@ async def create_and_send_payment(
         callback_data=f'payment|{payment.id}',
         url=payment.confirmation.confirmation_url
     )
+    button_confirm = InlineKeyboardButton(
+        'Я оплатил(-а)',
+        callback_data='confirm_payment'
+    )
+    postfix_for_cancel = f'{context.user_data['postfix_for_cancel']}|'
     button_cancel = add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
+        postfix_for_cancel=postfix_for_cancel, add_back_btn=False)
     keyboard.append([button_payment])
+    keyboard.append([button_confirm])
     keyboard.append(button_cancel)
     reply_markup = InlineKeyboardMarkup(keyboard)
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    # Проверка необходимости верификации
+    applied_promo_id = reserve_user_data.get('applied_promo_id')
+    verification_msg = ""
+    if applied_promo_id:
+        promo = await db_postgres.get_promotion(context.session, applied_promo_id)
+        if promo and promo.requires_verification:
+            v_text = promo.verification_text or ("Фото удостоверения многодетной семьи вы сможете "
+                                                 "прикрепить после оплаты. Без него билет может быть "
+                                                 "отклонен, в этом случае средства будут возвращены.")
+            verification_msg = f"<b>Внимание!</b> {v_text}\n\n"
+
     await message.edit_text(
         text=f"""Бронь билета осуществляется по 100% оплате.
-❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ ЧЕМ ЗА 24 ЧАСА❗️
-❗️ПЕРЕНОС ВОЗМОЖЕН ТОЛЬКО 1 РАЗ❗️
+        
+{verification_msg}{refund}
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
 - Если вы согласны с правилами, то переходите к оплате:
@@ -416,9 +454,9 @@ async def create_and_send_payment(
   Способ оплаты - СБП</i>
 
 - Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
-- Если вы уже сделали оплату
- или подтверждение факта оплаты не пришло в течении 5-10 минут
- <b>отправьте квитанцию об оплате файлом или картинкой.</b>""",
+- Если вы уже сделали оплату и подтверждение факта оплаты не пришло в течении 3х минут (оно приходит автоматически в этот же чат),
+ то нажмите кнопку <b>«Я оплатил(-а)»</b> и отправьте квитанцию об оплате.
+ <b><i>Это нужно, только если автоматическая обработка не сработает.</i></b>""",
         reply_markup=reply_markup,
         disable_web_page_preview=True
     )
@@ -442,19 +480,53 @@ async def processing_successful_payment(
 
     reserve_user_data = context.user_data['reserve_user_data']
     command = context.user_data['command']
+    # TODO Можно положить в callback_data кнопки "ДАЛЕЕ" после Next ticket_id
+    #  и достать все данные из бд по нему
     ticket_ids = reserve_user_data['ticket_ids']
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
     if ticket.status == TicketStatus.CREATED:
-        user = context.user_data['user']
-        client_data = reserve_user_data['client_data']
-        original_child_text = reserve_user_data['original_child_text']
-        chose_price = reserve_user_data['chose_price']
-        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
-        theater_event_id = reserve_user_data['choose_theater_event_id']
+        # Пытаемся восстановить данные из БД, если они потерялись в сессии
+        if 'reserve_user_data' not in context.user_data or 'client_data' not in context.user_data['reserve_user_data']:
+            # Базовое восстановление для возможности отправить уведомление
+            context.user_data.setdefault('reserve_user_data', {})
+            reserve_user_data = context.user_data['reserve_user_data']
+            reserve_user_data['ticket_ids'] = ticket_ids
+            reserve_user_data['chose_price'] = ticket.price
+            reserve_user_data['chose_base_ticket_id'] = ticket.base_ticket_id
+            reserve_user_data['choose_schedule_event_id'] = ticket.schedule_event_id
 
-        schedule_event = await db_postgres.get_schedule_event(
-            context.session, schedule_event_id)
+            # Восстанавливаем промокод
+            if ticket.promo_id:
+                reserve_user_data['applied_promo_id'] = ticket.promo_id
+                promo = await db_postgres.get_promotion(context.session, ticket.promo_id)
+                if promo:
+                    reserve_user_data['applied_promo_code'] = promo.code
+
+            # Пытаемся найти человека, связанного с этим билетом
+            person_ticket = await db_postgres.get_person_ticket_by_ticket_id(context.session, ticket_ids[0])
+            if person_ticket:
+                person = await db_postgres.get_person(context.session, person_ticket.person_id)
+                if person:
+                    reserve_user_data['client_data'] = {
+                        'name_adult': person.full_name,
+                        'phone': person.phone
+                    }
+            
+            # Если всё равно пусто, используем заглушки
+            reserve_user_data.setdefault('client_data', {'name_adult': 'Неизвестно', 'phone': '0000000000'})
+            reserve_user_data.setdefault('original_child_text', 'Не указано')
+            
+        user = context.user_data.get('user') or update.effective_user
+        client_data = reserve_user_data['client_data']
+        original_child_text = reserve_user_data.get('original_child_text', 'Не указано')
+        chose_price = reserve_user_data.get('chose_price', ticket.price)
+        chose_base_ticket_id = reserve_user_data.get('chose_base_ticket_id', ticket.base_ticket_id)
+        schedule_event_id = reserve_user_data.get('choose_schedule_event_id', ticket.schedule_event_id)
+        
+        # Получаем данные события для полноты картины
+        schedule_event = await db_postgres.get_schedule_event(context.session, schedule_event_id)
+        theater_event_id = reserve_user_data.get('choose_theater_event_id', schedule_event.theater_event_id)
+        
         theater_event = await db_postgres.get_theater_event(
             context.session, theater_event_id)
         chose_base_ticket = await db_postgres.get_base_ticket(
@@ -480,15 +552,16 @@ async def processing_successful_payment(
         text += f'#event_id <code>{event_id}</code>\n'
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
-        text += theater_event.name
-        text += '\n' + date_event
-        text += ' в ' + time_event
-        text += '\n' + chose_base_ticket.name + ' ' + str(chose_price) + 'руб'
-        text += '\n'
+        text += f'{theater_event.name}\n{date_event} в {time_event}\n'
+        price_to_pay = reserve_user_data.get('discounted_price', chose_price)
+        promo_code = reserve_user_data.get('applied_promo_code')
+        text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n'
+        if promo_code:
+            text += f'Применен промокод: <code>{promo_code}</code>\n'
 
         text += '\n'.join([
             client_data['name_adult'],
-            '+7' + client_data['phone'],
+            f'+7{client_data['phone']}',
             original_child_text,
         ])
         text += '\n\n'
@@ -503,18 +576,21 @@ async def processing_successful_payment(
             ticket_id = context.user_data['reserve_admin_data']['ticket_id']
             text += f'\nПеренесен с #ticket_id <code>{ticket_id}</code>'
 
-        message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
-            update, context)
+        # Проверяем, не было ли уже уведомления (например, от вебхука)
+        if not reserve_user_data.get('admin_notified'):
+            message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
+                update, context)
 
-        thread_id = await get_thread_id(context, command, schedule_event)
-        await send_message_to_admin(
-            chat_id=ADMIN_GROUP,
-            text=text,
-            message_id=message_id_for_admin,
-            context=context,
-            thread_id=thread_id,
-            reply_markup=reply_markup
-        )
+            thread_id = await get_thread_id(context, command, schedule_event)
+            await send_message_to_admin(
+                chat_id=ADMIN_GROUP,
+                text=text,
+                message_id=message_id_for_admin,
+                context=context,
+                thread_id=thread_id,
+                reply_markup=reply_markup
+            )
+            reserve_user_data['admin_notified'] = True
         sub_hl_logger.info(f'Для пользователя {user}')
         sub_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data['STATE']}')
@@ -523,8 +599,21 @@ async def processing_successful_payment(
         sub_hl_logger.info(
             f'Проверь, что по билету {ticket_ids=} прикреплены люди')
 
+        if not query and (update.effective_message.photo or update.effective_message.document):
+            await forward_message_to_admin(update, context)
+
     check_send = reserve_user_data.get('flag_send_ticket_info', False)
-    if (command == 'reserve' or command == 'studio') and check_send:
+    
+    # Проверяем, нужна ли верификация (для случая автоматической оплаты или перехода далее)
+    # Если верификация нужна, send_by_ticket_info будет вызван после отправки документа
+    requires_verify = False
+    applied_promo_id = reserve_user_data.get('applied_promo_id')
+    if applied_promo_id:
+        promo = await db_postgres.get_promotion(context.session, applied_promo_id)
+        if promo and promo.requires_verification:
+            requires_verify = True
+
+    if (command == 'reserve' or command == 'studio') and check_send and not requires_verify:
         await send_by_ticket_info(update, context)
 
 
@@ -533,17 +622,16 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     reply_markup = None
     message_id_for_admin = None
     if command == 'reserve' or command == 'studio':
-        message = await forward_message_to_admin(update, context)
+        message_id_for_admin = await forward_message_to_admin(update, context)
 
-        message_id = context.user_data['common_data']['message_id_buy_info']
+        message_id_buy_info = context.user_data['common_data']['message_id_buy_info']
 
         reply_markup = create_approve_and_reject_replay(
             'reserve',
-            f'{update.effective_user.id} {message_id}'
+            f'{update.effective_user.id} {message_id_buy_info}'
         )
         context.user_data['common_data'][
-            'message_id_for_admin'] = message.message_id
-        message_id_for_admin = message.message_id
+            'message_id_for_admin'] = message_id_for_admin
     return message_id_for_admin, reply_markup
 
 
@@ -590,7 +678,8 @@ async def send_breaf_message(update: Update,
 
     back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
+        add_back_btn=True,
+        postfix_for_back='TICKET')
 
     if adult_confirm_btn:
         keyboard = [adult_confirm_btn, back_and_cancel]
@@ -602,15 +691,19 @@ async def send_breaf_message(update: Update,
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.effective_chat.send_message(
         text=text_prompt, reply_markup=reply_markup)
+    await set_back_context(context, 'FORMA', text_prompt, reply_markup)
     return message
 
 
 async def forward_message_to_admin(
         update: Update,
-        context: 'ContextTypes.DEFAULT_TYPE'
-) -> Message:
+        context: 'ContextTypes.DEFAULT_TYPE',
+        doc_type: str = "Квитанция"
+) -> MessageId:
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
+    reserve_user_data = context.user_data['reserve_user_data']
+    promo_code = reserve_user_data.get('applied_promo_code')
     command = context.user_data['command']
     thread_id = None
     if command == 'reserve':
@@ -623,18 +716,18 @@ async def forward_message_to_admin(
     if command == 'studio':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))
-    message = await context.bot.send_message(
+
+    text = f'#Бронирование\n{doc_type} по билету: <code>{ticket_id}</code>\n'
+    if promo_code:
+        text += f'Применен промокод: <code>{promo_code}</code>\n'
+
+    message_id = await update.effective_message.copy(
         chat_id=ADMIN_GROUP,
-        text=f'#Бронирование\n'
-             f'Квитанция по билету: <code>{ticket_id}</code>\n',
-        message_thread_id=thread_id
-    )
-    await update.effective_message.forward(
-        chat_id=ADMIN_GROUP,
+        caption=text,
         message_thread_id=thread_id
     )
 
-    return message
+    return message_id
 
 
 async def send_by_ticket_info(update, context):
@@ -647,16 +740,16 @@ async def send_by_ticket_info(update, context):
     )
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
-    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b>\n\n'
+    text = f'<b>Номер вашего билета <code>{ticket_id}</code></b><br><br>'
     text += context.user_data['common_data']['text_for_notification_massage']
-    text += f'__________\n'
-    refund = '❗️ВОЗВРАТ ДЕНЕЖНЫХ СРЕДСТВ ИЛИ ПЕРЕНОС ВОЗМОЖЕН НЕ МЕНЕЕ, ЧЕМ ЗА 24 ЧАСА❗\n\n'
-    text += refund
-    text += ('Задать вопросы можно в сообщениях группы\n'
+    text += f'__________<br>'
+    refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    text += refund + '<br><br>'
+    text += ('Задать вопросы можно в сообщениях группы<br>'
              'https://vk.com/baby_theater_domik')
+    res_text = transform_html(text)
     message = await update.effective_chat.send_message(
-        text=text,
-    )
+            res_text.text, entities=res_text.entities, parse_mode=None)
     await message.pin()
 
     command = context.user_data['command']
@@ -752,7 +845,7 @@ async def send_message_about_list_waiting(update: Update, context):
                  f'<i>{qty_child} дет</i>'
                  f' | '
                  f'<i>{qty_adult} взр</i>'
-                 f'\n\n')
+                 f'<br><br>')
     text += ('⬇️Нажмите на одну из двух кнопок ниже, '
              'чтобы выбрать другое время '
              'или записаться в лист ожидания на эту дату и время⬇️')
@@ -765,15 +858,24 @@ async def send_message_about_list_waiting(update: Update, context):
         resize_keyboard=True,
         one_time_keyboard=True
     )
+
+    res_text = transform_html(text)
     await update.effective_chat.send_message(
-        text=text, reply_markup=reply_markup)
+        text=res_text.text,
+        entities=res_text.entities,
+        parse_mode=None,
+        reply_markup=reply_markup
+    )
 
 
 async def send_info_about_individual_ticket(update, context):
     query = update.callback_query
-    text = ('Для оформления данного варианта обратитесь к Администратору:\n'
+    text = ('Для оформления данного варианта обратитесь к Администратору:<br>'
             f'{context.bot_data['admin']['contacts']}')
-    await query.edit_message_text(text)
+
+    res_text = transform_html(text)
+    await query.edit_message_text(
+        text=res_text.text, entities=res_text.entities, parse_mode=None)
     sub_hl_logger.info(
         f'Обработчик завершился на этапе {context.user_data['STATE']}')
     context.user_data['common_data'].clear()
@@ -798,14 +900,9 @@ async def send_message_to_admin(
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
-        sub_hl_logger.info(": ".join(
-            [
-                'Для пользователя',
-                str(context.user_data['user'].id),
-                str(context.user_data['user'].full_name),
-                'сообщение на которое нужно ответить, удалено'
-            ],
-        ))
+        user = context.user_data['user']
+        sub_hl_logger.info(f"Для пользователя: {user.id}: {user.full_name}: "
+                           f"сообщение на которое нужно ответить, удалено")
         message = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -830,21 +927,21 @@ async def send_approve_reject_message_to_admin_in_webhook(
     original_child_text = reserve_user_data['original_child_text']
     event_id = reserve_user_data['choose_schedule_event_id']
 
-    text = f'#Бронирование\n'
-    text += f'Платеж успешно обработан\n'
+    text = f'#Бронирование<br>'
+    text += f'Платеж успешно обработан<br>'
     text += f'Покупатель: @{user.username} {user.full_name}'
-    text += '\n\n'
+    text += '<br><br>'
 
-    text += f'#event_id <code>{event_id}</code>\n'
+    text += f'#event_id <code>{event_id}</code><br>'
     text += user_data['common_data']['text_for_notification_massage']
-    text += '\n'
+    text += '<br>'
 
-    text += '\n'.join([
+    text += '<br>'.join([
         client_data['name_adult'],
-        '+7' + client_data['phone'],
+        f'+7{client_data['phone']}',
         original_child_text,
     ])
-    text += '\n\n'
+    text += '<br><br>'
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
 
@@ -852,9 +949,13 @@ async def send_approve_reject_message_to_admin_in_webhook(
         callback_name,
         f'{chat_id} {message_id}'
     )
+    res_text = transform_html(text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
         message_thread_id=thread_id,
         reply_markup=reply_markup,
+        parse_mode=None
     )
+    reserve_user_data['admin_notified'] = True

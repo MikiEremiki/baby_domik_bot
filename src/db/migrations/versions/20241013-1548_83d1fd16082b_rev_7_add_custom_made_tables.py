@@ -1,4 +1,4 @@
-"""rev7
+"""rev_7_add_custom_made_tables
 
 Revision ID: 83d1fd16082b
 Revises: 46179b928ef1

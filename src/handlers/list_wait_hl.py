@@ -48,11 +48,9 @@ async def send_clients_wait_data(
 
     for i, item in enumerate(clients_data):
         text += '\n__________\n'
-        text += str(i + 1) + '| '
-        text += '<b>' + item[name_column['callback_name']] + '</b>'
-        text += '\n+7' + str(item[name_column['callback_phone']])
-        text += '\nЖелаемое время: '
-        text += item[name_column['time_show']] + ' '
+        text += f"{i + 1}| <b>{item[name_column['callback_name']]}</b>"
+        text += f"\n+7{item[name_column['callback_phone']]}"
+        text += f"\nЖелаемое время: {item[name_column['time_show']]} "
 
     photo = update.effective_message.photo
     if photo:
