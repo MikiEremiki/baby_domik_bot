@@ -22,7 +22,7 @@ def upgrade() -> None:
         "feedback_topics",
         sa.Column("id", sa.BigInteger(), nullable=False, autoincrement=True),
         sa.Column("user_id", sa.BigInteger(), nullable=False),
-        sa.Column("topic_id", sa.Integer(), nullable=False),
+        sa.Column("topic_id", sa.BigInteger(), nullable=False),
         sa.Column(
             "created_at",
             sa.TIMESTAMP(timezone=True),
