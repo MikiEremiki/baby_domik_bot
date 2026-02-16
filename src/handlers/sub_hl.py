@@ -553,7 +553,7 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     reply_markup = None
     message_id_for_admin = None
     if command == 'reserve' or command == 'studio':
-        message = await forward_message_to_admin(update, context)
+        message_id_for_admin = await forward_message_to_admin(update, context)
 
         message_id = context.user_data['common_data']['message_id_buy_info']
 
@@ -627,10 +627,13 @@ async def send_breaf_message(update: Update,
 
 async def forward_message_to_admin(
         update: Update,
-        context: 'ContextTypes.DEFAULT_TYPE'
-) -> Message:
+        context: 'ContextTypes.DEFAULT_TYPE',
+        doc_type: str = "Квитанция"
+) -> MessageId:
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
+    reserve_user_data = context.user_data['reserve_user_data']
+    promo_code = reserve_user_data.get('applied_promo_code')
     command = context.user_data['command']
     thread_id = None
     if command == 'reserve':
@@ -643,18 +646,18 @@ async def forward_message_to_admin(
     if command == 'studio':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))
-    message = await context.bot.send_message(
+
+    text = f'#Бронирование\n{doc_type} по билету: <code>{ticket_id}</code>\n'
+    if promo_code:
+        text += f'Применен промокод: <code>{promo_code}</code>\n'
+
+    message_id = await update.effective_message.copy(
         chat_id=ADMIN_GROUP,
-        text=f'#Бронирование\n'
-             f'Квитанция по билету: <code>{ticket_id}</code>\n',
-        message_thread_id=thread_id
-    )
-    await update.effective_message.forward(
-        chat_id=ADMIN_GROUP,
+        caption=text,
         message_thread_id=thread_id
     )
 
-    return message
+    return message_id
 
 
 async def send_by_ticket_info(update, context):
