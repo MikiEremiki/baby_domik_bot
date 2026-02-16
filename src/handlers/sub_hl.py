@@ -484,7 +484,37 @@ async def processing_successful_payment(
     ticket_ids = reserve_user_data['ticket_ids']
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
     if ticket.status == TicketStatus.CREATED:
-        user = context.user_data['user']
+        # Пытаемся восстановить данные из БД, если они потерялись в сессии
+        if 'reserve_user_data' not in context.user_data or 'client_data' not in context.user_data['reserve_user_data']:
+            # Базовое восстановление для возможности отправить уведомление
+            context.user_data.setdefault('reserve_user_data', {})
+            reserve_user_data = context.user_data['reserve_user_data']
+            reserve_user_data['ticket_ids'] = ticket_ids
+            reserve_user_data['chose_price'] = ticket.price
+            reserve_user_data['chose_base_ticket_id'] = ticket.base_ticket_id
+            reserve_user_data['choose_schedule_event_id'] = ticket.schedule_event_id
+
+            # Восстанавливаем промокод
+            if ticket.promo_id:
+                reserve_user_data['applied_promo_id'] = ticket.promo_id
+                promo = await db_postgres.get_promotion(context.session, ticket.promo_id)
+                if promo:
+                    reserve_user_data['applied_promo_code'] = promo.code
+
+            # Пытаемся найти человека, связанного с этим билетом
+            person_ticket = await db_postgres.get_person_ticket_by_ticket_id(context.session, ticket_ids[0])
+            if person_ticket:
+                person = await db_postgres.get_person(context.session, person_ticket.person_id)
+                if person:
+                    reserve_user_data['client_data'] = {
+                        'name_adult': person.full_name,
+                        'phone': person.phone
+                    }
+            
+            # Если всё равно пусто, используем заглушки
+            reserve_user_data.setdefault('client_data', {'name_adult': 'Неизвестно', 'phone': '0000000000'})
+            reserve_user_data.setdefault('original_child_text', 'Не указано')
+            
         client_data = reserve_user_data['client_data']
         original_child_text = reserve_user_data['original_child_text']
         chose_price = reserve_user_data['chose_price']
