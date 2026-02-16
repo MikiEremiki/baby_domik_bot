@@ -8,7 +8,7 @@ from sulguk import transform_html
 from telegram import (
     Update,
     InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton, Message
+    ReplyKeyboardMarkup, KeyboardButton, MessageId
 )
 from telegram.constants import ChatAction
 from telegram.error import BadRequest, TimedOut, NetworkError
