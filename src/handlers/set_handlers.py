@@ -127,6 +127,9 @@ def set_handlers(application: Application, config):
         CommandHandler('set_user_status',
                        main_hl.set_user_status,
                        filter_admin),
+        CommandHandler(COMMAND_DICT['CLOSE'][0],
+                       main_hl.close_feedback_topic,
+                       filter_admin),
     ])
 
     application.add_handler(

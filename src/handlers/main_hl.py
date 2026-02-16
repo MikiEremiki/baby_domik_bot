@@ -21,12 +21,12 @@ from db.db_googlesheets import (
     increase_free_and_decrease_nonconfirm_seat, update_free_seat,
 )
 from settings.settings import (
-    COMMAND_DICT, ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN, FILE_ID_RULES
+    COMMAND_DICT, FILE_ID_RULES
 )
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_check import is_user_blocked
 from utilities.utl_func import (
-    is_admin, get_back_context, clean_context,
+    is_admin, is_dev, get_back_context, clean_context,
     clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket,
@@ -1290,81 +1290,237 @@ async def help_command(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def feedback_send_msg(update: Update,
                             context: 'ContextTypes.DEFAULT_TYPE'):
-    main_handlers_logger.info('FEEDBACK')
-    main_handlers_logger.info(update.effective_user)
-    main_handlers_logger.info(update.message)
+    main_handlers_logger.info('FEEDBACK from user %s', update.effective_user.id)
 
-    user = update.effective_user
-
-    chat_id = ADMIN_GROUP
     if update.edited_message:
         await update.effective_message.reply_text(
             'Пожалуйста не редактируйте сообщение, отправьте новое')
-    elif hasattr(update.message, 'forward'):
-        message = await update.message.forward(
-            chat_id,
-            message_thread_id=FEEDBACK_THREAD_ID_GROUP_ADMIN
+        return
+
+    user = update.effective_user
+    feedback_group_id = context.bot_data.get('feedback_group_id')
+
+    if not feedback_group_id:
+        main_handlers_logger.error('feedback_group_id not found in bot_data')
+        return
+
+    # Ищем топик в базе
+    fb_topic = await db_postgres.get_feedback_topic_by_user_id(
+        context.session, user.id)
+    topic_id = fb_topic.topic_id if fb_topic else None
+
+    async def create_new_topic():
+        # Создаем новый топик
+        topic_name = f"[ФБ] {user.full_name[:95]}"
+        new_topic = await context.bot.create_forum_topic(
+            chat_id=feedback_group_id,
+            name=topic_name
         )
-        await context.bot.send_message(
-            chat_id,
-            f'Сообщение от пользователя @{user.username} '
-            f'<a href="tg://user?id={user.id}">{user.full_name}</a>\n'
-            f'{update.effective_message.message_id}\n'
-            f'{update.effective_chat.id}',
-            reply_to_message_id=message.message_id,
-            message_thread_id=message.message_thread_id
+        t_id = new_topic.message_thread_id
+
+        # Сохраняем в базу
+        if fb_topic:
+            await db_postgres.update_feedback_topic(
+                context.session, user.id, t_id)
+        else:
+            await db_postgres.create_feedback_topic(
+                context.session, user.id, t_id)
+
+        # Отправляем инфо о пользователе первым сообщением в новый топик
+        user_info = (f"Новое обращение от @{user.username} "
+                     f"<a href='tg://user?id={user.id}'>{user.full_name}</a>\n"
+                     f"ID: <code>{user.id}</code>")
+        info_msg = await context.bot.send_message(
+            chat_id=feedback_group_id,
+            text=user_info,
+            message_thread_id=t_id
         )
-        text = ('Обратная связь через бота временно приостановлена.\n'
-                'Свяжитесь, пожалуйста, с Администратором:\n'
-                f'{context.bot_data['admin']['contacts']}')
-        await update.effective_chat.send_message(text)
-    else:
+        # Сохраняем ID инфо-сообщения, чтобы на него можно было отвечать
+        await db_postgres.create_feedback_message(
+            context.session, user.id, 0, info_msg.message_id
+        )
+        return t_id
+
+    async def send_to_admin(t_id):
+        reply_to_message_id = None
+        if update.effective_message.reply_to_message:
+            replied_msg = update.effective_message.reply_to_message
+            fb_msg = await db_postgres.get_feedback_message_by_user_message_id(
+                context.session, replied_msg.message_id
+            )
+            if fb_msg:
+                reply_to_message_id = fb_msg.admin_message_id
+            else:
+                # Если сообщения нет в базе, пересылаем его в топик (как просил юзер)
+                try:
+                    copied_replied_msg = await replied_msg.copy(
+                        chat_id=feedback_group_id,
+                        message_thread_id=t_id
+                    )
+                    # Сохраняем маппинг для этого сообщения тоже
+                    await db_postgres.create_feedback_message(
+                        context.session, user.id, replied_msg.message_id,
+                        copied_replied_msg.message_id
+                    )
+                    reply_to_message_id = copied_replied_msg.message_id
+                except Exception as e:
+                    main_handlers_logger.warning(
+                        'Не удалось скопировать сообщение, на которое ответили: %s', e)
+
+        copy_msg = await update.effective_message.copy(
+            chat_id=feedback_group_id,
+            message_thread_id=t_id,
+            reply_to_message_id=reply_to_message_id
+        )
+        await db_postgres.create_feedback_message(
+            context.session, user.id, update.effective_message.message_id,
+            copy_msg.message_id
+        )
+
+    try:
+        if not topic_id:
+            topic_id = await create_new_topic()
+
+        try:
+            await send_to_admin(topic_id)
+        except BadRequest as e:
+            if 'Topic not found' in str(e) or 'Message thread not found' in str(e):
+                topic_id = await create_new_topic()
+                await send_to_admin(topic_id)
+            else:
+                raise e
+
+    except Exception as e:
+        main_handlers_logger.exception('Error in feedback_send_msg: %s', e)
         await update.effective_message.reply_text(
-            'К сожалению я не могу работать с данным сообщением, попробуйте '
-            'повторить или отправить другой текст')
+            'Произошла ошибка при отправке сообщения администратору. '
+            'Попробуйте позже или свяжитесь напрямую.')
 
 
 async def feedback_reply_msg(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
-    technical_info = update.effective_message.reply_to_message.text.split('\n')
+    topic_id = update.effective_message.message_thread_id
+    if not topic_id:
+        return
+
+    # Ищем пользователя по topic_id
+    fb_topic = await db_postgres.get_feedback_topic_by_topic_id(
+        context.session, topic_id)
+    if not fb_topic:
+        # Возможно это системный топик
+        return
+
+    user_id = fb_topic.user_id
+    message = update.effective_message
+
+    # Если сообщение начинается с точки, это внутренняя заметка
+    if (message.text and message.text.startswith('.')) or \
+       (message.caption and message.caption.startswith('.')):
+        return
+
     try:
-        chat_id = technical_info[-1]
-        message_id = technical_info[-2]
-        if bool(update.message.text):
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=update.message.text,
-                reply_to_message_id=int(message_id),
+        reply_to_message_id = None
+        if message.reply_to_message:
+            # Если это ответ на заголовок топика (сервисное сообщение), 
+            # то для пользователя это будет обычное сообщение без реплая.
+            if message.reply_to_message.message_id == topic_id:
+                reply_to_message_id = None
+            else:
+                fb_msg = await db_postgres.get_feedback_message_by_admin_id(
+                    context.session, message.reply_to_message.message_id
+                )
+                if fb_msg:
+                    # user_message_id=0 означает инфо-сообщение, 
+                    # в этом случае reply_to_message_id для пользователя остается None
+                    reply_to_message_id = fb_msg.user_message_id if fb_msg.user_message_id != 0 else None
+                else:
+                    # Если это ответ на сообщение, которого нет в базе 
+                    # (например, на другую внутреннюю заметку без точки), 
+                    # то не пересылаем пользователю.
+                    return
+
+        sent_msg = None
+        if message.text:
+            sent_msg = await context.bot.send_message(
+                chat_id=user_id,
+                text=message.text,
+                reply_to_message_id=reply_to_message_id
             )
-        if bool(update.message.document):
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=update.message.document,
-                caption=update.message.caption,
-                reply_to_message_id=int(message_id),
+        elif message.photo:
+            sent_msg = await context.bot.send_photo(
+                chat_id=user_id,
+                photo=message.photo[-1],
+                caption=message.caption,
+                reply_to_message_id=reply_to_message_id)
+        elif message.document:
+            sent_msg = await context.bot.send_document(
+                chat_id=user_id,
+                document=message.document,
+                caption=message.caption,
+                reply_to_message_id=reply_to_message_id)
+        elif message.video:
+            sent_msg = await context.bot.send_video(
+                chat_id=user_id,
+                video=message.video,
+                caption=message.caption,
+                reply_to_message_id=reply_to_message_id)
+        elif message.voice:
+            sent_msg = await context.bot.send_voice(
+                chat_id=user_id,
+                voice=message.voice,
+                caption=message.caption,
+                reply_to_message_id=reply_to_message_id)
+        elif message.video_note:
+            sent_msg = await context.bot.send_video_note(
+                chat_id=user_id,
+                video_note=message.video_note,
+                reply_to_message_id=reply_to_message_id)
+        # Можно добавить другие типы медиа при необходимости
+
+        if sent_msg:
+            await db_postgres.create_feedback_message(
+                context.session, user_id, sent_msg.message_id,
+                message.message_id
             )
-        if bool(update.message.photo):
-            await context.bot.send_photo(
-                chat_id=chat_id,
-                photo=update.message.photo[-1],
-                caption=update.message.caption,
-                reply_to_message_id=int(message_id),
-            )
-        if bool(update.message.video):
-            await context.bot.send_video(
-                chat_id=chat_id,
-                video=update.message.video,
-                caption=update.message.caption,
-                reply_to_message_id=int(message_id),
-            )
-    except (IndexError, ValueError) as e:
-        main_handlers_logger.error(e)
+    except Exception as e:
+        main_handlers_logger.error('Error sending reply to user %s: %s', user_id,
+                                   e)
         await update.effective_message.reply_text(
-            text='Проверьте что отвечаете на правильное сообщение',
-            message_thread_id=update.effective_message.message_thread_id
-        )
+            'Не удалось отправить сообщение пользователю.')
+
+
+async def close_feedback_topic(update: Update,
+                               context: 'ContextTypes.DEFAULT_TYPE'):
+    topic_id = update.effective_message.message_thread_id
+    if not topic_id:
+        return
+
+    # Ищем в базе
+    fb_topic = await db_postgres.get_feedback_topic_by_topic_id(
+        context.session, topic_id)
+    if not fb_topic:
+        await update.effective_message.reply_text(
+            'Это не топик фидбека или он уже закрыт в базе.')
+        return
+
+    feedback_group_id = context.bot_data.get('feedback_group_id')
+
+    try:
+        # Удаляем из базы
+        await db_postgres.del_feedback_topic_by_topic_id(context.session,
+                                                         topic_id)
+
+        # Удаляем топик в Telegram
+        await context.bot.delete_forum_topic(chat_id=feedback_group_id,
+                                             message_thread_id=topic_id)
+
+    except Exception as e:
+        main_handlers_logger.error('Error closing feedback topic %s: %s',
+                                   topic_id, e)
+        await update.effective_message.reply_text(
+            f'Ошибка при закрытии топика: {e}')
 
 
 async def global_on_off(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):

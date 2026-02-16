@@ -41,6 +41,11 @@ async def post_init(app: Application, config):
 
     await load_bot_settings(app)
 
+    app.bot_data['feedback_group_id'] = app.bot_data['settings'].get(
+        'FEEDBACK_GROUP_ID',
+        app.bot_data['settings'].get('CHAT_ID_GROUP_ADMIN')
+    )
+
     # Планировщик авто-отмены созданных билетов старше 30 минут
     app.job_queue.run_repeating(
         cancel_old_created_tickets,
