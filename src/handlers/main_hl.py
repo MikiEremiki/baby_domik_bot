@@ -1457,9 +1457,9 @@ async def feedback_send_msg(update: Update,
                         copied_replied_msg.message_id
                     )
                     reply_to_message_id = copied_replied_msg.message_id
-                except Exception as e:
+                except Exception as error_message:
                     main_handlers_logger.warning(
-                        'Не удалось скопировать сообщение, на которое ответили: %s', e)
+                        'Не удалось скопировать сообщение, на которое ответили: %s', error_message)
 
         copy_msg = await update.effective_message.copy(
             chat_id=feedback_group_id,
