@@ -43,8 +43,10 @@ class Person(BaseModelTimed):
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
 
-    child: Mapped['Child'] = relationship(lazy='selectin')
-    adult: Mapped['Adult'] = relationship(lazy='selectin')
+    child: Mapped['Child'] = relationship(
+        cascade="all, delete-orphan", lazy='selectin')
+    adult: Mapped['Adult'] = relationship(
+        cascade="all, delete-orphan", lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
 
@@ -74,18 +76,18 @@ class UserTicket(BaseModelTimed):
     __tablename__ = 'users_tickets'
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey('users.user_id'), primary_key=True)
+        ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
     ticket_id: Mapped[int] = mapped_column(
-        ForeignKey('tickets.id'), primary_key=True)
+        ForeignKey('tickets.id', ondelete='CASCADE'), primary_key=True)
 
 
 class PersonTicket(BaseModelTimed):
     __tablename__ = 'people_tickets'
 
     person_id: Mapped[int] = mapped_column(
-        ForeignKey('people.id'), primary_key=True)
+        ForeignKey('people.id', ondelete='CASCADE'), primary_key=True)
     ticket_id: Mapped[int] = mapped_column(
-        ForeignKey('tickets.id'), primary_key=True)
+        ForeignKey('tickets.id', ondelete='CASCADE'), primary_key=True)
 
 
 class BaseTicket(BaseModelTimed):

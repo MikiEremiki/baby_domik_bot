@@ -11,7 +11,7 @@ from db import (
     FeedbackTopic, FeedbackMessage)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
-from db.models import CustomMadeFormat, CustomMadeEvent
+from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket
 
 
 async def attach_user_and_people_to_ticket(
@@ -124,6 +124,24 @@ async def get_child(session: AsyncSession, user_id):
     )
     child = result.first()
     return child or None
+
+
+async def get_children(session: AsyncSession, user_id):
+    """
+    Возвращает всех детей пользователя.
+    """
+    result = await session.execute(
+        select(Person.name, Child.age, Person.id)
+        .join(Child, Person.id == Child.person_id)
+        .where(
+            Person.user_id == user_id,
+            Person.name.is_not(None),
+            Person.age_type == AgeType.child
+        )
+        .order_by(Person.name)
+    )
+    children = result.all()
+    return children
 
 
 async def create_people(
@@ -664,6 +682,13 @@ async def toggle_promotion_visible(session: AsyncSession, promotion_id: int):
     return promotion
 
 
+async def get_person_ticket_by_ticket_id(session: AsyncSession, ticket_id: int):
+    result = await session.execute(
+        select(PersonTicket).where(PersonTicket.ticket_id == ticket_id)
+    )
+    return result.scalars().first()
+
+
 async def get_all_custom_made_format(session: AsyncSession):
     query = select(CustomMadeFormat)
     result = await session.execute(query)
@@ -970,8 +995,7 @@ async def get_or_create_user_status(session: AsyncSession, user_id: int) -> User
     if status is None:
         status = UserStatus(user_id=user_id, role=UserRole.USER)
         session.add(status)
-        await session.commit()
-        await session.refresh(status)
+        await session.flush()
     return status
 
 
