@@ -86,7 +86,7 @@ async def send_approve_msg(update: Update,
         text += '\nИЛИ'
         text += '\n<code>/send_approve_msg 0 Правила</code>'
         await update.effective_message.reply_text(
-            text, reply_to_message_id=update.message.message_id)
+            text, reply_to_message_id=update.effective_message.message_id)
         return
     text = ''
     ticket_id = int(context.args[0])
@@ -94,7 +94,7 @@ async def send_approve_msg(update: Update,
     if not ticket:
         text = f'Проверь номер билета\nВведено: {ticket_id}'
         await update.effective_message.reply_text(
-            text, reply_to_message_id=update.message.message_id)
+            text, reply_to_message_id=update.effective_message.message_id)
         return
     chat_id = ticket.user.chat_id
     await send_approve_message(chat_id, context, [ticket_id])
@@ -109,7 +109,7 @@ async def send_approve_msg(update: Update,
             text = (f'Проверь ключевое слово <code>Правила</code>\n'
                     f'Введено: {context.args[1]}')
             await update.effective_message.reply_text(
-                text, reply_to_message_id=update.message.message_id)
+                text, reply_to_message_id=update.effective_message.message_id)
             return
     text += ' успешно отправлено'
     await update.effective_message.reply_text(text)
@@ -131,6 +131,7 @@ async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT
 
     # Обработка личных чатов (блокировка/разблокировка)
     if chat.type == ChatType.PRIVATE:
+        await check_user_db(update, context)
         if was_member and not is_member:
             main_handlers_logger.info(f'{cause_name} заблокировал бота')
             await db_postgres.update_user_status(
@@ -170,8 +171,8 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             '- по chat_id в telegram (<code>Чат</code>)\n\n'
         )
         text += '<code>/send_msg Тип 0 Сообщение</code>\n\n'
-        await update.message.reply_text(
-            text, reply_to_message_id=update.message.message_id)
+        await update.effective_message.reply_text(
+            text, reply_to_message_id=update.effective_message.message_id)
         return
 
     type_enter_chat_id = context.args[0]
@@ -182,8 +183,8 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             ticket = await db_postgres.get_ticket(context.session, ticket_id)
             if not ticket:
                 text = 'Проверь номер билета'
-                await update.message.reply_text(
-                    text, reply_to_message_id=update.message.message_id)
+                await update.effective_message.reply_text(
+                    text, reply_to_message_id=update.effective_message.message_id)
                 return
             chat_id = ticket.user.chat_id
         case 'Заявка':
@@ -191,8 +192,8 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             cme = await db_postgres.get_custom_made_event(context.session, cme_id)
             if not cme:
                 text = 'Проверь номер заявки'
-                await update.message.reply_text(
-                    text, reply_to_message_id=update.message.message_id)
+                await update.effective_message.reply_text(
+                    text, reply_to_message_id=update.effective_message.message_id)
                 return
             chat_id = cme.user_id
         case 'Чат':
@@ -202,23 +203,28 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     '<code>Билет</code>\n'
                     '<code>Заявка</code>\n'
                     '<code>Чат</code>')
-            await update.message.reply_text(
-                text, reply_to_message_id=update.message.message_id)
+            await update.effective_message.reply_text(
+                text, reply_to_message_id=update.effective_message.message_id)
             return
 
-    parts = update.effective_message.text.strip().split(maxsplit=3)
+    parts = update.effective_message.text_html.strip().split(maxsplit=3)
     if len(parts) < 4:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             'Неверный формат. Используйте:\n'
             '<code>/send_msg Тип 0 Сообщение</code>',
-            reply_to_message_id=update.message.message_id)
+            reply_to_message_id=update.effective_message.message_id
+        )
         return
     text = parts[3]
 
     try:
-        await context.bot.send_message(text=text, chat_id=chat_id)
+        await context.bot.send_message(
+            text=text,
+            chat_id=chat_id,
+        )
         await update.effective_message.reply_text(
-            f'Сообщение:\n{text}\nУспешно отправлено')
+            f'Сообщение:\n{text}\nУспешно отправлено'
+        )
     except Forbidden as e:
         if 'bot was blocked by the user' in str(e).lower():
             target_uid = int(chat_id)
@@ -269,7 +275,7 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     text += ('тогда это финальные статусы.<br>Если нужно их сменить, '
              'то используем новый билет<br>')
     help_text = text
-    reply_to_msg_id = update.message.message_id
+    reply_to_msg_id = update.effective_message.message_id
 
     if not context.args:
         res_text = transform_html(text)
@@ -546,18 +552,18 @@ async def send_result_update_ticket(
     if notes:
         text += f'Примечание: {notes}'
     message_thread_id = update.effective_message.message_thread_id
-    if bool(update.message.reply_to_message):
+    if bool(update.effective_message.reply_to_message):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=text,
-            reply_to_message_id=update.message.reply_to_message.message_id,
+            reply_to_message_id=update.effective_message.reply_to_message.message_id,
             message_thread_id=message_thread_id
         )
     else:
         await update.effective_message.reply_text(
             text=text,
             message_thread_id=message_thread_id,
-            reply_to_message_id=update.message.message_id
+            reply_to_message_id=update.effective_message.message_id
         )
 
 
