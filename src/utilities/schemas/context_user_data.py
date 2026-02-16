@@ -4,7 +4,8 @@ from typing import Dict, List
 
 from telegram import User, Message, InlineKeyboardMarkup, Update
 
-from db import ScheduleEvent, TheaterEvent, BaseTicket
+from db import ScheduleEvent, TheaterEvent, BaseTicket, Promotion
+from db.enum import PromotionDiscountType, GroupOfPeopleByDiscountType
 from db.models import CustomMadeEvent
 
 context_user_data: Dict = {
@@ -68,8 +69,14 @@ context_user_data: Dict = {
         'original_child_text': str,
         'date_for_price': datetime,
         'ticket_ids': List[int],
+        'selected_children': List[int],
+        'children_page': int,
+        'applied_promo_id': Promotion.id,
+        'applied_promo_code': str,
+        'discounted_price': int,
         'flag_send_ticket_info': bool,
         'changed_seat': bool,
+        'message_id': Message.message_id,
     },
     'reserve_admin_data': {
         'ticket_id': int,
@@ -77,9 +84,32 @@ context_user_data: Dict = {
     },
     'month_afisha': int,
     'reply_markup' : InlineKeyboardMarkup,
+    'support_message_id': Message.message_id,
     'theater_event': dict,
     'schedule_event': dict,
-    'last_update': Update,
+    'promotion': dict,
+    'new_promotion': {
+        'data': {
+            'name': str,
+            'code': str,
+            'discount': int,
+            'discount_type': PromotionDiscountType,
+            'min_purchase_sum': int,
+            'is_visible_as_option': bool,
+            'requires_verification': bool,
+            'start_date': datetime,
+            'expire_date': datetime,
+            'max_count_of_usage': int,
+            'description_user': str,
+            'verification_text': str,
+            'flag_active': bool,
+            'count_of_usage': int,
+            'for_who_discount': GroupOfPeopleByDiscountType,
+        },
+        'service': {
+            'message_id': Message.message_id,
+        }
+    },
     'message': int,
     'sales': {
         'dev_mode': bool,

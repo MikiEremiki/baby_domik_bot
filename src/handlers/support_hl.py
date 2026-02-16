@@ -1,14 +1,17 @@
 import logging
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
 
 from db import db_postgres
-from db.enum import PriceType, TicketPriceType
+from db.enum import PriceType, TicketPriceType, PromotionDiscountType
 from handlers import init_conv_hl_dialog
 from settings.settings import RESERVE_TIMEOUT, COMMAND_DICT
 from utilities.schemas import (
-    kv_name_attr_schedule_event, kv_name_attr_theater_event)
+    kv_name_attr_schedule_event,
+    kv_name_attr_theater_event,
+    kv_name_attr_promotion)
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
     create_kbd_crud, create_kbd_confirm, add_btn_back_and_cancel,
@@ -104,7 +107,7 @@ async def choice_db_settings(
                                         callback_data='theater_event')
     button_schedule = InlineKeyboardButton(text='Расписание',
                                            callback_data='schedule_event')
-    button_promotion = InlineKeyboardButton(text='Акции',
+    button_promotion = InlineKeyboardButton(text='Промокоды/Акции',
                                             callback_data='promotion')
     button_back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel='settings',
@@ -133,12 +136,15 @@ async def choice_db_settings(
     state = 2
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
     return state
 
 
 async def get_updates_option(update: Update,
-                             _: 'ContextTypes.DEFAULT_TYPE'):
+                             context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
 
     btn_update_base_ticket_data = InlineKeyboardButton(
@@ -156,6 +162,9 @@ async def get_updates_option(update: Update,
     btn_update_custom_made_format_data = InlineKeyboardButton(
         COMMAND_DICT['UP_CMF_DATA'][1],
         callback_data=COMMAND_DICT['UP_CMF_DATA'][0])
+    btn_update_promotion_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_PROM_DATA'][1],
+        callback_data=COMMAND_DICT['UP_PROM_DATA'][0])
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             postfix_for_back='1')
     keyboard = [
@@ -163,7 +172,8 @@ async def get_updates_option(update: Update,
          btn_update_special_ticket_price],
         [btn_update_schedule_event_data,
          btn_update_theater_event_data],
-        [btn_update_custom_made_format_data],
+        [btn_update_custom_made_format_data,
+         btn_update_promotion_data],
         [*button_cancel, ],
     ]
 
@@ -176,11 +186,37 @@ async def get_updates_option(update: Update,
         f'{COMMAND_DICT['UP_SE_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_TE_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_CMF_DATA'][1]}\n'
+        f'{COMMAND_DICT['UP_PROM_DATA'][1]}\n'
     )
     await query.edit_message_text(text=text, reply_markup=reply_markup)
 
-    await query.answer()
-    return 'updates'
+    state = 'updates'
+    await set_back_context(context, state.upper(), text, reply_markup)
+
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
+    return state
+
+
+async def send_settings_menu(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        pre_name_crud: str
+):
+    query = update.callback_query
+    reply_markup = create_kbd_crud(pre_name_crud)
+
+    text = 'Выберите что хотите настроить'
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
+
+    context.user_data['reply_markup'] = reply_markup
+
+    state = 3
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
 
 
 async def get_settings(
@@ -190,14 +226,13 @@ async def get_settings(
     query = update.callback_query
     _, callback_data = remove_intent_id(query.data)
 
-    reply_markup = create_kbd_crud(callback_data)
+    state = await send_settings_menu(update, context, callback_data)
 
-    text = 'Выберите что хотите настроить'
-    await query.edit_message_text(text=text, reply_markup=reply_markup)
-
-    context.user_data['reply_markup'] = reply_markup
-    await query.answer()
-    return 3
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
+    return state
 
 
 async def theater_event_select(
@@ -207,14 +242,22 @@ async def theater_event_select(
     query = update.callback_query
 
     res = await db_postgres.get_all_theater_events(context.session)
-    text = ''
+    text = 'Список репертуара:\n\n'
     for row in res:
-        text += f'{row[0]}\n'
+        text += f'{row.name}\n'
 
     reply_markup = context.user_data['reply_markup']
     await query.edit_message_text(text, reply_markup=reply_markup)
-    await query.answer()
-    return 3
+
+    state = 3
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
+    return state
 
 
 async def schedule_event_select(
@@ -224,14 +267,22 @@ async def schedule_event_select(
     query = update.callback_query
 
     res = await db_postgres.get_all_schedule_events(context.session)
-    text = ''
+    text = 'Список расписания:\n\n'
     for row in res:
-        text += f'{row[0]}\n'
+        text += f'{row.id}: {row.datetime_event.strftime("%d.%m.%Y %H:%M")}\n'
 
     reply_markup = context.user_data['reply_markup']
     await query.edit_message_text(text, reply_markup=reply_markup)
-    await query.answer()
-    return 3
+
+    state = 3
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
+    return state
 
 
 async def theater_event_preview(
@@ -255,7 +306,10 @@ async def theater_event_preview(
         f'{kv_name_attr_theater_event['note']}=\n'
     )
     await query.edit_message_text(text)
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     return 41
 
@@ -277,7 +331,10 @@ async def schedule_event_preview(
             f'{kv_name_attr_schedule_event['flag_santa']}=Нет\n'
             f'{kv_name_attr_schedule_event['ticket_price_type']}=По умолчанию/будни/выходные\n')
     await query.edit_message_text(text)
-    await query.answer()
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
 
     return 42
 
@@ -286,13 +343,22 @@ async def theater_event_check(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    try:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=context.user_data.get('support_message_id')
+        )
+    except Exception:
+        pass
+
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
 
     reply_markup = create_kbd_confirm()
 
     text = update.effective_message.text
-    await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    context.user_data['support_message_id'] = message.message_id
 
     context.user_data['theater_event'] = get_validated_data(text, 'theater')
     return 41
@@ -302,16 +368,138 @@ async def schedule_event_check(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    try:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=context.user_data.get('support_message_id')
+        )
+    except Exception:
+        pass
+
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
 
     reply_markup = create_kbd_confirm()
 
     text = update.effective_message.text
-    await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    context.user_data['support_message_id'] = message.message_id
 
     context.user_data['schedule_event'] = get_validated_data(text, 'schedule')
     return 42
+
+
+async def promotion_select(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    query = update.callback_query
+
+    res = await db_postgres.get_all_promotions(context.session)
+    text = 'Список Промокодов:\n\n'
+    for row in res:
+        active = '✅' if row.flag_active else '❌'
+        visible = '👁' if row.is_visible_as_option else '👻'
+        text += f'{row.id}: {row.code} ({row.discount}{"%" if row.discount_type == PromotionDiscountType.percentage else "р"}) {active}{visible}\n'
+
+    text += '\nПояснение:\n'
+    text += '✅/❌ - активен/неактивен\n'
+    text += '👁/👻 - виден/скрыт как опция'
+
+    reply_markup = context.user_data['reply_markup']
+    await query.edit_message_text(text, reply_markup=reply_markup)
+
+    state = 3
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
+    return state
+
+
+async def promotion_preview(
+        update: Update,
+        _: 'ContextTypes.DEFAULT_TYPE'
+):
+    query = update.callback_query
+
+    text = (
+        f"{kv_name_attr_promotion['name']}=Название\n"
+        f"{kv_name_attr_promotion['code']}=PROMO10\n"
+        f"{kv_name_attr_promotion['discount']}=10\n"
+        f"{kv_name_attr_promotion['discount_type']}=percentage\n"
+        f"{kv_name_attr_promotion['start_date']}=\n"
+        f"{kv_name_attr_promotion['expire_date']}=\n"
+        f"{kv_name_attr_promotion['is_visible_as_option']}=Нет\n"
+        f"{kv_name_attr_promotion['min_purchase_sum']}=0\n"
+        f"{kv_name_attr_promotion['max_count_of_usage']}=0\n"
+        f"{kv_name_attr_promotion['description_user']}=\n"
+    )
+    await query.edit_message_text(text)
+    try:
+        await query.answer()
+    except BadRequest:
+        pass
+
+    return 43
+
+
+async def promotion_check(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    try:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=context.user_data.get('support_message_id')
+        )
+    except Exception:
+        pass
+
+    await update.effective_chat.send_message(
+        'Проверьте и отправьте текст еще раз или нажмите подтвердить')
+
+    reply_markup = create_kbd_confirm()
+
+    text = update.effective_message.text
+    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    context.user_data['support_message_id'] = message.message_id
+
+    context.user_data['promotion'] = get_validated_data(text, 'promotion')
+    return 43
+
+
+async def promotion_create(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    query = update.callback_query
+
+    promotion = context.user_data['promotion']
+    reply_markup = context.user_data['reply_markup']
+
+    res = await db_postgres.create_promotion(
+        context.session,
+        promotion
+    )
+
+    context.user_data.pop('promotion')
+    await query.answer()
+    if res:
+        text = f"{promotion['code']}\nУспешно добавлено"
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+
+        state = 3
+        await set_back_context(context, state, text, reply_markup)
+        context.user_data['STATE'] = state
+        return state
+    else:
+        text = 'Попробуйте еще раз или обратитесь в тех поддержку'
+        await query.edit_message_text(text)
+        return 43
 
 
 async def theater_event_create(
@@ -331,9 +519,13 @@ async def theater_event_create(
     context.user_data.pop('theater_event')
     await query.answer()
     if res:
-        text = f'{theater_event['name']}\nУспешно добавлено'
+        text = f'{theater_event["name"]}\nУспешно добавлено'
         await query.edit_message_text(text=text, reply_markup=reply_markup)
-        return 3
+
+        state = 3
+        await set_back_context(context, state, text, reply_markup)
+        context.user_data['STATE'] = state
+        return state
     else:
         text = 'Попробуйте еще раз или обратитесь в тех поддержку'
         await query.edit_message_text(text)
@@ -363,7 +555,11 @@ async def schedule_event_create(
             schedule_event['theater_event_id'])
         text = f'{res.name}\nУспешно добавлено'
         await query.edit_message_text(text=text, reply_markup=reply_markup)
-        return 3
+
+        state = 3
+        await set_back_context(context, state, text, reply_markup)
+        context.user_data['STATE'] = state
+        return state
     else:
         text = 'Попробуйте еще раз или обратитесь в тех поддержку'
         await query.edit_message_text(text)

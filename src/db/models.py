@@ -334,6 +334,8 @@ class Promotion(BaseModelTimed):
     max_count_of_usage: Mapped[int] = mapped_column(default=0)
     min_purchase_sum: Mapped[int] = mapped_column(default=0)
     description_user: Mapped[Optional[str]]
+    requires_verification: Mapped[bool] = mapped_column(default=False)
+    verification_text: Mapped[Optional[str]]
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
 
