@@ -1,14 +1,14 @@
 import logging
 from typing import List
 
-from sulguk import transform_html
+from sulguk import transform_html, RenderResult
 from telegram.ext import (
     ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram import (
     Update, ReplyKeyboardRemove, LinkPreviewOptions,
     InlineKeyboardMarkup, InlineKeyboardButton
 )
-from telegram.constants import ChatType, ChatAction
+from telegram.constants import ChatType, ChatAction, ParseMode
 from telegram.error import BadRequest, TimedOut, Forbidden
 
 from api.gspread_pub import publish_update_ticket, publish_update_cme
@@ -32,7 +32,9 @@ from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket,
     extract_status_change
 )
-from utilities.utl_ticket import cancel_tickets_db_and_gspread
+from utilities.utl_ticket import (
+    cancel_tickets_db_and_gspread, check_and_set_privilege
+)
 from schedule.worker_jobs import cancel_old_created_tickets
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
@@ -627,6 +629,7 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
+        await check_and_set_privilege(context.session, ticket_id)
 
     try:
         await query.edit_message_reply_markup()
