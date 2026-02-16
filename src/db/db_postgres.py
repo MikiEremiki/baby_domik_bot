@@ -1,13 +1,14 @@
 from datetime import date, datetime
 from typing import Collection, List
 
-from sqlalchemy import select, func, DATE, and_
+from sqlalchemy import select, func, DATE, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, Mapped
 
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
-    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus)
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
+    FeedbackTopic, FeedbackMessage)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent
@@ -981,3 +982,59 @@ async def update_user_status(session: AsyncSession, user_id: int, **kwargs) -> U
             setattr(status, key, value)
     await session.commit()
     return status
+
+
+async def get_feedback_topic_by_user_id(session: AsyncSession, user_id: int):
+    query = select(FeedbackTopic).where(FeedbackTopic.user_id == user_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_feedback_topic_by_topic_id(session: AsyncSession, topic_id: int):
+    query = select(FeedbackTopic).where(FeedbackTopic.topic_id == topic_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def create_feedback_topic(session: AsyncSession, user_id: int, topic_id: int):
+    feedback_topic = FeedbackTopic(user_id=user_id, topic_id=topic_id)
+    session.add(feedback_topic)
+    await session.commit()
+    return feedback_topic
+
+
+async def update_feedback_topic(session: AsyncSession, user_id: int, topic_id: int):
+    feedback_topic = await get_feedback_topic_by_user_id(session, user_id)
+    if feedback_topic:
+        feedback_topic.topic_id = topic_id
+        await session.commit()
+    return feedback_topic
+
+
+async def del_feedback_topic_by_topic_id(session: AsyncSession, topic_id: int):
+    query = delete(FeedbackTopic).where(FeedbackTopic.topic_id == topic_id)
+    await session.execute(query)
+    await session.commit()
+
+
+async def create_feedback_message(session: AsyncSession, user_id: int, user_message_id: int, admin_message_id: int):
+    feedback_message = FeedbackMessage(
+        user_id=user_id,
+        user_message_id=user_message_id,
+        admin_message_id=admin_message_id
+    )
+    session.add(feedback_message)
+    await session.commit()
+    return feedback_message
+
+
+async def get_feedback_message_by_admin_id(session: AsyncSession, admin_message_id: int):
+    query = select(FeedbackMessage).where(FeedbackMessage.admin_message_id == admin_message_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_feedback_message_by_user_message_id(session: AsyncSession, user_message_id: int):
+    query = select(FeedbackMessage).where(FeedbackMessage.user_message_id == user_message_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()

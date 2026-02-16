@@ -506,3 +506,22 @@ class UserStatus(BaseModelTimed):
     blocked_by_admin_id: Mapped[Optional[int]] = mapped_column(BigInteger)
 
     user: Mapped['User'] = relationship(back_populates='status', lazy='selectin')
+
+
+class FeedbackTopic(BaseModelTimed):
+    __tablename__ = 'feedback_topics'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'), unique=True)
+    topic_id: Mapped[int] = mapped_column()
+
+
+class FeedbackMessage(BaseModelTimed):
+    __tablename__ = 'feedback_messages'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
+    user_message_id: Mapped[int] = mapped_column(BigInteger)
+    admin_message_id: Mapped[int] = mapped_column(BigInteger)
