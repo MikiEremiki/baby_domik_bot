@@ -418,17 +418,33 @@ async def create_and_send_payment(
         callback_data=f'payment|{payment.id}',
         url=payment.confirmation.confirmation_url
     )
+    button_confirm = InlineKeyboardButton(
+        'Я оплатил(-а)',
+        callback_data='confirm_payment'
+    )
     postfix_for_cancel = f'{context.user_data['postfix_for_cancel']}|'
     button_cancel = add_btn_back_and_cancel(
         postfix_for_cancel=postfix_for_cancel, add_back_btn=False)
     keyboard.append([button_payment])
+    keyboard.append([button_confirm])
     keyboard.append(button_cancel)
     reply_markup = InlineKeyboardMarkup(keyboard)
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
+    # Проверка необходимости верификации
+    applied_promo_id = reserve_user_data.get('applied_promo_id')
+    verification_msg = ""
+    if applied_promo_id:
+        promo = await db_postgres.get_promotion(context.session, applied_promo_id)
+        if promo and promo.requires_verification:
+            v_text = promo.verification_text or ("Фото удостоверения многодетной семьи вы сможете "
+                                                 "прикрепить после оплаты. Без него билет может быть "
+                                                 "отклонен, в этом случае средства будут возвращены.")
+            verification_msg = f"<b>Внимание!</b> {v_text}\n\n"
+
     await message.edit_text(
         text=f"""Бронь билета осуществляется по 100% оплате.
-
-{refund}
+        
+{verification_msg}{refund}
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
 
 - Если вы согласны с правилами, то переходите к оплате:
@@ -437,9 +453,9 @@ async def create_and_send_payment(
   Способ оплаты - СБП</i>
 
 - Если вам нужно подумать, нажмите кнопку <b>Отменить</b> под сообщением.
-- Если вы уже сделали оплату
- и подтверждение факта оплаты не пришло в течении 10 минут
- <b>отправьте квитанцию об оплате файлом или картинкой.</b>""",
+- Если вы уже сделали оплату и подтверждение факта оплаты не пришло в течении 3х минут (оно приходит автоматически в этот же чат),
+ то нажмите кнопку <b>«Я оплатил(-а)»</b> и отправьте квитанцию об оплате.
+ <b><i>Это нужно, только если автоматическая обработка не сработает.</i></b>""",
         reply_markup=reply_markup,
         disable_web_page_preview=True
     )
