@@ -38,10 +38,25 @@ states = {
     ],
     'PAID': [
         cancel_callback_handler,
+        CallbackQueryHandler(reserve_hl.confirm_payment, pattern='^confirm_payment$'),
         CallbackQueryHandler(reserve_hl.processing_successful_notification, pattern='Next'),
         MessageHandler(
-            filters.PHOTO | filters.ATTACHMENT,
+            filters.PHOTO | filters.Document.ALL,
             reserve_hl.forward_photo_or_file
+        ),
+    ],
+    'WAIT_RECEIPT': [
+        cancel_callback_handler,
+        MessageHandler(
+            filters.PHOTO | filters.Document.ALL,
+            reserve_hl.handle_receipt_file
+        ),
+    ],
+    'WAIT_DOCUMENT': [
+        cancel_callback_handler,
+        MessageHandler(
+            filters.PHOTO | filters.Document.ALL,
+            reserve_hl.handle_certificate_file
         ),
     ],
     'LIST': [
@@ -73,12 +88,15 @@ states = {
     ],
     'CONFIRM_RESERVATION': [
         cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-CHILDREN'),
         CallbackQueryHandler(reserve_hl.confirm_go_pay, pattern='^PAY$'),
+        CallbackQueryHandler(reserve_hl.reset_promo, pattern='^RESET_PROMO$'),
         CallbackQueryHandler(reserve_hl.ask_promo_code, pattern='^PROMO$'),
         CallbackQueryHandler(reserve_hl.apply_option_promo, pattern='^PROMO_OPTION'),
     ],
     'PROMOCODE_INPUT': [
         cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-CONFIRM_RESERVATION'),
         MessageHandler(F_text_and_no_command, reserve_hl.handle_promo_code_input),
     ],
 }
@@ -95,6 +113,7 @@ reserve_conv_hl = ConversationHandler(
         CommandHandler(COMMAND_DICT['LIST'][0],
                        reserve_hl.choice_mode,
                        filter_list_cmd),
+        CallbackQueryHandler(reserve_hl.processing_successful_notification, pattern='Next'),
     ],
     states=states,
     fallbacks=common_fallbacks,
