@@ -888,6 +888,22 @@ async def add_clients_data_to_text(
     return text
 
 
+def add_reserve_clients_data_to_text(text, reserve_user_data):
+    client_data = reserve_user_data['client_data']
+    name_adult = client_data.get('name_adult')
+    phone = client_data.get('phone')
+    data_children = client_data.get('data_children', [])
+
+    text += '<br>__________<br>'
+    text += f'<b>Взрослый:</b> {name_adult}<br>'
+    text += f'<b>Телефон:</b> +7{phone}<br>'
+    if data_children and data_children != [['0', '0']]:
+        text += '<b>Дети:</b><br>'
+        for child in data_children:
+            text += f'{child[0]} {child[1]}<br>'
+    return text
+
+
 async def get_child_and_adult_from_ticket(ticket):
     people = ticket.people
     adult_str = ''
