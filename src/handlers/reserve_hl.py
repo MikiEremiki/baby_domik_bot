@@ -1546,6 +1546,20 @@ async def processing_successful_notification(
     return state
 
 
+async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    # Удаляем кнопки
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    text = "Пожалуйста, отправьте файл или фото квитанции об оплате."
+    await update.effective_chat.send_message(text)
+
+    context.user_data['STATE'] = 'WAIT_RECEIPT'
+    return 'WAIT_RECEIPT'
+
+
 async def conversation_timeout(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
