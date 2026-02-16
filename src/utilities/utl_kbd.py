@@ -391,29 +391,80 @@ async def create_adult_confirm_btn(text, adult_name: str):
     return adult_confirm_btn, text
 
 
-async def create_child_confirm_btn(text, child):
-    """
-    Если child есть, добавляет в текст сообщение о последнем
-    введенном телефоне и возвращает ряд кнопок с подтверждением.
-    callback_data содержит сам телефон: 'child_confirm|{child}'
-    """
-    child_confirm_btn = None
-    if child:
-        child_text = f'{child[0]} {str(child[1])[0]}'
-        text += f'Последнее введенное имя ребенка:\n'
-        text += f'<code>{child_text}</code>\n\n'
-        text += 'Использовать последнее введенное имя?\n\n'
-        child_confirm_btn = [
-            InlineKeyboardButton('Да', callback_data=f'child_confirm|{child_text}')
-        ]
-    return child_confirm_btn, text
-
-
 def create_kbd_with_number_btn(qty_btn):
     keyboard = []
 
     for num in range(qty_btn):
         keyboard.append(
             InlineKeyboardButton(str(num + 1), callback_data=str(num + 1)))
+
+    return keyboard
+
+
+
+
+def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
+    """
+    Создает клавиатуру для редактирования и выбора детей.
+    """
+    if selected_children is None:
+        selected_children = []
+
+    keyboard = []
+    items_per_page = 10
+    start = page * items_per_page
+    end = start + items_per_page
+
+    page_children = children[start:end]
+
+    for i, child in enumerate(page_children):
+        actual_index = start + i
+        name = child[0]
+        age = int(child[1])
+        person_id = child[2]
+
+        is_selected = actual_index in selected_children
+        mark = "✅" if is_selected else "☐"
+
+        keyboard.append([
+            InlineKeyboardButton(
+                mark,
+                callback_data=f"CHLD_SEL|{actual_index}"
+            ),
+            InlineKeyboardButton(
+                f"{name} {age}",
+                callback_data=f"CHLD_EDIT_ONE|{actual_index}"
+            ),
+            InlineKeyboardButton(
+                "❌",
+                callback_data=f"CHLD_DEL|{person_id}"
+            )
+        ])
+
+    # Пагинация
+    pagination_row = []
+    if page > 0:
+        pagination_row.append(InlineKeyboardButton(
+            "⬅️",
+            callback_data=f"CHLD_EDIT_PAGE|{page - 1}"))
+
+    if end < len(children):
+        pagination_row.append(InlineKeyboardButton(
+            "➡️",
+            callback_data=f"CHLD_EDIT_PAGE|{page + 1}"))
+
+    if pagination_row:
+        keyboard.append(pagination_row)
+
+    # Кнопки действия
+    keyboard.append([InlineKeyboardButton(
+        "➕ Добавить ребенка",
+        callback_data="CHLD_ADD")])
+
+    # Кнопка подтверждения
+    if len(selected_children) == limit:
+        keyboard.append([InlineKeyboardButton(
+            "Подтвердить выбор",
+            callback_data="CHLD_CONFIRM")])
 
     return keyboard
