@@ -1279,16 +1279,71 @@ async def reset(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> int:
     return ConversationHandler.END
 
 
-async def help_command(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     main_handlers_logger.info(f"Пользователь: {update.effective_user}: Вызвал help")
-    # TODO Прописать логику использования help
+
+    user_is_admin = is_admin(update)
+    user_is_dev = is_dev(update)
+
+    help_text = '<b>Доступные команды:</b>\n\n'
+
+    # Группировка команд
+    client_cmds = [
+        'START', 'HELP', 'RESET', 'RESERVE', 'STUDIO', 'BD_ORDER', 'BD_PAID', 'REFUNDED_MIGRATED'
+    ]
+    admin_cmds = [
+        'RESERVE_ADMIN', 'STUDIO_ADMIN', 'MIGRATION_ADMIN', 'LIST', 'LIST_WAIT',
+        'AFISHA', 'ADM_INFO', 'ADM_CME_INFO', 'SALES', 'SETTINGS',
+        'SEND_APPROVE_MSG', 'UPDATE_TICKET', 'SEND_MSG', 'CANCEL_OLD_TICKETS', 'SET_USER_STATUS',
+    ]
+    update_data_cmds = [
+        'UP_BT_DATA', 'UP_TE_DATA', 'UP_SE_DATA', 'UP_SPEC_PRICE',
+        'UP_CMF_DATA', 'UP_PROM_DATA'
+    ]
+    tech_cmds = [
+        'TOPIC', 'TOPIC_DEL', 'GLOB_ON_OFF', 'CB_TW', 'LOG', 'POSTGRES_LOG',
+        'ECHO', 'CLEAN_UD', 'PRINT_UD', 'CLEAN_BD', 'UP_CONFIG', 'UP_SETTINGS', 'RCL'
+    ]
+
+    def format_cmds(cmd_keys):
+        text = ""
+        for key in cmd_keys:
+            if key in COMMAND_DICT:
+                cmd_name, cmd_desc = COMMAND_DICT[key]
+                stub_mark = ""
+                # Помечаем заглушки и не-команды только для разработчика
+                if user_is_dev:
+                    if key in ['STUDIO', 'STUDIO_ADMIN', 'REFUNDED_MIGRATED']:
+                        stub_mark = " (заглушка)"
+                    elif key in update_data_cmds:
+                        stub_mark = " (через /settings)"
+                text += f"/{cmd_name} - {cmd_desc}{stub_mark}\n"
+        return text
+
+    if user_is_dev:
+        help_text += "<b>Клиентские команды:</b>\n"
+        help_text += format_cmds(client_cmds)
+        help_text += "\n<b>Админские команды:</b>\n"
+        help_text += format_cmds(admin_cmds)
+        help_text += "\n<b>Обновление данных:</b>\n"
+        help_text += format_cmds(update_data_cmds)
+        help_text += "\n<b>Технические команды:</b>\n"
+        help_text += format_cmds(tech_cmds)
+    elif user_is_admin:
+        help_text += "<b>Основные команды:</b>\n"
+        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
+        help_text += "\n<b>Управление:</b>\n"
+        help_text += format_cmds(admin_cmds)
+    else:
+        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
+        help_text += "\nЕсли у вас возникли вопросы, вы можете связаться с администратором."
+
     await update.effective_chat.send_message(
-        'Текущая операция сброшена.\nМожете выполните новую команду',
+        help_text,
         message_thread_id=update.effective_message.message_thread_id
     )
-    await cancel_tickets_db_and_gspread(update, context)
-    await clean_context_on_end_handler(main_handlers_logger, context)
-    return ConversationHandler.END
+
+    return context.user_data.get('STATE')
 
 
 async def feedback_send_msg(update: Update,

@@ -78,6 +78,7 @@ def set_handlers(application: Application, config):
 
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
+        CommandHandler('help', main_hl.help_cmd),
         CommandHandler('reset', main_hl.reset),
         CommandHandler('echo', echo),
     ])
