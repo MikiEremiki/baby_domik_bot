@@ -59,7 +59,7 @@ async def event_selection_option(
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id
     )
 
     state = 1

@@ -83,7 +83,7 @@ birthday_paid_conv_hl = ConversationHandler(
         'PAID': [
             cancel_callback_handler,
             MessageHandler(
-                filters.PHOTO | filters.ATTACHMENT,
+                filters.PHOTO | filters.Document.ALL,
                 birthday_hl.forward_photo_or_file
             ),
         ],

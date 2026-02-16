@@ -50,7 +50,7 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await init_conv_hl_dialog(update, context)
 
     birthday_hl_logger.info(f'Пользователь начал бронирование ДР:'
-                            f' {update.message.from_user}')
+                            f' {update.effective_user.full_name}')
 
     message = await send_and_del_message_to_remove_kb(update)
     await update.effective_chat.send_action(ChatAction.TYPING)
@@ -828,33 +828,26 @@ async def forward_photo_or_file(
         )
         await update.effective_chat.pin_message(message_id_for_reply)
 
-        text = f'Квитанция покупателя @{user.username} {user.full_name}\n'
-        message_id_for_admin = context.user_data['common_data'][
-            'message_id_for_admin']
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Выездные мероприятия', None))
-        await send_message_to_admin(ADMIN_CME_GROUP,
-                                    text,
-                                    message_id_for_admin,
-                                    context,
-                                    thread_id)
-
-        await update.effective_message.forward(
-            chat_id=ADMIN_CME_GROUP,
-            message_thread_id=thread_id
-        )
+        message_id_for_admin = context.user_data['common_data'][
+            'message_id_for_admin']
 
         reply_markup = create_approve_and_reject_replay(
             'birthday-2',
             f'{update.effective_user.id} {message_id} {cme_id}'
         )
 
-        await context.bot.send_message(
+        caption = (f'Квитанция покупателя @{user.username} {user.full_name}\n'
+                   f'Запросил подтверждение брони на сумму 5000 руб\n'
+                   f'Номер заявки: {cme_id}')
+
+        await update.effective_message.copy(
             chat_id=ADMIN_CME_GROUP,
-            text=f'Пользователь @{user.username} {user.full_name}\n'
-                 f'Запросил подтверждение брони на сумму 5000 руб\n',
+            caption=caption,
             reply_markup=reply_markup,
-            message_thread_id=thread_id
+            message_thread_id=thread_id,
+            reply_to_message_id=message_id_for_admin
         )
 
     except KeyError as err:
