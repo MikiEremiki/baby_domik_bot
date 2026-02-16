@@ -13,6 +13,7 @@ from settings import parse_settings
 from utilities.schemas import (
     CustomMadeFormatDTO, ScheduleEventDTO, TheaterEventDTO, BaseTicketDTO
 )
+from utilities.schemas.promotion import PromotionDTO
 
 db_googlesheets_logger = logging.getLogger('bot.db.googlesheets')
 config = parse_settings()
@@ -205,6 +206,99 @@ async def load_custom_made_format() -> List[CustomMadeFormatDTO]:
     )
     db_googlesheets_logger.info('Список репертуара загружен')
     return cmfs
+
+
+def _parse_bool(val) -> bool:
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return False
+    return str(val).strip().lower() in {"1", "да", "true", "y", "yes", "on", "+"}
+
+
+def _parse_int(val, default=0) -> int:
+    try:
+        return int(str(val).strip())
+    except Exception:
+        return default
+
+
+def _parse_datetime(val) -> datetime.datetime | None:
+    if not val:
+        return None
+    try:
+        # Try ISO first
+        return datetime.datetime.fromisoformat(str(val))
+    except Exception:
+        try:
+            # Try dd.mm.yyyy
+            return datetime.datetime.strptime(str(val).strip(), "%d.%m.%Y")
+        except Exception:
+            try:
+                # Try dd.mm (+current year)
+                today = datetime.datetime.now().date()
+                return datetime.datetime.strptime(
+                    f"{str(val).strip()}.{today.year}", "%d.%m.%Y"
+                )
+            except Exception:
+                return None
+
+
+async def load_promotions() -> List[PromotionDTO]:
+    name_sh = 'Промокоды_'
+    try:
+        data, dict_column_name = await load_from_gspread(
+            sheet_id_domik,
+            name_sh,
+            value_render_option='UNFORMATTED_VALUE'
+        )
+    except Exception as e:
+        db_googlesheets_logger.exception(f"Не удалось загрузить лист '{name_sh}': {e}")
+        return []
+
+    # Expected columns (fallback to optional names)
+    col_code = dict_column_name.get('Код') or dict_column_name.get('code')
+    col_discount = dict_column_name.get('Скидка') or dict_column_name.get('discount')
+    col_type = dict_column_name.get('Тип') or dict_column_name.get('type')
+    col_start = dict_column_name.get('Начало') or dict_column_name.get('start')
+    col_expire = dict_column_name.get('Срок действия') or dict_column_name.get('expire')
+    col_visible = dict_column_name.get('Показывать как кнопку') or dict_column_name.get('visible')
+    col_verify = dict_column_name.get('Требует подтверждения') or dict_column_name.get('verify')
+    col_vtext = dict_column_name.get('Текст верификации') or dict_column_name.get('verification_text')
+    col_min_sum = dict_column_name.get('Мин. сумма заказа') or dict_column_name.get('min_sum')
+    col_desc = dict_column_name.get('Описание') or dict_column_name.get('description')
+
+    promotions: List[PromotionDTO] = []
+    for row in data[1:]:
+        try:
+            if col_code is None or col_discount is None:
+                continue
+            code = str(row[col_code]).strip() if row[col_code] else ''
+            if not code:
+                continue
+            discount_val = _parse_int(row[col_discount], 0)
+            dtype_raw = (str(row[col_type]).strip().lower() if col_type is not None and row[col_type] else 'fixed')
+            dtype = 'percentage' if ('%' in dtype_raw or 'процент' in dtype_raw) else 'fixed'
+
+            promo = PromotionDTO(
+                code=code,
+                discount=discount_val,
+                discount_type=dtype,
+                start_date=_parse_datetime(row[col_start]) if col_start is not None else None,
+                expire_date=_parse_datetime(row[col_expire]) if col_expire is not None else None,
+                is_visible_as_option=_parse_bool(row[col_visible]) if col_visible is not None else False,
+                requires_verification=_parse_bool(row[col_verify]) if col_verify is not None else False,
+                verification_text=str(row[col_vtext]).strip() if col_vtext is not None and row[col_vtext] else None,
+                min_purchase_sum=_parse_int(row[col_min_sum], 0) if col_min_sum is not None else 0,
+                description_user=str(row[col_desc]).strip() if col_desc is not None and row[col_desc] else None,
+            )
+            promotions.append(promo)
+        except Exception as e:
+            db_googlesheets_logger.exception(f"Ошибка парсинга строки промокода: {e}")
+            continue
+
+    db_googlesheets_logger.info('Список промокодов загружен')
+    return promotions
 
 
 async def load_special_ticket_price() -> Dict:

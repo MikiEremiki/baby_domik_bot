@@ -1,4 +1,4 @@
-"""rev10
+"""rev_10_add_sales_tables
 
 Revision ID: cedbea3f6c04
 Revises: c9f1e5a9f1a2

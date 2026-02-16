@@ -170,6 +170,39 @@ async def create_tickets(context, ticket_status):
     return ticket_ids
 
 
+async def check_and_set_privilege(session, ticket_id, ticket=None):
+    if not ticket:
+        ticket = await db_postgres.get_ticket(session, ticket_id)
+    if not ticket or ticket.status != TicketStatus.APPROVED:
+        return
+
+    base_ticket = await db_postgres.get_base_ticket(session, ticket.base_ticket_id)
+    if not base_ticket:
+        return
+
+    # Проверка по промокоду (если есть промокод, требующий верификации)
+    is_privilege_by_promo = False
+    if ticket.promo_id:
+        promotion = await db_postgres.get_promotion(session, ticket.promo_id)
+        if promotion and promotion.requires_verification:
+            is_privilege_by_promo = True
+
+    if is_privilege_by_promo:
+        user = ticket.user
+        if not isinstance(user, list):
+            users = [user]
+        else:
+            users = user
+
+        for u in users:
+            if not u.is_privilege:
+                await db_postgres.update_user(session, u.user_id, is_privilege=True)
+                utl_ticket_logger.info(
+                    f"User {u.user_id} status updated to privilege "
+                    f"because of ticket {ticket_id}"
+                )
+
+
 async def cancel_ticket_db_when_end_handler(update, context, text):
     reserve_user_data = context.user_data['reserve_user_data']
     ticket_ids = reserve_user_data['ticket_ids']

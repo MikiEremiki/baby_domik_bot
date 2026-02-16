@@ -37,39 +37,38 @@ handlers_event_selection  = {
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
-        CallbackQueryHandler(reserve_hl.choice_option_of_reserve,
-                             pattern='^TIME'),
+        CallbackQueryHandler(reserve_hl.choice_option_of_reserve, pattern='^TIME'),
     ],
 }
 
 handlers_client_data_selection = {
     'FORMA': [
+        back_callback_handler,
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.adult_confirm, pattern='^adult_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_adult),
+        CallbackQueryHandler(reserve_hl.adult_confirm, pattern=r'.*adult_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_adult),
     ],
     'PHONE': [
+        back_callback_handler,
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.phone_confirm, pattern='^phone_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_phone),
+        CallbackQueryHandler(reserve_hl.phone_confirm, pattern=r'.*phone_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_phone),
     ],
     'CHILDREN': [
+        back_callback_handler,
         cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.child_confirm, pattern='^child_confirm'),
-        MessageHandler(F_text_and_no_command,
-                       reserve_hl.get_children),
-        CallbackQueryHandler(reserve_hl.get_children, pattern='^Далее'),
+        CallbackQueryHandler(reserve_hl.child_confirm, pattern=r'.*child_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_hl.get_children),
+        CallbackQueryHandler(reserve_hl.get_children, pattern=r'^Далее'),
+        CallbackQueryHandler(reserve_hl.get_children, pattern=r'^CHLD_'),
     ],
 }
 
 common_fallbacks=[
         CommandHandler('start', main_hl.start),
-        CommandHandler('help', main_hl.help_command),
         CommandHandler('reset', main_hl.reset),
     ]
 
-filterwarnings(action="ignore",
-               message=r".*CallbackQueryHandler",
+filterwarnings(action='ignore',
+               message=r'.*CallbackQueryHandler',
                category=PTBUserWarning)

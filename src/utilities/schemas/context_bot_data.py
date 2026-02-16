@@ -7,6 +7,7 @@ from settings.config_loader import Settings
 context_bot_data: Dict = {
     'global_on_off': bool,
     'config': Settings,
+    'feedback_group_id': int,
     'special_ticket_price': {
         str | int: {
             'будни': {
@@ -32,9 +33,6 @@ context_bot_data: Dict = {
         'username': str,
         'phone': str,
         'contacts': str,
-    },
-    'birthday_price': {
-        int: (int, str),
     },
     'texts': {
         'description': str,

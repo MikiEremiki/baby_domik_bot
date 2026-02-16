@@ -1,16 +1,17 @@
 from datetime import date, datetime
 from typing import Collection, List
 
-from sqlalchemy import select, func, DATE, and_
+from sqlalchemy import select, func, DATE, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Mapped
 
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
-    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings)
+    ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
+    FeedbackTopic, FeedbackMessage)
 from db.enum import (
-    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus)
-from db.models import CustomMadeFormat, CustomMadeEvent
+    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
+from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket
 
 
 async def attach_user_and_people_to_ticket(
@@ -125,6 +126,24 @@ async def get_child(session: AsyncSession, user_id):
     return child or None
 
 
+async def get_children(session: AsyncSession, user_id):
+    """
+    Возвращает всех детей пользователя.
+    """
+    result = await session.execute(
+        select(Person.name, Child.age, Person.id)
+        .join(Child, Person.id == Child.person_id)
+        .where(
+            Person.user_id == user_id,
+            Person.name.is_not(None),
+            Person.age_type == AgeType.child
+        )
+        .order_by(Person.name)
+    )
+    children = result.all()
+    return children
+
+
 async def create_people(
         session: AsyncSession,
         user_id,
@@ -137,7 +156,11 @@ async def create_people(
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    user: User = await session.get(User, user_id)
+    user: User | None = await session.get(User, user_id)
+
+    if user is None:
+        raise ValueError(f"User with ID {user_id} does not exist")
+
     query = (
         select(Person)
         .where(
@@ -218,6 +241,10 @@ async def create_user(
 
 async def create_person(session: AsyncSession, user_id, name, age_type):
     user: User | None = await session.get(User, user_id)
+
+    if user is None:
+        raise ValueError(f"User with ID {user_id} does not exist")
+
     person = Person(name=name, age_type=age_type)
     user.people.append(person)
 
@@ -411,43 +438,6 @@ async def create_schedule_event(
     return schedule_event
 
 
-async def create_promotion(
-        session: AsyncSession,
-        name,
-        code,
-        discount,
-        for_who_discount,
-        *,
-        start_date=None,
-        expire_date=None,
-        base_ticket_ids=None,
-        type_event_ids=None,
-        theater_event_ids=None,
-        schedule_event_ids=None,
-        flag_active=True,
-        count_of_usage=0,
-        max_count_of_usage=0,
-):
-    promo = Promotion(
-        name=name,
-        code=code,
-        discount=discount,
-        start_date=start_date,
-        expire_date=expire_date,
-        base_ticket_ids=base_ticket_ids,
-        type_event_ids=type_event_ids,
-        theater_event_ids=theater_event_ids,
-        schedule_event_ids=schedule_event_ids,
-        for_who_discount=for_who_discount,
-        flag_active=flag_active,
-        count_of_usage=count_of_usage,
-        max_count_of_usage=max_count_of_usage,
-    )
-    session.add(promo)
-    await session.commit()
-    return promo
-
-
 async def create_custom_made_event(
         session: AsyncSession,
         place,
@@ -496,7 +486,7 @@ async def get_user(session: AsyncSession,
     return await session.get(User, user_id)
 
 
-async def get_persons(session: AsyncSession,
+async def get_person(session: AsyncSession,
                       person_id: int):
     return await session.get(Person, person_id)
 
@@ -512,17 +502,17 @@ async def get_ticket(session: AsyncSession,
 
 
 async def get_type_event(session: AsyncSession,
-                         type_event_id: int):
+                         type_event_id: Mapped[int]):
     return await session.get(TypeEvent, type_event_id)
 
 
 async def get_theater_event(session: AsyncSession,
-                            theater_event_id: int):
+                            theater_event_id: Mapped[int]):
     return await session.get(TheaterEvent, theater_event_id)
 
 
 async def get_schedule_event(session: AsyncSession,
-                             schedule_event_id: int):
+                             schedule_event_id: Mapped[int]):
     return await session.get(ScheduleEvent, schedule_event_id)
 
 
@@ -534,8 +524,8 @@ async def get_users_by_ids(session: AsyncSession,
     return result.scalars().all()
 
 
-async def get_persons_by_ids(session: AsyncSession,
-                             user_id: Collection[int]):
+async def get_persons_by_user_ids(session: AsyncSession,
+                                  user_id: Collection[int]):
     query = select(Person).where(
         Person.user_id.in_(user_id))
     result = await session.execute(query)
@@ -577,7 +567,7 @@ async def get_schedule_events_by_ids(session: AsyncSession,
 
 async def get_promotion(session: AsyncSession,
                         promotion_id: int):
-    return await session.get(ScheduleEvent, promotion_id)
+    return await session.get(Promotion, promotion_id)
 
 
 async def get_custom_made_format(session: AsyncSession,
@@ -615,10 +605,88 @@ async def get_all_schedule_events(session: AsyncSession):
     return result.scalars().all()
 
 
-async def get_all_promotions(session: AsyncSession):
-    query = select(Promotion)
+async def get_promotion_by_code(session: AsyncSession,
+                               code: str):
+    query = select(Promotion).where(Promotion.code == code)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_active_promotions_as_options(session: AsyncSession):
+    query = select(Promotion).where(
+        Promotion.flag_active == True,
+        Promotion.is_visible_as_option == True
+    )
     result = await session.execute(query)
     return result.scalars().all()
+
+
+async def increment_promotion_usage(session: AsyncSession, promotion_id: int):
+    promo = await session.get(Promotion, promotion_id)
+    if promo:
+        promo.count_of_usage = (promo.count_of_usage or 0) + 1
+        await session.commit()
+
+
+async def update_promotions_from_googlesheets(session: AsyncSession, promotions):
+    for _promotion in promotions:
+        dto_model = _promotion.to_dto()
+        # Обработка списков ID, если они приходят как строки или списки
+        # В модели они Mapped[Optional[List[int]]]
+        await session.merge(Promotion(**dto_model))
+    await session.commit()
+
+
+async def get_all_promotions(session: AsyncSession):
+    query = select(Promotion).order_by(Promotion.id)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def create_promotion(session: AsyncSession, promotion_data: dict):
+    promotion = Promotion(**promotion_data)
+    session.add(promotion)
+    await session.commit()
+    await session.refresh(promotion)
+    return promotion
+
+
+async def update_promotion(session: AsyncSession, promotion_id: int, promotion_data: dict):
+    promotion = await session.get(Promotion, promotion_id)
+    if promotion:
+        if 'code' in promotion_data:
+            promotion_data['code'] = promotion_data['code'].strip().upper()
+
+        for key, value in promotion_data.items():
+            setattr(promotion, key, value)
+        await session.commit()
+        await session.refresh(promotion)
+    return promotion
+
+
+async def toggle_promotion_active(session: AsyncSession, promotion_id: int):
+    promotion = await session.get(Promotion, promotion_id)
+    if promotion:
+        promotion.flag_active = not promotion.flag_active
+        await session.commit()
+        await session.refresh(promotion)
+    return promotion
+
+
+async def toggle_promotion_visible(session: AsyncSession, promotion_id: int):
+    promotion = await session.get(Promotion, promotion_id)
+    if promotion:
+        promotion.is_visible_as_option = not promotion.is_visible_as_option
+        await session.commit()
+        await session.refresh(promotion)
+    return promotion
+
+
+async def get_person_ticket_by_ticket_id(session: AsyncSession, ticket_id: int):
+    result = await session.execute(
+        select(PersonTicket).where(PersonTicket.ticket_id == ticket_id)
+    )
+    return result.scalars().first()
 
 
 async def get_all_custom_made_format(session: AsyncSession):
@@ -670,6 +738,13 @@ async def get_schedule_events_by_type_actual(
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     return result.scalars().all()
+
+
+async def get_last_schedule_update_time(session: AsyncSession) -> datetime:
+    """Возвращает время последнего изменения любого события в расписании."""
+    stmt = select(func.max(ScheduleEvent.updated_at))
+    result = await session.execute(stmt)
+    return result.scalar() or datetime.min
 
 
 async def get_schedule_events_by_theater_ids_actual(
@@ -764,7 +839,7 @@ async def update_type_event(
         type_event_id,
         **kwargs
 ):
-    type_event = await session.get(TheaterEvent, type_event_id)
+    type_event = await session.get(TypeEvent, type_event_id)
     for key, value in kwargs.items():
         setattr(type_event, key, value)
     await session.commit()
@@ -793,18 +868,6 @@ async def update_schedule_event(
         setattr(schedule_event, key, value)
     await session.commit()
     return schedule_event
-
-
-async def update_promotion(
-        session: AsyncSession,
-        promotion_id,
-        **kwargs
-):
-    promotion = await session.get(Promotion, promotion_id)
-    for key, value in kwargs.items():
-        setattr(promotion, key, value)
-    await session.commit()
-    return promotion
 
 
 async def update_custom_made_event(
@@ -926,3 +989,76 @@ async def get_bot_settings(session: AsyncSession):
     stmt = select(BotSettings)
     result = await session.execute(stmt)
     return result.scalars().all()
+
+async def get_or_create_user_status(session: AsyncSession, user_id: int) -> UserStatus:
+    status = await session.get(UserStatus, user_id)
+    if status is None:
+        status = UserStatus(user_id=user_id, role=UserRole.USER)
+        session.add(status)
+        await session.flush()
+    return status
+
+
+async def update_user_status(session: AsyncSession, user_id: int, **kwargs) -> UserStatus:
+    status = await get_or_create_user_status(session, user_id)
+    for key, value in kwargs.items():
+        if hasattr(status, key):
+            setattr(status, key, value)
+    await session.commit()
+    return status
+
+
+async def get_feedback_topic_by_user_id(session: AsyncSession, user_id: int):
+    query = select(FeedbackTopic).where(FeedbackTopic.user_id == user_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_feedback_topic_by_topic_id(session: AsyncSession, topic_id: int):
+    query = select(FeedbackTopic).where(FeedbackTopic.topic_id == topic_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def create_feedback_topic(session: AsyncSession, user_id: int, topic_id: int):
+    feedback_topic = FeedbackTopic(user_id=user_id, topic_id=topic_id)
+    session.add(feedback_topic)
+    await session.commit()
+    return feedback_topic
+
+
+async def update_feedback_topic(session: AsyncSession, user_id: int, topic_id: int):
+    feedback_topic = await get_feedback_topic_by_user_id(session, user_id)
+    if feedback_topic:
+        feedback_topic.topic_id = topic_id
+        await session.commit()
+    return feedback_topic
+
+
+async def del_feedback_topic_by_topic_id(session: AsyncSession, topic_id: int):
+    query = delete(FeedbackTopic).where(FeedbackTopic.topic_id == topic_id)
+    await session.execute(query)
+    await session.commit()
+
+
+async def create_feedback_message(session: AsyncSession, user_id: int, user_message_id: int, admin_message_id: int):
+    feedback_message = FeedbackMessage(
+        user_id=user_id,
+        user_message_id=user_message_id,
+        admin_message_id=admin_message_id
+    )
+    session.add(feedback_message)
+    await session.commit()
+    return feedback_message
+
+
+async def get_feedback_message_by_admin_id(session: AsyncSession, admin_message_id: int):
+    query = select(FeedbackMessage).where(FeedbackMessage.admin_message_id == admin_message_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_feedback_message_by_user_message_id(session: AsyncSession, user_message_id: int):
+    query = select(FeedbackMessage).where(FeedbackMessage.user_message_id == user_message_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()

@@ -1,4 +1,4 @@
-"""rev1
+"""rev_1_add_promotions_table
 
 Revision ID: 0cfd834f030e
 Revises: 31c46999db1a

@@ -1,4 +1,4 @@
-"""rev5
+"""rev_5_alter_schedule_events
 
 Revision ID: c81fd135fe13
 Revises: 3302b537affc

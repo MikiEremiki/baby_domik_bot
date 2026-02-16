@@ -1,4 +1,4 @@
-"""rev4
+"""rev_4_add_base_tickets_type_events
 
 Revision ID: 3302b537affc
 Revises: 198ac35f2c79

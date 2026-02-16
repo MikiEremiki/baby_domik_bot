@@ -2,12 +2,12 @@ import logging
 
 from telegram.ext import (
     CommandHandler, CallbackQueryHandler, MessageHandler, filters,
+    ChatMemberHandler, Application,
 )
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
-from handlers import main_hl, reserve_hl
-from handlers.sub_hl import (
-    update_admin_info, update_bd_price, update_cme_admin_info)
+from handlers import main_hl, profile_hl
+from handlers.sub_hl import update_admin_info, update_cme_admin_info
 from handlers.hooks import (
     YookassaHookHandler,
     GspreadHookHandler,
@@ -24,11 +24,14 @@ from conv_hl import (
     support_conv_hl,
     migration_admin_conv_hl,
     sales_conv_hl,
+    profile_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
     add_db_handlers_middleware,
     add_tg_update_logging_middleware,
+    add_user_status_middleware,
+    add_reserve_check_middleware
 )
 from utilities.utl_func import (
     echo, send_log, send_postgres_log,
@@ -41,10 +44,16 @@ from settings.settings import COMMAND_DICT
 set_handlers_logger = logging.getLogger('bot.set_handlers')
 
 
-def set_handlers(application, config):
+def set_handlers(application: Application, config):
     add_tg_update_logging_middleware(application, config)
     add_db_handlers_middleware(application, config)
+    application.add_handler(
+        ChatMemberHandler(main_hl.on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER),
+        group=-80
+    )
+    add_user_status_middleware(application, config)
     add_glob_on_off_middleware(application, config)
+    add_reserve_check_middleware(application, config)
 
     application.add_handlers([
         CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-reserve'),
@@ -64,18 +73,18 @@ def set_handlers(application, config):
         support_conv_hl,
         migration_admin_conv_hl,
         sales_conv_hl,
+        profile_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
+        CommandHandler('help', main_hl.help_cmd),
         CommandHandler('reset', main_hl.reset),
         CommandHandler('echo', echo),
+        CommandHandler('tickets', profile_hl.show_tickets),
     ])
 
-    application.add_handler(
-        CallbackQueryHandler(reserve_hl.processing_successful_notification,
-                             pattern='Next'))
 
     application.add_handlers([
         CommandHandler('clean_ud', clean_ud, filter_admin),
@@ -102,9 +111,6 @@ def set_handlers(application, config):
         CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0],
                        main_hl.global_on_off,
                        filter_admin),
-        CommandHandler(COMMAND_DICT['UP_BD_PRICE'][0],
-                       update_bd_price,
-                       filter_admin),
         CommandHandler(COMMAND_DICT['ADM_INFO'][0],
                        update_admin_info,
                        filter_admin),
@@ -113,6 +119,12 @@ def set_handlers(application, config):
                        filter_admin),
         CommandHandler('cancel_old_created_tickets',
                        main_hl.manual_cancel_old_created_tickets,
+                       filter_admin),
+        CommandHandler('set_user_status',
+                       main_hl.set_user_status,
+                       filter_admin),
+        CommandHandler(COMMAND_DICT['CLOSE'][0],
+                       main_hl.close_feedback_topic,
                        filter_admin),
     ])
 
