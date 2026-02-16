@@ -515,15 +515,17 @@ async def processing_successful_payment(
             reserve_user_data.setdefault('client_data', {'name_adult': 'Неизвестно', 'phone': '0000000000'})
             reserve_user_data.setdefault('original_child_text', 'Не указано')
             
+        user = context.user_data.get('user') or update.effective_user
         client_data = reserve_user_data['client_data']
-        original_child_text = reserve_user_data['original_child_text']
-        chose_price = reserve_user_data['chose_price']
-        chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
-        theater_event_id = reserve_user_data['choose_theater_event_id']
-
-        schedule_event = await db_postgres.get_schedule_event(
-            context.session, schedule_event_id)
+        original_child_text = reserve_user_data.get('original_child_text', 'Не указано')
+        chose_price = reserve_user_data.get('chose_price', ticket.price)
+        chose_base_ticket_id = reserve_user_data.get('chose_base_ticket_id', ticket.base_ticket_id)
+        schedule_event_id = reserve_user_data.get('choose_schedule_event_id', ticket.schedule_event_id)
+        
+        # Получаем данные события для полноты картины
+        schedule_event = await db_postgres.get_schedule_event(context.session, schedule_event_id)
+        theater_event_id = reserve_user_data.get('choose_theater_event_id', schedule_event.theater_event_id)
+        
         theater_event = await db_postgres.get_theater_event(
             context.session, theater_event_id)
         chose_base_ticket = await db_postgres.get_base_ticket(
@@ -550,7 +552,11 @@ async def processing_successful_payment(
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
         text += f'{theater_event.name}\n{date_event} в {time_event}\n'
-        text += f'{chose_base_ticket.name} {chose_price}руб\n'
+        price_to_pay = reserve_user_data.get('discounted_price', chose_price)
+        promo_code = reserve_user_data.get('applied_promo_code')
+        text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n'
+        if promo_code:
+            text += f'Применен промокод: <code>{promo_code}</code>\n'
 
         text += '\n'.join([
             client_data['name_adult'],
@@ -569,18 +575,21 @@ async def processing_successful_payment(
             ticket_id = context.user_data['reserve_admin_data']['ticket_id']
             text += f'\nПеренесен с #ticket_id <code>{ticket_id}</code>'
 
-        message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
-            update, context)
+        # Проверяем, не было ли уже уведомления (например, от вебхука)
+        if not reserve_user_data.get('admin_notified'):
+            message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
+                update, context)
 
-        thread_id = await get_thread_id(context, command, schedule_event)
-        await send_message_to_admin(
-            chat_id=ADMIN_GROUP,
-            text=text,
-            message_id=message_id_for_admin,
-            context=context,
-            thread_id=thread_id,
-            reply_markup=reply_markup
-        )
+            thread_id = await get_thread_id(context, command, schedule_event)
+            await send_message_to_admin(
+                chat_id=ADMIN_GROUP,
+                text=text,
+                message_id=message_id_for_admin,
+                context=context,
+                thread_id=thread_id,
+                reply_markup=reply_markup
+            )
+            reserve_user_data['admin_notified'] = True
         sub_hl_logger.info(f'Для пользователя {user}')
         sub_hl_logger.info(
             f'Обработчик завершился на этапе {context.user_data['STATE']}')
@@ -589,8 +598,21 @@ async def processing_successful_payment(
         sub_hl_logger.info(
             f'Проверь, что по билету {ticket_ids=} прикреплены люди')
 
+        if not query and (update.effective_message.photo or update.effective_message.document):
+            await forward_message_to_admin(update, context)
+
     check_send = reserve_user_data.get('flag_send_ticket_info', False)
-    if (command == 'reserve' or command == 'studio') and check_send:
+    
+    # Проверяем, нужна ли верификация (для случая автоматической оплаты или перехода далее)
+    # Если верификация нужна, send_by_ticket_info будет вызван после отправки документа
+    requires_verify = False
+    applied_promo_id = reserve_user_data.get('applied_promo_id')
+    if applied_promo_id:
+        promo = await db_postgres.get_promotion(context.session, applied_promo_id)
+        if promo and promo.requires_verification:
+            requires_verify = True
+
+    if (command == 'reserve' or command == 'studio') and check_send and not requires_verify:
         await send_by_ticket_info(update, context)
 
 
@@ -934,3 +956,4 @@ async def send_approve_reject_message_to_admin_in_webhook(
         reply_markup=reply_markup,
         parse_mode=None
     )
+    reserve_user_data['admin_notified'] = True
