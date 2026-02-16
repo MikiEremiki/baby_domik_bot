@@ -49,8 +49,6 @@ async def start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     context.user_data['user'] = update.effective_user
     context.user_data['common_data'] = {}
 
-    context.user_data['last_update'] = None
-
     start_text = '<b>Вас приветствует Бот Бэби-театра «Домик»</b>\n\n'
     description = context.bot_data['texts']['description']
     address = context.bot_data['texts']['address']

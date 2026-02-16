@@ -6,9 +6,8 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
-from handlers import main_hl, reserve_hl
-from handlers.sub_hl import (
-    update_admin_info, update_bd_price, update_cme_admin_info, update_promotion_data)
+from handlers import main_hl
+from handlers.sub_hl import update_admin_info, update_cme_admin_info
 from handlers.hooks import (
     YookassaHookHandler,
     GspreadHookHandler,
@@ -83,9 +82,6 @@ def set_handlers(application: Application, config):
         CommandHandler('echo', echo),
     ])
 
-    application.add_handler(
-        CallbackQueryHandler(reserve_hl.processing_successful_notification,
-                             pattern='Next'))
 
     application.add_handlers([
         CommandHandler('clean_ud', clean_ud, filter_admin),
@@ -105,16 +101,12 @@ def set_handlers(application: Application, config):
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
         CommandHandler('postgres_log', send_postgres_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
-        CommandHandler('update_promotions', update_promotion_data, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC'][0],
                        create_or_connect_topic,
                        filter_admin),
         CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0],
                        main_hl.global_on_off,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['UP_BD_PRICE'][0],
-                       update_bd_price,
                        filter_admin),
         CommandHandler(COMMAND_DICT['ADM_INFO'][0],
                        update_admin_info,

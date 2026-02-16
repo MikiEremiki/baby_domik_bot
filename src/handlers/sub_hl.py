@@ -38,7 +38,8 @@ from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
 from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
-    create_tickets_and_people, cancel_ticket_db_when_end_handler)
+    create_tickets_and_people, cancel_ticket_db_when_end_handler
+)
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
