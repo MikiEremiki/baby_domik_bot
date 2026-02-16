@@ -667,8 +667,10 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except KeyError as e:
             birthday_hl_logger.error(e)
 
+    text = text_header + text
+    res = transform_html(text)
     message_1 = await update.effective_chat.send_message(
-        text=f'{text_header}{text}',
+        text=res.text, entities=res.entities
     )
     await append_message_ids_back_context(
         context, [message_1.message_id])
