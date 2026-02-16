@@ -623,15 +623,14 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     if command == 'reserve' or command == 'studio':
         message_id_for_admin = await forward_message_to_admin(update, context)
 
-        message_id = context.user_data['common_data']['message_id_buy_info']
+        message_id_buy_info = context.user_data['common_data']['message_id_buy_info']
 
         reply_markup = create_approve_and_reject_replay(
             'reserve',
-            f'{update.effective_user.id} {message_id}'
+            f'{update.effective_user.id} {message_id_buy_info}'
         )
         context.user_data['common_data'][
-            'message_id_for_admin'] = message.message_id
-        message_id_for_admin = message.message_id
+            'message_id_for_admin'] = message_id_for_admin
     return message_id_for_admin, reply_markup
 
 
@@ -678,7 +677,8 @@ async def send_breaf_message(update: Update,
 
     back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False)
+        add_back_btn=True,
+        postfix_for_back='TICKET')
 
     if adult_confirm_btn:
         keyboard = [adult_confirm_btn, back_and_cancel]
@@ -690,6 +690,7 @@ async def send_breaf_message(update: Update,
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.effective_chat.send_message(
         text=text_prompt, reply_markup=reply_markup)
+    await set_back_context(context, 'FORMA', text_prompt, reply_markup)
     return message
 
 
