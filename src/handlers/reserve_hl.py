@@ -1354,7 +1354,7 @@ async def _finish_get_children(
                 return ConversationHandler.END
 
             await update_ticket_db_and_gspread(
-                update, context, ticket_id, TicketStatus.PAID)
+                context, ticket_id, status=TicketStatus.PAID)
 
         text += '\nПоследняя проверка...'
         try:
