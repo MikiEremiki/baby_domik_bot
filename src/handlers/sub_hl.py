@@ -576,8 +576,15 @@ async def processing_successful_payment(
             ticket_id = context.user_data['reserve_admin_data']['ticket_id']
             text += f'\nПеренесен с #ticket_id <code>{ticket_id}</code>'
 
-        # Проверяем, не было ли уже уведомления (например, от вебхука)
-        if not reserve_user_data.get('admin_notified'):
+        # Проверяем, не было ли уже уведомления в БД по этим билетам
+        is_already_notified = False
+        for t_id in ticket_ids:
+            t = await db_postgres.get_ticket(context.session, t_id)
+            if t and t.is_admin_notified:
+                is_already_notified = True
+                break
+
+        if not is_already_notified:
             message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
                 update, context)
 
@@ -590,6 +597,10 @@ async def processing_successful_payment(
                 thread_id=thread_id,
                 reply_markup=reply_markup
             )
+            # Помечаем все билеты как "уведомленные" в БД
+            for t_id in ticket_ids:
+                await db_postgres.update_ticket(context.session, t_id, is_admin_notified=True)
+
             reserve_user_data['admin_notified'] = True
         sub_hl_logger.info(f'Для пользователя {user}')
         sub_hl_logger.info(
@@ -949,6 +960,18 @@ async def send_approve_reject_message_to_admin_in_webhook(
         callback_name,
         f'{chat_id} {message_id}'
     )
+
+    # Проверяем в БД, не было ли уже уведомления
+    is_already_notified = False
+    for t_id in ticket_ids:
+        t = await db_postgres.get_ticket(context.session, t_id)
+        if t and t.is_admin_notified:
+            is_already_notified = True
+            break
+
+    if is_already_notified:
+        return
+
     res_text = transform_html(text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
@@ -958,4 +981,8 @@ async def send_approve_reject_message_to_admin_in_webhook(
         reply_markup=reply_markup,
         parse_mode=None
     )
+    # Помечаем все билеты как "уведомленные" в БД
+    for t_id in ticket_ids:
+        await db_postgres.update_ticket(context.session, t_id, is_admin_notified=True)
+
     reserve_user_data['admin_notified'] = True
