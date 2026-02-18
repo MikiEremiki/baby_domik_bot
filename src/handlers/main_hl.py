@@ -221,7 +221,7 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             chat_id=chat_id,
         )
         await update.effective_message.reply_text(
-            f'Сообщение:\n{text}\nУспешно отправлено'
+            f'Сообщение:\n{text}\n\n<i>Успешно отправлено</i>'
         )
     except Forbidden as e:
         if 'bot was blocked by the user' in str(e).lower():
