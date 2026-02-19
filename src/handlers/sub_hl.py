@@ -911,7 +911,7 @@ async def send_message_to_admin(
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
-        user = context.user_data['user']
+        user = context.user_data.get('user', update.effective_user)
         sub_hl_logger.info(f"Для пользователя: {user.id}: {user.full_name}: "
                            f"сообщение на которое нужно ответить, удалено")
         message = await context.bot.send_message(

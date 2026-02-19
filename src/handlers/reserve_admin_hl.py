@@ -72,7 +72,7 @@ async def enter_event_id(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     state = context.user_data['STATE']
 
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
     reserve_admin_hl_logger.info(": ".join(
         [
             'Пользователь',

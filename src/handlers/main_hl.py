@@ -1206,7 +1206,7 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
     state = context.user_data.get('STATE')
     data = query.data.split('|')[0].split('-')[-1]
 
