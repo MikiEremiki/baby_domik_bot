@@ -567,7 +567,14 @@ async def get_schedule_events_by_ids(session: AsyncSession,
 
 async def get_promotion(session: AsyncSession,
                         promotion_id: int):
-    return await session.get(Promotion, promotion_id)
+    query = select(Promotion).where(Promotion.id == promotion_id).options(
+        selectinload(Promotion.type_events),
+        selectinload(Promotion.theater_events),
+        selectinload(Promotion.base_tickets),
+        selectinload(Promotion.schedule_events)
+    )
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
 
 async def get_custom_made_format(session: AsyncSession,
@@ -599,15 +606,34 @@ async def get_all_theater_events(session: AsyncSession):
     return result.scalars().all()
 
 
+async def get_all_type_events(session: AsyncSession):
+    query = select(TypeEvent)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 async def get_all_schedule_events(session: AsyncSession):
     query = select(ScheduleEvent)
     result = await session.execute(query)
     return result.scalars().all()
 
 
+async def get_all_schedule_events_actual(session: AsyncSession):
+    query = select(ScheduleEvent).where(
+        ScheduleEvent.datetime_event >= datetime.now()
+    ).options(selectinload(ScheduleEvent.theater_event)).order_by(ScheduleEvent.datetime_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 async def get_promotion_by_code(session: AsyncSession,
                                code: str):
-    query = select(Promotion).where(Promotion.code == code)
+    query = select(Promotion).where(Promotion.code == code).options(
+        selectinload(Promotion.type_events),
+        selectinload(Promotion.theater_events),
+        selectinload(Promotion.base_tickets),
+        selectinload(Promotion.schedule_events)
+    )
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
@@ -629,10 +655,16 @@ async def increment_promotion_usage(session: AsyncSession, promotion_id: int):
 
 
 async def update_promotions_from_googlesheets(session: AsyncSession, promotions):
+    # Обновляем только простые поля промоакций, ограничения по связям не загружаем из таблиц
+    allowed_fields = {
+        'id', 'name', 'code', 'discount', 'start_date', 'expire_date',
+        'for_who_discount', 'flag_active', 'is_visible_as_option',
+        'count_of_usage', 'max_count_of_usage', 'min_purchase_sum',
+        'description_user', 'requires_verification', 'verification_text',
+        'discount_type'
+    }
     for _promotion in promotions:
-        dto_model = _promotion.to_dto()
-        # Обработка списков ID, если они приходят как строки или списки
-        # В модели они Mapped[Optional[List[int]]]
+        dto_model = {k: v for k, v in _promotion.to_dto().items() if k in allowed_fields}
         await session.merge(Promotion(**dto_model))
     await session.commit()
 
@@ -644,7 +676,27 @@ async def get_all_promotions(session: AsyncSession):
 
 
 async def create_promotion(session: AsyncSession, promotion_data: dict):
+    # Извлекаем списки ID для связей Many-to-Many
+    type_event_ids = promotion_data.pop('type_event_ids', []) or []
+    theater_event_ids = promotion_data.pop('theater_event_ids', []) or []
+    base_ticket_ids = promotion_data.pop('base_ticket_ids', []) or []
+    schedule_event_ids = promotion_data.pop('schedule_event_ids', []) or []
+
     promotion = Promotion(**promotion_data)
+
+    if type_event_ids:
+        res = await session.execute(select(TypeEvent).where(TypeEvent.id.in_(type_event_ids)))
+        promotion.type_events = list(res.scalars().all())
+    if theater_event_ids:
+        res = await session.execute(select(TheaterEvent).where(TheaterEvent.id.in_(theater_event_ids)))
+        promotion.theater_events = list(res.scalars().all())
+    if base_ticket_ids:
+        res = await session.execute(select(BaseTicket).where(BaseTicket.base_ticket_id.in_(base_ticket_ids)))
+        promotion.base_tickets = list(res.scalars().all())
+    if schedule_event_ids:
+        res = await session.execute(select(ScheduleEvent).where(ScheduleEvent.id.in_(schedule_event_ids)))
+        promotion.schedule_events = list(res.scalars().all())
+
     session.add(promotion)
     await session.commit()
     await session.refresh(promotion)
@@ -652,10 +704,40 @@ async def create_promotion(session: AsyncSession, promotion_data: dict):
 
 
 async def update_promotion(session: AsyncSession, promotion_id: int, promotion_data: dict):
-    promotion = await session.get(Promotion, promotion_id)
+    # Используем selectinload для загрузки связей
+    query = select(Promotion).where(Promotion.id == promotion_id).options(
+        selectinload(Promotion.type_events),
+        selectinload(Promotion.theater_events),
+        selectinload(Promotion.base_tickets),
+        selectinload(Promotion.schedule_events)
+    )
+    result = await session.execute(query)
+    promotion = result.scalar_one_or_none()
+
     if promotion:
         if 'code' in promotion_data:
             promotion_data['code'] = promotion_data['code'].strip().upper()
+
+        # Обработка связей M2M
+        if 'type_event_ids' in promotion_data:
+            ids = promotion_data.pop('type_event_ids') or []
+            res = await session.execute(select(TypeEvent).where(TypeEvent.id.in_(ids)))
+            promotion.type_events = list(res.scalars().all())
+
+        if 'theater_event_ids' in promotion_data:
+            ids = promotion_data.pop('theater_event_ids') or []
+            res = await session.execute(select(TheaterEvent).where(TheaterEvent.id.in_(ids)))
+            promotion.theater_events = list(res.scalars().all())
+
+        if 'base_ticket_ids' in promotion_data:
+            ids = promotion_data.pop('base_ticket_ids') or []
+            res = await session.execute(select(BaseTicket).where(BaseTicket.base_ticket_id.in_(ids)))
+            promotion.base_tickets = list(res.scalars().all())
+
+        if 'schedule_event_ids' in promotion_data:
+            ids = promotion_data.pop('schedule_event_ids') or []
+            res = await session.execute(select(ScheduleEvent).where(ScheduleEvent.id.in_(ids)))
+            promotion.schedule_events = list(res.scalars().all())
 
         for key, value in promotion_data.items():
             setattr(promotion, key, value)
