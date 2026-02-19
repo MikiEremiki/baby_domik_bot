@@ -10,6 +10,7 @@ from db.enum import PromotionDiscountType, GroupOfPeopleByDiscountType
 from handlers.support_hl import send_settings_menu
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import create_kbd_confirm, add_btn_back_and_cancel
+from db import db_postgres
 
 logger = logging.getLogger('bot.promotion_hl')
 
@@ -102,6 +103,10 @@ async def handle_promotion_to_update(update: Update, context: ContextTypes.DEFAU
             'flag_active': promo.flag_active,
             'count_of_usage': promo.count_of_usage,
             'for_who_discount': promo.for_who_discount,
+            'type_event_ids': [te.id for te in promo.type_events],
+            'theater_event_ids': [te.id for te in promo.theater_events],
+            'base_ticket_ids': [bt.base_ticket_id for bt in promo.base_tickets],
+            'schedule_event_ids': [se.id for se in promo.schedule_events],
         },
         'service': {
             'message_id': query.message.message_id,
@@ -1011,6 +1016,15 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
         f"12. 📝 <b>Текст верификации:</b> {promo.get('verification_text', 'Не указано')}\n"
     )
 
+    if promo.get('type_event_ids'):
+        summary += f"\n🎭 <b>Ограничение по типам событий:</b> {len(promo['type_event_ids'])} шт."
+    if promo.get('theater_event_ids'):
+        summary += f"\n🎬 <b>Ограничение по репертуару:</b> {len(promo['theater_event_ids'])} шт."
+    if promo.get('base_ticket_ids'):
+        summary += f"\n🎟 <b>Ограничение по билетам:</b> {len(promo['base_ticket_ids'])} шт."
+    if promo.get('schedule_event_ids'):
+        summary += f"\n📅 <b>Ограничение по сеансам:</b> {len(promo['schedule_event_ids'])} шт."
+
     keyboard = [
         [
             InlineKeyboardButton("1. Название", callback_data='prom_edit_name'),
@@ -1033,6 +1047,14 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
             InlineKeyboardButton("11. Описание", callback_data='prom_edit_desc'),
         ],
         [InlineKeyboardButton("12. Текст верификации", callback_data='prom_edit_vtext')],
+        [
+            InlineKeyboardButton("🎭 Типы событий", callback_data='prom_restrict_type'),
+            InlineKeyboardButton("🎬 Репертуар", callback_data='prom_restrict_theater'),
+        ],
+        [
+            InlineKeyboardButton("🎟 Билеты", callback_data='prom_restrict_ticket'),
+            InlineKeyboardButton("📅 Сеансы", callback_data='prom_restrict_schedule'),
+        ],
         [InlineKeyboardButton("✅ Подтвердить и сохранить", callback_data='accept')],
         add_btn_back_and_cancel(postfix_for_cancel='settings',
                                 add_back_btn=True,
@@ -1075,6 +1097,245 @@ async def handle_prom_desc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         promotion_['data']['description_user'] = update.effective_message.text
 
     return await ask_promotion_summary(update, context)
+
+
+# ===== Helpers for restrictions multi-select =====
+async def _render_multi_select(update: Update,
+                               context: ContextTypes.DEFAULT_TYPE,
+                               items,
+                               selected_ids: list[int],
+                               page: int,
+                               per_page: int,
+                               prefix: str,
+                               label_getter) -> None:
+    total = len(items)
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(0, min(page, pages - 1))
+    start = page * per_page
+    end = start + per_page
+    subset = items[start:end]
+
+    keyboard = []
+    for it in subset:
+        it_id = getattr(it, 'id', getattr(it, 'base_ticket_id', None))
+        mark = '✅' if it_id in selected_ids else '▫️'
+        label = label_getter(it)
+        keyboard.append([
+            InlineKeyboardButton(f"{mark} {label}", callback_data=f"{prefix}_t_{it_id}_{page}")
+        ])
+
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton('⬅️ Назад', callback_data=f"{prefix}_p_{page-1}"))
+    if end < total:
+        nav_row.append(InlineKeyboardButton('Вперед ➡️', callback_data=f"{prefix}_p_{page+1}"))
+    if nav_row:
+        keyboard.append(nav_row)
+
+    keyboard.append([
+        InlineKeyboardButton('Готово', callback_data=f"{prefix}_done")
+    ])
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='62'))
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if update.callback_query:
+        await update.callback_query.edit_message_reply_markup(reply_markup)
+    else:
+        await update.effective_chat.send_message('Выберите элементы', reply_markup=reply_markup)
+
+
+# ---- TypeEvent restrictions ----
+async def open_restrict_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+    data = context.user_data.get('new_promotion', {}).get('data', {})
+    selected = data.get('type_event_ids', []) or []
+
+    items = await db_postgres.get_all_type_events(context.session)
+
+    await _render_multi_select(
+        update, context, items, selected, page=0, per_page=10,
+        prefix='prm_rt',
+        label_getter=lambda x: f"#{x.id} {x.name}"
+    )
+    state = PROM_RESTRICT_TYPE
+    await set_back_context(context, state, 'restrict_type', None)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_restrict_type_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = context.user_data['new_promotion']['data']
+    selected = data.get('type_event_ids', []) or []
+
+    parts = query.data.split('_')
+    # patterns: prm_rt_t_{id}_{page}; prm_rt_p_{page}; prm_rt_done
+    if query.data.startswith('prm_rt_t_'):
+        it_id = int(parts[3])
+        page = int(parts[4]) if len(parts) > 4 else 0
+        if it_id in selected:
+            selected.remove(it_id)
+        else:
+            selected.append(it_id)
+        data['type_event_ids'] = selected
+        items = await db_postgres.get_all_type_events(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rt', lambda x: f"#{x.id} {x.name}")
+        return PROM_RESTRICT_TYPE
+    elif query.data.startswith('prm_rt_p_'):
+        page = int(parts[3])
+        items = await db_postgres.get_all_type_events(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rt', lambda x: f"#{x.id} {x.name}")
+        return PROM_RESTRICT_TYPE
+    else:  # done
+        return await ask_promotion_summary(update, context)
+
+
+# ---- TheaterEvent restrictions ----
+async def open_restrict_theater(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+    data = context.user_data.get('new_promotion', {}).get('data', {})
+    selected = data.get('theater_event_ids', []) or []
+
+    items = await db_postgres.get_all_theater_events(context.session)
+
+    await _render_multi_select(
+        update, context, items, selected, page=0, per_page=10,
+        prefix='prm_rth',
+        label_getter=lambda x: f"#{x.id} {x.name}"
+    )
+    state = PROM_RESTRICT_THEATER
+    await set_back_context(context, state, 'restrict_theater', None)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_restrict_theater_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = context.user_data['new_promotion']['data']
+    selected = data.get('theater_event_ids', []) or []
+
+    parts = query.data.split('_')
+    if query.data.startswith('prm_rth_t_'):
+        it_id = int(parts[3])
+        page = int(parts[4]) if len(parts) > 4 else 0
+        if it_id in selected:
+            selected.remove(it_id)
+        else:
+            selected.append(it_id)
+        data['theater_event_ids'] = selected
+        items = await db_postgres.get_all_theater_events(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rth', lambda x: f"#{x.id} {x.name}")
+        return PROM_RESTRICT_THEATER
+    elif query.data.startswith('prm_rth_p_'):
+        page = int(parts[3])
+        items = await db_postgres.get_all_theater_events(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rth', lambda x: f"#{x.id} {x.name}")
+        return PROM_RESTRICT_THEATER
+    else:
+        return await ask_promotion_summary(update, context)
+
+
+# ---- BaseTicket restrictions ----
+async def open_restrict_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+    data = context.user_data.get('new_promotion', {}).get('data', {})
+    selected = data.get('base_ticket_ids', []) or []
+
+    items = await db_postgres.get_all_base_tickets(context.session)
+
+    await _render_multi_select(
+        update, context, items, selected, page=0, per_page=10,
+        prefix='prm_rbt',
+        label_getter=lambda x: f"#{x.base_ticket_id} {x.name}"
+    )
+    state = PROM_RESTRICT_TICKET
+    await set_back_context(context, state, 'restrict_ticket', None)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_restrict_ticket_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = context.user_data['new_promotion']['data']
+    selected = data.get('base_ticket_ids', []) or []
+
+    parts = query.data.split('_')
+    if query.data.startswith('prm_rbt_t_'):
+        it_id = int(parts[3])
+        page = int(parts[4]) if len(parts) > 4 else 0
+        if it_id in selected:
+            selected.remove(it_id)
+        else:
+            selected.append(it_id)
+        data['base_ticket_ids'] = selected
+        items = await db_postgres.get_all_base_tickets(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rbt', lambda x: f"#{x.base_ticket_id} {x.name}")
+        return PROM_RESTRICT_TICKET
+    elif query.data.startswith('prm_rbt_p_'):
+        page = int(parts[3])
+        items = await db_postgres.get_all_base_tickets(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rbt', lambda x: f"#{x.base_ticket_id} {x.name}")
+        return PROM_RESTRICT_TICKET
+    else:
+        return await ask_promotion_summary(update, context)
+
+
+# ---- ScheduleEvent restrictions ----
+async def open_restrict_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+    data = context.user_data.get('new_promotion', {}).get('data', {})
+    selected = data.get('schedule_event_ids', []) or []
+
+    items = await db_postgres.get_all_schedule_events_actual(context.session)
+
+    await _render_multi_select(
+        update, context, items, selected, page=0, per_page=10,
+        prefix='prm_rse',
+        label_getter=lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {x.datetime_event.strftime('%d.%m %H:%M')}"
+    )
+    state = PROM_RESTRICT_SCHEDULE
+    await set_back_context(context, state, 'restrict_schedule', None)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_restrict_schedule_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = context.user_data['new_promotion']['data']
+    selected = data.get('schedule_event_ids', []) or []
+
+    parts = query.data.split('_')
+    if query.data.startswith('prm_rse_t_'):
+        it_id = int(parts[3])
+        page = int(parts[4]) if len(parts) > 4 else 0
+        if it_id in selected:
+            selected.remove(it_id)
+        else:
+            selected.append(it_id)
+        data['schedule_event_ids'] = selected
+        items = await db_postgres.get_all_schedule_events_actual(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rse', lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {x.datetime_event.strftime('%d.%m %H:%M')}")
+        return PROM_RESTRICT_SCHEDULE
+    elif query.data.startswith('prm_rse_p_'):
+        page = int(parts[3])
+        items = await db_postgres.get_all_schedule_events_actual(context.session)
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rse', lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {x.datetime_event.strftime('%d.%m %H:%M')}")
+        return PROM_RESTRICT_SCHEDULE
+    else:
+        return await ask_promotion_summary(update, context)
 
 
 async def promotion_confirm_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
