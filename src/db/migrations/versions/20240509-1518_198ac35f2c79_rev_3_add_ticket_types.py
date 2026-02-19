@@ -1,4 +1,4 @@
-"""rev_3_add_ticket_types
+"""rev_3: add ticket enums and core event tables
 
 Revision ID: 198ac35f2c79
 Revises: fb82523175ba

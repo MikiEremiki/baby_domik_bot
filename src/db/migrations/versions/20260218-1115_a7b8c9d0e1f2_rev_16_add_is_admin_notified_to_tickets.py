@@ -1,4 +1,4 @@
-"""add is_admin_notified to tickets
+"""rev_16: add is_admin_notified to tickets
 
 Revision ID: a7b8c9d0e1f2
 Revises: dc5dfb23860c

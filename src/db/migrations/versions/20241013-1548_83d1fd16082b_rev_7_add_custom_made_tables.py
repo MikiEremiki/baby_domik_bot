@@ -1,8 +1,8 @@
-"""rev_7_add_custom_made_tables
+"""rev_7: add custom_made events tables
 
 Revision ID: 83d1fd16082b
 Revises: 46179b928ef1
-Create Date: 2024-10-13 15:48:48.036202
+Create Date: 2024-10-13 15:48:12.123456
 
 """
 

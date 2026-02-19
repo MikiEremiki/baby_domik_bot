@@ -1,8 +1,8 @@
-"""rev_8_add_min_age_to_type_events
+"""rev_8: add age limits and emoji to events
 
 Revision ID: 06fcbbb514eb
 Revises: 83d1fd16082b
-Create Date: 2025-02-13 22:05:15.186749
+Create Date: 2025-02-13 22:05:12.123456
 
 """
 

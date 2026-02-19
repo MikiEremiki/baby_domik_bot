@@ -1,4 +1,4 @@
-"""init
+"""rev_0: init database with core tables
 
 Revision ID: 31c46999db1a
 Revises: 

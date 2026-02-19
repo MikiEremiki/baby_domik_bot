@@ -1,8 +1,8 @@
-"""rev_9_add_is_individual_to_type_events
+"""rev_9: add individual cost flags
 
 Revision ID: c9f1e5a9f1a2
 Revises: 06fcbbb514eb
-Create Date: 2025-08-27 03:08:00.000000
+Create Date: 2025-08-27 03:08:12.123456
 
 """
 
