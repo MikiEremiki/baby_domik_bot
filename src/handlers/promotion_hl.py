@@ -28,7 +28,11 @@ logger = logging.getLogger('bot.promotion_hl')
     PROM_MAX_USAGE,
     PROM_DESC,
     PROM_CONFIRM,
-) = range(50, 63)
+    PROM_RESTRICT_TYPE,
+    PROM_RESTRICT_THEATER,
+    PROM_RESTRICT_TICKET,
+    PROM_RESTRICT_SCHEDULE,
+) = range(50, 67)
 
 async def promotion_create_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
