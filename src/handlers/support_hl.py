@@ -575,7 +575,7 @@ async def conversation_timeout(
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
 
     await update.effective_chat.send_message(
         'От Вас долго не было ответа, пожалуйста выполните новый запрос',
