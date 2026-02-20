@@ -1066,12 +1066,16 @@ async def handle_prom_max_usage(update: Update, context: ContextTypes.DEFAULT_TY
     except ValueError:
         text_err = "Ошибка! Пожалуйста, введите целое число для макс. использования:"
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_EXPIRE)]
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text_err,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text=text_err, reply_markup=reply_markup)
+        else:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=service['message_id'],
+                text=text_err,
+                reply_markup=reply_markup
+            )
         return PROM_MAX_USAGE
         
     promotion_['data']['max_count_of_usage'] = value
@@ -1139,12 +1143,16 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
     except ValueError:
         text_err = "Ошибка! Пожалуйста, введите целое число для макс. использования пользователем:"
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_MAX_USAGE)]
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text_err,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text=text_err, reply_markup=reply_markup)
+        else:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=service['message_id'],
+                text=text_err,
+                reply_markup=reply_markup
+            )
         return PROM_MAX_USAGE_USER
 
     promotion_['data']['max_usage_per_user'] = value
@@ -1164,13 +1172,17 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
                                 postfix_for_back=PROM_MAX_USAGE_USER)
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=service['message_id'],
-        text=text,
-        reply_markup=reply_markup
-    )
+
+    if update.callback_query:
+        message = await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+    else:
+        message = await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+    service['message_id'] = message.message_id
     
     state = PROM_DESC
     await set_back_context(context, state, text, reply_markup)
