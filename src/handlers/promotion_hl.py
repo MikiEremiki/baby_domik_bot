@@ -5,11 +5,10 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from db import db_postgres
 from db.enum import PromotionDiscountType, GroupOfPeopleByDiscountType
 from handlers.support_hl import choice_db_settings
 from utilities.utl_func import set_back_context
-from utilities.utl_kbd import create_kbd_confirm, add_btn_back_and_cancel
+from utilities.utl_kbd import add_btn_back_and_cancel
 from db import db_postgres
 
 logger = logging.getLogger('bot.promotion_hl')
@@ -228,12 +227,6 @@ async def handle_prom_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = promotion_['service']
     is_update = service.get('is_update', False)
 
-    # Удаляем сообщение пользователя
-    try:
-        await update.effective_message.delete()
-    except Exception:
-        pass
-
     name = update.effective_message.text
     promotion_['data']['name'] = name
 
@@ -327,19 +320,16 @@ async def handle_prom_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_update = service.get('is_update', False)
     current_id = promotion_['data'].get('id')
 
-    # Удаляем сообщение пользователя
-    try:
-        await update.effective_message.delete()
-    except Exception:
-        pass
-
     code = update.effective_message.text.strip().upper()
     
     # Проверка на уникальность кода
     existing = await db_postgres.get_promotion_by_code(context.session, code)
     if existing and existing.id != current_id:
         text_err = f"Ошибка! Промокод '{code}' уже существует. Введите другой:"
-        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_NAME)]
+        keyboard = [add_btn_back_and_cancel(
+            postfix_for_cancel='settings',
+            add_back_btn=True,
+            postfix_for_back=PROM_NAME)]
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
@@ -434,8 +424,13 @@ async def handle_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if current_val:
             text += f" (текущее: {current_val} ₽)"
         text += ":"
-        
-    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_DTYPE)]))
+
+    reply_markup = InlineKeyboardMarkup(
+        [add_btn_back_and_cancel(postfix_for_cancel='settings',
+                                 add_back_btn=True,
+                                 postfix_for_back=PROM_DTYPE)])
+    message = await query.edit_message_text(text, reply_markup=reply_markup)
+    promotion_['service']['message_id'] = message.message_id
     
     state = PROM_VALUE
     await set_back_context(context, state, text, None)
@@ -446,12 +441,6 @@ async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
     service = promotion_['service']
     is_update = service.get('is_update', False)
-
-    # Удаляем сообщение пользователя
-    try:
-        await update.effective_message.delete()
-    except Exception:
-        pass
 
     try:
         value = int(update.effective_message.text)
@@ -479,7 +468,9 @@ async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if current_min_sum is not None:
         text = f"Текущая сумма: {current_min_sum}\n\n" + text
 
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_VALUE)]
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings',
+                                        add_back_btn=True,
+                                        postfix_for_back=PROM_VALUE)]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await context.bot.edit_message_text(
@@ -537,12 +528,6 @@ async def handle_prom_min_sum(update: Update, context: ContextTypes.DEFAULT_TYPE
     promotion_ = context.user_data['new_promotion']
     service = promotion_['service']
     is_update = service.get('is_update', False)
-
-    # Удаляем сообщение пользователя
-    try:
-        await update.effective_message.delete()
-    except Exception:
-        pass
 
     try:
         value = int(update.effective_message.text)
@@ -792,11 +777,6 @@ async def handle_prom_vtext(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             return PROM_VTEXT
     else:
-        # Удаляем сообщение пользователя
-        try:
-            await update.effective_message.delete()
-        except Exception:
-            pass
         promotion_['data']['verification_text'] = update.effective_message.text
 
     if is_update:
@@ -859,11 +839,6 @@ async def handle_prom_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             return PROM_START # Не должно случаться при корректном UI
     else:
-        # Удаляем сообщение пользователя
-        try:
-            await update.effective_message.delete()
-        except Exception:
-            pass
         try:
             date_str = update.effective_message.text
             promotion_['data']['start_date'] = datetime.strptime(date_str, '%d.%m.%Y')
@@ -961,11 +936,6 @@ async def handle_prom_expire(update: Update, context: ContextTypes.DEFAULT_TYPE)
         else:
             return PROM_EXPIRE
     else:
-        # Удаляем сообщение пользователя
-        try:
-            await update.effective_message.delete()
-        except Exception:
-            pass
         try:
             date_str = update.effective_message.text
             promotion_['data']['expire_date'] = datetime.strptime(date_str, '%d.%m.%Y')
@@ -1039,12 +1009,6 @@ async def handle_prom_max_usage(update: Update, context: ContextTypes.DEFAULT_TY
     promotion_ = context.user_data['new_promotion']
     service = promotion_['service']
     is_update = service.get('is_update', False)
-
-    # Удаляем сообщение пользователя
-    try:
-        await update.effective_message.delete()
-    except Exception:
-        pass
 
     try:
         value = int(update.effective_message.text)

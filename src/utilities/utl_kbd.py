@@ -291,8 +291,16 @@ async def create_kbd_with_months(months):
     return keyboard
 
 
-def create_kbd_crud(name: str, add_only: bool = False):
-    button_create = InlineKeyboardButton(text='Добавить',
+def create_kbd_crud(name: str, add_only: bool = False, custom_labels: dict = None):
+    labels = {
+        'create': 'Добавить',
+        'update': 'Изменить',
+        'delete': 'Удалить'
+    }
+    if custom_labels:
+        labels.update(custom_labels)
+
+    button_create = InlineKeyboardButton(text=labels['create'],
                                          callback_data=f'{name}_create')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=True,
@@ -303,9 +311,9 @@ def create_kbd_crud(name: str, add_only: bool = False):
             [*button_cancel, ],
         ]
     else:
-        button_update = InlineKeyboardButton(text='Изменить',
+        button_update = InlineKeyboardButton(text=labels['update'],
                                              callback_data=f'{name}_update')
-        button_delete = InlineKeyboardButton(text='Удалить',
+        button_delete = InlineKeyboardButton(text=labels['delete'],
                                              callback_data=f'{name}_delete')
         keyboard = [
             [button_create, button_update, button_delete],
