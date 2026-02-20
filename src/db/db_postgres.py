@@ -151,7 +151,6 @@ async def get_children_by_phone(session: AsyncSession, phone: str):
     result = await session.execute(
         select(Person.name, Child.age, Person.id)
         .join(Child, Person.id == Child.person_id)
-        .join(Person.parent)
         .join(Adult, Person.parent_id == Adult.person_id)
         .where(
             Adult.phone == phone,
@@ -161,6 +160,16 @@ async def get_children_by_phone(session: AsyncSession, phone: str):
     )
     children = result.all()
     return children
+
+
+async def get_adult_person_id_by_phone(session: AsyncSession, phone: str):
+    """
+    Возвращает ID Person для взрослого по его номеру телефона.
+    """
+    res = await session.execute(
+        select(Person.id).join(Adult).where(Adult.phone == phone)
+    )
+    return res.scalar_one_or_none()
 
 
 async def create_people(

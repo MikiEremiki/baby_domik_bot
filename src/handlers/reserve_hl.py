@@ -13,8 +13,8 @@ from telegram.constants import ChatType, ChatAction
 
 from api.gspread_pub import (
     publish_write_client_reserve, publish_write_client_list_waiting)
-from sqlalchemy import select
-from db import db_postgres, BaseTicket, Promotion, Adult, Person
+
+from db import db_postgres, BaseTicket, Promotion
 from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from db.enum import TicketStatus, PromotionDiscountType
@@ -1546,10 +1546,8 @@ async def get_children(
                 if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
                     phone = reserve_user_data['client_data']['phone']
                     # Ищем взрослого по телефону
-                    res = await context.session.execute(
-                        select(Person.id).join(Adult).where(Adult.phone == phone)
-                    )
-                    parent_id = res.scalar_one_or_none()
+                    parent_id = await db_postgres.get_adult_person_id_by_phone(
+                        context.session, phone)
 
                 await db_postgres.create_child(
                     context.session,
