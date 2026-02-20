@@ -1243,9 +1243,9 @@ async def get_adult(
     )
     text = update.effective_message.text
 
+    reserve_user_data['client_data']['name_adult'] = text
     message = await send_msg_get_phone(update, context)
 
-    reserve_user_data['client_data']['name_adult'] = text
     reserve_user_data['message_id'] = message.message_id
     state = 'PHONE'
     context.user_data['STATE'] = state
@@ -1266,9 +1266,9 @@ async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
 
+    reserve_user_data['client_data']['phone'] = phone
     message = await send_msg_get_child(update, context)
 
-    reserve_user_data['client_data']['phone'] = phone
     reserve_user_data['message_id'] = message.message_id
     state = 'CHILDREN'
     context.user_data['STATE'] = state
@@ -2468,9 +2468,9 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except BadRequest as e:
             reserve_hl_logger.error(e)
 
+        reserve_user_data['client_data']['phone'] = phone
         message = await send_msg_get_child(update, context)
 
-        reserve_user_data['client_data']['phone'] = phone
         reserve_user_data['message_id'] = message.message_id
         state = 'CHILDREN'
         context.user_data['STATE'] = state
