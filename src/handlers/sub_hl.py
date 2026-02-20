@@ -681,9 +681,9 @@ async def send_breaf_message(update: Update,
         'Вопросы будут приходить последовательно (их будет всего 3)</i>'
     )
     await update.effective_chat.send_message(text_brief)
-    text_prompt = '<b>Напишите фамилию и имя (взрослого)</b>\n\n'
+    text_prompt = '<b>Напишите фамилию и имя (взрослого)</b><br><br>'
     adult_name = await db_postgres.get_adult_name(context.session,
-                                             update.effective_user.id)
+                                                  update.effective_user.id)
     adult_confirm_btn, text_prompt = await create_adult_confirm_btn(text_prompt,
                                                                     adult_name)
 
@@ -700,9 +700,14 @@ async def send_breaf_message(update: Update,
         keyboard = [back_and_cancel]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    res_text = transform_html(text_prompt)
     message = await update.effective_chat.send_message(
-        text=text_prompt, reply_markup=reply_markup)
-    await set_back_context(context, 'FORMA', text_prompt, reply_markup)
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
+    )
+    await set_back_context(context, 'FORMA', res_text.text, reply_markup)
     return message
 
 

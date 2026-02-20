@@ -297,7 +297,7 @@ async def start_forma_info(
 
         state = ConversationHandler.END
     else:
-        text = '<b>Напишите фамилию и имя (взрослого)</b>'
+        text = '<b>Напишите фамилию и имя (взрослого)</b><br><br>'
         adult_name = await db_postgres.get_adult_name(context.session,
                                                       update.effective_user.id)
         adult_confirm_btn, text = await create_adult_confirm_btn(

@@ -383,8 +383,9 @@ async def create_adult_confirm_btn(text, adult_name: str):
     """
     adult_confirm_btn = None
     if adult_name:
-        text += f'Последнее введенное имя взрослого:\n<code>{adult_name}</code>\n\n'
-        text += 'Использовать последнее введенное имя?'
+        text += (f'Последнее введенное имя взрослого:<br>'
+                 f'<code>{adult_name}</code><br><br>'
+                 f'Использовать последнее введенное имя?')
         adult_confirm_btn = [
             InlineKeyboardButton('Да', callback_data=f'adult_confirm')
         ]
