@@ -34,6 +34,9 @@ async def init_conv_hl_dialog(update, context: 'ContextTypes.DEFAULT_TYPE'):
 async def check_user_db(update, context: 'ContextTypes.DEFAULT_TYPE'):
     if not update.effective_user or update.effective_user.is_bot:
         return
+    
+    context.user_data['user'] = update.effective_user
+    
     logger = logging.getLogger(__name__)
     res = await db_postgres.get_user(context.session, update.effective_user.id)
     if not res:

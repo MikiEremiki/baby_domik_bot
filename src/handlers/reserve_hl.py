@@ -2509,7 +2509,7 @@ async def _publish_write_client_list_waiting(sheet_id_domik,
                                              context: 'ContextTypes.DEFAULT_TYPE'):
     reserve_user_data = context.user_data['reserve_user_data']
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
-    user = context.user_data.get('user', update.effective_user)
+    user = context.user_data.get('user')
     user_id = user.id
     username = user.username
     full_name = user.full_name
@@ -2576,7 +2576,7 @@ async def send_admin_info_add_list_wait(context: 'ContextTypes.DEFAULT_TYPE',
     reserve_user_data['client_data']['phone'] = phone
     text = f'{reserve_user_data['text_select_event']}+7{phone}'
 
-    user = context.user_data.get('user', update.effective_user)
+    user = context.user_data.get('user')
     thread_id = (context.bot_data['dict_topics_name']
                  .get('Лист ожидания', None))
     text = (f'#Лист_ожидания<br>'
