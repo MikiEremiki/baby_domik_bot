@@ -1386,9 +1386,12 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
         reserve_user_data['children_page'] = 0
     elif data == 'CHLD_ADD':
         reserve_user_data['is_adding_child'] = True
-        text = '<b>Добавление ребенка</b>\n\nНапишите имя и сколько полных лет ребенку в формате: <code>Имя Возраст</code>\nНапример: <code>Сергей 2</code>'
+        text = ('<b>Добавление ребенка</b>\n\n'
+                'Напишите имя и сколько полных лет ребенку в формате:\n'
+                '<code>Имя Возраст</code>\n'
+                'Например: <code>Сергей 2</code>')
         # Кнопка отмены возвращает в основное меню
-        keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
+        keyboard = [[InlineKeyboardButton("Назад", callback_data="CHLD_EDIT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text=text, reply_markup=reply_markup)
         return 'CHILDREN'
@@ -1736,7 +1739,10 @@ async def get_children(
                 pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
                 text_success += f'Список детей для клиента: <code>{pretty_phone}</code>\n\n'
 
-            text_success += f'Нужно выбрать: {limit}\nВыбрано: {selected_count} из {limit}\n\n<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\nЕсли ребенка нет в списке, нажмите <b>➕ Добавить ребенка</b>.'
+            text_success += (f'<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\n\n'
+                             f'Нужно выбрать: {limit}\n'
+                             f'Выбрано: {selected_count} из {limit}\n\n'
+                             f'<b>📝 изм.</b> - изменить данные по ребенку.')
             message = await update.effective_chat.send_message(text=text_success, reply_markup=reply_markup)
             reserve_user_data['message_id'] = message.message_id
             await set_back_context(context, 'CHILDREN', text_success, reply_markup)
@@ -1754,7 +1760,7 @@ async def get_children(
 
     # Если мы не в режиме добавления/редактирования, игнорируем текстовый ввод
     text_notice = ('<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\n '
-                   'или нажмите <b>➕ Добавить ребенка</b> для ввода новых данных.')
+                   'или нажмите <b>➕ Добавить ребенка</b>.')
     message = await update.effective_chat.send_message(text=text_notice)
     # Удаляем предыдущую клавиатуру и переотправляем актуальную, чтобы она была внизу
     try:
@@ -2059,7 +2065,7 @@ async def ask_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = "Введите промокод:"
     keyboard = [add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_cancel_btn=False,
         add_back_btn=True,
         postfix_for_back='CONFIRM_RESERVATION'
     )]
@@ -2192,21 +2198,21 @@ async def get_child_text_and_reply(
         selected_count = len(reserve_user_data['selected_children'])
 
         text = '<b>Укажите детей для бронирования</b>\n\n'
-        text += '<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\n\n'
+        text += '<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\n'
+        text += '<b>или ➕ Добавить ребенка</b>\n\n'
 
         text += f'Нужно выбрать: {limit}\n'
-        text += f'Выбрано: {selected_count} из {limit}\n\n'
+        text += f'<i>Выбрано: {selected_count} из {limit}</i>\n\n'
 
-        text += ('Нажмите на <b>📝 изм.</b>, чтобы изменить данные или удалить ребенка.\n'
-                 'Если ребенка нет в списке, нажмите <b>➕ Добавить ребенка</b>.')
+        text += '<b>📝 изм.</b> - изменить данные по ребенку.\n\n'
 
         mode = reserve_user_data.get('child_filter_mode', 'PHONE')
         if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
             phone = reserve_user_data['client_data']['phone']
             pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
-            text += f'Список детей для клиента: <code>{pretty_phone}</code>\n\n'
+            text += f'<i>Список детей для клиента:</i> <code>{pretty_phone}</code>\n\n'
         else:
-            text += f'Показаны все ваши дети\n\n'
+            text += f'<i>Показаны все ваши дети</i>\n\n'
 
         command = context.user_data.get('command', '')
         is_admin = '_admin' in command
