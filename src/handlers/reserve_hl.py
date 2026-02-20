@@ -13,7 +13,8 @@ from telegram.constants import ChatType, ChatAction
 
 from api.gspread_pub import (
     publish_write_client_reserve, publish_write_client_list_waiting)
-from db import db_postgres, BaseTicket, Promotion
+from sqlalchemy import select
+from db import db_postgres, BaseTicket, Promotion, Adult, Person
 from db.db_googlesheets import decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
 from db.enum import TicketStatus, PromotionDiscountType
@@ -1413,7 +1414,15 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
         person_id = int(data.split('|')[1])
         await db_postgres.delete_person(context.session, person_id)
         # Обновляем список детей в контексте
-        children = await db_postgres.get_children(context.session, update.effective_user.id)
+        command = context.user_data.get('command', '')
+        if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+            phone = reserve_user_data['client_data']['phone']
+            children = await db_postgres.get_children_by_phone(
+                context.session, phone)
+        else:
+            children = await db_postgres.get_children(
+                context.session, update.effective_user.id)
+
         reserve_user_data['children'] = children
         # Сбрасываем выбранных детей, так как список изменился
         reserve_user_data['selected_children'] = []
@@ -1525,6 +1534,7 @@ async def get_children(
                 age = 0
 
             is_editing = reserve_user_data.get('is_editing_child_data', False)
+            command = context.user_data.get('command', '')
             if is_editing:
                 index = reserve_user_data['edit_child_index']
                 person_id = reserve_user_data['children'][index][2]
@@ -1532,11 +1542,33 @@ async def get_children(
                 await db_postgres.update_child_by_person_id(context.session, person_id, age=age)
                 text_success = f'<b>Ребенок {name} {int(age)} обновлен!</b>'
             else:
-                await db_postgres.create_child(context.session, update.effective_user.id, name, age)
+                parent_id = None
+                if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+                    phone = reserve_user_data['client_data']['phone']
+                    # Ищем взрослого по телефону
+                    res = await context.session.execute(
+                        select(Person.id).join(Adult).where(Adult.phone == phone)
+                    )
+                    parent_id = res.scalar_one_or_none()
+
+                await db_postgres.create_child(
+                    context.session,
+                    update.effective_user.id,
+                    name,
+                    age,
+                    parent_id=parent_id
+                )
                 text_success = f'<b>Ребенок {name} {int(age)} добавлен!</b>'
 
             # Обновляем список детей
-            children = await db_postgres.get_children(context.session, update.effective_user.id)
+            if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+                phone = reserve_user_data['client_data']['phone']
+                children = await db_postgres.get_children_by_phone(
+                    context.session, phone)
+            else:
+                children = await db_postgres.get_children(
+                    context.session, update.effective_user.id)
+
             reserve_user_data['children'] = children
             reserve_user_data['is_adding_child'] = False
             reserve_user_data['is_editing_child_data'] = False
@@ -1577,7 +1609,15 @@ async def get_children(
     except Exception:
         pass
 
-    children = await db_postgres.get_children(context.session, update.effective_user.id)
+    command = context.user_data.get('command', '')
+    if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+        phone = reserve_user_data['client_data']['phone']
+        children = await db_postgres.get_children_by_phone(
+            context.session, phone)
+    else:
+        children = await db_postgres.get_children(
+            context.session, update.effective_user.id)
+
     reserve_user_data['children'] = children
     text, reply_markup = await get_child_text_and_reply(chose_base_ticket, children, context)
     message = await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
@@ -1959,8 +1999,15 @@ async def send_msg_get_child(update: Update,
     base_ticket_id = reserve_user_data['chose_base_ticket_id']
     base_ticket = await db_postgres.get_base_ticket(context.session,
                                                     base_ticket_id)
-    children = await db_postgres.get_children(context.session,
-                                              update.effective_user.id)
+
+    command = context.user_data.get('command', '')
+    if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+        phone = reserve_user_data['client_data']['phone']
+        children = await db_postgres.get_children_by_phone(context.session, phone)
+    else:
+        children = await db_postgres.get_children(context.session,
+                                                  update.effective_user.id)
+
     reserve_user_data['children'] = children
     text, reply_markup = await get_child_text_and_reply(
         base_ticket, children, context)

@@ -43,12 +43,25 @@ class Person(BaseModelTimed):
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
 
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('people.id', ondelete='SET NULL'))
+
     child: Mapped['Child'] = relationship(
         cascade="all, delete-orphan", lazy='selectin')
     adult: Mapped['Adult'] = relationship(
         cascade="all, delete-orphan", lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
+
+    children: Mapped[List['Person']] = relationship(
+        'Person',
+        back_populates='parent',
+        lazy='selectin')
+    parent: Mapped[Optional['Person']] = relationship(
+        'Person',
+        back_populates='children',
+        remote_side=[id],
+        lazy='selectin')
 
 
 class Child(BaseModel):

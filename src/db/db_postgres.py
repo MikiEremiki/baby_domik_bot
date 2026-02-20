@@ -144,6 +144,25 @@ async def get_children(session: AsyncSession, user_id):
     return children
 
 
+async def get_children_by_phone(session: AsyncSession, phone: str):
+    """
+    Возвращает всех детей, привязанных к родителю с указанным телефоном.
+    """
+    result = await session.execute(
+        select(Person.name, Child.age, Person.id)
+        .join(Child, Person.id == Child.person_id)
+        .join(Person.parent)
+        .join(Adult, Person.parent_id == Adult.person_id)
+        .where(
+            Adult.phone == phone,
+            Person.age_type == AgeType.child
+        )
+        .order_by(Person.name)
+    )
+    children = result.all()
+    return children
+
+
 async def create_people(
         session: AsyncSession,
         user_id,
@@ -185,6 +204,8 @@ async def create_people(
         await session.flush()
     people_ids.append(adult.person_id)
 
+    parent_id = adult.person_id
+
     for item in data_children:
         name_child = item[0]
         age = item[1].replace(',', '.')
@@ -202,8 +223,14 @@ async def create_people(
             person = res[0]
             child = person.child
             child.age = float(age)
+            if person.parent_id is None:
+                person.parent_id = parent_id
         else:
-            person = Person(name=name_child, age_type=AgeType.child)
+            person = Person(
+                name=name_child,
+                age_type=AgeType.child,
+                parent_id=parent_id
+            )
             session.add(person)
             user.people.append(person)
             child = Child(age=age)
@@ -239,13 +266,13 @@ async def create_user(
     return user
 
 
-async def create_person(session: AsyncSession, user_id, name, age_type):
+async def create_person(session: AsyncSession, user_id, name, age_type, parent_id=None):
     user: User | None = await session.get(User, user_id)
 
     if user is None:
         raise ValueError(f"User with ID {user_id} does not exist")
 
-    person = Person(name=name, age_type=age_type)
+    person = Person(name=name, age_type=age_type, parent_id=parent_id)
     user.people.append(person)
 
     await session.commit()
@@ -268,8 +295,10 @@ async def create_child(
         name,
         age=None,
         birthdate=None,
+        parent_id=None,
 ):
-    person = await create_person(session, user_id, name, AgeType.child)
+    person = await create_person(
+        session, user_id, name, AgeType.child, parent_id=parent_id)
     await session.refresh(person)
     child = Child(age=age, birthdate=birthdate)
     person.child = child
