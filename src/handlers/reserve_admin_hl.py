@@ -21,7 +21,7 @@ from utilities.utl_func import (
 )
 from utilities.utl_kbd import (
     create_kbd_and_text_tickets_for_choice, create_replay_markup,
-    remove_intent_id, add_btn_back_and_cancel,
+    remove_intent_id, add_btn_back_and_cancel, create_adult_confirm_btn,
 )
 from utilities.utl_ticket import get_ticket_and_price
 
@@ -297,17 +297,35 @@ async def start_forma_info(
 
         state = ConversationHandler.END
     else:
-        keyboard = [add_btn_back_and_cancel(
+        text = '<b>Напишите фамилию и имя (взрослого)</b>'
+        adult_name = await db_postgres.get_adult_name(context.session,
+                                                      update.effective_user.id)
+        adult_confirm_btn, text = await create_adult_confirm_btn(
+            text, adult_name)
+
+        back_and_cancel = add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
             add_back_btn=False
-        )]
+        )
+
+        if adult_confirm_btn:
+            keyboard = [adult_confirm_btn, back_and_cancel]
+            reserve_user_data['client_data']['name_adult'] = adult_name
+        else:
+            keyboard = [back_and_cancel]
+
         reply_markup = InlineKeyboardMarkup(keyboard)
-        text = '<b>Напишите фамилию и имя (взрослого)</b>'
+        res_text = transform_html(text)
         message = await query.edit_message_text(
-            text=text, reply_markup=reply_markup)
+            text=res_text.text,
+            entities=res_text.entities,
+            reply_markup=reply_markup,
+            parse_mode=None
+        )
 
         reserve_user_data['message_id'] = message.message_id
         state = 'FORMA'
+        await set_back_context(context, state, res_text.text, reply_markup)
 
     context.user_data['STATE'] = state
     return state
