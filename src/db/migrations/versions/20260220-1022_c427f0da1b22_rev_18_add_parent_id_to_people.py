@@ -25,7 +25,6 @@ def upgrade() -> None:
         existing_type=sa.INTEGER(),
         type_=sa.BIGINT(),
         existing_nullable=False,
-        autoincrement=True,
     )
     op.add_column("people", sa.Column("parent_id", sa.BIGINT(), nullable=True))
     op.create_foreign_key(
@@ -51,6 +50,5 @@ def downgrade() -> None:
         existing_type=sa.BIGINT(),
         type_=sa.INTEGER(),
         existing_nullable=False,
-        autoincrement=True,
     )
     # ### end Alembic commands ###
