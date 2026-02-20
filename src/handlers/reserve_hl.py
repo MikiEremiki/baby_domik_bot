@@ -1543,6 +1543,18 @@ async def get_children(
                     # Ищем взрослого по телефону
                     parent_id = await db_postgres.get_adult_person_id_by_phone(
                         context.session, phone)
+                    if parent_id is None:
+                        # Если взрослого с таким телефоном еще нет — создаем,
+                        # чтобы новый ребенок сразу попал в выборку get_children_by_phone
+                        name_adult = reserve_user_data.get('client_data', {}).get('name_adult')
+                        if name_adult:
+                            adult = await db_postgres.create_adult(
+                                context.session,
+                                update.effective_user.id,
+                                name_adult,
+                                phone
+                            )
+                            parent_id = adult.person_id
 
                 await db_postgres.create_child(
                     context.session,
