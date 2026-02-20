@@ -1831,6 +1831,14 @@ async def check_promo_restrictions(
         if base_ticket_id not in ticket_ids:
             return False, "Этот промокод не действует на выбранный тип билета."
 
+    # Проверка лимита использования на пользователя
+    if promo.max_usage_per_user > 0:
+        user_id = reserve_user_data.get('user_id')
+        if user_id:
+            usage_count = await db_postgres.get_promotion_usage_count_by_user(session, promo.id, user_id)
+            if usage_count >= promo.max_usage_per_user:
+                return False, f"Вы уже использовали этот промокод максимально доступное количество раз."
+
     return True, ""
 
 

@@ -1,7 +1,7 @@
-"""rev_18_add parent_id to people
+"""rev_17: add parent_id to people
 
 Revision ID: c427f0da1b22
-Revises: 8d8e8b8c8a89
+Revises: a7b8c9d0e1f2
 Create Date: 2026-02-20 10:22:05.324424
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "c427f0da1b22"
-down_revision = "8d8e8b8c8a89"
+down_revision = "a7b8c9d0e1f2"
 branch_labels = None
 depends_on = None
 

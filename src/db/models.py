@@ -393,6 +393,7 @@ class Promotion(BaseModelTimed):
     is_visible_as_option: Mapped[bool] = mapped_column(default=False)
     count_of_usage: Mapped[int] = mapped_column(default=0)
     max_count_of_usage: Mapped[int] = mapped_column(default=0)
+    max_usage_per_user: Mapped[int] = mapped_column(default=0)
     min_purchase_sum: Mapped[int] = mapped_column(default=0)
     description_user: Mapped[Optional[str]]
     requires_verification: Mapped[bool] = mapped_column(default=False)

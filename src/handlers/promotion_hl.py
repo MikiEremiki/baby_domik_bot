@@ -34,6 +34,7 @@ logger = logging.getLogger('bot.promotion_hl')
     PROM_RESTRICT_TICKET,
     PROM_RESTRICT_SCHEDULE,
 ) = range(50, 67)
+PROM_MAX_USAGE_USER = 67
 
 async def promotion_create_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -99,6 +100,7 @@ async def handle_promotion_to_update(update: Update, context: ContextTypes.DEFAU
             'start_date': promo.start_date,
             'expire_date': promo.expire_date,
             'max_count_of_usage': promo.max_count_of_usage,
+            'max_usage_per_user': promo.max_usage_per_user,
             'description_user': promo.description_user,
             'flag_active': promo.flag_active,
             'count_of_usage': promo.count_of_usage,
@@ -931,6 +933,65 @@ async def handle_prom_max_usage(update: Update, context: ContextTypes.DEFAULT_TY
     if is_update:
         return await ask_promotion_summary(update, context)
 
+    return await handle_prom_max_usage_user_start(update, context)
+
+
+async def handle_prom_max_usage_user_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    promotion_ = context.user_data['new_promotion']
+    is_update = promotion_['service'].get('is_update', False)
+
+    text = "Введите максимальное количество использований на одного пользователя (0 для бесконечного использования):"
+    if is_update:
+        text = f"Текущее ограничение на пользователя: {promotion_['data'].get('max_usage_per_user', 0)}\n\n" + text
+
+    keyboard = []
+    if promotion_['data'].get('max_usage_per_user') is not None:
+        keyboard.append([InlineKeyboardButton("✅ К подтверждению", callback_data='skip_to_confirm')])
+
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings',
+                                            add_back_btn=True,
+                                            postfix_for_back=PROM_CONFIRM if is_update else PROM_MAX_USAGE))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if query:
+        message = await query.edit_message_text(text, reply_markup=reply_markup)
+    else:
+        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    promotion_['service']['message_id'] = message.message_id
+
+    state = PROM_MAX_USAGE_USER
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    promotion_ = context.user_data['new_promotion']
+    try:
+        await context.bot.edit_message_reply_markup(
+            chat_id=update.effective_chat.id,
+            message_id=promotion_['service']['message_id']
+        )
+    except Exception:
+        pass
+
+    try:
+        value = int(update.effective_message.text)
+    except ValueError:
+        text = "Пожалуйста, введите целое число:"
+        await update.effective_chat.send_message(text)
+        return PROM_MAX_USAGE_USER
+
+    promotion_['data']['max_usage_per_user'] = value
+
+    is_update = promotion_['service'].get('is_update', False)
+    if is_update:
+        return await ask_promotion_summary(update, context)
+
     text = "Введите описание для пользователя (отображается на кнопке льготы или в подтверждении, например: 'Скидка 10% для многодетных'):"
     current_desc = promotion_['data'].get('description_user')
     if current_desc:
@@ -940,7 +1001,7 @@ async def handle_prom_max_usage(update: Update, context: ContextTypes.DEFAULT_TY
         [InlineKeyboardButton("Пропустить (использовать название)", callback_data='skip')],
         add_btn_back_and_cancel(postfix_for_cancel='settings',
                                 add_back_btn=True,
-                                postfix_for_back=PROM_MAX_USAGE)
+                                postfix_for_back=PROM_MAX_USAGE_USER)
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -999,6 +1060,7 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
     start_date = promo.get('start_date').strftime('%d.%m.%Y') if promo.get('start_date') else 'Нет'
     expire_date = promo.get('expire_date').strftime('%d.%m.%Y') if promo.get('expire_date') else 'Нет'
     max_usage_count = promo.get('max_count_of_usage') if promo.get('max_count_of_usage', 0) > 0 else 'Бесконечно'
+    max_usage_per_user = promo.get('max_usage_per_user') if promo.get('max_usage_per_user', 0) > 0 else 'Бесконечно'
     
     summary = (
         f"<b>{'Редактирование' if is_update else 'Проверка'} промокода</b>\n\n"
@@ -1011,9 +1073,10 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
         f"7. 📄 <b>Требовать документ:</b> {is_verify_required}\n"
         f"8. 📅 <b>Дата начала:</b> {start_date}\n"
         f"9. 📆 <b>Дата окончания:</b> {expire_date}\n"
-        f"10. ♾ <b>Лимит использований:</b> {max_usage_count}\n"
-        f"11. 💬 <b>Описание:</b> {promo.get('description_user', 'Не указано')}\n"
-        f"12. 📝 <b>Текст верификации:</b> {promo.get('verification_text', 'Не указано')}\n"
+        f"10. ♾ <b>Общий лимит:</b> {max_usage_count}\n"
+        f"11. 👤 <b>Лимит на пользователя:</b> {max_usage_per_user}\n"
+        f"12. 💬 <b>Описание:</b> {promo.get('description_user', 'Не указано')}\n"
+        f"13. 📝 <b>Текст верификации:</b> {promo.get('verification_text', 'Не указано')}\n"
     )
 
     if promo.get('type_event_ids'):
@@ -1043,10 +1106,13 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
             InlineKeyboardButton("9. Дата окончания", callback_data='prom_edit_expire_date'),
         ],
         [
-            InlineKeyboardButton("10. Лимит", callback_data='prom_edit_max_usage'),
-            InlineKeyboardButton("11. Описание", callback_data='prom_edit_desc'),
+            InlineKeyboardButton("10. Общий лимит", callback_data='prom_edit_max_usage'),
+            InlineKeyboardButton("11. Лимит на пользователя", callback_data='prom_edit_max_usage_user'),
         ],
-        [InlineKeyboardButton("12. Текст верификации", callback_data='prom_edit_vtext')],
+        [
+            InlineKeyboardButton("12. Описание", callback_data='prom_edit_desc'),
+            InlineKeyboardButton("13. Текст верификации", callback_data='prom_edit_vtext'),
+        ],
         [
             InlineKeyboardButton("🎭 Типы событий", callback_data='prom_restrict_type'),
             InlineKeyboardButton("🎬 Репертуар", callback_data='prom_restrict_theater'),

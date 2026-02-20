@@ -160,6 +160,12 @@ states = {
         CallbackQueryHandler(promotion_hl.handle_prom_desc, '^skip$'),
         MessageHandler(F_text_and_no_command, promotion_hl.handle_prom_desc),
     ],
+    67: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(promotion_hl.ask_promotion_summary, '^skip_to_confirm$'),
+        MessageHandler(F_text_and_no_command, promotion_hl.handle_prom_max_usage_user),
+    ],
     63: [  # PROM_RESTRICT_TYPE
         back_callback_handler,
         cancel_callback_handler,
@@ -193,6 +199,7 @@ states = {
         CallbackQueryHandler(promotion_hl.handle_prom_start_start, '^prom_edit_start_date$'),
         CallbackQueryHandler(promotion_hl.handle_prom_expire_start, '^prom_edit_expire_date$'),
         CallbackQueryHandler(promotion_hl.handle_prom_max_usage_start, '^prom_edit_max_usage$'),
+        CallbackQueryHandler(promotion_hl.handle_prom_max_usage_user_start, '^prom_edit_max_usage_user$'),
         CallbackQueryHandler(promotion_hl.handle_prom_desc_start, '^prom_edit_desc$'),
         # Restrictions menu
         CallbackQueryHandler(promotion_hl.open_restrict_type, '^prom_restrict_type$'),

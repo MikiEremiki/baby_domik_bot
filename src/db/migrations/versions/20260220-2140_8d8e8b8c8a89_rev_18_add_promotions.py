@@ -1,8 +1,8 @@
-"""rev_17: add promotions
+"""rev_18: add promotions
 
 Revision ID: 8d8e8b8c8a89
-Revises: a7b8c9d0e1f2
-Create Date: 2026-02-18 23:35:00.000000
+Revises: c427f0da1b22
+Create Date: 2026-02-20 21:40:00.000000
 
 """
 from alembic import op
@@ -12,7 +12,7 @@ from db import BaseModel
 
 # revision identifiers, used by Alembic.
 revision = "8d8e8b8c8a89"
-down_revision = "a7b8c9d0e1f2"
+down_revision = "c427f0da1b22"
 branch_labels = None
 depends_on = None
 
@@ -66,6 +66,7 @@ def upgrade() -> None:
         ),
         sa.Column("count_of_usage", sa.BIGINT(), nullable=False, server_default="0"),
         sa.Column("max_count_of_usage", sa.BIGINT(), nullable=False, server_default="0"),
+        sa.Column("max_usage_per_user", sa.BIGINT(), nullable=False, server_default="0"),
         sa.Column("min_purchase_sum", sa.BIGINT(), nullable=False, server_default="0"),
         sa.Column("description_user", sa.String(), nullable=True),
         sa.Column(

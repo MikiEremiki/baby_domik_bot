@@ -707,14 +707,29 @@ async def increment_promotion_usage(session: AsyncSession, promotion_id: int):
         await session.commit()
 
 
+async def get_promotion_usage_count_by_user(session: AsyncSession, promotion_id: int, user_id: int) -> int:
+    # Считаем количество успешных оплат (уникальных payment_id), где был применен этот промокод
+    query = (
+        select(func.count(func.distinct(Ticket.payment_id)))
+        .join(Ticket.user)
+        .where(
+            Ticket.promo_id == promotion_id,
+            User.user_id == user_id,
+            Ticket.status.in_([TicketStatus.PAID, TicketStatus.APPROVED])
+        )
+    )
+    result = await session.execute(query)
+    return result.scalar() or 0
+
+
 async def update_promotions_from_googlesheets(session: AsyncSession, promotions):
     # Обновляем только простые поля промоакций, ограничения по связям не загружаем из таблиц
     allowed_fields = {
         'id', 'name', 'code', 'discount', 'start_date', 'expire_date',
         'for_who_discount', 'flag_active', 'is_visible_as_option',
-        'count_of_usage', 'max_count_of_usage', 'min_purchase_sum',
-        'description_user', 'requires_verification', 'verification_text',
-        'discount_type'
+        'count_of_usage', 'max_count_of_usage', 'max_usage_per_user',
+        'min_purchase_sum', 'description_user', 'requires_verification',
+        'verification_text', 'discount_type'
     }
     for _promotion in promotions:
         dto_model = {k: v for k, v in _promotion.to_dto().items() if k in allowed_fields}
