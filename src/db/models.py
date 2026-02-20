@@ -228,7 +228,7 @@ class TypeEvent(BaseModel):
     notes: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
-        lazy='selectin')
+        back_populates='type_event', lazy='selectin')
     base_tickets: Mapped[List['BaseTicket']] = relationship(
         secondary='base_tickets_type_events',
         back_populates='type_events',
@@ -263,7 +263,7 @@ class TheaterEvent(BaseModel):
     note: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
-        lazy='selectin')
+        back_populates='theater_event', lazy='selectin')
     base_tickets: Mapped[List['BaseTicket']] = relationship(
         secondary='base_tickets_theater_events',
         back_populates='theater_events',
@@ -289,6 +289,11 @@ class ScheduleEvent(BaseModelTimed):
         ForeignKey('theater_events.id'))
     flag_turn_in_bot: Mapped[bool] = mapped_column(default=False)
     datetime_event: Mapped[datetime]
+
+    type_event: Mapped['TypeEvent'] = relationship(
+        back_populates='schedule_events', lazy='selectin')
+    theater_event: Mapped['TheaterEvent'] = relationship(
+        back_populates='schedule_events', lazy='selectin')
 
     qty_child: Mapped[int]
     qty_child_free_seat: Mapped[int]
@@ -320,6 +325,42 @@ class BaseTicketScheduleEvent(BaseModelTimed):
         ForeignKey('schedule_events.id'), primary_key=True)
 
 
+class PromotionTypeEvent(BaseModelTimed):
+    __tablename__ = 'promotions_type_events'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    type_event_id: Mapped[int] = mapped_column(
+        ForeignKey('type_events.id', ondelete='CASCADE'), primary_key=True)
+
+
+class PromotionTheaterEvent(BaseModelTimed):
+    __tablename__ = 'promotions_theater_events'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    theater_event_id: Mapped[int] = mapped_column(
+        ForeignKey('theater_events.id', ondelete='CASCADE'), primary_key=True)
+
+
+class PromotionBaseTicket(BaseModelTimed):
+    __tablename__ = 'promotions_base_tickets'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id', ondelete='CASCADE'), primary_key=True)
+
+
+class PromotionScheduleEvent(BaseModelTimed):
+    __tablename__ = 'promotions_schedule_events'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    schedule_event_id: Mapped[int] = mapped_column(
+        ForeignKey('schedule_events.id', ondelete='CASCADE'), primary_key=True)
+
+
 class Promotion(BaseModelTimed):
     __tablename__ = 'promotions'
 
@@ -331,14 +372,14 @@ class Promotion(BaseModelTimed):
     start_date: Mapped[Optional[datetime]]
     expire_date: Mapped[Optional[datetime]]
 
-    base_ticket_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('base_tickets.base_ticket_id'))
-    type_event_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('type_events.id'))
-    theater_event_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('theater_events.id'))
-    schedule_event_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('schedule_events.id'))
+    type_events: Mapped[List['TypeEvent']] = relationship(
+        secondary='promotions_type_events', lazy='selectin')
+    theater_events: Mapped[List['TheaterEvent']] = relationship(
+        secondary='promotions_theater_events', lazy='selectin')
+    base_tickets: Mapped[List['BaseTicket']] = relationship(
+        secondary='promotions_base_tickets', lazy='selectin')
+    schedule_events: Mapped[List['ScheduleEvent']] = relationship(
+        secondary='promotions_schedule_events', lazy='selectin')
 
     for_who_discount: Mapped[GroupOfPeopleByDiscountType]
     discount_type: Mapped[PromotionDiscountType] = mapped_column(

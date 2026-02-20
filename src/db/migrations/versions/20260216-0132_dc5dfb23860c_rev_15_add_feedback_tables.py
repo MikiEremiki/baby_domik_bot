@@ -1,4 +1,4 @@
-"""rev_16_add feedback tables
+"""rev_15: add feedback tables
 
 Revision ID: dc5dfb23860c
 Revises: b1c6e14dc666

@@ -1,8 +1,8 @@
-"""add_user_statuses_table
+"""rev_13: add user_statuses table
 
 Revision ID: 7a9b2c1d3e4f
 Revises: 105f2aad266f
-Create Date: 2026-02-04 18:09:00
+Create Date: 2026-02-04 18:09:12.123456
 
 """
 from alembic import op

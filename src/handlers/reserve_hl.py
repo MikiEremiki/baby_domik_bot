@@ -1638,6 +1638,48 @@ async def reset_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await show_reservation_summary(update, context)
 
 
+async def check_promo_restrictions(
+        promo: Promotion,
+        reserve_user_data: dict,
+        session
+) -> tuple[bool, str]:
+    schedule_event_id = reserve_user_data.get('chose_schedule_event_id')
+    base_ticket_id = reserve_user_data.get('chose_base_ticket_id')
+
+    if not schedule_event_id:
+        return True, ""
+
+    schedule_event = await db_postgres.get_schedule_event(session, schedule_event_id)
+    if not schedule_event:
+        return True, ""
+
+    # Проверка по типу события
+    if promo.type_events:
+        type_event_ids = [te.id for te in promo.type_events]
+        if schedule_event.type_event_id not in type_event_ids:
+            return False, "Этот промокод не действует на данный тип мероприятий."
+
+    # Проверка по репертуару (спектакли)
+    if promo.theater_events:
+        theater_event_ids = [te.id for te in promo.theater_events]
+        if schedule_event.theater_event_id not in theater_event_ids:
+            return False, "Этот промокод не действует на данный спектакль."
+
+    # Проверка по конкретным сеансам
+    if promo.schedule_events:
+        schedule_ids = [se.id for se in promo.schedule_events]
+        if schedule_event.id not in schedule_ids:
+            return False, "Этот промокод не действует на выбранный сеанс."
+
+    # Проверка по типам билетов
+    if promo.base_tickets:
+        ticket_ids = [bt.base_ticket_id for bt in promo.base_tickets]
+        if base_ticket_id not in ticket_ids:
+            return False, "Этот промокод не действует на выбранный тип билета."
+
+    return True, ""
+
+
 async def compute_discounted_price(price: int, promo: Promotion) -> int:
     if promo.discount_type == PromotionDiscountType.percentage:
         new_price = price * (100 - promo.discount) / 100
@@ -1728,6 +1770,11 @@ async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT
     for promo in promos_as_options:
         # Проверяем условия применимости (min_purchase_sum)
         if chose_price < promo.min_purchase_sum:
+            continue
+
+        # Проверяем остальные ограничения
+        is_valid, _ = await check_promo_restrictions(promo, reserve_user_data, context.session)
+        if not is_valid:
             continue
 
         btn_text = promo.description_user or promo.name or f"Льгота: {promo.code}"
@@ -1902,6 +1949,12 @@ async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_
         await update.effective_chat.send_message(f"Этот промокод действует при сумме заказа от {promo.min_purchase_sum} руб.")
         return await show_reservation_summary(update, context)
 
+    # Проверка ограничений
+    is_valid, error_msg = await check_promo_restrictions(promo, reserve_user_data, context.session)
+    if not is_valid:
+        await update.effective_chat.send_message(error_msg)
+        return await show_reservation_summary(update, context)
+
     # Применение
     discounted_price = await compute_discounted_price(chose_price, promo)
     reserve_user_data['applied_promo_id'] = promo.id
@@ -1921,6 +1974,12 @@ async def apply_option_promo(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chose_price = reserve_user_data['chose_price']
 
     if promo and promo.flag_active:
+        # Проверка ограничений
+        is_valid, error_msg = await check_promo_restrictions(promo, reserve_user_data, context.session)
+        if not is_valid:
+            await query.answer(error_msg, show_alert=True)
+            return await show_reservation_summary(update, context)
+
         discounted_price = await compute_discounted_price(chose_price, promo)
         reserve_user_data['applied_promo_id'] = promo.id
         reserve_user_data['applied_promo_code'] = promo.code

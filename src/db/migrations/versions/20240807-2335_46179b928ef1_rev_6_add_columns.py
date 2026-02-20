@@ -1,8 +1,8 @@
-"""rev_6_add_columns
+"""rev_6: add metadata columns to events
 
 Revision ID: 46179b928ef1
 Revises: c81fd135fe13
-Create Date: 2024-08-07 23:35:27.713808
+Create Date: 2024-08-07 23:35:12.123456
 
 """
 

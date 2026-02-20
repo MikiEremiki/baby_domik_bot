@@ -160,6 +160,26 @@ states = {
         CallbackQueryHandler(promotion_hl.handle_prom_desc, '^skip$'),
         MessageHandler(F_text_and_no_command, promotion_hl.handle_prom_desc),
     ],
+    63: [  # PROM_RESTRICT_TYPE
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(promotion_hl.handle_restrict_type_cb, r'^prm_rt_.*$'),
+    ],
+    64: [  # PROM_RESTRICT_THEATER
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(promotion_hl.handle_restrict_theater_cb, r'^prm_rth_.*$'),
+    ],
+    65: [  # PROM_RESTRICT_TICKET
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(promotion_hl.handle_restrict_ticket_cb, r'^prm_rbt_.*$'),
+    ],
+    66: [  # PROM_RESTRICT_SCHEDULE
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(promotion_hl.handle_restrict_schedule_cb, r'^prm_rse_.*$'),
+    ],
     62: [
         back_callback_handler,
         cancel_callback_handler,
@@ -174,6 +194,11 @@ states = {
         CallbackQueryHandler(promotion_hl.handle_prom_expire_start, '^prom_edit_expire_date$'),
         CallbackQueryHandler(promotion_hl.handle_prom_max_usage_start, '^prom_edit_max_usage$'),
         CallbackQueryHandler(promotion_hl.handle_prom_desc_start, '^prom_edit_desc$'),
+        # Restrictions menu
+        CallbackQueryHandler(promotion_hl.open_restrict_type, '^prom_restrict_type$'),
+        CallbackQueryHandler(promotion_hl.open_restrict_theater, '^prom_restrict_theater$'),
+        CallbackQueryHandler(promotion_hl.open_restrict_ticket, '^prom_restrict_ticket$'),
+        CallbackQueryHandler(promotion_hl.open_restrict_schedule, '^prom_restrict_schedule$'),
         CallbackQueryHandler(promotion_hl.promotion_confirm_save, '^accept$'),
     ],
 }

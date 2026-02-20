@@ -1,4 +1,4 @@
-"""add bot_settings table
+"""rev_11: add bot_settings table
 
 Revision ID: e7135eecdea0
 Revises: cedbea3f6c04
