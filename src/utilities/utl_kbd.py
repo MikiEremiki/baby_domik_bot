@@ -404,7 +404,7 @@ def create_kbd_with_number_btn(qty_btn):
 
 
 
-def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
+def create_kbd_edit_children(children, page=0, selected_children=None, limit=1, current_filter='PHONE', is_admin=False, show_filters=False):
     """
     Создает клавиатуру для редактирования и выбора детей.
     """
@@ -412,6 +412,19 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
         selected_children = []
 
     keyboard = []
+
+    # Кнопки фильтрации
+    if show_filters or len(children) >= 10 or is_admin:
+        btn_filter_phone = InlineKeyboardButton(
+            ("✅ " if current_filter == 'PHONE' else "") + "📍 Дети по тел.",
+            callback_data="CHLD_FLTR|PHONE"
+        )
+        btn_filter_my = InlineKeyboardButton(
+            ("✅ " if current_filter == 'MY' else "") + "👥 Все дети",
+            callback_data="CHLD_FLTR|MY"
+        )
+        keyboard.append([btn_filter_phone, btn_filter_my])
+
     items_per_page = 10
     start = page * items_per_page
     end = start + items_per_page
@@ -419,26 +432,27 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
     page_children = children[start:end]
 
     for i, child in enumerate(page_children):
-        actual_index = start + i
         name = child[0]
         age = int(child[1])
         person_id = child[2]
 
-        is_selected = actual_index in selected_children
-        mark = "✅" if is_selected else "☐"
+        is_selected = person_id in selected_children
+        
+        # Если нужно выбрать 2 и более детей: отображается статус выбора («☑️» или «◻️»)
+        if limit >= 2:
+            mark = "☑️" if is_selected else "◻️"
+            btn_text = f"{mark} {name} {age}"
+        else:
+            btn_text = f"{name} {age}"
 
         keyboard.append([
             InlineKeyboardButton(
-                mark,
-                callback_data=f"CHLD_SEL|{actual_index}"
+                btn_text,
+                callback_data=f"CHLD_SEL|{person_id}"
             ),
             InlineKeyboardButton(
-                f"{name} {age}",
-                callback_data=f"CHLD_EDIT_ONE|{actual_index}"
-            ),
-            InlineKeyboardButton(
-                "❌",
-                callback_data=f"CHLD_DEL|{person_id}"
+                "📝 изм.",
+                callback_data=f"CHLD_EDIT_ONE|{person_id}"
             )
         ])
 
@@ -463,7 +477,7 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
         callback_data="CHLD_ADD")])
 
     # Кнопка подтверждения
-    if len(selected_children) == limit:
+    if len(selected_children) == limit and limit >= 2:
         keyboard.append([InlineKeyboardButton(
             "Подтвердить выбор",
             callback_data="CHLD_CONFIRM")])

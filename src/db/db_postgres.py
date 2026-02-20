@@ -91,6 +91,18 @@ async def get_phone(session: AsyncSession, user_id):
     return phone or None
 
 
+async def count_adult_phones(session: AsyncSession, user_id: int) -> int:
+    """
+    Возвращает количество уникальных телефонов взрослых, добавленных пользователем.
+    """
+    result = await session.execute(
+        select(func.count(func.distinct(Adult.phone)))
+        .join(Person, Adult.person_id == Person.id)
+        .where(Person.user_id == user_id, Adult.phone.is_not(None))
+    )
+    return result.scalar() or 0
+
+
 async def get_adult_name(session: AsyncSession, user_id):
     """
     Возвращает последнее введенное имя взрослого пользователя, если оно есть.
@@ -167,9 +179,12 @@ async def get_adult_person_id_by_phone(session: AsyncSession, phone: str):
     Возвращает ID Person для взрослого по его номеру телефона.
     """
     res = await session.execute(
-        select(Person.id).join(Adult).where(Adult.phone == phone)
+        select(Person.id)
+        .join(Adult)
+        .where(Adult.phone == phone)
+        .order_by(Person.id.desc())
     )
-    return res.scalar_one_or_none()
+    return res.scalars().first()
 
 
 async def create_people(
