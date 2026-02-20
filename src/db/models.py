@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint
+from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -38,7 +38,7 @@ class Person(BaseModelTimed):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[Optional[str]]
-    age_type: Mapped[AgeType]
+    age_type: Mapped[AgeType] = mapped_column(Enum(AgeType, name='age_type'))
 
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
@@ -197,7 +197,7 @@ class Ticket(BaseModelTimed):
     base_ticket_id: Mapped[int] = mapped_column(
         ForeignKey('base_tickets.base_ticket_id'))
     price: Mapped[int]
-    status: Mapped[TicketStatus]
+    status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus, name='ticket_status'))
     notes: Mapped[Optional[str]]
     reminded_1d_at: Mapped[Optional[datetime]]
     is_admin_notified: Mapped[bool] = mapped_column(default=False)
@@ -259,7 +259,7 @@ class TheaterEvent(BaseModel):
     max_num_child_bd: Mapped[int] = mapped_column(default=8)
     max_num_adult_bd: Mapped[int] = mapped_column(default=10)
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
-    price_type: Mapped[PriceType] = mapped_column(default=PriceType.NONE)
+    price_type: Mapped[PriceType] = mapped_column(Enum(PriceType, name='price_type'), default=PriceType.NONE)
     note: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
@@ -307,6 +307,7 @@ class ScheduleEvent(BaseModelTimed):
     flag_santa: Mapped[bool] = mapped_column(default=False)
 
     ticket_price_type: Mapped[TicketPriceType] = mapped_column(
+        Enum(TicketPriceType, name='ticket_price_type'),
         default=TicketPriceType.NONE)
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
@@ -381,8 +382,11 @@ class Promotion(BaseModelTimed):
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
         secondary='promotions_schedule_events', lazy='selectin')
 
-    for_who_discount: Mapped[GroupOfPeopleByDiscountType]
+    for_who_discount: Mapped[GroupOfPeopleByDiscountType] = mapped_column(
+        Enum(GroupOfPeopleByDiscountType, name='group_of_people_by_discount_type')
+    )
     discount_type: Mapped[PromotionDiscountType] = mapped_column(
+        Enum(PromotionDiscountType, name='promotion_discount_type'),
         default=PromotionDiscountType.fixed)
 
     flag_active: Mapped[bool] = mapped_column(default=True)
@@ -424,7 +428,7 @@ class CustomMadeEvent(BaseModelTimed):
     phone: Mapped[str]
     note: Mapped[Optional[str]]
 
-    status: Mapped[CustomMadeStatus]
+    status: Mapped[CustomMadeStatus] = mapped_column(Enum(CustomMadeStatus, name='custom_made_status'))
 
     user_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('users.user_id', ondelete='CASCADE'))
@@ -557,7 +561,8 @@ class UserStatus(BaseModelTimed):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
 
-    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name='user_role'), default=UserRole.USER)
     is_blocked_by_user: Mapped[bool] = mapped_column(default=False)
     is_blacklisted: Mapped[bool] = mapped_column(default=False)
 
