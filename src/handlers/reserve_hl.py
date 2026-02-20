@@ -1339,10 +1339,8 @@ async def _finish_get_children(
             result = await decrease_free_seat(
                 context, schedule_event_id, chose_base_ticket_id)
             if not result:
-                for t_id in ticket_ids:
-                    await update_ticket_db_and_gspread(context,
-                                                       t_id,
-                                                       status=TicketStatus.CANCELED)
+                await update_ticket_db_and_gspread(
+                    context, ticket_id, status=TicketStatus.CANCELED)
                 text += ('\nНе уменьшились свободные места'
                          '\nНовый билет отменен'
                          '\nНеобходимо повторить резервирование заново')
@@ -1353,9 +1351,6 @@ async def _finish_get_children(
                     reserve_hl_logger.info(text)
                 await clean_context_on_end_handler(reserve_hl_logger, context)
                 return ConversationHandler.END
-
-            await update_ticket_db_and_gspread(
-                context, ticket_id, status=TicketStatus.PAID)
 
         text += '\nПоследняя проверка...'
         try:
