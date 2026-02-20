@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from db import db_postgres
 from db.enum import PromotionDiscountType, GroupOfPeopleByDiscountType
-from handlers.support_hl import send_settings_menu
+from handlers.support_hl import choice_db_settings
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import create_kbd_confirm, add_btn_back_and_cancel
 from db import db_postgres
@@ -1659,4 +1659,4 @@ async def promotion_confirm_save(update: Update, context: ContextTypes.DEFAULT_T
         logger.exception(f"Ошибка при сохранении промокода: {e}")
         await query.answer(f"Ошибка при сохранении: {e}", show_alert=True)
         
-    return await send_settings_menu(update, context, 'promotion')
+    return await choice_db_settings(update, context)

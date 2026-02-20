@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from db import db_postgres
 from db.enum import TicketPriceType
-from handlers.support_hl import send_settings_menu
+from handlers.support_hl import choice_db_settings
 from utilities.utl_kbd import add_btn_back_and_cancel
 from utilities.utl_func import set_back_context
 
@@ -1036,5 +1036,5 @@ async def handle_confirm_save(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer(f'Ошибка: {e}', show_alert=True)
         return SCH_CONFIRM
 
-    # Возврат в меню настроек Расписания
-    return await send_settings_menu(update, context, 'schedule_event')
+    # Возврат в меню настроек
+    return await choice_db_settings(update, context)

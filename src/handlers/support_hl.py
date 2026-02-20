@@ -214,6 +214,7 @@ async def send_settings_menu(
         await query.answer()
     except BadRequest:
         pass
+
     reply_markup = create_kbd_crud(pre_name_crud)
 
     text = 'Выберите что хотите настроить'
@@ -943,13 +944,8 @@ async def promotion_create(
     context.user_data.pop('promotion')
     await query.answer()
     if res:
-        text = f"{promotion['code']}\nУспешно добавлено"
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
-
-        state = 3
-        await set_back_context(context, state, text, reply_markup)
-        context.user_data['STATE'] = state
-        return state
+        await query.answer(f"{promotion['code']} — успешно добавлено")
+        return await choice_db_settings(update, context)
     else:
         text = 'Попробуйте еще раз или обратитесь в тех поддержку'
         await query.edit_message_text(text)
@@ -973,13 +969,8 @@ async def theater_event_create(
     context.user_data.pop('theater_event')
     await query.answer()
     if res:
-        text = f'{theater_event["name"]}\nУспешно добавлено'
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
-
-        state = 3
-        await set_back_context(context, state, text, reply_markup)
-        context.user_data['STATE'] = state
-        return state
+        await query.answer(f"{theater_event['name']} — успешно добавлено")
+        return await choice_db_settings(update, context)
     else:
         text = 'Попробуйте еще раз или обратитесь в тех поддержку'
         await query.edit_message_text(text)
@@ -1004,16 +995,11 @@ async def schedule_event_create(
     await query.answer()
     if res:
         # Получаю элемент репертуара, так как название есть только в репертуаре
-        res = await db_postgres.get_theater_event(
+        the = await db_postgres.get_theater_event(
             context.session,
             schedule_event['theater_event_id'])
-        text = f'{res.name}\nУспешно добавлено'
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
-
-        state = 3
-        await set_back_context(context, state, text, reply_markup)
-        context.user_data['STATE'] = state
-        return state
+        await query.answer(f"{the.name} — успешно добавлено")
+        return await choice_db_settings(update, context)
     else:
         text = 'Попробуйте еще раз или обратитесь в тех поддержку'
         await query.edit_message_text(text)
