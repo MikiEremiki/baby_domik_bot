@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Collection, List
 
-from sqlalchemy import select, func, DATE, and_, delete
+from sqlalchemy import select, func, DATE, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, Mapped
 
@@ -458,17 +458,24 @@ async def create_schedule_event(
         flag_turn_in_bot,
         datetime_event,
         qty_child=0,
-        qty_child_free_seat=0,
+        qty_child_free_seat=None,
         qty_child_nonconfirm_seat=0,
         qty_adult=0,
-        qty_adult_free_seat=0,
+        qty_adult_free_seat=None,
         qty_adult_nonconfirm_seat=0,
         flag_gift=False,
         flag_christmas_tree=False,
         flag_santa=False,
         ticket_price_type=TicketPriceType.NONE,
         schedule_event_id=None,
+        base_ticket_ids: list[int] | None = None,
 ):
+    # Автоинициализация свободных мест, если не заданы явно
+    if qty_child_free_seat is None:
+        qty_child_free_seat = qty_child
+    if qty_adult_free_seat is None:
+        qty_adult_free_seat = qty_adult
+
     schedule_event = ScheduleEvent(
         id=schedule_event_id,
         type_event_id=type_event_id,
@@ -486,6 +493,14 @@ async def create_schedule_event(
         flag_santa=flag_santa,
         ticket_price_type=ticket_price_type,
     )
+
+    # Привязка базовых билетов (Many-to-Many) при наличии
+    if base_ticket_ids:
+        res = await session.execute(
+            select(BaseTicket).where(BaseTicket.base_ticket_id.in_(base_ticket_ids))
+        )
+        schedule_event.base_tickets = list(res.scalars().all())
+
     session.add(schedule_event)
     await session.commit()
     return schedule_event
@@ -653,20 +668,37 @@ async def get_all_base_tickets(session: AsyncSession):
     return result.scalars().all()
 
 
+async def get_all_base_tickets_actual(session: AsyncSession):
+    query = select(BaseTicket).where(BaseTicket.flag_active == True).order_by(BaseTicket.base_ticket_id)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 async def get_all_theater_events(session: AsyncSession):
     query = select(TheaterEvent)
     result = await session.execute(query)
     return result.scalars().all()
 
 
+async def get_all_theater_events_actual(session: AsyncSession):
+    query = select(TheaterEvent).where(
+        or_(TheaterEvent.flag_active_repertoire == True, TheaterEvent.flag_active_bd == True)
+    )
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 async def get_all_type_events(session: AsyncSession):
-    query = select(TypeEvent)
+    query = select(TypeEvent).order_by(TypeEvent.id)
     result = await session.execute(query)
     return result.scalars().all()
 
 
 async def get_all_schedule_events(session: AsyncSession):
-    query = select(ScheduleEvent)
+    query = select(ScheduleEvent).options(
+        selectinload(ScheduleEvent.theater_event),
+        selectinload(ScheduleEvent.type_event)
+    )
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -674,7 +706,34 @@ async def get_all_schedule_events(session: AsyncSession):
 async def get_all_schedule_events_actual(session: AsyncSession):
     query = select(ScheduleEvent).where(
         ScheduleEvent.datetime_event >= datetime.now()
-    ).options(selectinload(ScheduleEvent.theater_event)).order_by(ScheduleEvent.datetime_event)
+    ).options(
+        selectinload(ScheduleEvent.theater_event),
+        selectinload(ScheduleEvent.type_event)
+    ).order_by(ScheduleEvent.datetime_event)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_schedule_events_filtered(
+        session: AsyncSession,
+        actual_only: bool = True,
+        type_id: int | str | None = None,
+        month: int | str | None = None
+):
+    query = select(ScheduleEvent).options(
+        selectinload(ScheduleEvent.theater_event),
+        selectinload(ScheduleEvent.type_event)
+    )
+    if actual_only:
+        query = query.where(ScheduleEvent.datetime_event >= datetime.now())
+
+    if type_id and type_id != 'all':
+        query = query.where(ScheduleEvent.type_event_id == int(type_id))
+
+    if month and month != 'all':
+        query = query.where(func.extract('month', ScheduleEvent.datetime_event) == int(month))
+
+    query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -739,6 +798,15 @@ async def update_promotions_from_googlesheets(session: AsyncSession, promotions)
 
 async def get_all_promotions(session: AsyncSession):
     query = select(Promotion).order_by(Promotion.id)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_all_promotions_actual(session: AsyncSession):
+    query = select(Promotion).where(
+        Promotion.flag_active == True,
+        or_(Promotion.expire_date == None, Promotion.expire_date >= datetime.now())
+    ).order_by(Promotion.id)
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -1014,9 +1082,20 @@ async def update_schedule_event(
         **kwargs
 ):
     schedule_event = await session.get(ScheduleEvent, schedule_event_id)
+
+    base_ticket_ids = kwargs.pop('base_ticket_ids', None)
     for key, value in kwargs.items():
         setattr(schedule_event, key, value)
+
+    if base_ticket_ids is not None:
+        if base_ticket_ids:
+            res = await session.execute(select(BaseTicket).where(BaseTicket.base_ticket_id.in_(base_ticket_ids)))
+            schedule_event.base_tickets = list(res.scalars().all())
+        else:
+            schedule_event.base_tickets = []
+
     await session.commit()
+    await session.refresh(schedule_event)
     return schedule_event
 
 

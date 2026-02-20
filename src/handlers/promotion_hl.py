@@ -190,7 +190,8 @@ async def handle_prom_name_start(update: Update, context: ContextTypes.DEFAULT_T
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
     current_name = promotion_['data'].get('name', 'Не указано')
 
     text = f"Введите название акции (текущее: '{current_name}'):" if is_update else "Введите название акции:"
@@ -208,7 +209,13 @@ async def handle_prom_name_start(update: Update, context: ContextTypes.DEFAULT_T
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
     state = PROM_NAME
@@ -219,13 +226,12 @@ async def handle_prom_name_start(update: Update, context: ContextTypes.DEFAULT_T
 
 async def handle_prom_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
+    # Удаляем сообщение пользователя
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
+        await update.effective_message.delete()
     except Exception:
         pass
 
@@ -256,8 +262,13 @@ async def handle_prom_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
-    promotion_['service']['message_id'] = message.message_id
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=service['message_id'],
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
     state = PROM_CODE
     await set_back_context(context, state, text, reply_markup)
@@ -270,7 +281,8 @@ async def handle_prom_code_start(update: Update, context: ContextTypes.DEFAULT_T
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = (f"Введите промокод\n"
             f"<i>(буквы, цифры, символы '_' и '-'. без пробелов, например:</i>\n"
@@ -297,7 +309,14 @@ async def handle_prom_code_start(update: Update, context: ContextTypes.DEFAULT_T
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_CODE
@@ -308,14 +327,13 @@ async def handle_prom_code_start(update: Update, context: ContextTypes.DEFAULT_T
 
 async def handle_prom_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
     current_id = promotion_['data'].get('id')
 
+    # Удаляем сообщение пользователя
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
+        await update.effective_message.delete()
     except Exception:
         pass
 
@@ -324,7 +342,14 @@ async def handle_prom_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверка на уникальность кода
     existing = await db_postgres.get_promotion_by_code(context.session, code)
     if existing and existing.id != current_id:
-        await update.effective_chat.send_message(f"Промокод '{code}' уже существует. Введите другой:")
+        text_err = f"Ошибка! Промокод '{code}' уже существует. Введите другой:"
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_NAME)]
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text_err,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return PROM_CODE
 
     promotion_['data']['code'] = code
@@ -354,7 +379,8 @@ async def generate_prom_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def ask_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Выберите тип скидки:"
     current_type = promotion_['data'].get('discount_type')
@@ -377,11 +403,17 @@ async def ask_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     if update.callback_query:
-        message = await update.callback_query.message.reply_text(text, reply_markup=reply_markup)
+        message = await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        message = update.effective_message
 
-    promotion_ = context.user_data['new_promotion']
     promotion_['service']['message_id'] = message.message_id
     state = PROM_DTYPE
     await set_back_context(context, state, text, reply_markup)
@@ -394,6 +426,7 @@ async def handle_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     dtype = query.data
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
     promotion_['data']['discount_type'] = PromotionDiscountType(dtype)
     
     current_val = promotion_['data'].get('discount')
@@ -408,7 +441,7 @@ async def handle_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text += f" (текущее: {current_val} ₽)"
         text += ":"
         
-    await query.edit_message_text(text)
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_DTYPE)]))
     
     state = PROM_VALUE
     await set_back_context(context, state, text, None)
@@ -417,11 +450,12 @@ async def handle_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
+
+    # Удаляем сообщение пользователя
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
+        await update.effective_message.delete()
     except Exception:
         pass
 
@@ -431,13 +465,18 @@ async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not (1 <= value <= 100):
                 raise ValueError
     except ValueError:
-        text = "Пожалуйста, введите корректное число:"
-        await update.effective_chat.send_message(text)
+        text_err = "Ошибка! Пожалуйста, введите корректное число (для % от 1 до 100):"
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_DTYPE)]
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text_err,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return PROM_VALUE
         
     promotion_['data']['discount'] = value
     
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
 
@@ -446,11 +485,18 @@ async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if current_min_sum is not None:
         text = f"Текущая сумма: {current_min_sum}\n\n" + text
 
-    message = await update.effective_chat.send_message(text)
-    promotion_['service']['message_id'] = message.message_id
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_VALUE)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=service['message_id'],
+        text=text,
+        reply_markup=reply_markup
+    )
     
     state = PROM_MIN_SUM
-    await set_back_context(context, state, text, None)
+    await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
@@ -460,7 +506,8 @@ async def handle_prom_min_sum_start(update: Update, context: ContextTypes.DEFAUL
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Введите минимальную сумму заказа, при которой сработает промокод (0 если ограничений нет):"
     if is_update:
@@ -478,7 +525,13 @@ async def handle_prom_min_sum_start(update: Update, context: ContextTypes.DEFAUL
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_MIN_SUM
@@ -489,24 +542,30 @@ async def handle_prom_min_sum_start(update: Update, context: ContextTypes.DEFAUL
 
 async def handle_prom_min_sum(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
+
+    # Удаляем сообщение пользователя
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
+        await update.effective_message.delete()
     except Exception:
         pass
 
     try:
         value = int(update.effective_message.text)
     except ValueError:
-        text = "Пожалуйста, введите корректное число:"
-        await update.effective_chat.send_message(text)
+        text_err = "Ошибка! Пожалуйста, введите корректное целое число для мин. суммы:"
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_VALUE)]
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text_err,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return PROM_MIN_SUM
         
     promotion_['data']['min_purchase_sum'] = value
     
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
 
@@ -527,8 +586,13 @@ async def handle_prom_min_sum(update: Update, context: ContextTypes.DEFAULT_TYPE
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
-    promotion_['service']['message_id'] = message.message_id
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=service['message_id'],
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
     
     state = PROM_VISIBLE
     await set_back_context(context, state, text, reply_markup)
@@ -541,7 +605,8 @@ async def handle_prom_visible_start(update: Update, context: ContextTypes.DEFAUL
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Показывать этот промокод как кнопку выбора льготы для пользователя?"
     current_visible = promotion_['data'].get('is_visible_as_option')
@@ -566,7 +631,14 @@ async def handle_prom_visible_start(update: Update, context: ContextTypes.DEFAUL
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_VISIBLE
@@ -617,7 +689,8 @@ async def handle_prom_verify_start(update: Update, context: ContextTypes.DEFAULT
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Требовать подтверждение статуса (загрузку документа) от пользователя?"
     current_verify = promotion_['data'].get('requires_verification')
@@ -642,7 +715,14 @@ async def handle_prom_verify_start(update: Update, context: ContextTypes.DEFAULT
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_VERIFY
@@ -672,7 +752,8 @@ async def handle_prom_vtext_start(update: Update, context: ContextTypes.DEFAULT_
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Введите текст, который будет выводиться пользователю при запросе документов (или нажмите 'Пропустить'):"
     current_vtext = promotion_['data'].get('verification_text')
@@ -693,7 +774,14 @@ async def handle_prom_vtext_start(update: Update, context: ContextTypes.DEFAULT_
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
+
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_VTEXT
@@ -704,13 +792,8 @@ async def handle_prom_vtext_start(update: Update, context: ContextTypes.DEFAULT_
 
 async def handle_prom_vtext(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
-    try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
-    except Exception:
-        pass
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     if update.callback_query:
         query = update.callback_query
@@ -722,9 +805,13 @@ async def handle_prom_vtext(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             return PROM_VTEXT
     else:
+        # Удаляем сообщение пользователя
+        try:
+            await update.effective_message.delete()
+        except Exception:
+            pass
         promotion_['data']['verification_text'] = update.effective_message.text
 
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
 
@@ -736,7 +823,8 @@ async def handle_prom_start_start(update: Update, context: ContextTypes.DEFAULT_
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Введите дату начала действия промокода в формате ДД.ММ.ГГГГ (или нажмите кнопку 'Пропустить'):"
     if is_update and promotion_['data'].get('start_date'):
@@ -756,7 +844,14 @@ async def handle_prom_start_start(update: Update, context: ContextTypes.DEFAULT_
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
+
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_START
@@ -767,24 +862,36 @@ async def handle_prom_start_start(update: Update, context: ContextTypes.DEFAULT_
 
 async def handle_prom_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
+
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        await query.edit_message_reply_markup()
         if query.data == 'skip':
             promotion_['data']['start_date'] = None
         else:
             return PROM_START # Не должно случаться при корректном UI
     else:
+        # Удаляем сообщение пользователя
+        try:
+            await update.effective_message.delete()
+        except Exception:
+            pass
         try:
             date_str = update.effective_message.text
             promotion_['data']['start_date'] = datetime.strptime(date_str, '%d.%m.%Y')
         except ValueError:
-            text = "Неверный формат даты. Используйте ДД.ММ.ГГГГ или пропустите:"
-            await update.effective_chat.send_message(text)
+            text_err = "Ошибка! Неверный формат даты. Используйте ДД.ММ.ГГГГ или пропустите:"
+            keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_VTEXT)]
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=service['message_id'],
+                text=text_err,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return PROM_START
 
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
             
@@ -801,7 +908,12 @@ async def handle_prom_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=service['message_id'],
+        text=text,
+        reply_markup=reply_markup
+    )
     
     state = PROM_EXPIRE
     await set_back_context(context, state, text, reply_markup)
@@ -814,7 +926,8 @@ async def handle_prom_expire_start(update: Update, context: ContextTypes.DEFAULT
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Введите дату окончания действия промокода в формате ДД.ММ.ГГГГ (или нажмите кнопку 'Пропустить'):"
     if is_update and promotion_['data'].get('expire_date'):
@@ -834,7 +947,14 @@ async def handle_prom_expire_start(update: Update, context: ContextTypes.DEFAULT
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
+
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_EXPIRE
@@ -845,24 +965,36 @@ async def handle_prom_expire_start(update: Update, context: ContextTypes.DEFAULT
 
 async def handle_prom_expire(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
+
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        await query.edit_message_reply_markup()
         if query.data == 'skip':
             promotion_['data']['expire_date'] = None
         else:
             return PROM_EXPIRE
     else:
+        # Удаляем сообщение пользователя
+        try:
+            await update.effective_message.delete()
+        except Exception:
+            pass
         try:
             date_str = update.effective_message.text
             promotion_['data']['expire_date'] = datetime.strptime(date_str, '%d.%m.%Y')
         except ValueError:
-            text = "Неверный формат даты. Используйте ДД.ММ.ГГГГ или пропустите:"
-            await update.effective_chat.send_message(text)
+            text_err = "Ошибка! Неверный формат даты. Используйте ДД.ММ.ГГГГ или пропустите:"
+            keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_START)]
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=service['message_id'],
+                text=text_err,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return PROM_EXPIRE
 
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
 
@@ -871,7 +1003,15 @@ async def handle_prom_expire(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if current_max_usage is not None:
         text = f"Текущее ограничение: {current_max_usage}\n\n" + text
 
-    await update.effective_chat.send_message(text)
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_EXPIRE)]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=service['message_id'],
+        text=text,
+        reply_markup=reply_markup
+    )
     
     state = PROM_MAX_USAGE
     context.user_data['STATE'] = state
@@ -912,24 +1052,30 @@ async def handle_prom_max_usage_start(update: Update, context: ContextTypes.DEFA
 
 async def handle_prom_max_usage(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
+
+    # Удаляем сообщение пользователя
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
+        await update.effective_message.delete()
     except Exception:
         pass
 
     try:
         value = int(update.effective_message.text)
     except ValueError:
-        text = "Пожалуйста, введите целое число:"
-        await update.effective_chat.send_message(text)
+        text_err = "Ошибка! Пожалуйста, введите целое число для макс. использования:"
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_EXPIRE)]
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text_err,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return PROM_MAX_USAGE
         
     promotion_['data']['max_count_of_usage'] = value
     
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
 
@@ -942,7 +1088,8 @@ async def handle_prom_max_usage_user_start(update: Update, context: ContextTypes
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Введите максимальное количество использований на одного пользователя (0 для бесконечного использования):"
     if is_update:
@@ -960,7 +1107,14 @@ async def handle_prom_max_usage_user_start(update: Update, context: ContextTypes
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
+
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_MAX_USAGE_USER
@@ -971,24 +1125,30 @@ async def handle_prom_max_usage_user_start(update: Update, context: ContextTypes
 
 async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
+
+    # Удаляем сообщение пользователя
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
+        await update.effective_message.delete()
     except Exception:
         pass
 
     try:
         value = int(update.effective_message.text)
     except ValueError:
-        text = "Пожалуйста, введите целое число:"
-        await update.effective_chat.send_message(text)
+        text_err = "Ошибка! Пожалуйста, введите целое число для макс. использования пользователем:"
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_MAX_USAGE)]
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text_err,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return PROM_MAX_USAGE_USER
 
     promotion_['data']['max_usage_per_user'] = value
 
-    is_update = promotion_['service'].get('is_update', False)
     if is_update:
         return await ask_promotion_summary(update, context)
 
@@ -1005,8 +1165,12 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
-    promotion_['service']['message_id'] = message.message_id
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=service['message_id'],
+        text=text,
+        reply_markup=reply_markup
+    )
     
     state = PROM_DESC
     await set_back_context(context, state, text, reply_markup)
@@ -1019,7 +1183,8 @@ async def handle_prom_desc_start(update: Update, context: ContextTypes.DEFAULT_T
         await query.answer()
 
     promotion_ = context.user_data['new_promotion']
-    is_update = promotion_['service'].get('is_update', False)
+    service = promotion_['service']
+    is_update = service.get('is_update', False)
 
     text = "Введите описание для пользователя (отображается на кнопке льготы или в подтверждении, например: 'Скидка 10% для многодетных'):"
     if is_update:
@@ -1039,7 +1204,13 @@ async def handle_prom_desc_start(update: Update, context: ContextTypes.DEFAULT_T
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_DESC
@@ -1131,9 +1302,14 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
     if update.callback_query:
         message = await update.callback_query.edit_message_text(summary, reply_markup=reply_markup)
     else:
-        message = await update.effective_chat.send_message(summary, reply_markup=reply_markup)
-    
-    promotion_['service']['message_id'] = message.message_id
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=promotion_['service']['message_id'],
+            text=summary,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        message = update.effective_message # Здесь нам не нужно обновлять message_id, он уже есть
     state = PROM_CONFIRM
     await set_back_context(context, state, summary, reply_markup)
     context.user_data['STATE'] = state
@@ -1142,13 +1318,7 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def handle_prom_desc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
-    try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id']
-        )
-    except Exception:
-        pass
+    service = promotion_['service']
 
     if update.callback_query:
         query = update.callback_query
@@ -1160,6 +1330,11 @@ async def handle_prom_desc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             return PROM_DESC
     else:
+        # Удаляем сообщение пользователя
+        try:
+            await update.effective_message.delete()
+        except Exception:
+            pass
         promotion_['data']['description_user'] = update.effective_message.text
 
     return await ask_promotion_summary(update, context)
@@ -1173,7 +1348,9 @@ async def _render_multi_select(update: Update,
                                page: int,
                                per_page: int,
                                prefix: str,
-                               label_getter) -> None:
+                               label_getter,
+                               btn_label_getter=None) -> None:
+    service = context.user_data.get('new_promotion', {}).get('service', {})
     total = len(items)
     pages = max(1, (total + per_page - 1) // per_page)
     page = max(0, min(page, pages - 1))
@@ -1181,21 +1358,43 @@ async def _render_multi_select(update: Update,
     end = start + per_page
     subset = items[start:end]
 
-    keyboard = []
+    text = 'Выберите элементы:\n\n'
+    item_buttons = []
     for it in subset:
         it_id = getattr(it, 'id', getattr(it, 'base_ticket_id', None))
         mark = '✅' if it_id in selected_ids else '▫️'
         label = label_getter(it)
-        keyboard.append([
-            InlineKeyboardButton(f"{mark} {label}", callback_data=f"{prefix}_t_{it_id}_{page}")
-        ])
+        text += f"• {label}\n"
+        
+        if btn_label_getter:
+            btn_text = f"{mark} {btn_label_getter(it)}"
+        else:
+            btn_text = f"{mark} ID {it_id}"
+            
+        item_buttons.append(
+            InlineKeyboardButton(btn_text, callback_data=f"{prefix}_t_{it_id}_{page}")
+        )
+
+    keyboard = []
+    # Ряд кнопок элементов (по 3 в ряд)
+    for i in range(0, len(item_buttons), 3):
+        keyboard.append(item_buttons[i:i + 3])
 
     nav_row = []
-    if page > 0:
-        nav_row.append(InlineKeyboardButton('⬅️ Назад', callback_data=f"{prefix}_p_{page-1}"))
-    if end < total:
-        nav_row.append(InlineKeyboardButton('Вперед ➡️', callback_data=f"{prefix}_p_{page+1}"))
-    if nav_row:
+    if pages > 1:
+        # ⏮ - в начало
+        nav_row.append(InlineKeyboardButton('⏮', callback_data=f'{prefix}_p_0'))
+        # ◀️ - назад
+        prev_p = max(0, page - 1)
+        nav_row.append(InlineKeyboardButton('◀️', callback_data=f'{prefix}_p_{prev_p}'))
+        # Инфо
+        nav_row.append(InlineKeyboardButton(f'{page + 1}/{pages}', callback_data=f'{prefix}_page_info'))
+        # ▶️ - вперед
+        next_p = min(pages - 1, page + 1)
+        nav_row.append(InlineKeyboardButton('▶️', callback_data=f'{prefix}_p_{next_p}'))
+        # ⏭ - в конец
+        nav_row.append(InlineKeyboardButton('⏭', callback_data=f'{prefix}_p_{pages - 1}'))
+        
         keyboard.append(nav_row)
 
     keyboard.append([
@@ -1203,13 +1402,25 @@ async def _render_multi_select(update: Update,
     ])
     keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='62'))
 
+    # Инфо о страницах
+    text += f'\nСтраница {page + 1} из {pages}'
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
-        await update.callback_query.edit_message_reply_markup(reply_markup)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await update.effective_chat.send_message('Выберите элементы', reply_markup=reply_markup)
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
 
+
+def _get_type_labels(it):
+    short_name = it.name_alias or it.name
+    if short_name == 'П': short_name = 'Р'
+    return f"ID {it.id}: {it.name} ({short_name})", f"ID {it.id} ({short_name})"
 
 # ---- TypeEvent restrictions ----
 async def open_restrict_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1224,7 +1435,8 @@ async def open_restrict_type(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await _render_multi_select(
         update, context, items, selected, page=0, per_page=10,
         prefix='prm_rt',
-        label_getter=lambda x: f"#{x.id} {x.name}"
+        label_getter=lambda x: _get_type_labels(x)[0],
+        btn_label_getter=lambda x: _get_type_labels(x)[1]
     )
     state = PROM_RESTRICT_TYPE
     await set_back_context(context, state, 'restrict_type', None)
@@ -1249,12 +1461,20 @@ async def handle_restrict_type_cb(update: Update, context: ContextTypes.DEFAULT_
             selected.append(it_id)
         data['type_event_ids'] = selected
         items = await db_postgres.get_all_type_events(context.session)
-        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rt', lambda x: f"#{x.id} {x.name}")
+        await _render_multi_select(
+            update, context, items, selected, page, 10, 'prm_rt',
+            label_getter=lambda x: _get_type_labels(x)[0],
+            btn_label_getter=lambda x: _get_type_labels(x)[1]
+        )
         return PROM_RESTRICT_TYPE
     elif query.data.startswith('prm_rt_p_'):
         page = int(parts[3])
         items = await db_postgres.get_all_type_events(context.session)
-        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rt', lambda x: f"#{x.id} {x.name}")
+        await _render_multi_select(
+            update, context, items, selected, page, 10, 'prm_rt',
+            label_getter=lambda x: _get_type_labels(x)[0],
+            btn_label_getter=lambda x: _get_type_labels(x)[1]
+        )
         return PROM_RESTRICT_TYPE
     else:  # done
         return await ask_promotion_summary(update, context)

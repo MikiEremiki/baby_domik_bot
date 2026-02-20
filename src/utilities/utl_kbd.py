@@ -291,25 +291,26 @@ async def create_kbd_with_months(months):
     return keyboard
 
 
-def create_kbd_crud(name: str):
+def create_kbd_crud(name: str, add_only: bool = False):
     button_create = InlineKeyboardButton(text='Добавить',
                                          callback_data=f'{name}_create')
-    button_update = InlineKeyboardButton(text='Изменить',
-                                         callback_data=f'{name}_update')
-    button_delete = InlineKeyboardButton(text='Удалить',
-                                         callback_data=f'{name}_delete')
-    button_select = InlineKeyboardButton(text='Посмотреть',
-                                         callback_data=f'{name}_select')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=True,
                                             postfix_for_back='2')
-    keyboard = [
-        [button_create, ],
-        [button_update, ],
-        [button_delete, ],
-        [button_select, ],
-        [*button_cancel, ],
-    ]
+    if add_only:
+        keyboard = [
+            [button_create],
+            [*button_cancel, ],
+        ]
+    else:
+        button_update = InlineKeyboardButton(text='Изменить',
+                                             callback_data=f'{name}_update')
+        button_delete = InlineKeyboardButton(text='Удалить',
+                                             callback_data=f'{name}_delete')
+        keyboard = [
+            [button_create, button_update, button_delete],
+            [*button_cancel, ],
+        ]
 
     return InlineKeyboardMarkup(keyboard)
 
