@@ -1588,7 +1588,13 @@ async def get_children(
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             selected_count = len(selected_children)
-            text_success += f'\n\nНужно выбрать: {limit}\nВыбрано: {selected_count} из {limit}\n\nУкажите детей из списка ниже (используя ☑️).\nЕсли ребенка нет в списке, нажмите <b>➕ Добавить ребенка</b>.'
+            text_success += '\n\n'
+            if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+                phone = reserve_user_data['client_data']['phone']
+                pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
+                text_success += f'Список детей для клиента: <code>{pretty_phone}</code>\n\n'
+
+            text_success += f'Нужно выбрать: {limit}\nВыбрано: {selected_count} из {limit}\n\nУкажите детей из списка ниже (используя ☑️).\nЕсли ребенка нет в списке, нажмите <b>➕ Добавить ребенка</b>.'
             message = await update.effective_chat.send_message(text=text_success, reply_markup=reply_markup)
             reserve_user_data['message_id'] = message.message_id
             return 'CHILDREN'
@@ -2026,6 +2032,13 @@ async def get_child_text_and_reply(
         selected_count = len(reserve_user_data['selected_children'])
 
         text = '<b>Укажите детей для бронирования</b>\n\n'
+
+        command = context.user_data.get('command', '')
+        if '_admin' in command and reserve_user_data.get('client_data', {}).get('phone'):
+            phone = reserve_user_data['client_data']['phone']
+            pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
+            text += f'Список детей для клиента: <code>{pretty_phone}</code>\n\n'
+
         text += f'Нужно выбрать: {limit}\n'
         text += f'Выбрано: {selected_count} из {limit}\n\n'
         text += ('Используйте ☑️ для выбора детей (кнопка слева от имени).\n'
