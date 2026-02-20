@@ -93,28 +93,26 @@ def add_reserve_check_middleware(application, config):
 
         last_interaction = to_naive(context.user_data.get('last_interaction_time'))
 
-        # 1. Проверка на таймаут
-        if (
-                last_interaction and
-                (now - last_interaction).total_seconds() > RESERVE_TIMEOUT * 60
-        ):
-            reserve_check_md_logger.info(f'User {user_id} session timed out.')
-            await update.callback_query.answer()
-            await conversation_timeout(update, context)
-            await reset_conversation_state(update, context)
-            await update.callback_query.edit_message_reply_markup(None)
-            context.user_data['last_interaction_time'] = now
-            raise ApplicationHandlerStop
+        if last_interaction:
+            # 1. Проверка на таймаут
+            if (now - last_interaction).total_seconds() > RESERVE_TIMEOUT * 60:
+                reserve_check_md_logger.info(f'User {user_id} session timed out.')
+                await update.callback_query.answer()
+                await conversation_timeout(update, context)
+                await reset_conversation_state(update, context)
+                await update.callback_query.edit_message_reply_markup(None)
+                context.user_data['last_interaction_time'] = now
+                raise ApplicationHandlerStop
 
-        last_db_update = to_naive(await db_postgres.get_last_schedule_update_time(context.session))
-        # 2. Проверка актуальности данных расписания
-        if last_db_update and last_db_update > last_interaction:
-            reserve_check_md_logger.info(f'User {user_id} has outdated data. Resetting.')
-            text = 'Расписание обновилось. Повторите выбор.'
-            await update.callback_query.answer(text, show_alert=True)
-            await choice_mode(update, context)
-            await reset_conversation_state(update, context)
-            raise ApplicationHandlerStop
+            last_db_update = to_naive(await db_postgres.get_last_schedule_update_time(context.session))
+            # 2. Проверка актуальности данных расписания
+            if last_db_update and last_db_update > last_interaction:
+                reserve_check_md_logger.info(f'User {user_id} has outdated data. Resetting.')
+                text = 'Расписание обновилось. Повторите выбор.'
+                await update.callback_query.answer(text, show_alert=True)
+                await choice_mode(update, context)
+                await reset_conversation_state(update, context)
+                raise ApplicationHandlerStop
 
         # Если все проверки пройдены, обновляем время последнего взаимодействия
         context.user_data['last_interaction_time'] = now
