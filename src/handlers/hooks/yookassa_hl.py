@@ -9,8 +9,11 @@ from api.googlesheets import update_ticket_in_gspread
 from api.gspread_pub import publish_update_ticket
 from db import db_postgres
 from db.enum import TicketStatus
-from handlers.sub_hl import send_approve_reject_message_to_admin_in_webhook
-from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP
+from handlers.sub_hl import (
+    send_approve_reject_message_to_admin_in_webhook,
+    get_booking_admin_text
+)
+from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP, ADMIN_GROUP
 
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
@@ -113,6 +116,22 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     user_data = context.application.user_data.get(int(chat_id))
 
+    thread_id = None
+    callback_name = None
+    base_command = command.replace('_admin', '')
+    if base_command == 'reserve':
+        thread_id = (context.bot_data['dict_topics_name']
+                     .get('Бронирования спектаклей', None))
+        # TODO Переписать ключи словаря с топиками на использование enum
+        if not thread_id:
+            thread_id = (context.bot_data['dict_topics_name']
+                         .get('Бронирование спектаклей', None))
+        callback_name = 'reserve'
+    if base_command == 'studio':
+        thread_id = (context.bot_data['dict_topics_name']
+                     .get('Бронирования студия', None))
+        callback_name = 'studio'
+
     if user_data is not None:
         user_data['STATE'] = 'PAID'
         # Пытаемся принудительно установить состояние в разговоре
@@ -136,6 +155,29 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             await send_approve_message(chat_id, context, ticket_ids)
         except Exception as e:
             webhook_hl_logger.exception(f'Не удалось отправить подтверждение пользователю для {ticket_ids}: {e}')
+
+        # Уведомление в админ-группу
+        try:
+            user = user_data['user'] if user_data else None
+            text_admin = f'#Бронирование #Админ_бронь\n'
+            text_admin += f'Платеж по ссылке успешно обработан. Бронь подтверждена автоматически.\n'
+            if user:
+                booking_details = await get_booking_admin_text(
+                    context, ticket_ids, user, user_data
+                )
+                text_admin += booking_details + '\n\n'
+
+            for ticket_id in ticket_ids:
+                text_admin += f'#ticket_id <code>{ticket_id}</code>\n'
+
+            await context.bot.send_message(
+                chat_id=ADMIN_GROUP,
+                text=text_admin,
+                message_thread_id=thread_id,
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            webhook_hl_logger.exception(f'Не удалось отправить уведомление админу о платеже админ-брони: {e}')
     else:
         text += (
             'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
@@ -152,22 +194,7 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             webhook_hl_logger.error(e)
             webhook_hl_logger.error(
                 'Отправка сообщения о обработке платежа не произошла')
-    thread_id = None
-    callback_name = None
-    base_command = command.replace('_admin', '')
-    if base_command == 'reserve':
-        thread_id = (context.bot_data['dict_topics_name']
-                     .get('Бронирования спектаклей', None))
-        # TODO Переписать ключи словаря с топиками на использование enum
-        if not thread_id:
-            thread_id = (context.bot_data['dict_topics_name']
-                         .get('Бронирование спектаклей', None))
-        callback_name = 'reserve'
-    if base_command == 'studio':
-        thread_id = (context.bot_data['dict_topics_name']
-                     .get('Бронирования студия', None))
-        callback_name = 'studio'
-    if not is_admin_booking:
+
         try:
             await send_approve_reject_message_to_admin_in_webhook(context,
                                                                   chat_id,
