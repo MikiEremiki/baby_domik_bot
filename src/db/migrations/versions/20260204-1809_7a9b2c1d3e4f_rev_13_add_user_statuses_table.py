@@ -7,7 +7,6 @@ Create Date: 2026-02-04 18:09:12.123456
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 from db import BaseModel
 
@@ -22,7 +21,7 @@ UserRoleEnum = sa.Enum(
     "ADMIN",
     "DEVELOPER",
     "SUPERUSER",
-    name="userrole",
+    name="user_role",
     metadata=BaseModel.metadata
 )
 
