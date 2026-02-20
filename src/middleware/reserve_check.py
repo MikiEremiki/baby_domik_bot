@@ -100,7 +100,7 @@ def add_reserve_check_middleware(application, config):
                 await update.callback_query.answer()
                 await conversation_timeout(update, context)
                 await reset_conversation_state(update, context)
-                await update.callback_query.edit_message_reply_markup(None)
+                await update.callback_query.edit_message_reply_markup()
                 context.user_data['last_interaction_time'] = now
                 raise ApplicationHandlerStop
 

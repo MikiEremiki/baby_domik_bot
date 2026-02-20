@@ -1837,7 +1837,7 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Удаляем клавиатуру из текущего сообщения
     try:
-        await query.edit_message_reply_markup(reply_markup=None)
+        await query.edit_message_reply_markup()
     except BadRequest:
         pass
 
@@ -2224,7 +2224,7 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     # Удаляем кнопки
-    await query.edit_message_reply_markup(reply_markup=None)
+    await query.edit_message_reply_markup()
 
     text = "Пожалуйста, отправьте файл или фото квитанции об оплате."
     await update.effective_chat.send_message(text)
