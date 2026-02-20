@@ -209,13 +209,12 @@ async def handle_prom_name_start(update: Update, context: ContextTypes.DEFAULT_T
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
     state = PROM_NAME
@@ -267,7 +266,6 @@ async def handle_prom_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id=service['message_id'],
         text=text,
         reply_markup=reply_markup,
-        parse_mode='HTML'
     )
 
     state = PROM_CODE
@@ -309,14 +307,12 @@ async def handle_prom_code_start(update: Update, context: ContextTypes.DEFAULT_T
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
-        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_CODE
@@ -405,14 +401,12 @@ async def ask_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         message = await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
-        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
     state = PROM_DTYPE
@@ -525,13 +519,12 @@ async def handle_prom_min_sum_start(update: Update, context: ContextTypes.DEFAUL
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_MIN_SUM
@@ -591,7 +584,6 @@ async def handle_prom_min_sum(update: Update, context: ContextTypes.DEFAULT_TYPE
         message_id=service['message_id'],
         text=text,
         reply_markup=reply_markup,
-        parse_mode='HTML'
     )
     
     state = PROM_VISIBLE
@@ -631,14 +623,12 @@ async def handle_prom_visible_start(update: Update, context: ContextTypes.DEFAUL
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
-        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_VISIBLE
@@ -715,14 +705,12 @@ async def handle_prom_verify_start(update: Update, context: ContextTypes.DEFAULT
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
-        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_VERIFY
@@ -774,13 +762,12 @@ async def handle_prom_vtext_start(update: Update, context: ContextTypes.DEFAULT_
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
 
@@ -844,13 +831,12 @@ async def handle_prom_start_start(update: Update, context: ContextTypes.DEFAULT_
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
 
@@ -947,13 +933,12 @@ async def handle_prom_expire_start(update: Update, context: ContextTypes.DEFAULT
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
 
@@ -1111,13 +1096,12 @@ async def handle_prom_max_usage_user_start(update: Update, context: ContextTypes
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
 
     promotion_['service']['message_id'] = message.message_id
 
@@ -1131,12 +1115,6 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
     promotion_ = context.user_data['new_promotion']
     service = promotion_['service']
     is_update = service.get('is_update', False)
-
-    # Удаляем сообщение пользователя
-    try:
-        await update.effective_message.delete()
-    except Exception:
-        pass
 
     try:
         value = int(update.effective_message.text)
@@ -1216,13 +1194,12 @@ async def handle_prom_desc_start(update: Update, context: ContextTypes.DEFAULT_T
     if query:
         message = await query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
     promotion_['service']['message_id'] = message.message_id
 
     state = PROM_DESC
@@ -1318,8 +1295,7 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
             chat_id=update.effective_chat.id,
             message_id=promotion_['service']['message_id'],
             text=summary,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
         message = update.effective_message # Здесь нам не нужно обновлять message_id, он уже есть
     state = PROM_CONFIRM

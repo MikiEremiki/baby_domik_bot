@@ -101,7 +101,6 @@ async def _send_to_chat(
         await bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode='HTML',
             disable_web_page_preview=True
         )
     elif kind == 'photo' and campaign.photo_file_id:
@@ -112,8 +111,7 @@ async def _send_to_chat(
             chat_id=chat_id,
             photo=campaign.photo_file_id,
             caption=caption,
-            disable_notification=False,
-            parse_mode='HTML'
+            disable_notification=False
         )
     elif kind == 'video' and campaign.video_file_id:
         caption = (campaign.caption_text or '')
@@ -123,8 +121,7 @@ async def _send_to_chat(
             chat_id=chat_id,
             video=campaign.video_file_id,
             caption=caption,
-            disable_notification=False,
-            parse_mode='HTML'
+            disable_notification=False
         )
     elif kind == 'animation' and campaign.animation_file_id:
         caption = (campaign.caption_text or '')
@@ -134,7 +131,6 @@ async def _send_to_chat(
             chat_id=chat_id,
             animation=campaign.animation_file_id,
             caption=caption,
-            parse_mode='HTML',
             disable_notification=False,
         )
     else:
@@ -145,7 +141,6 @@ async def _send_to_chat(
         await bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode='HTML',
             disable_web_page_preview=True,
         )
 

@@ -308,8 +308,7 @@ async def ask_schedule_summary(update: Update, context: ContextTypes.DEFAULT_TYP
             chat_id=update.effective_chat.id,
             message_id=context.user_data['new_schedule_event']['service']['message_id'],
             text=text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
 
     state = SCH_CONFIRM
@@ -502,8 +501,7 @@ async def ask_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
+            reply_markup=reply_markup
         )
         message = query.message if query else update.effective_message
 
@@ -814,13 +812,12 @@ async def ask_flags(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         message = await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
     else:
-        await context.bot.edit_message_text(
+        message = await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
             text=text,
             reply_markup=reply_markup
         )
-        message = update.effective_message
 
     context.user_data['new_schedule_event']['service']['message_id'] = message.message_id
     state = SCH_FLAGS
