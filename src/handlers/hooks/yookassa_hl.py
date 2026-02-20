@@ -61,10 +61,12 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     choose_schedule_event_ids = update.object.metadata[
         'choose_schedule_event_ids'].split('|')
     command = update.object.metadata['command']
+    is_admin_booking = '_admin' in command
     webhook_hl_logger.info(
         f'webhook_update: '
         f'{ticket_ids=}, '
         f'{choose_schedule_event_ids=}, '
+        f'{command=}'
     )
     try:
         await context.bot.edit_message_reply_markup(chat_id, message_id)
@@ -72,7 +74,7 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
         webhook_hl_logger.error(e)
         webhook_hl_logger.error('Удаление кнопки для оплаты не произошло')
     text = f'<b>Номер вашего билета '
-    ticket_status = TicketStatus.PAID
+    ticket_status = TicketStatus.APPROVED if is_admin_booking else TicketStatus.PAID
     sheet_id_domik = context.config.sheets.sheet_id_domik
 
     promo_id_raw = update.object.metadata.get('promo_id')
@@ -120,24 +122,40 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
         except Exception as e:
             webhook_hl_logger.error(f"Не удалось обновить состояние в persistence: {e}")
 
-    text += (
-        'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
-        'подробной информации\n\n'
-        '<i>Или отправьте квитанцию/чек об оплате</i>'
-    )
+    if is_admin_booking:
+        # Для админских бронирований: списываем неподтвержденные места и отправляем сразу подтверждение пользователю
+        from db.db_googlesheets import decrease_nonconfirm_seat
+        from handlers.main_hl import send_approve_message
+        for ticket_id in ticket_ids:
+            try:
+                t = await db_postgres.get_ticket(context.session, ticket_id)
+                await decrease_nonconfirm_seat(context, t.schedule_event_id, t.base_ticket_id)
+            except Exception as e:
+                webhook_hl_logger.exception(f'Не удалось списать неподтвержденные места для {ticket_id}: {e}')
+        try:
+            await send_approve_message(chat_id, context, ticket_ids)
+        except Exception as e:
+            webhook_hl_logger.exception(f'Не удалось отправить подтверждение пользователю для {ticket_ids}: {e}')
+    else:
+        text += (
+            'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
+            'подробной информации\n\n'
+            '<i>Или отправьте квитанцию/чек об оплате</i>'
+        )
 
-    reply_markup = InlineKeyboardMarkup(
-        [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
-    try:
-        await context.bot.send_message(
-            chat_id=chat_id, text=text, reply_markup=reply_markup)
-    except BadRequest as e:
-        webhook_hl_logger.error(e)
-        webhook_hl_logger.error(
-            'Отправка сообщения о обработке платежа не произошла')
+        reply_markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id, text=text, reply_markup=reply_markup)
+        except BadRequest as e:
+            webhook_hl_logger.error(e)
+            webhook_hl_logger.error(
+                'Отправка сообщения о обработке платежа не произошла')
     thread_id = None
     callback_name = None
-    if command == 'reserve':
+    base_command = command.replace('_admin', '')
+    if base_command == 'reserve':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
         # TODO Переписать ключи словаря с топиками на использование enum
@@ -145,23 +163,24 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             thread_id = (context.bot_data['dict_topics_name']
                          .get('Бронирование спектаклей', None))
         callback_name = 'reserve'
-    if command == 'studio':
+    if base_command == 'studio':
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))
         callback_name = 'studio'
-    try:
-        await send_approve_reject_message_to_admin_in_webhook(context,
-                                                              chat_id,
-                                                              message_id,
-                                                              ticket_ids,
-                                                              thread_id,
-                                                              callback_name)
-    except (NameError, BadRequest) as e:
-        webhook_hl_logger.error(e)
-        error_text = 'Отправление в админский чат не произошло'
-        webhook_hl_logger.error(error_text)
-        text = f'{error_text} {ticket_ids=} {command=}'
-        await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+    if not is_admin_booking:
+        try:
+            await send_approve_reject_message_to_admin_in_webhook(context,
+                                                                  chat_id,
+                                                                  message_id,
+                                                                  ticket_ids,
+                                                                  thread_id,
+                                                                  callback_name)
+        except (NameError, BadRequest) as e:
+            webhook_hl_logger.error(e)
+            error_text = 'Отправление в админский чат не произошло'
+            webhook_hl_logger.error(error_text)
+            text = f'{error_text} {ticket_ids=} {command=}'
+            await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
 
 
 async def processing_successful_payment(update: WebhookNotification,

@@ -3,7 +3,7 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_admin
-from handlers import reserve_hl, reserve_admin_hl
+from handlers import reserve_hl, reserve_admin_hl, main_hl
 from conv_hl import (
     handlers_event_selection, handlers_client_data_selection,
     cancel_callback_handler, back_callback_handler,
@@ -28,6 +28,20 @@ states = {
         back_callback_handler,
         CallbackQueryHandler(reserve_admin_hl.start_forma_info,
                              pattern='^TICKET'),
+    ],
+    'CONFIRM_RESERVATION': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-CHILDREN'),
+        CallbackQueryHandler(reserve_hl.confirm_go_pay, pattern='^PAY$'),
+        CallbackQueryHandler(reserve_hl.confirm_admin_without_payment, pattern='^CONFIRM_WITHOUT_PAY$'),
+        CallbackQueryHandler(reserve_hl.reset_promo, pattern='^RESET_PROMO$'),
+        CallbackQueryHandler(reserve_hl.ask_promo_code, pattern='^PROMO$'),
+        CallbackQueryHandler(reserve_hl.apply_option_promo, pattern='^PROMO_OPTION'),
+    ],
+    'PROMOCODE_INPUT': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-CONFIRM_RESERVATION'),
+        MessageHandler(F_text_and_no_command, reserve_hl.handle_promo_code_input),
     ],
 }
 

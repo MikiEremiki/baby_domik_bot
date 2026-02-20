@@ -90,6 +90,7 @@ states = {
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-CHILDREN'),
         CallbackQueryHandler(reserve_hl.confirm_go_pay, pattern='^PAY$'),
+        CallbackQueryHandler(reserve_hl.confirm_admin_without_payment, pattern='^CONFIRM_WITHOUT_PAY$'),
         CallbackQueryHandler(reserve_hl.reset_promo, pattern='^RESET_PROMO$'),
         CallbackQueryHandler(reserve_hl.ask_promo_code, pattern='^PROMO$'),
         CallbackQueryHandler(reserve_hl.apply_option_promo, pattern='^PROMO_OPTION'),

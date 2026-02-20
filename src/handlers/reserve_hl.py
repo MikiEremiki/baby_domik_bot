@@ -1290,84 +1290,7 @@ async def _finish_get_children(
     client_data['data_children'] = processed_data_on_children
     reserve_user_data['original_child_text'] = original_child_text
 
-    command = context.user_data.get('command', False)
-    if '_admin' in command:
-        schedule_event_id = reserve_user_data['choose_schedule_event_id']
-        await get_schedule_event_ids_studio(context)
-        await update.effective_chat.send_action(ChatAction.TYPING)
-
-        text = 'Создаю новые билеты в бд...'
-        reserve_hl_logger.info(text)
-        message = await update.effective_chat.send_message(text)
-        ticket_ids = await create_tickets_and_people(
-            update, context, TicketStatus.CREATED)
-
-        text += '\nЗаписываю новый билет в клиентскую базу...'
-        try:
-            await message.edit_text(text)
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-            reserve_hl_logger.info(text)
-        sheet_id_domik = context.config.sheets.sheet_id_domik
-        chat_id = update.effective_chat.id
-        base_ticket_dto = chose_base_ticket.to_dto()
-        ticket_status_value = str(TicketStatus.CREATED.value)
-        reserve_user_data = context.user_data['reserve_user_data']
-        try:
-            await publish_write_client_reserve(
-                sheet_id_domik,
-                reserve_user_data,
-                chat_id,
-                base_ticket_dto,
-                ticket_status_value
-            )
-        except Exception as e:
-            reserve_hl_logger.exception(
-                f'Failed to publish gspread task, fallback to direct call: {e}')
-            res = await write_client_reserve(sheet_id_domik,
-                                             reserve_user_data,
-                                             chat_id,
-                                             base_ticket_dto,
-                                             ticket_status_value)
-            if res:
-                text += '\nЗапись успешно создана'
-            else:
-                text += '\nОшибка при создании записи'
-            await message.edit_text(text)
-
-        for ticket_id in ticket_ids:
-            result = await decrease_free_seat(
-                context, schedule_event_id, chose_base_ticket_id)
-            if not result:
-                await update_ticket_db_and_gspread(
-                    context, ticket_id, status=TicketStatus.CANCELED)
-                text += ('\nНе уменьшились свободные места'
-                         '\nНовый билет отменен'
-                         '\nНеобходимо повторить резервирование заново')
-                try:
-                    await message.edit_text(text)
-                except TimedOut as e:
-                    reserve_hl_logger.error(e)
-                    reserve_hl_logger.info(text)
-                await clean_context_on_end_handler(reserve_hl_logger, context)
-                return ConversationHandler.END
-
-        text += '\nПоследняя проверка...'
-        try:
-            await message.edit_text(text)
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
-            reserve_hl_logger.info(text)
-        await processing_successful_payment(update, context)
-
-        await update.effective_chat.send_message(
-            'Билеты успешно созданы и оплачены')
-
-        state = ConversationHandler.END
-        context.user_data['STATE'] = state
-        return state
-    else:
-        return await show_reservation_summary(update, context)
+    return await show_reservation_summary(update, context)
 
 
 
@@ -1928,6 +1851,10 @@ async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT
     keyboard = []
     keyboard.append([InlineKeyboardButton("💳 Перейти к оплате", callback_data='PAY')])
     
+    command = context.user_data.get('command', '')
+    if '_admin' in command:
+        keyboard.append([InlineKeyboardButton("✅ Подтвердить без оплаты", callback_data='CONFIRM_WITHOUT_PAY')])
+
     if applied_promo_code:
         keyboard.append([InlineKeyboardButton("❌ Сбросить промокод", callback_data='RESET_PROMO')])
     else:
@@ -2002,6 +1929,91 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = await create_and_send_payment(update, context)
     if state is None:
         state = 'PAID'
+    context.user_data['STATE'] = state
+    return state
+
+
+async def confirm_admin_without_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    await get_schedule_event_ids_studio(context)
+    await update.effective_chat.send_action(ChatAction.TYPING)
+
+    text = 'Создаю новые билеты в бд...'
+    reserve_hl_logger.info(text)
+    message = await update.effective_chat.send_message(text)
+    ticket_ids = await create_tickets_and_people(
+        update, context, TicketStatus.CREATED)
+
+    text += '\nЗаписываю новый билет в клиентскую базу...'
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+        reserve_hl_logger.info(text)
+    sheet_id_domik = context.config.sheets.sheet_id_domik
+    chat_id = update.effective_chat.id
+    base_ticket_dto = chose_base_ticket.to_dto()
+    ticket_status_value = str(TicketStatus.CREATED.value)
+    reserve_user_data = context.user_data['reserve_user_data']
+    try:
+        await publish_write_client_reserve(
+            sheet_id_domik,
+            reserve_user_data,
+            chat_id,
+            base_ticket_dto,
+            ticket_status_value
+        )
+    except Exception as e:
+        reserve_hl_logger.exception(
+            f'Failed to publish gspread task, fallback to direct call: {e}')
+        res = await write_client_reserve(sheet_id_domik,
+                                         reserve_user_data,
+                                         chat_id,
+                                         base_ticket_dto,
+                                         ticket_status_value)
+        if res:
+            text += '\nЗапись успешно создана'
+        else:
+            text += '\nОшибка при создании записи'
+        await message.edit_text(text)
+
+    for ticket_id in ticket_ids:
+        result = await decrease_free_seat(
+            context, schedule_event_id, chose_base_ticket_id)
+        if not result:
+            await update_ticket_db_and_gspread(
+                context, ticket_id, status=TicketStatus.CANCELED)
+            text += ('\nНе уменьшились свободные места'
+                     '\nНовый билет отменен'
+                     '\nНеобходимо повторить резервирование заново')
+            try:
+                await message.edit_text(text)
+            except TimedOut as e:
+                reserve_hl_logger.error(e)
+                reserve_hl_logger.info(text)
+            await clean_context_on_end_handler(reserve_hl_logger, context)
+            return ConversationHandler.END
+
+    text += '\nПоследняя проверка...'
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+        reserve_hl_logger.info(text)
+    await processing_successful_payment(update, context)
+
+    await update.effective_chat.send_message(
+        'Билеты успешно созданы и оплачены')
+
+    state = ConversationHandler.END
     context.user_data['STATE'] = state
     return state
 
