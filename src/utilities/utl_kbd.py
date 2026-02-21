@@ -291,25 +291,34 @@ async def create_kbd_with_months(months):
     return keyboard
 
 
-def create_kbd_crud(name: str):
-    button_create = InlineKeyboardButton(text='Добавить',
+def create_kbd_crud(name: str, add_only: bool = False, custom_labels: dict = None):
+    labels = {
+        'create': 'Добавить',
+        'update': 'Изменить',
+        'delete': 'Удалить'
+    }
+    if custom_labels:
+        labels.update(custom_labels)
+
+    button_create = InlineKeyboardButton(text=labels['create'],
                                          callback_data=f'{name}_create')
-    button_update = InlineKeyboardButton(text='Изменить',
-                                         callback_data=f'{name}_update')
-    button_delete = InlineKeyboardButton(text='Удалить',
-                                         callback_data=f'{name}_delete')
-    button_select = InlineKeyboardButton(text='Посмотреть',
-                                         callback_data=f'{name}_select')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=True,
                                             postfix_for_back='2')
-    keyboard = [
-        [button_create, ],
-        [button_update, ],
-        [button_delete, ],
-        [button_select, ],
-        [*button_cancel, ],
-    ]
+    if add_only:
+        keyboard = [
+            [button_create],
+            [*button_cancel, ],
+        ]
+    else:
+        button_update = InlineKeyboardButton(text=labels['update'],
+                                             callback_data=f'{name}_update')
+        button_delete = InlineKeyboardButton(text=labels['delete'],
+                                             callback_data=f'{name}_delete')
+        keyboard = [
+            [button_create, button_update, button_delete],
+            [*button_cancel, ],
+        ]
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -383,8 +392,9 @@ async def create_adult_confirm_btn(text, adult_name: str):
     """
     adult_confirm_btn = None
     if adult_name:
-        text += f'Последнее введенное имя взрослого:\n<code>{adult_name}</code>\n\n'
-        text += 'Использовать последнее введенное имя?'
+        text += (f'Последнее введенное имя взрослого:<br>'
+                 f'<code>{adult_name}</code><br><br>'
+                 f'Использовать последнее введенное имя?')
         adult_confirm_btn = [
             InlineKeyboardButton('Да', callback_data=f'adult_confirm')
         ]
@@ -403,7 +413,7 @@ def create_kbd_with_number_btn(qty_btn):
 
 
 
-def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
+def create_kbd_edit_children(children, page=0, selected_children=None, limit=1, current_filter='PHONE', is_admin=False, show_filters=False):
     """
     Создает клавиатуру для редактирования и выбора детей.
     """
@@ -411,6 +421,19 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
         selected_children = []
 
     keyboard = []
+
+    # Кнопки фильтрации
+    if show_filters or len(children) >= 10 or is_admin:
+        btn_filter_phone = InlineKeyboardButton(
+            ("✅ " if current_filter == 'PHONE' else "") + "📍 Дети по тел.",
+            callback_data="CHLD_FLTR|PHONE"
+        )
+        btn_filter_my = InlineKeyboardButton(
+            ("✅ " if current_filter == 'MY' else "") + "👥 Все дети",
+            callback_data="CHLD_FLTR|MY"
+        )
+        keyboard.append([btn_filter_phone, btn_filter_my])
+
     items_per_page = 10
     start = page * items_per_page
     end = start + items_per_page
@@ -418,26 +441,27 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
     page_children = children[start:end]
 
     for i, child in enumerate(page_children):
-        actual_index = start + i
         name = child[0]
         age = int(child[1])
         person_id = child[2]
 
-        is_selected = actual_index in selected_children
-        mark = "✅" if is_selected else "☐"
+        is_selected = person_id in selected_children
+        
+        # Если нужно выбрать 2 и более детей: отображается статус выбора («☑️» или «◻️»)
+        if limit >= 2:
+            mark = "☑️" if is_selected else "◻️"
+            btn_text = f"{mark} {name} {age}"
+        else:
+            btn_text = f"{name} {age}"
 
         keyboard.append([
             InlineKeyboardButton(
-                mark,
-                callback_data=f"CHLD_SEL|{actual_index}"
+                btn_text,
+                callback_data=f"CHLD_SEL|{person_id}"
             ),
             InlineKeyboardButton(
-                f"{name} {age}",
-                callback_data=f"CHLD_EDIT_ONE|{actual_index}"
-            ),
-            InlineKeyboardButton(
-                "❌",
-                callback_data=f"CHLD_DEL|{person_id}"
+                "📝 изм.",
+                callback_data=f"CHLD_EDIT_ONE|{person_id}"
             )
         ])
 
@@ -462,7 +486,7 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1):
         callback_data="CHLD_ADD")])
 
     # Кнопка подтверждения
-    if len(selected_children) == limit:
+    if len(selected_children) == limit and limit >= 2:
         keyboard.append([InlineKeyboardButton(
             "Подтвердить выбор",
             callback_data="CHLD_CONFIRM")])

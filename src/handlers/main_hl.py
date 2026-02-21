@@ -221,7 +221,7 @@ async def send_msg(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             chat_id=chat_id,
         )
         await update.effective_message.reply_text(
-            f'Сообщение:\n{text}\nУспешно отправлено'
+            f'Сообщение:\n{text}\n\n<i>Успешно отправлено</i>'
         )
     except Forbidden as e:
         if 'bot was blocked by the user' in str(e).lower():
@@ -1206,7 +1206,7 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
     state = context.user_data.get('STATE')
     data = query.data.split('|')[0].split('-')[-1]
 

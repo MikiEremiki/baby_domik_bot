@@ -1,7 +1,7 @@
-"""rev_15_add on delete cascade to link tables
+"""rev_14: add ON DELETE CASCADE to link tables
 
 Revision ID: b1c6e14dc666
-Revises: c00ba0fb22b5
+Revises: 7a9b2c1d3e4f
 Create Date: 2026-02-16 00:35:00.000000
 
 """
@@ -9,7 +9,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "b1c6e14dc666"
-down_revision = "c00ba0fb22b5"
+down_revision = "7a9b2c1d3e4f"
 branch_labels = None
 depends_on = None
 

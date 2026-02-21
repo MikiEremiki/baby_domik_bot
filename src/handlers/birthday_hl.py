@@ -729,7 +729,7 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         f'{user_id} {message_id_for_reply} {custom_made_event.id}'
     )
 
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
     text = ('#День_рождения<br>'
             f'Запрос пользователя @{user.username} {user.full_name}<br>')
     text += f'Номер заявки: {custom_made_event.id}<br><br>'
@@ -807,7 +807,7 @@ async def forward_photo_or_file(
     """
     Пересылает картинку или файл.
     """
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
     common_data = context.user_data['common_data']
     message_id = common_data['message_id_buy_info']
     chat_id = update.effective_chat.id
@@ -879,7 +879,7 @@ async def conversation_timeout(
     :return:
         int: :attr:`telegram.ext.ConversationHandler.END`.
     """
-    user = context.user_data['user']
+    user = context.user_data.get('user', update.effective_user)
     if context.user_data['STATE'] == 'PAID':
         await update.effective_chat.send_message(
             'От Вас долго не было ответа, бронь отменена, пожалуйста выполните '

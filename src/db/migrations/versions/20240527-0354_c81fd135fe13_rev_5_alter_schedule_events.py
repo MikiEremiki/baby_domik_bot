@@ -1,8 +1,8 @@
-"""rev_5_alter_schedule_events
+"""rev_5: alter schedule_events table
 
 Revision ID: c81fd135fe13
 Revises: 3302b537affc
-Create Date: 2024-05-27 03:54:30.598124
+Create Date: 2024-05-27 03:54:12.123456
 
 """
 

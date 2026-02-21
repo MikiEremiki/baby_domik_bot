@@ -485,54 +485,7 @@ async def processing_successful_payment(
     ticket_ids = reserve_user_data['ticket_ids']
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
     if ticket.status == TicketStatus.CREATED:
-        # Пытаемся восстановить данные из БД, если они потерялись в сессии
-        if 'reserve_user_data' not in context.user_data or 'client_data' not in context.user_data['reserve_user_data']:
-            # Базовое восстановление для возможности отправить уведомление
-            context.user_data.setdefault('reserve_user_data', {})
-            reserve_user_data = context.user_data['reserve_user_data']
-            reserve_user_data['ticket_ids'] = ticket_ids
-            reserve_user_data['chose_price'] = ticket.price
-            reserve_user_data['chose_base_ticket_id'] = ticket.base_ticket_id
-            reserve_user_data['choose_schedule_event_id'] = ticket.schedule_event_id
-
-            # Восстанавливаем промокод
-            if ticket.promo_id:
-                reserve_user_data['applied_promo_id'] = ticket.promo_id
-                promo = await db_postgres.get_promotion(context.session, ticket.promo_id)
-                if promo:
-                    reserve_user_data['applied_promo_code'] = promo.code
-
-            # Пытаемся найти человека, связанного с этим билетом
-            person_ticket = await db_postgres.get_person_ticket_by_ticket_id(context.session, ticket_ids[0])
-            if person_ticket:
-                person = await db_postgres.get_person(context.session, person_ticket.person_id)
-                if person:
-                    reserve_user_data['client_data'] = {
-                        'name_adult': person.full_name,
-                        'phone': person.phone
-                    }
-            
-            # Если всё равно пусто, используем заглушки
-            reserve_user_data.setdefault('client_data', {'name_adult': 'Неизвестно', 'phone': '0000000000'})
-            reserve_user_data.setdefault('original_child_text', 'Не указано')
-            
         user = context.user_data.get('user') or update.effective_user
-        client_data = reserve_user_data['client_data']
-        original_child_text = reserve_user_data.get('original_child_text', 'Не указано')
-        chose_price = reserve_user_data.get('chose_price', ticket.price)
-        chose_base_ticket_id = reserve_user_data.get('chose_base_ticket_id', ticket.base_ticket_id)
-        schedule_event_id = reserve_user_data.get('choose_schedule_event_id', ticket.schedule_event_id)
-        
-        # Получаем данные события для полноты картины
-        schedule_event = await db_postgres.get_schedule_event(context.session, schedule_event_id)
-        theater_event_id = reserve_user_data.get('choose_theater_event_id', schedule_event.theater_event_id)
-        
-        theater_event = await db_postgres.get_theater_event(
-            context.session, theater_event_id)
-        chose_base_ticket = await db_postgres.get_base_ticket(
-            context.session, chose_base_ticket_id)
-
-        event_id = schedule_event_id
 
         if '_admin' in command:
             new_ticket_status = TicketStatus.APPROVED
@@ -546,25 +499,11 @@ async def processing_successful_payment(
 
         text = f'#Бронирование\n'
         text += f'Платеж успешно обработан\n'
-        text += f'Покупатель: @{user.username} {user.full_name}'
-        text += '\n\n'
 
-        text += f'#event_id <code>{event_id}</code>\n'
-        date_event, time_event = await get_formatted_date_and_time_of_event(
-            schedule_event)
-        text += f'{theater_event.name}\n{date_event} в {time_event}\n'
-        price_to_pay = reserve_user_data.get('discounted_price', chose_price)
-        promo_code = reserve_user_data.get('applied_promo_code')
-        text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n'
-        if promo_code:
-            text += f'Применен промокод: <code>{promo_code}</code>\n'
-
-        text += '\n'.join([
-            client_data['name_adult'],
-            f'+7{client_data['phone']}',
-            original_child_text,
-        ])
-        text += '\n\n'
+        booking_details = await get_booking_admin_text(
+            context, ticket_ids, user, context.user_data
+        )
+        text += booking_details + '\n\n'
 
         if '_admin' in command:
             text += f'Добавлено: {update.effective_chat.full_name}\n\n'
@@ -576,11 +515,19 @@ async def processing_successful_payment(
             ticket_id = context.user_data['reserve_admin_data']['ticket_id']
             text += f'\nПеренесен с #ticket_id <code>{ticket_id}</code>'
 
-        # Проверяем, не было ли уже уведомления (например, от вебхука)
-        if not reserve_user_data.get('admin_notified'):
+        # Проверяем, не было ли уже уведомления в БД по этим билетам
+        is_already_notified = False
+        for t_id in ticket_ids:
+            t = await db_postgres.get_ticket(context.session, t_id)
+            if t and t.is_admin_notified:
+                is_already_notified = True
+                break
+
+        if not is_already_notified:
             message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
                 update, context)
 
+            schedule_event = await db_postgres.get_schedule_event(context.session, ticket.schedule_event_id)
             thread_id = await get_thread_id(context, command, schedule_event)
             await send_message_to_admin(
                 chat_id=ADMIN_GROUP,
@@ -590,6 +537,10 @@ async def processing_successful_payment(
                 thread_id=thread_id,
                 reply_markup=reply_markup
             )
+            # Помечаем все билеты как "уведомленные" в БД
+            for t_id in ticket_ids:
+                await db_postgres.update_ticket(context.session, t_id, is_admin_notified=True)
+
             reserve_user_data['admin_notified'] = True
         sub_hl_logger.info(f'Для пользователя {user}')
         sub_hl_logger.info(
@@ -613,7 +564,7 @@ async def processing_successful_payment(
         if promo and promo.requires_verification:
             requires_verify = True
 
-    if (command == 'reserve' or command == 'studio') and check_send and not requires_verify:
+    if ('reserve' in command or 'studio' in command) and check_send and not requires_verify:
         await send_by_ticket_info(update, context)
 
 
@@ -621,36 +572,31 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     command = context.user_data['command']
     reply_markup = None
     message_id_for_admin = None
-    if command == 'reserve' or command == 'studio':
-        message_id_for_admin = await forward_message_to_admin(update, context)
+    if 'reserve' in command or 'studio' in command:
+        if '_admin' not in command:
+            message_id_for_admin = await forward_message_to_admin(update, context)
 
-        message_id_buy_info = context.user_data['common_data']['message_id_buy_info']
+            message_id_buy_info = context.user_data['common_data']['message_id_buy_info']
 
-        reply_markup = create_approve_and_reject_replay(
-            'reserve',
-            f'{update.effective_user.id} {message_id_buy_info}'
-        )
-        context.user_data['common_data'][
-            'message_id_for_admin'] = message_id_for_admin
+            reply_markup = create_approve_and_reject_replay(
+                'reserve' if 'reserve' in command else 'studio',
+                f'{update.effective_user.id} {message_id_buy_info}'
+            )
+            context.user_data['common_data'][
+                'message_id_for_admin'] = message_id_for_admin
     return message_id_for_admin, reply_markup
 
 
 async def get_thread_id(context, command, schedule_event):
     thread_id = None
-    if (
-            command == 'reserve' or
-            ('_admin' in command and schedule_event.type_event_id in [1, 2])
-    ):
+    if 'reserve' in command:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
         # TODO Переписать ключи словаря с топиками на использование enum
         if not thread_id:
             thread_id = (context.bot_data['dict_topics_name']
                          .get('Бронирование спектаклей', None))
-    if (
-            command == 'studio' or
-            ('_admin' in command and schedule_event.type_event_id in [12])
-    ):
+    if 'studio' in command:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))
     return thread_id
@@ -670,9 +616,9 @@ async def send_breaf_message(update: Update,
         'Вопросы будут приходить последовательно (их будет всего 3)</i>'
     )
     await update.effective_chat.send_message(text_brief)
-    text_prompt = '<b>Напишите фамилию и имя (взрослого)</b>\n\n'
+    text_prompt = '<b>Напишите фамилию и имя (взрослого)</b><br><br>'
     adult_name = await db_postgres.get_adult_name(context.session,
-                                             update.effective_user.id)
+                                                  update.effective_user.id)
     adult_confirm_btn, text_prompt = await create_adult_confirm_btn(text_prompt,
                                                                     adult_name)
 
@@ -689,9 +635,14 @@ async def send_breaf_message(update: Update,
         keyboard = [back_and_cancel]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    res_text = transform_html(text_prompt)
     message = await update.effective_chat.send_message(
-        text=text_prompt, reply_markup=reply_markup)
-    await set_back_context(context, 'FORMA', text_prompt, reply_markup)
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
+    )
+    await set_back_context(context, 'FORMA', res_text.text, reply_markup)
     return message
 
 
@@ -706,14 +657,14 @@ async def forward_message_to_admin(
     promo_code = reserve_user_data.get('applied_promo_code')
     command = context.user_data['command']
     thread_id = None
-    if command == 'reserve':
+    if 'reserve' in command:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
         # TODO Переписать ключи словаря с топиками на использование enum
         if not thread_id:
             thread_id = (context.bot_data['dict_topics_name']
                          .get('Бронирование спектаклей', None))
-    if command == 'studio':
+    if 'studio' in command:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования студия', None))
 
@@ -900,7 +851,7 @@ async def send_message_to_admin(
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
-        user = context.user_data['user']
+        user = context.user_data.get('user')
         sub_hl_logger.info(f"Для пользователя: {user.id}: {user.full_name}: "
                            f"сообщение на которое нужно ответить, удалено")
         message = await context.bot.send_message(
@@ -923,25 +874,13 @@ async def send_approve_reject_message_to_admin_in_webhook(
     user_data = context.application.user_data.get(int(chat_id))
     user = user_data['user']
     reserve_user_data = user_data['reserve_user_data']
-    client_data = reserve_user_data['client_data']
-    original_child_text = reserve_user_data['original_child_text']
-    event_id = reserve_user_data['choose_schedule_event_id']
 
     text = f'#Бронирование<br>'
     text += f'Платеж успешно обработан<br>'
-    text += f'Покупатель: @{user.username} {user.full_name}'
-    text += '<br><br>'
 
-    text += f'#event_id <code>{event_id}</code><br>'
-    text += user_data['common_data']['text_for_notification_massage']
-    text += '<br>'
+    booking_details = await get_booking_admin_text(context, ticket_ids, user, user_data)
+    text += booking_details.replace('\n', '<br>') + '<br>'
 
-    text += '<br>'.join([
-        client_data['name_adult'],
-        f'+7{client_data['phone']}',
-        original_child_text,
-    ])
-    text += '<br><br>'
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
 
@@ -949,6 +888,18 @@ async def send_approve_reject_message_to_admin_in_webhook(
         callback_name,
         f'{chat_id} {message_id}'
     )
+
+    # Проверяем в БД, не было ли уже уведомления
+    is_already_notified = False
+    for t_id in ticket_ids:
+        t = await db_postgres.get_ticket(context.session, t_id)
+        if t and t.is_admin_notified:
+            is_already_notified = True
+            break
+
+    if is_already_notified:
+        return
+
     res_text = transform_html(text)
     await context.bot.send_message(
         chat_id=ADMIN_GROUP,
@@ -958,4 +909,79 @@ async def send_approve_reject_message_to_admin_in_webhook(
         reply_markup=reply_markup,
         parse_mode=None
     )
+    # Помечаем все билеты как "уведомленные" в БД
+    for t_id in ticket_ids:
+        await db_postgres.update_ticket(context.session, t_id, is_admin_notified=True)
+
     reserve_user_data['admin_notified'] = True
+
+
+async def get_booking_admin_text(
+        context: ContextTypes.DEFAULT_TYPE,
+        ticket_ids: List[int],
+        user,
+        user_data: dict,
+) -> str:
+    if user_data is None:
+        user_data = {}
+
+    ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
+
+    # Восстановление данных если их нет в сессии
+    if 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
+        user_data.setdefault('reserve_user_data', {})
+        reserve_user_data = user_data['reserve_user_data']
+        reserve_user_data['ticket_ids'] = ticket_ids
+        reserve_user_data['chose_price'] = ticket.price
+        reserve_user_data['chose_base_ticket_id'] = ticket.base_ticket_id
+        reserve_user_data['choose_schedule_event_id'] = ticket.schedule_event_id
+
+        if ticket.promo_id:
+            reserve_user_data['applied_promo_id'] = ticket.promo_id
+            promo = await db_postgres.get_promotion(context.session, ticket.promo_id)
+            if promo:
+                reserve_user_data['applied_promo_code'] = promo.code
+
+        person_ticket = await db_postgres.get_person_ticket_by_ticket_id(context.session, ticket_ids[0])
+        if person_ticket:
+            person = await db_postgres.get_person(context.session, person_ticket.person_id)
+            if person:
+                reserve_user_data['client_data'] = {
+                    'name_adult': person.full_name,
+                    'phone': person.phone
+                }
+        reserve_user_data.setdefault('client_data', {'name_adult': 'Неизвестно', 'phone': '0000000000'})
+        reserve_user_data.setdefault('original_child_text', 'Не указано')
+    else:
+        reserve_user_data = user_data['reserve_user_data']
+
+    client_data = reserve_user_data['client_data']
+    original_child_text = reserve_user_data.get('original_child_text', 'Не указано')
+    chose_price = reserve_user_data.get('chose_price', ticket.price)
+    schedule_event_id = reserve_user_data.get('choose_schedule_event_id', ticket.schedule_event_id)
+
+    schedule_event = await db_postgres.get_schedule_event(context.session, schedule_event_id)
+    theater_event_id = reserve_user_data.get('choose_theater_event_id', schedule_event.theater_event_id)
+    theater_event = await db_postgres.get_theater_event(context.session, theater_event_id)
+    chose_base_ticket = await db_postgres.get_base_ticket(context.session, ticket.base_ticket_id)
+
+    date_event, time_event = await get_formatted_date_and_time_of_event(schedule_event)
+
+    price_to_pay = reserve_user_data.get('discounted_price', chose_price)
+    promo_code = reserve_user_data.get('applied_promo_code')
+
+    username = f'@{user.username}' if user and user.username else ''
+    full_name = user.full_name if user else 'Неизвестно'
+    text = f'Покупатель: {username} {full_name}\n\n'
+    text += f'#event_id <code>{schedule_event_id}</code>\n'
+    text += f'{theater_event.name}\n{date_event} в {time_event}\n'
+    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n'
+    if promo_code:
+        text += f'Применен промокод: <code>{promo_code}</code>\n'
+
+    text += '\n'.join([
+        client_data.get('name_adult', 'Не указано'),
+        f'+7{client_data.get("phone", "0000000000")}',
+        original_child_text,
+    ])
+    return text

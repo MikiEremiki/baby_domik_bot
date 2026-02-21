@@ -1,14 +1,13 @@
-"""rev_10_add_sales_tables
+"""rev_10: add sales campaigns tables
 
 Revision ID: cedbea3f6c04
 Revises: c9f1e5a9f1a2
-Create Date: 2025-11-30 21:31:40.865207
+Create Date: 2025-11-30 21:31:12.123456
 
 """
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "cedbea3f6c04"

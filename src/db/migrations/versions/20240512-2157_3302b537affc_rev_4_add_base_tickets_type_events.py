@@ -1,4 +1,4 @@
-"""rev_4_add_base_tickets_type_events
+"""rev_4: add M2M relations for base_tickets
 
 Revision ID: 3302b537affc
 Revises: 198ac35f2c79

@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint
+from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -38,10 +38,13 @@ class Person(BaseModelTimed):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[Optional[str]]
-    age_type: Mapped[AgeType]
+    age_type: Mapped[AgeType] = mapped_column(Enum(AgeType, name='age_type'))
 
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
+
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('people.id', ondelete='SET NULL'))
 
     child: Mapped['Child'] = relationship(
         cascade="all, delete-orphan", lazy='selectin')
@@ -49,6 +52,16 @@ class Person(BaseModelTimed):
         cascade="all, delete-orphan", lazy='selectin')
     tickets: Mapped[List['Ticket']] = relationship(
         back_populates='people', secondary='people_tickets', lazy='selectin')
+
+    children: Mapped[List['Person']] = relationship(
+        'Person',
+        back_populates='parent',
+        lazy='selectin')
+    parent: Mapped[Optional['Person']] = relationship(
+        'Person',
+        back_populates='children',
+        remote_side=[id],
+        lazy='selectin')
 
 
 class Child(BaseModel):
@@ -184,9 +197,10 @@ class Ticket(BaseModelTimed):
     base_ticket_id: Mapped[int] = mapped_column(
         ForeignKey('base_tickets.base_ticket_id'))
     price: Mapped[int]
-    status: Mapped[TicketStatus]
+    status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus, name='ticket_status'))
     notes: Mapped[Optional[str]]
     reminded_1d_at: Mapped[Optional[datetime]]
+    is_admin_notified: Mapped[bool] = mapped_column(default=False)
 
     payment_id: Mapped[Optional[str]] = mapped_column(unique=True)
     idempotency_id: Mapped[Optional[str]] = mapped_column(unique=True)
@@ -214,7 +228,7 @@ class TypeEvent(BaseModel):
     notes: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
-        lazy='selectin')
+        back_populates='type_event', lazy='selectin')
     base_tickets: Mapped[List['BaseTicket']] = relationship(
         secondary='base_tickets_type_events',
         back_populates='type_events',
@@ -245,11 +259,11 @@ class TheaterEvent(BaseModel):
     max_num_child_bd: Mapped[int] = mapped_column(default=8)
     max_num_adult_bd: Mapped[int] = mapped_column(default=10)
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
-    price_type: Mapped[PriceType] = mapped_column(default=PriceType.NONE)
+    price_type: Mapped[PriceType] = mapped_column(Enum(PriceType, name='price_type'), default=PriceType.NONE)
     note: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
-        lazy='selectin')
+        back_populates='theater_event', lazy='selectin')
     base_tickets: Mapped[List['BaseTicket']] = relationship(
         secondary='base_tickets_theater_events',
         back_populates='theater_events',
@@ -276,6 +290,11 @@ class ScheduleEvent(BaseModelTimed):
     flag_turn_in_bot: Mapped[bool] = mapped_column(default=False)
     datetime_event: Mapped[datetime]
 
+    type_event: Mapped['TypeEvent'] = relationship(
+        back_populates='schedule_events', lazy='selectin')
+    theater_event: Mapped['TheaterEvent'] = relationship(
+        back_populates='schedule_events', lazy='selectin')
+
     qty_child: Mapped[int]
     qty_child_free_seat: Mapped[int]
     qty_child_nonconfirm_seat: Mapped[int]
@@ -288,6 +307,7 @@ class ScheduleEvent(BaseModelTimed):
     flag_santa: Mapped[bool] = mapped_column(default=False)
 
     ticket_price_type: Mapped[TicketPriceType] = mapped_column(
+        Enum(TicketPriceType, name='ticket_price_type'),
         default=TicketPriceType.NONE)
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
@@ -306,6 +326,42 @@ class BaseTicketScheduleEvent(BaseModelTimed):
         ForeignKey('schedule_events.id'), primary_key=True)
 
 
+class PromotionTypeEvent(BaseModelTimed):
+    __tablename__ = 'promotions_type_events'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    type_event_id: Mapped[int] = mapped_column(
+        ForeignKey('type_events.id', ondelete='CASCADE'), primary_key=True)
+
+
+class PromotionTheaterEvent(BaseModelTimed):
+    __tablename__ = 'promotions_theater_events'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    theater_event_id: Mapped[int] = mapped_column(
+        ForeignKey('theater_events.id', ondelete='CASCADE'), primary_key=True)
+
+
+class PromotionBaseTicket(BaseModelTimed):
+    __tablename__ = 'promotions_base_tickets'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    base_ticket_id: Mapped[int] = mapped_column(
+        ForeignKey('base_tickets.base_ticket_id', ondelete='CASCADE'), primary_key=True)
+
+
+class PromotionScheduleEvent(BaseModelTimed):
+    __tablename__ = 'promotions_schedule_events'
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey('promotions.id', ondelete='CASCADE'), primary_key=True)
+    schedule_event_id: Mapped[int] = mapped_column(
+        ForeignKey('schedule_events.id', ondelete='CASCADE'), primary_key=True)
+
+
 class Promotion(BaseModelTimed):
     __tablename__ = 'promotions'
 
@@ -317,23 +373,27 @@ class Promotion(BaseModelTimed):
     start_date: Mapped[Optional[datetime]]
     expire_date: Mapped[Optional[datetime]]
 
-    base_ticket_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('base_tickets.base_ticket_id'))
-    type_event_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('type_events.id'))
-    theater_event_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('theater_events.id'))
-    schedule_event_ids: Mapped[Optional[List[int]]] = mapped_column(
-        ForeignKey('schedule_events.id'))
+    type_events: Mapped[List['TypeEvent']] = relationship(
+        secondary='promotions_type_events', lazy='selectin')
+    theater_events: Mapped[List['TheaterEvent']] = relationship(
+        secondary='promotions_theater_events', lazy='selectin')
+    base_tickets: Mapped[List['BaseTicket']] = relationship(
+        secondary='promotions_base_tickets', lazy='selectin')
+    schedule_events: Mapped[List['ScheduleEvent']] = relationship(
+        secondary='promotions_schedule_events', lazy='selectin')
 
-    for_who_discount: Mapped[GroupOfPeopleByDiscountType]
+    for_who_discount: Mapped[GroupOfPeopleByDiscountType] = mapped_column(
+        Enum(GroupOfPeopleByDiscountType, name='group_of_people_by_discount_type')
+    )
     discount_type: Mapped[PromotionDiscountType] = mapped_column(
+        Enum(PromotionDiscountType, name='promotion_discount_type'),
         default=PromotionDiscountType.fixed)
 
     flag_active: Mapped[bool] = mapped_column(default=True)
     is_visible_as_option: Mapped[bool] = mapped_column(default=False)
     count_of_usage: Mapped[int] = mapped_column(default=0)
     max_count_of_usage: Mapped[int] = mapped_column(default=0)
+    max_usage_per_user: Mapped[int] = mapped_column(default=0)
     min_purchase_sum: Mapped[int] = mapped_column(default=0)
     description_user: Mapped[Optional[str]]
     requires_verification: Mapped[bool] = mapped_column(default=False)
@@ -369,7 +429,7 @@ class CustomMadeEvent(BaseModelTimed):
     phone: Mapped[str]
     note: Mapped[Optional[str]]
 
-    status: Mapped[CustomMadeStatus]
+    status: Mapped[CustomMadeStatus] = mapped_column(Enum(CustomMadeStatus, name='custom_made_status'))
 
     user_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('users.user_id', ondelete='CASCADE'))
@@ -502,7 +562,8 @@ class UserStatus(BaseModelTimed):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'), primary_key=True)
 
-    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name='user_role'), default=UserRole.USER)
     is_blocked_by_user: Mapped[bool] = mapped_column(default=False)
     is_blacklisted: Mapped[bool] = mapped_column(default=False)
 

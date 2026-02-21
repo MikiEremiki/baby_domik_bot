@@ -1,14 +1,14 @@
-"""add_tg_updates_table
+"""rev_12: add telegram_updates table
 
 Revision ID: 105f2aad266f
 Revises: e7135eecdea0
-Create Date: 2026-01-25 12:53:36.919987
+Create Date: 2026-01-25 12:53:12.123456
 
 """
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+
 
 # revision identifiers, used by Alembic.
 revision = "105f2aad266f"

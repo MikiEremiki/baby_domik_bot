@@ -151,7 +151,9 @@ async def create_tickets(context, ticket_status):
 
     reserve_user_data = context.user_data['reserve_user_data']
     choose_schedule_event_ids = reserve_user_data['choose_schedule_event_ids']
-    chose_price = reserve_user_data['chose_price']
+    # Берем цену со скидкой, если она есть
+    chose_price = reserve_user_data.get('discounted_price', reserve_user_data['chose_price'])
+    promo_id = reserve_user_data.get('applied_promo_id')
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
@@ -163,6 +165,7 @@ async def create_tickets(context, ticket_status):
             price=chose_price,
             schedule_event_id=event_id,
             status=ticket_status,
+            promo_id=promo_id,
         )
         ticket_ids.append(ticket.id)
 
