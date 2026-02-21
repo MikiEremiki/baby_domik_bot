@@ -35,6 +35,40 @@ logger = logging.getLogger('bot.promotion_hl')
 ) = range(50, 67)
 PROM_MAX_USAGE_USER = 67
 
+async def _edit_or_send_new_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+    reply_markup: InlineKeyboardMarkup = None
+):
+    promotion_ = context.user_data['new_promotion']
+    service = promotion_['service']
+    query = update.callback_query
+
+    if query:
+        try:
+            message = await query.edit_message_text(text=text, reply_markup=reply_markup)
+        except Exception:
+            # На случай, если сообщение уже удалено или кнопки те же
+            message = await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+    else:
+        # Убираем кнопки из предыдущего сообщения
+        prev_message_id = service.get('message_id')
+        if prev_message_id:
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=update.effective_chat.id,
+                    message_id=prev_message_id,
+                    reply_markup=None
+                )
+            except Exception:
+                pass
+
+        message = await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+
+    service['message_id'] = message.message_id
+    return message
+
 async def promotion_create_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if query:
@@ -205,17 +239,8 @@ async def handle_prom_name_start(update: Update, context: ContextTypes.DEFAULT_T
                                             postfix_for_back=PROM_CONFIRM if is_update else '3'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
+    message = await _edit_or_send_new_message(update, context, text, reply_markup)
 
-    promotion_['service']['message_id'] = message.message_id
     state = PROM_NAME
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -254,12 +279,7 @@ async def handle_prom_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=service['message_id'],
-        text=text,
-        reply_markup=reply_markup,
-    )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_CODE
     await set_back_context(context, state, text, reply_markup)
@@ -297,16 +317,7 @@ async def handle_prom_code_start(update: Update, context: ContextTypes.DEFAULT_T
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_NAME))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-    promotion_['service']['message_id'] = message.message_id
+    message = await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_CODE
     await set_back_context(context, state, text, reply_markup)
@@ -330,12 +341,8 @@ async def handle_prom_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             postfix_for_cancel='settings',
             add_back_btn=True,
             postfix_for_back=PROM_NAME)]
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text_err,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await _edit_or_send_new_message(update, context, text_err, reply_markup)
         return PROM_CODE
 
     promotion_['data']['code'] = code
@@ -388,17 +395,8 @@ async def ask_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_CODE))
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    if update.callback_query:
-        message = await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
-    promotion_['service']['message_id'] = message.message_id
     state = PROM_DTYPE
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -450,12 +448,8 @@ async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         text_err = "Ошибка! Пожалуйста, введите корректное число (для % от 1 до 100):"
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_DTYPE)]
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text_err,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await _edit_or_send_new_message(update, context, text_err, reply_markup)
         return PROM_VALUE
         
     promotion_['data']['discount'] = value
@@ -473,12 +467,7 @@ async def handle_prom_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         postfix_for_back=PROM_VALUE)]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=service['message_id'],
-        text=text,
-        reply_markup=reply_markup
-    )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
     
     state = PROM_MIN_SUM
     await set_back_context(context, state, text, reply_markup)
@@ -507,16 +496,7 @@ async def handle_prom_min_sum_start(update: Update, context: ContextTypes.DEFAUL
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_VALUE))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_MIN_SUM
     await set_back_context(context, state, text, reply_markup)
@@ -534,12 +514,8 @@ async def handle_prom_min_sum(update: Update, context: ContextTypes.DEFAULT_TYPE
     except ValueError:
         text_err = "Ошибка! Пожалуйста, введите корректное целое число для мин. суммы:"
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_VALUE)]
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text_err,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await _edit_or_send_new_message(update, context, text_err, reply_markup)
         return PROM_MIN_SUM
         
     promotion_['data']['min_purchase_sum'] = value
@@ -564,12 +540,7 @@ async def handle_prom_min_sum(update: Update, context: ContextTypes.DEFAULT_TYPE
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=service['message_id'],
-        text=text,
-        reply_markup=reply_markup,
-    )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
     
     state = PROM_VISIBLE
     await set_back_context(context, state, text, reply_markup)
@@ -605,16 +576,7 @@ async def handle_prom_visible_start(update: Update, context: ContextTypes.DEFAUL
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_MIN_SUM))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_VISIBLE
     await set_back_context(context, state, text, reply_markup)
@@ -687,16 +649,7 @@ async def handle_prom_verify_start(update: Update, context: ContextTypes.DEFAULT
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_VISIBLE))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_VERIFY
     await set_back_context(context, state, text, reply_markup)
@@ -744,17 +697,7 @@ async def handle_prom_vtext_start(update: Update, context: ContextTypes.DEFAULT_
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_VERIFY))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_VTEXT
     await set_back_context(context, state, text, reply_markup)
@@ -808,17 +751,7 @@ async def handle_prom_start_start(update: Update, context: ContextTypes.DEFAULT_
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_VTEXT))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_START
     await set_back_context(context, state, text, reply_markup)
@@ -845,12 +778,8 @@ async def handle_prom_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             text_err = "Ошибка! Неверный формат даты. Используйте ДД.ММ.ГГГГ или пропустите:"
             keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_VTEXT)]
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=service['message_id'],
-                text=text_err,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await _edit_or_send_new_message(update, context, text_err, reply_markup)
             return PROM_START
 
     if is_update:
@@ -869,12 +798,7 @@ async def handle_prom_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=service['message_id'],
-        text=text,
-        reply_markup=reply_markup
-    )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
     
     state = PROM_EXPIRE
     await set_back_context(context, state, text, reply_markup)
@@ -905,17 +829,7 @@ async def handle_prom_expire_start(update: Update, context: ContextTypes.DEFAULT
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_START))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_EXPIRE
     await set_back_context(context, state, text, reply_markup)
@@ -942,12 +856,8 @@ async def handle_prom_expire(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except ValueError:
             text_err = "Ошибка! Неверный формат даты. Используйте ДД.ММ.ГГГГ или пропустите:"
             keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_START)]
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=service['message_id'],
-                text=text_err,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await _edit_or_send_new_message(update, context, text_err, reply_markup)
             return PROM_EXPIRE
 
     if is_update:
@@ -961,12 +871,7 @@ async def handle_prom_expire(update: Update, context: ContextTypes.DEFAULT_TYPE)
     keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_EXPIRE)]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=service['message_id'],
-        text=text,
-        reply_markup=reply_markup
-    )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
     
     state = PROM_MAX_USAGE
     context.user_data['STATE'] = state
@@ -993,11 +898,7 @@ async def handle_prom_max_usage_start(update: Update, context: ContextTypes.DEFA
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_EXPIRE))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_MAX_USAGE
     await set_back_context(context, state, text, reply_markup)
@@ -1016,15 +917,7 @@ async def handle_prom_max_usage(update: Update, context: ContextTypes.DEFAULT_TY
         text_err = "Ошибка! Пожалуйста, введите целое число для макс. использования:"
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_EXPIRE)]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        if update.callback_query:
-            await update.callback_query.edit_message_text(text=text_err, reply_markup=reply_markup)
-        else:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=service['message_id'],
-                text=text_err,
-                reply_markup=reply_markup
-            )
+        await _edit_or_send_new_message(update, context, text_err, reply_markup)
         return PROM_MAX_USAGE
         
     promotion_['data']['max_count_of_usage'] = value
@@ -1057,17 +950,7 @@ async def handle_prom_max_usage_user_start(update: Update, context: ContextTypes
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_MAX_USAGE))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_MAX_USAGE_USER
     await set_back_context(context, state, text, reply_markup)
@@ -1086,15 +969,7 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
         text_err = "Ошибка! Пожалуйста, введите целое число для макс. использования пользователем:"
         keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=PROM_MAX_USAGE)]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        if update.callback_query:
-            await update.callback_query.edit_message_text(text=text_err, reply_markup=reply_markup)
-        else:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=service['message_id'],
-                text=text_err,
-                reply_markup=reply_markup
-            )
+        await _edit_or_send_new_message(update, context, text_err, reply_markup)
         return PROM_MAX_USAGE_USER
 
     promotion_['data']['max_usage_per_user'] = value
@@ -1115,16 +990,7 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if update.callback_query:
-        message = await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-    service['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
     
     state = PROM_DESC
     await set_back_context(context, state, text, reply_markup)
@@ -1155,16 +1021,7 @@ async def handle_prom_desc_start(update: Update, context: ContextTypes.DEFAULT_T
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_MAX_USAGE))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if query:
-        message = await query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        message = await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
-    promotion_['service']['message_id'] = message.message_id
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_DESC
     await set_back_context(context, state, text, reply_markup)
@@ -1252,16 +1109,8 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if update.callback_query:
-        message = await update.callback_query.edit_message_text(summary, reply_markup=reply_markup)
-    else:
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=promotion_['service']['message_id'],
-            text=summary,
-            reply_markup=reply_markup
-        )
-        message = update.effective_message # Здесь нам не нужно обновлять message_id, он уже есть
+    await _edit_or_send_new_message(update, context, summary, reply_markup)
+
     state = PROM_CONFIRM
     await set_back_context(context, state, summary, reply_markup)
     context.user_data['STATE'] = state
@@ -1282,11 +1131,6 @@ async def handle_prom_desc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             return PROM_DESC
     else:
-        # Удаляем сообщение пользователя
-        try:
-            await update.effective_message.delete()
-        except Exception:
-            pass
         promotion_['data']['description_user'] = update.effective_message.text
 
     return await ask_promotion_summary(update, context)
@@ -1358,15 +1202,7 @@ async def _render_multi_select(update: Update,
     text += f'\nСтраница {page + 1} из {pages}'
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
-    else:
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=service['message_id'],
-            text=text,
-            reply_markup=reply_markup
-        )
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
 
 def _get_type_labels(it):
