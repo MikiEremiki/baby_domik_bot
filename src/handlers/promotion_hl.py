@@ -1102,11 +1102,14 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
             InlineKeyboardButton("🎟 Билеты", callback_data='prom_restrict_ticket'),
             InlineKeyboardButton("📅 Сеансы", callback_data='prom_restrict_schedule'),
         ],
-        [InlineKeyboardButton("✅ Подтвердить и сохранить", callback_data='accept')],
-        add_btn_back_and_cancel(postfix_for_cancel='settings',
-                                add_back_btn=True,
-                                postfix_for_back='3')
+        [InlineKeyboardButton("✅ Подтвердить", callback_data='accept')],
     ]
+    if is_update:
+        keyboard.append([InlineKeyboardButton("❌ Удалить", callback_data=f"del_prom_{promo['id']}")])
+
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings',
+                                            add_back_btn=True,
+                                            postfix_for_back='3'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await _edit_or_send_new_message(update, context, summary, reply_markup)

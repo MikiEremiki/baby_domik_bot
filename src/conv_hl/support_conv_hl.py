@@ -277,6 +277,7 @@ states = {
         CallbackQueryHandler(promotion_hl.open_restrict_theater, '^prom_restrict_theater$'),
         CallbackQueryHandler(promotion_hl.open_restrict_ticket, '^prom_restrict_ticket$'),
         CallbackQueryHandler(promotion_hl.open_restrict_schedule, '^prom_restrict_schedule$'),
+        CallbackQueryHandler(promotion_hl.handle_promotion_delete, r'^del_prom_(\d+)$'),
         CallbackQueryHandler(promotion_hl.promotion_confirm_save, '^accept$'),
     ],
 }
