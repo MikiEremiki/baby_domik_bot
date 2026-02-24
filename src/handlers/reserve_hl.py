@@ -33,6 +33,7 @@ from utilities.utl_check import (
     check_available_seats, check_available_ticket_by_free_seat,
     check_entered_command, check_topic, check_input_text, is_skip_ticket
 )
+from utilities.utl_date import to_naive
 from utilities.utl_func import (
     extract_phone_number_from_text, set_back_context, check_phone_number,
     get_full_name_event, get_formatted_date_and_time_of_event,
@@ -2112,17 +2113,11 @@ async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_
 
     # Проверка даты
     now = datetime.now()
-    if promo.start_date.tzinfo:
-        start_date = promo.start_date.astimezone().replace(tzinfo=None)
-    else:
-        start_date = promo.start_date
+    start_date = to_naive(promo.start_date)
     if start_date and now < start_date:
         await update.effective_chat.send_message("Срок действия этого промокода еще не начался.")
         return await show_reservation_summary(update, context)
-    if promo.expire_date and promo.expire_date.tzinfo:
-        expire_date = promo.expire_date.astimezone().replace(tzinfo=None)
-    else:
-        expire_date = promo.expire_date
+    expire_date = to_naive(promo.expire_date)
     if expire_date and now > expire_date:
         await update.effective_chat.send_message("Срок действия этого промокода истек.")
         return await show_reservation_summary(update, context)
