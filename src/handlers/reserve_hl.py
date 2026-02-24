@@ -2112,10 +2112,18 @@ async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_
 
     # Проверка даты
     now = datetime.now()
-    if promo.start_date and now < promo.start_date:
+    if promo.start_date.tzinfo:
+        start_date = promo.start_date.astimezone().replace(tzinfo=None)
+    else:
+        start_date = promo.start_date
+    if start_date and now < start_date:
         await update.effective_chat.send_message("Срок действия этого промокода еще не начался.")
         return await show_reservation_summary(update, context)
-    if promo.expire_date and now > promo.expire_date:
+    if promo.expire_date and promo.expire_date.tzinfo:
+        expire_date = promo.expire_date.astimezone().replace(tzinfo=None)
+    else:
+        expire_date = promo.expire_date
+    if expire_date and now > expire_date:
         await update.effective_chat.send_message("Срок действия этого промокода истек.")
         return await show_reservation_summary(update, context)
 
