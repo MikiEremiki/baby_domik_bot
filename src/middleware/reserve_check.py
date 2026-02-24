@@ -1,6 +1,5 @@
 import logging
 import datetime
-from typing import Optional
 
 from telegram import Update
 from telegram.ext import (
@@ -9,6 +8,7 @@ from telegram.ext import (
 from db import db_postgres
 from handlers.reserve_hl import choice_mode, conversation_timeout
 from settings.settings import RESERVE_TIMEOUT, CHAT_ID_KOCHETKOVA
+from utilities.utl_date import to_naive
 
 reserve_check_md_logger = logging.getLogger('bot.md.reserve_check')
 
@@ -26,15 +26,6 @@ PROTECTED_STATES = {
     'WAIT_RECEIPT',        # ожидание квитанции об оплате (ручное подтверждение)
     'WAIT_DOCUMENT',       # ожидание подтверждающего документа (для льгот)
 }
-
-
-def to_naive(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
-    """Приводит datetime к naive (без tzinfo) в локальном времени."""
-    if dt is None:
-        return None
-    if dt.tzinfo:
-        return dt.astimezone().replace(tzinfo=None)
-    return dt
 
 
 async def reset_conversation_state(update: Update, context: ContextTypes.DEFAULT_TYPE):

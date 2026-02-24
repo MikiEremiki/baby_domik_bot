@@ -1,4 +1,5 @@
 import datetime
+from typing import Optional
 
 
 def convert_sheets_datetime(
@@ -12,3 +13,12 @@ def convert_sheets_datetime(
             + datetime.timedelta(days=sheets_date,
                                  hours=hours,
                                  minutes=minutes))
+
+
+def to_naive(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
+    """Приводит datetime к naive (без tzinfo) в локальном времени."""
+    if dt is None:
+        return None
+    if dt.tzinfo:
+        return dt.astimezone().replace(tzinfo=None)
+    return dt
