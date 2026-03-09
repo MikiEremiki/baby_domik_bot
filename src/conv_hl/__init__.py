@@ -1,10 +1,12 @@
-from .common_hl import (
+from .reserve_common_hl import (
     handlers_event_selection,
     handlers_client_data_selection,
+)
+from .common_conv_hl import (
     F_text_and_no_command,
     cancel_callback_handler,
     back_callback_handler,
-    common_fallbacks
+    common_fallbacks,
 )
 
 from .reserve_conv_hl import reserve_conv_hl

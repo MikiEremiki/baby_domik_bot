@@ -1,18 +1,13 @@
-from warnings import filterwarnings
+from telegram.ext import CallbackQueryHandler, MessageHandler
 
-from telegram.ext import (
-    filters,
-    CallbackQueryHandler, MessageHandler, CommandHandler
+from conv_hl.common_conv_hl import (
+    F_text_and_no_command,
+    back_callback_handler,
+    cancel_callback_handler,
 )
-from telegram.warnings import PTBUserWarning
-
 from handlers import main_hl, reserve_hl
 
-F_text_and_no_command = filters.TEXT & ~filters.COMMAND
-cancel_callback_handler = CallbackQueryHandler(main_hl.cancel, '^Отменить')
-back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')
-
-handlers_event_selection  = {
+handlers_event_selection = {
     'MONTH': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
@@ -63,12 +58,3 @@ handlers_client_data_selection = {
         CallbackQueryHandler(reserve_hl.get_children, pattern=r'^CHLD_'),
     ],
 }
-
-common_fallbacks=[
-        CommandHandler('start', main_hl.start),
-        CommandHandler('reset', main_hl.reset),
-    ]
-
-filterwarnings(action='ignore',
-               message=r'.*CallbackQueryHandler',
-               category=PTBUserWarning)
