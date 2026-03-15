@@ -8,7 +8,9 @@ from yookassa.domain.notification import WebhookNotification
 from api.googlesheets import update_ticket_in_gspread
 from api.gspread_pub import publish_update_ticket
 from db import db_postgres
+from db.db_googlesheets import decrease_nonconfirm_seat
 from db.enum import TicketStatus
+from handlers.main_hl import send_approve_message
 from handlers.sub_hl import (
     send_approve_reject_message_to_admin_in_webhook,
     get_booking_admin_text
@@ -147,8 +149,6 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     if is_admin_booking:
         # Для админских бронирований: списываем неподтвержденные места и отправляем сразу подтверждение пользователю
-        from db.db_googlesheets import decrease_nonconfirm_seat
-        from handlers.main_hl import send_approve_message
         for ticket_id in ticket_ids:
             try:
                 t = await db_postgres.get_ticket(context.session, ticket_id)
@@ -166,20 +166,20 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
         # Уведомление в админ-группу
         try:
             user = user_data['user'] if user_data else None
-            text_admin = f'#Бронирование #Админ_бронь\n'
-            text_admin += f'Платеж по ссылке успешно обработан. Бронь подтверждена автоматически.\n'
+            text_to_admin = f'#Бронирование #Админ_бронь\n'
+            text_to_admin += f'Платеж по ссылке успешно обработан. Бронь подтверждена автоматически.\n'
             if user:
                 booking_details = await get_booking_admin_text(
                     context, ticket_ids, user, user_data
                 )
-                text_admin += booking_details + '\n\n'
+                text_to_admin += booking_details + '\n\n'
 
             for ticket_id in ticket_ids:
-                text_admin += f'#ticket_id <code>{ticket_id}</code>\n'
+                text_to_admin += f'#ticket_id <code>{ticket_id}</code>\n'
 
             await context.bot.send_message(
                 chat_id=ADMIN_GROUP,
-                text=text_admin,
+                text=text_to_admin,
                 message_thread_id=thread_id,
                 parse_mode='HTML'
             )

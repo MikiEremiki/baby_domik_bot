@@ -190,7 +190,7 @@ async def show_reservation_summary(update: Update,
                          f'{chose_base_ticket.name} '
                          f'{int(price_to_pay)}руб<br>')
     if applied_promo_code:
-        notification_text += f'Применен промокод: <code>{applied_promo_code}</code><br>'
+        notification_text += f'Применен промокод: <code>{applied_promo_code}</code><br><br>'
     context.user_data['common_data'][
         'text_for_notification_massage'] = notification_text
 

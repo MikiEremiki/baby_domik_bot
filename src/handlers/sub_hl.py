@@ -670,7 +670,7 @@ async def forward_message_to_admin(
 
     text = f'#Бронирование\n{doc_type} по билету: <code>{ticket_id}</code>\n'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code>\n'
+        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
 
     message_id = await update.effective_message.copy(
         chat_id=ADMIN_GROUP,
@@ -879,7 +879,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
     text += f'Платеж успешно обработан<br>'
 
     booking_details = await get_booking_admin_text(context, ticket_ids, user, user_data)
-    text += booking_details.replace('\n', '<br>') + '<br>'
+    text += booking_details.replace('\n', '<br>') + '<br><br>'
 
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
@@ -975,9 +975,9 @@ async def get_booking_admin_text(
     text = f'Покупатель: {username} {full_name}\n\n'
     text += f'#event_id <code>{schedule_event_id}</code>\n'
     text += f'{theater_event.name}\n{date_event} в {time_event}\n'
-    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n'
+    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n\n'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code>\n'
+        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
 
     text += '\n'.join([
         client_data.get('name_adult', 'Не указано'),
