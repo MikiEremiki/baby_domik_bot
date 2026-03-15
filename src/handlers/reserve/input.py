@@ -802,7 +802,7 @@ async def phone_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
-    text = f'{update.effective_message.text}\nДа'
+    text = f'{update.effective_message.text}\n\nДа'
     entities = update.effective_message.entities
     await query.edit_message_text(text, entities=entities)
 

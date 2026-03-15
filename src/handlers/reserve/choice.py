@@ -633,7 +633,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         len(v) == 1 for v in by_date.values()) and len(by_date) > 0
 
     if use_direct_time:
-        # Прямые кнопки на TIME c текстом Дата + Время (+эмодзи опций)
+        # Прямые кнопки на TIME с текстом Дата + Время (+эмодзи опций)
         keyboard = []
         for d, ev_list in sorted(by_date.items()):
             s_ev = ev_list[0]

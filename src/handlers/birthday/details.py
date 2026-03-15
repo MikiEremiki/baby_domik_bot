@@ -154,7 +154,7 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         context, [message_1.message_id])
     context.user_data['common_data']['text_for_notification_massage'] = text
 
-    text = ('Проверьте и нажмите п  одтвердить\n'
+    text = ('Проверьте и нажмите подтвердить\n'
             'или вернитесь и исправьте необходимые данные')
     keyboard = [
         [InlineKeyboardButton('Подтвердить', callback_data='confirm')],

@@ -197,9 +197,9 @@ async def conversation_timeout(
         context: 'ContextTypes.DEFAULT_TYPE'
 ) -> int:
     """Informs the user that the operation has timed out,
-    calls :meth:`remove_reply_markup` and ends the conversation.
+    calls: meth:`remove_reply_markup` and ends the conversation.
     :return:
-        int: :attr:`telegram.ext.ConversationHandler.END`.
+        Int: attr:`telegram.ext.ConversationHandler.END`.
     """
     user = context.user_data.get('user', update.effective_user)
     if context.user_data['STATE'] == 'PAID':
