@@ -242,17 +242,7 @@ async def _handle_chld_edit_callback(
                 break
         # Если не нашли (например, изменился фильтр), перезагрузим список по активному фильтру
         if idx is None:
-            mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-            if (
-                    mode == 'PHONE' and
-                    reserve_user_data.get('client_data', {}).get('phone')
-            ):
-                phone = reserve_user_data['client_data']['phone']
-                children = await db_postgres.get_children_by_phone(
-                    context.session, phone)
-            else:
-                children = await db_postgres.get_children(
-                    context.session, update.effective_user.id)
+            children = await _update_children(update, context)
             reserve_user_data['children'] = children
             for i, c in enumerate(children):
                 if c[2] == person_id:
@@ -266,11 +256,11 @@ async def _handle_chld_edit_callback(
             text, reply_markup = await get_child_text_and_reply(
                 update, chose_base_ticket, children, context)
             try:
-                await query.edit_message_text(
-                    text=text, reply_markup=reply_markup)
+                await query.edit_message_text(text=text, reply_markup=reply_markup)
             except BadRequest as e:
                 if "Message is not modified" not in str(e):
                     raise e
+            await set_back_context(context, 'CHILDREN', text, reply_markup)
             return 'CHILDREN'
 
         # Сохраняем редактируемого ребенка по ID
@@ -312,18 +302,7 @@ async def _handle_chld_edit_callback(
         person_id = int(data.split('|')[1])
         await db_postgres.delete_person(context.session, person_id)
         # Обновляем список детей в контексте согласно активному фильтру
-        mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-        if (
-                mode == 'PHONE' and
-                reserve_user_data.get('client_data', {}).get('phone')
-        ):
-            phone = reserve_user_data['client_data']['phone']
-            children = await db_postgres.get_children_by_phone(
-                context.session, phone)
-        else:
-            children = await db_postgres.get_children(
-                context.session, update.effective_user.id)
-
+        children = await _update_children(update, context)
         reserve_user_data['children'] = children
         # Сбрасываем выбранных детей, так как список изменился
         reserve_user_data['selected_children'] = []
@@ -353,9 +332,24 @@ async def _handle_chld_edit_callback(
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             raise e
-
     await set_back_context(context, 'CHILDREN', text, reply_markup)
     return 'CHILDREN'
+
+
+async def _update_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reserve_user_data = context.user_data
+    mode = reserve_user_data.get('child_filter_mode', 'PHONE')
+    if (
+            mode == 'PHONE' and
+            reserve_user_data.get('client_data', {}).get('phone')
+    ):
+        phone = reserve_user_data['client_data']['phone']
+        children = await db_postgres.get_children_by_phone(
+            context.session, phone)
+    else:
+        children = await db_postgres.get_children(
+            context.session, update.effective_user.id)
+    return children
 
 
 async def _handle_chld_selection_callback(
@@ -402,16 +396,7 @@ async def _handle_chld_selection_callback(
         mode = data.split('|')[1]
         reserve_user_data['child_filter_mode'] = mode
         # Перезагружаем список детей в соответствии с фильтром
-        if (
-                mode == 'PHONE' and
-                reserve_user_data.get('client_data', {}).get('phone')
-        ):
-            phone = reserve_user_data['client_data']['phone']
-            children = await db_postgres.get_children_by_phone(
-                context.session, phone)
-        else:
-            children = await db_postgres.get_children(
-                context.session, update.effective_user.id)
+        children = await _update_children(update, context)
         reserve_user_data['children'] = children
         # Очищаем выбор от отсутствующих ID
         available_ids = {c[2] for c in children}
@@ -577,18 +562,7 @@ async def get_children(
                 text_success = f'<b>Ребенок {name} {int(age)} добавлен!</b>'
 
             # Обновляем список детей согласно активному фильтру
-            mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-            if (
-                    mode == 'PHONE' and
-                    reserve_user_data.get('client_data', {}).get('phone')
-            ):
-                phone = reserve_user_data['client_data']['phone']
-                children = await db_postgres.get_children_by_phone(
-                    context.session, phone)
-            else:
-                children = await db_postgres.get_children(
-                    context.session, update.effective_user.id)
-
+            children = await _update_children(update, context)
             reserve_user_data['children'] = children
             reserve_user_data['is_adding_child'] = False
             reserve_user_data['is_editing_child_data'] = False
@@ -598,6 +572,7 @@ async def get_children(
             limit = chose_base_ticket.quality_of_children
             command = context.user_data.get('command', '')
             is_admin = '_admin' in command
+            mode = reserve_user_data.get('child_filter_mode', 'PHONE')
 
             # Считаем количество телефонов у пользователя
             phone_count = await db_postgres.count_adult_phones(
@@ -670,18 +645,7 @@ async def get_children(
     except Exception:
         pass
 
-    mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-    if (
-            mode == 'PHONE' and
-            reserve_user_data.get('client_data', {}).get('phone')
-    ):
-        phone = reserve_user_data['client_data']['phone']
-        children = await db_postgres.get_children_by_phone(
-            context.session, phone)
-    else:
-        children = await db_postgres.get_children(
-            context.session, update.effective_user.id)
-
+    children = await _update_children(update, context)
     reserve_user_data['children'] = children
     text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
