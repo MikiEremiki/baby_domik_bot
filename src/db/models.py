@@ -261,6 +261,7 @@ class TheaterEvent(BaseModel):
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
     price_type: Mapped[PriceType] = mapped_column(Enum(PriceType, name='price_type'), default=PriceType.NONE)
     note: Mapped[Optional[str]]
+    link: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
         back_populates='theater_event', lazy='selectin')

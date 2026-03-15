@@ -735,13 +735,14 @@ def _format_duration(duration: Optional[time]) -> str:
         parts.append(f'{minutes}мин')
     return ''.join(parts)
 
-def get_full_name_event(event: TheaterEvent, add_note=False):
+def get_full_name_event(event: TheaterEvent, add_note=False, add_link=False):
     name = event.name
     flag_premiere = event.flag_premier
     min_age_child = event.min_age_child
     max_age_child = event.max_age_child
     duration = event.duration
     note = event.note
+    link = event.link
 
     full_name: str = name
     full_name += '\n'
@@ -755,6 +756,8 @@ def get_full_name_event(event: TheaterEvent, add_note=False):
         full_name += duration_banner
     if note and add_note:
         full_name += f'\n<i>{note}</i>'
+    if link and add_link:
+        full_name += f'\n<a href="{link}">Подробнее о спектакле</a>'
     return full_name
 
 
@@ -803,9 +806,9 @@ async def filter_schedule_event_by_active(
     return schedule_events_tmp
 
 
-async def create_event_names_text(enum_theater_events, text):
+async def create_event_names_text(enum_theater_events, text, add_note=False, add_link=False):
     for i, event in enum_theater_events:
-        full_name = get_full_name_event(event)
+        full_name = get_full_name_event(event, add_note=add_note, add_link=add_link)
         text += f'{DICT_OF_EMOJI_FOR_BUTTON[i]} {full_name}\n\n'
     return text
 

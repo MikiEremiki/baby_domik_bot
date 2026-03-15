@@ -30,6 +30,7 @@ class TheaterEventDTO(BaseModel):
     flag_indiv_cost: bool
     price_type: PriceType
     note: str
+    link: str
 
     def to_dto(self):
         return {
@@ -46,7 +47,8 @@ class TheaterEventDTO(BaseModel):
             'max_num_adult_bd': self.max_num_adult_bd,
             'flag_indiv_cost': self.flag_indiv_cost,
             'price_type': self.price_type,
-            'note': self.note
+            'note': self.note,
+            'link': self.link
         }
 
 
@@ -63,6 +65,7 @@ kv_name_attr_theater_event = {
     'flag_indiv_cost': 'Индив стоимость',
     'price_type': 'Расчет стоимости',
     'note': 'Примечание',
+    'link': 'Ссылка',
 }
 
 
