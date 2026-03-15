@@ -47,6 +47,7 @@ from settings.settings import (
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
+
 async def reset_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -70,7 +71,8 @@ async def check_promo_restrictions(
     if not schedule_event_id:
         return True, ""
 
-    schedule_event = await db_postgres.get_schedule_event(session, schedule_event_id)
+    schedule_event = await db_postgres.get_schedule_event(
+        session, schedule_event_id)
     if not schedule_event:
         return True, ""
 
@@ -102,7 +104,8 @@ async def check_promo_restrictions(
     if promo.max_usage_per_user > 0:
         user_id = reserve_user_data.get('user_id')
         if user_id:
-            usage_count = await db_postgres.get_promotion_usage_count_by_user(session, promo.id, user_id)
+            usage_count = await db_postgres.get_promotion_usage_count_by_user(
+                session, promo.id, user_id)
             if usage_count >= promo.max_usage_per_user:
                 return False, f"Вы уже использовали этот промокод максимально доступное количество раз."
 
@@ -121,7 +124,8 @@ async def compute_discounted_price(price: int, promo: Promotion) -> int:
     return max(rounded_price, 10)
 
 
-async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_reservation_summary(update: Update,
+                                   context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if query:
         await query.answer()
@@ -133,11 +137,14 @@ async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT
 
     # Сбор данных о мероприятии
     schedule_event_id = reserve_user_data['choose_schedule_event_id']
-    schedule_event = await db_postgres.get_schedule_event(context.session, schedule_event_id)
-    theater_event = await db_postgres.get_theater_event(context.session, schedule_event.theater_event_id)
+    schedule_event = await db_postgres.get_schedule_event(
+        context.session, schedule_event_id)
+    theater_event = await db_postgres.get_theater_event(
+        context.session, schedule_event.theater_event_id)
 
     full_name_event = get_full_name_event(theater_event)
-    date_event, time_event = await get_formatted_date_and_time_of_event(schedule_event)
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
 
     text = (
         f"<b>Подтверждение бронирования</b><br><br>"
@@ -158,11 +165,13 @@ async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT
         # Проверяем, требует ли промокод верификации
         applied_promo_id = reserve_user_data.get('applied_promo_id')
         if applied_promo_id:
-            promo = await db_postgres.get_promotion(context.session, applied_promo_id)
+            promo = await db_postgres.get_promotion(
+                context.session, applied_promo_id)
             if promo and promo.requires_verification:
-                v_text = promo.verification_text or ("Фото документа, подтверждающего право на льготу, "
-                                                     "вы сможете прикрепить после оплаты. Без него билет "
-                                                     "может быть отклонен, а средства возвращены.")
+                v_text = promo.verification_text or (
+                    "Фото документа, подтверждающего право на льготу, "
+                    "вы сможете прикрепить после оплаты. Без него билет "
+                    "может быть отклонен, а средства возвращены.")
                 text += f"<br><br><b>Внимание!</b><br>{v_text}"
     else:
         text += f"<b>Стоимость:</b> {int(chose_price)} руб."
@@ -183,7 +192,8 @@ async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT
                          f'{int(price_to_pay)}руб<br>')
     if applied_promo_code:
         notification_text += f'Применен промокод: <code>{applied_promo_code}</code><br>'
-    context.user_data['common_data']['text_for_notification_massage'] = notification_text
+    context.user_data['common_data'][
+        'text_for_notification_massage'] = notification_text
 
     # Клавиатура
     keyboard = [
@@ -192,27 +202,33 @@ async def show_reservation_summary(update: Update, context: ContextTypes.DEFAULT
 
     command = context.user_data.get('command', '')
     if '_admin' in command:
-        keyboard.append([InlineKeyboardButton("✅ Подтвердить без оплаты", callback_data='CONFIRM_WITHOUT_PAY')])
+        keyboard.append([InlineKeyboardButton(
+            "✅ Подтвердить без оплаты", callback_data='CONFIRM_WITHOUT_PAY')])
 
     if applied_promo_code:
-        keyboard.append([InlineKeyboardButton("❌ Сбросить промокод", callback_data='RESET_PROMO')])
+        keyboard.append([InlineKeyboardButton(
+            "❌ Сбросить промокод", callback_data='RESET_PROMO')])
     else:
-        keyboard.append([InlineKeyboardButton("🎟 Ввести промокод", callback_data='PROMO')])
+        keyboard.append(
+            [InlineKeyboardButton("🎟 Ввести промокод", callback_data='PROMO')])
 
     # Льготы (is_visible_as_option=True)
-    promos_as_options = await db_postgres.get_active_promotions_as_options(context.session)
+    promos_as_options = await db_postgres.get_active_promotions_as_options(
+        context.session)
     for promo in promos_as_options:
         # Проверяем условия применимости (min_purchase_sum)
         if chose_price < promo.min_purchase_sum:
             continue
 
         # Проверяем остальные ограничения
-        is_valid, _ = await check_promo_restrictions(promo, reserve_user_data, context.session)
+        is_valid, _ = await check_promo_restrictions(
+            promo, reserve_user_data, context.session)
         if not is_valid:
             continue
 
         btn_text = promo.description_user or promo.name or f"Льгота: {promo.code}"
-        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f'PROMO_OPTION|{promo.id}')])
+        keyboard.append([InlineKeyboardButton(
+            btn_text, callback_data=f'PROMO_OPTION|{promo.id}')])
 
     # Назад / Отмена
     keyboard.append(add_btn_back_and_cancel(
@@ -272,7 +288,8 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def confirm_admin_without_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def confirm_admin_without_payment(update: Update,
+                                        context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
@@ -357,7 +374,8 @@ async def confirm_admin_without_payment(update: Update, context: ContextTypes.DE
     return state
 
 
-async def handle_receipt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_receipt_file(update: Update,
+                              context: ContextTypes.DEFAULT_TYPE):
     return await process_successful_payment_with_verification(
         update,
         context,
@@ -365,9 +383,11 @@ async def handle_receipt_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
 
-async def handle_certificate_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_certificate_file(update: Update,
+                                  context: ContextTypes.DEFAULT_TYPE):
     # Пересылаем удостоверение админу
-    await forward_message_to_admin(update, context, doc_type="Подтверждение льготы")
+    await forward_message_to_admin(
+        update, context, doc_type="Подтверждение льготы")
 
     await update.effective_chat.send_message(
         "Спасибо! Документ получен и передан администратору."
@@ -403,7 +423,8 @@ async def ask_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return state
 
 
-async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_promo_code_input(update: Update,
+                                  context: ContextTypes.DEFAULT_TYPE):
     reserve_user_data = context.user_data['reserve_user_data']
     try:
         await context.bot.edit_message_reply_markup(
@@ -419,32 +440,38 @@ async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_
     promo = await db_postgres.get_promotion_by_code(context.session, code)
 
     if not promo or not promo.flag_active:
-        await update.effective_chat.send_message("Промокод не найден или неактивен. Попробуйте другой или продолжите без него.")
+        text = "Промокод не найден или неактивен. Попробуйте другой или продолжите без него."
+        await update.effective_chat.send_message(text)
         return await show_reservation_summary(update, context)
 
     # Проверка даты
     now = datetime.now()
     start_date = to_naive(promo.start_date)
     if start_date and now < start_date:
-        await update.effective_chat.send_message("Срок действия этого промокода еще не начался.")
+        text = "Срок действия этого промокода еще не начался."
+        await update.effective_chat.send_message(text)
         return await show_reservation_summary(update, context)
     expire_date = to_naive(promo.expire_date)
     if expire_date and now > expire_date:
-        await update.effective_chat.send_message("Срок действия этого промокода истек.")
+        text = "Срок действия этого промокода истек."
+        await update.effective_chat.send_message(text)
         return await show_reservation_summary(update, context)
 
     # Проверка лимита использования
     if 0 < promo.max_count_of_usage <= promo.count_of_usage:
-        await update.effective_chat.send_message("Лимит использований этого промокода исчерпан.")
+        text = "Лимит использований этого промокода исчерпан."
+        await update.effective_chat.send_message(text)
         return await show_reservation_summary(update, context)
 
     # Проверка минимальной суммы
     if chose_price < promo.min_purchase_sum:
-        await update.effective_chat.send_message(f"Этот промокод действует при сумме заказа от {promo.min_purchase_sum} руб.")
+        text = f"Этот промокод действует при сумме заказа от {promo.min_purchase_sum} руб."
+        await update.effective_chat.send_message(text)
         return await show_reservation_summary(update, context)
 
     # Проверка ограничений
-    is_valid, error_msg = await check_promo_restrictions(promo, reserve_user_data, context.session)
+    is_valid, error_msg = await check_promo_restrictions(
+        promo, reserve_user_data, context.session)
     if not is_valid:
         await update.effective_chat.send_message(error_msg)
         return await show_reservation_summary(update, context)
@@ -458,7 +485,8 @@ async def handle_promo_code_input(update: Update, context: ContextTypes.DEFAULT_
     return await show_reservation_summary(update, context)
 
 
-async def apply_option_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def apply_option_promo(update: Update,
+                             context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
@@ -469,7 +497,8 @@ async def apply_option_promo(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if promo and promo.flag_active:
         # Проверка ограничений
-        is_valid, error_msg = await check_promo_restrictions(promo, reserve_user_data, context.session)
+        is_valid, error_msg = await check_promo_restrictions(
+            promo, reserve_user_data, context.session)
         if not is_valid:
             await query.answer(error_msg, show_alert=True)
             return await show_reservation_summary(update, context)
@@ -582,8 +611,10 @@ async def conversation_timeout(
             message_thread_id=update.effective_message.message_thread_id
         )
 
-    reserve_hl_logger.info(f'Пользователь: {user}: AFK уже {RESERVE_TIMEOUT} мин')
-    reserve_hl_logger.info(f'Обработчик завершился на этапе {context.user_data['STATE']}')
+    reserve_hl_logger.info(
+        f'Пользователь: {user}: AFK уже {RESERVE_TIMEOUT} мин')
+    reserve_hl_logger.info(
+        f'Обработчик завершился на этапе {context.user_data['STATE']}')
 
     await cancel_tickets_db_and_gspread(update, context)
 

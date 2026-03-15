@@ -5,7 +5,8 @@ from telegram import (
     Update, InlineKeyboardMarkup, InlineKeyboardButton,
 )
 from telegram.error import TimedOut, NetworkError, BadRequest
-from telegram.ext import ContextTypes, ConversationHandler, ApplicationHandlerStop
+from telegram.ext import (
+    ContextTypes, ConversationHandler, ApplicationHandlerStop)
 from telegram.constants import ChatAction
 
 from api.gspread_pub import (
@@ -45,6 +46,7 @@ from settings.settings import (
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
+
 
 async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
@@ -103,7 +105,12 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         raise ApplicationHandlerStop
 
     check_ticket = check_available_ticket_by_free_seat(
-        schedule_event, theater_event, type_event, chose_base_ticket, only_child)
+        schedule_event,
+        theater_event,
+        type_event,
+        chose_base_ticket,
+        only_child
+    )
     if query:
         try:
             await query.answer()
@@ -196,9 +203,10 @@ async def _finish_get_children(
     return await show_reservation_summary(update, context)
 
 
-
-
-async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def _handle_chld_edit_callback(
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+):
     query = update.callback_query
     data = query.data
     reserve_user_data = context.user_data['reserve_user_data']
@@ -235,11 +243,16 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
         # Если не нашли (например, изменился фильтр), перезагрузим список по активному фильтру
         if idx is None:
             mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-            if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+            if (
+                    mode == 'PHONE' and
+                    reserve_user_data.get('client_data', {}).get('phone')
+            ):
                 phone = reserve_user_data['client_data']['phone']
-                children = await db_postgres.get_children_by_phone(context.session, phone)
+                children = await db_postgres.get_children_by_phone(
+                    context.session, phone)
             else:
-                children = await db_postgres.get_children(context.session, update.effective_user.id)
+                children = await db_postgres.get_children(
+                    context.session, update.effective_user.id)
             reserve_user_data['children'] = children
             for i, c in enumerate(children):
                 if c[2] == person_id:
@@ -248,10 +261,13 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
         if idx is None:
             # Не удалось найти ребенка — просто обновим экран
             chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-            chose_base_ticket = await db_postgres.get_base_ticket(context.session, chose_base_ticket_id)
-            text, reply_markup = await get_child_text_and_reply(update, chose_base_ticket, children, context)
+            chose_base_ticket = await db_postgres.get_base_ticket(
+                context.session, chose_base_ticket_id)
+            text, reply_markup = await get_child_text_and_reply(
+                update, chose_base_ticket, children, context)
             try:
-                await query.edit_message_text(text=text, reply_markup=reply_markup)
+                await query.edit_message_text(
+                    text=text, reply_markup=reply_markup)
             except BadRequest as e:
                 if "Message is not modified" not in str(e):
                     raise e
@@ -267,7 +283,10 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
         if child_person and child_person.parent:
             parent = child_person.parent
             phone = parent.adult.phone if parent.adult else None
-            pretty_phone = f'+7{phone}' if phone and not phone.startswith('+7') else phone
+            if phone and not phone.startswith('+7'):
+                pretty_phone = f'+7{phone}'
+            else:
+                pretty_phone = phone
             parent_info = f"Родитель: <b>{parent.name}</b>"
             if pretty_phone:
                 parent_info += f" (<code>{pretty_phone}</code>)"
@@ -277,8 +296,10 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
                 f'{parent_info}\n'
                 f'Выберите действие:')
         keyboard = [
-            [InlineKeyboardButton("✏️ Изменить", callback_data=f"CHLD_EDIT_START|{person_id}")],
-            [InlineKeyboardButton("❌ Удалить", callback_data=f"CHLD_DEL|{person_id}")],
+            [InlineKeyboardButton(
+                "✏️ Изменить", callback_data=f"CHLD_EDIT_START|{person_id}")],
+            [InlineKeyboardButton(
+                "❌ Удалить", callback_data=f"CHLD_DEL|{person_id}")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="CHLD_EDIT")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -292,7 +313,10 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
         await db_postgres.delete_person(context.session, person_id)
         # Обновляем список детей в контексте согласно активному фильтру
         mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-        if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+        if (
+                mode == 'PHONE' and
+                reserve_user_data.get('client_data', {}).get('phone')
+        ):
             phone = reserve_user_data['client_data']['phone']
             children = await db_postgres.get_children_by_phone(
                 context.session, phone)
@@ -320,8 +344,10 @@ async def _handle_chld_edit_callback(update: Update, context: ContextTypes.DEFAU
 
     # Обновляем сообщение для всех случаев (EDIT, PAGE, DEL, EDIT_START)
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
-    chose_base_ticket = await db_postgres.get_base_ticket(context.session, chose_base_ticket_id)
-    text, reply_markup = await get_child_text_and_reply(update, chose_base_ticket, children, context)
+    chose_base_ticket = await db_postgres.get_base_ticket(
+        context.session, chose_base_ticket_id)
+    text, reply_markup = await get_child_text_and_reply(
+        update, chose_base_ticket, children, context)
     try:
         await query.edit_message_text(text=text, reply_markup=reply_markup)
     except BadRequest as e:
@@ -352,12 +378,14 @@ async def _handle_chld_selection_callback(
             # Находим ребенка по person_id
             child = next((c for c in children if c[2] == person_id), None)
             if child is None:
-                await query.answer("Не удалось найти выбранного ребенка", show_alert=True)
+                text = "Не удалось найти выбранного ребенка"
+                await query.answer(text, show_alert=True)
                 return 'CHILDREN'
             processed_data_on_children = [[child[0], str(child[1])]]
             original_text = f"{child[0]} {int(child[1])}"
             await query.edit_message_reply_markup()
-            return await _finish_get_children(update, context, processed_data_on_children, original_text)
+            return await _finish_get_children(
+                update, context, processed_data_on_children, original_text)
         # Иначе режим множественного выбора
         selected = reserve_user_data.get('selected_children', [])
         if person_id in selected:
@@ -366,22 +394,30 @@ async def _handle_chld_selection_callback(
             if len(selected) < chose_base_ticket.quality_of_children:
                 selected.append(person_id)
             else:
-                await query.answer(f"Выбрано максимум детей: {chose_base_ticket.quality_of_children}", show_alert=True)
+                text = f"Выбрано максимум детей: {chose_base_ticket.quality_of_children}"
+                await query.answer(text, show_alert=True)
                 return 'CHILDREN'
         reserve_user_data['selected_children'] = selected
     elif data.startswith('CHLD_FLTR|'):
         mode = data.split('|')[1]
         reserve_user_data['child_filter_mode'] = mode
         # Перезагружаем список детей в соответствии с фильтром
-        if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+        if (
+                mode == 'PHONE' and
+                reserve_user_data.get('client_data', {}).get('phone')
+        ):
             phone = reserve_user_data['client_data']['phone']
-            children = await db_postgres.get_children_by_phone(context.session, phone)
+            children = await db_postgres.get_children_by_phone(
+                context.session, phone)
         else:
-            children = await db_postgres.get_children(context.session, update.effective_user.id)
+            children = await db_postgres.get_children(
+                context.session, update.effective_user.id)
         reserve_user_data['children'] = children
         # Очищаем выбор от отсутствующих ID
         available_ids = {c[2] for c in children}
-        selected = [pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids]
+        selected = [
+            pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
+        ]
         reserve_user_data['selected_children'] = selected
     elif data.startswith('CHLD_PAGE|'):
         page = int(data.split('|')[1])
@@ -401,10 +437,16 @@ async def _handle_chld_selection_callback(
             original_text_parts.append(f"{child[0]} {int(child[1])}")
 
         await query.edit_message_reply_markup()
-        return await _finish_get_children(update, context, processed_data_on_children, "\n".join(original_text_parts))
+        return await _finish_get_children(
+            update,
+            context,
+            processed_data_on_children,
+            "\n".join(original_text_parts)
+        )
     elif data == 'Далее':
         await query.edit_message_reply_markup()
-        return await _finish_get_children(update, context, [['0', '0']], 'Далее')
+        return await _finish_get_children(
+            update, context, [['0', '0']], 'Далее')
     # Обновляем сообщение для SEL и PAGE
     text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
@@ -435,11 +477,15 @@ async def get_children(
             reserve_hl_logger.error(e)
         data = query.data
 
-        if data.startswith('CHLD_EDIT') or data.startswith('CHLD_DEL') or data == 'CHLD_ADD':
+        if (
+                data.startswith('CHLD_EDIT') or
+                data.startswith('CHLD_DEL') or data == 'CHLD_ADD'
+        ):
             return await _handle_chld_edit_callback(update, context)
 
         if data.startswith('CHLD_') or data == 'Далее':
-            return await _handle_chld_selection_callback(update, context, chose_base_ticket)
+            return await _handle_chld_selection_callback(
+                update, context, chose_base_ticket)
 
         return 'CHILDREN'
 
@@ -452,10 +498,16 @@ async def get_children(
         reserve_hl_logger.error(e)
     await update.effective_chat.send_action(ChatAction.TYPING)
 
-    if reserve_user_data.get('is_adding_child', False) or reserve_user_data.get('is_editing_child_data', False):
+    if (
+            reserve_user_data.get('is_adding_child', False) or
+            reserve_user_data.get('is_editing_child_data', False)
+    ):
         text = update.effective_message.text
         parts = text.split()
-        if len(parts) >= 2 and parts[-1].replace('.', '', 1).replace(',', '', 1).isdigit():
+        if (
+                len(parts) >= 2 and
+                parts[-1].replace('.', '', 1).replace(',', '', 1).isdigit()
+        ):
             name = " ".join(parts[:-1])
             try:
                 age = float(parts[-1].replace(',', '.'))
@@ -469,23 +521,32 @@ async def get_children(
                 person_id = reserve_user_data.get('edit_person_id')
                 if not person_id:
                     index = reserve_user_data.get('edit_child_index')
-                    if index is not None and 0 <= index < len(reserve_user_data.get('children', [])):
+                    if (
+                            index is not None and
+                            0 <= index < len(reserve_user_data.get('children', []))
+                    ):
                         person_id = reserve_user_data['children'][index][2]
                 if not person_id:
                     # Если не удалось определить, прерываем операцию
                     text_error = '<b>Не удалось определить запись ребенка для обновления.</b>'
-                    keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
+                    keyboard = [[InlineKeyboardButton(
+                        "Отмена", callback_data="CHLD_EDIT")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    message = await update.effective_chat.send_message(text=text_error, reply_markup=reply_markup)
+                    message = await update.effective_chat.send_message(
+                        text=text_error, reply_markup=reply_markup)
                     reserve_user_data['message_id'] = message.message_id
                     return 'CHILDREN'
-                await db_postgres.update_person(context.session, person_id, name=name)
-                await db_postgres.update_child_by_person_id(context.session, person_id, age=age)
+                await db_postgres.update_person(
+                    context.session, person_id, name=name)
+                await db_postgres.update_child_by_person_id(
+                    context.session, person_id, age=age)
                 text_success = f'<b>Ребенок {name} {int(age)} обновлен!</b>'
             else:
                 parent_id = None
                 mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-                has_phone = reserve_user_data.get('client_data', {}).get('phone')
+                has_phone = (reserve_user_data
+                             .get('client_data', {})
+                             .get('phone'))
                 if has_phone and (('_admin' in command) or (mode == 'PHONE')):
                     phone = reserve_user_data['client_data']['phone']
                     # Ищем взрослого по телефону
@@ -494,7 +555,9 @@ async def get_children(
                     if parent_id is None:
                         # Если взрослого с таким телефоном еще нет — создаем,
                         # чтобы новый ребенок сразу попал в выборку get_children_by_phone
-                        name_adult = reserve_user_data.get('client_data', {}).get('name_adult')
+                        name_adult = (reserve_user_data
+                                      .get('client_data', {})
+                                      .get('name_adult'))
                         if name_adult:
                             adult = await db_postgres.create_adult(
                                 context.session,
@@ -515,7 +578,10 @@ async def get_children(
 
             # Обновляем список детей согласно активному фильтру
             mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-            if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+            if (
+                    mode == 'PHONE' and
+                    reserve_user_data.get('client_data', {}).get('phone')
+            ):
                 phone = reserve_user_data['client_data']['phone']
                 children = await db_postgres.get_children_by_phone(
                     context.session, phone)
@@ -538,9 +604,10 @@ async def get_children(
                 context.session, update.effective_user.id)
 
             # Показываем фильтры если админ ИЛИ (есть телефон в сессии И телефонов больше 1)
-            show_filters = is_admin or (
-                bool(reserve_user_data.get('client_data', {}).get('phone')) and
-                phone_count > 1
+            show_filters = (
+                    is_admin or
+                    (bool(reserve_user_data.get('client_data', {}).get('phone')) and
+                    phone_count > 1)
             )
             keyboard = create_kbd_edit_children(
                 children,
@@ -559,18 +626,26 @@ async def get_children(
             selected_count = len(selected_children)
             text_success += '\n\n'
             mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-            if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+            if (
+                    mode == 'PHONE' and
+                    reserve_user_data.get('client_data', {}).get('phone')
+            ):
                 phone = reserve_user_data['client_data']['phone']
-                pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
+                if not phone.startswith('+7'):
+                    pretty_phone = f'+7{phone}'
+                else:
+                    pretty_phone = phone
                 text_success += f'Список детей для клиента: <code>{pretty_phone}</code>\n\n'
 
             text_success += (f'<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\n\n'
                              f'Нужно выбрать: {limit}\n'
                              f'Выбрано: {selected_count} из {limit}\n\n'
                              f'<b>📝 изм.</b> - изменить данные по ребенку.')
-            message = await update.effective_chat.send_message(text=text_success, reply_markup=reply_markup)
+            message = await update.effective_chat.send_message(
+                text=text_success, reply_markup=reply_markup)
             reserve_user_data['message_id'] = message.message_id
-            await set_back_context(context, 'CHILDREN', text_success, reply_markup)
+            await set_back_context(
+                context, 'CHILDREN', text_success, reply_markup)
             # Очистим идентификатор редактируемого ребенка
             reserve_user_data.pop('edit_person_id', None)
             reserve_user_data.pop('edit_child_index', None)
@@ -579,7 +654,8 @@ async def get_children(
             text_error = '<b>Неверный формат!</b>\n\nНапишите имя и возраст через пробел.\nНапример: <code>Сергей 2</code>'
             keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            message = await update.effective_chat.send_message(text=text_error, reply_markup=reply_markup)
+            message = await update.effective_chat.send_message(
+                text=text_error, reply_markup=reply_markup)
             reserve_user_data['message_id'] = message.message_id
             return 'CHILDREN'
 
@@ -589,12 +665,16 @@ async def get_children(
     await update.effective_chat.send_message(text=text_notice)
     # Удаляем предыдущую клавиатуру и переотправляем актуальную, чтобы она была внизу
     try:
-        await context.bot.delete_message(update.effective_chat.id, reserve_user_data['message_id'])
+        await context.bot.delete_message(
+            update.effective_chat.id, reserve_user_data['message_id'])
     except Exception:
         pass
 
     mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-    if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+    if (
+            mode == 'PHONE' and
+            reserve_user_data.get('client_data', {}).get('phone')
+    ):
         phone = reserve_user_data['client_data']['phone']
         children = await db_postgres.get_children_by_phone(
             context.session, phone)
@@ -603,12 +683,16 @@ async def get_children(
             context.session, update.effective_user.id)
 
     reserve_user_data['children'] = children
-    text, reply_markup = await get_child_text_and_reply(update, chose_base_ticket, children, context)
-    message = await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+    text, reply_markup = await get_child_text_and_reply(
+        update, chose_base_ticket, children, context)
+    message = await update.effective_chat.send_message(
+        text=text, reply_markup=reply_markup)
     reserve_user_data['message_id'] = message.message_id
     await set_back_context(context, 'CHILDREN', text, reply_markup)
 
     return 'CHILDREN'
+
+
 async def check_children_names(update: Update,
                                context: 'ContextTypes.DEFAULT_TYPE',
                                text):
@@ -625,6 +709,8 @@ async def check_children_names(update: Update,
         )
         reserve_user_data['message_id'] = message.message_id
     return result
+
+
 async def send_clients_data(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
@@ -847,7 +933,8 @@ async def child_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         child = data.split('|', maxsplit=1)[1]
     processed_data_on_children = [item.split() for item in child.split('\n')]
 
-    return await _finish_get_children(update, context, processed_data_on_children, child)
+    return await _finish_get_children(
+        update, context, processed_data_on_children, child)
 
 
 async def _publish_write_client_list_waiting(sheet_id_domik,

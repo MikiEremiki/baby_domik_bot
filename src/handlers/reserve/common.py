@@ -12,7 +12,6 @@ from utilities.utl_kbd import (
     create_replay_markup,
 )
 
-
 VERIFICATION_REQUEST_TEXT = (
     "Отправьте файл или фото, подтверждающее ваше право "
     "воспользоваться выбранной скидкой/акцией."
@@ -46,7 +45,8 @@ async def get_child_text_and_reply(
         current_selected = reserve_user_data['selected_children']
 
         available_ids = {c[2] for c in children}
-        current_selected = [pid for pid in current_selected if pid in available_ids]
+        current_selected = [
+            pid for pid in current_selected if pid in available_ids]
 
         if len(current_selected) > limit:
             current_selected = current_selected[:limit]
@@ -65,7 +65,10 @@ async def get_child_text_and_reply(
         text += '<b>📝 изм.</b> - изменить данные по ребенку.\n\n'
 
         mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-        if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+        if (
+                mode == 'PHONE' and
+                reserve_user_data.get('client_data', {}).get('phone')
+        ):
             phone = reserve_user_data['client_data']['phone']
             pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
             text += f'<i>Список детей для клиента:</i> <code>{pretty_phone}</code>\n\n'
@@ -79,8 +82,8 @@ async def get_child_text_and_reply(
             context.session, update.effective_user.id)
 
         show_filters = is_admin or (
-            bool(reserve_user_data.get('client_data', {}).get('phone')) and
-            phone_count > 1
+                bool(reserve_user_data.get('client_data', {}).get('phone')) and
+                phone_count > 1
         )
         keyboard = create_kbd_edit_children(
             children,
@@ -117,20 +120,29 @@ async def send_msg_get_child(
 
     command = context.user_data.get('command', '')
     if 'child_filter_mode' not in reserve_user_data:
-        if ('_admin' in command) or reserve_user_data.get('client_data', {}).get('phone'):
+        if (
+                '_admin' in command or
+                reserve_user_data.get('client_data', {}).get('phone')
+        ):
             reserve_user_data['child_filter_mode'] = 'PHONE'
         else:
             reserve_user_data['child_filter_mode'] = 'MY'
 
     mode = reserve_user_data['child_filter_mode']
-    if mode == 'PHONE' and reserve_user_data.get('client_data', {}).get('phone'):
+    if (
+            mode == 'PHONE' and
+            reserve_user_data.get('client_data', {}).get('phone')
+    ):
         phone = reserve_user_data['client_data']['phone']
-        children = await db_postgres.get_children_by_phone(context.session, phone)
+        children = await db_postgres.get_children_by_phone(
+            context.session, phone)
         if not children:
             reserve_user_data['child_filter_mode'] = 'MY'
-            children = await db_postgres.get_children(context.session, update.effective_user.id)
+            children = await db_postgres.get_children(
+                context.session, update.effective_user.id)
     else:
-        children = await db_postgres.get_children(context.session, update.effective_user.id)
+        children = await db_postgres.get_children(
+            context.session, update.effective_user.id)
 
     reserve_user_data['children'] = children
     text, reply_markup = await get_child_text_and_reply(
@@ -153,8 +165,10 @@ async def send_msg_get_phone(
         context: 'ContextTypes.DEFAULT_TYPE'
 ) -> Message:
     text_prompt = '<b>Напишите номер телефона</b><br><br>'
-    phone = await db_postgres.get_phone(context.session, update.effective_user.id)
-    phone_confirm_btn, text_prompt = await create_phone_confirm_btn(text_prompt, phone)
+    phone = await db_postgres.get_phone(
+        context.session, update.effective_user.id)
+    phone_confirm_btn, text_prompt = await create_phone_confirm_btn(
+        text_prompt, phone)
 
     if phone_confirm_btn:
         reply_markup = await create_replay_markup(

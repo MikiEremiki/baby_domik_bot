@@ -102,9 +102,11 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     if promo_id:
         try:
-            await db_postgres.increment_promotion_usage(context.session, promo_id)
+            await db_postgres.increment_promotion_usage(
+                context.session, promo_id)
         except Exception as e:
-            webhook_hl_logger.exception(f'Не удалось увеличить счетчик промо {promo_id}: {e}')
+            text = f'Не удалось увеличить счетчик промо {promo_id}: {e}'
+            webhook_hl_logger.exception(text)
     text += '</b>\n\n'
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
     text += refund + '\n\n'
@@ -137,9 +139,11 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
         # Пытаемся принудительно установить состояние в разговоре
         key = (int(chat_id), int(chat_id))
         try:
-            await context.application.persistence.update_conversation('reserve', key, 'PAID')
+            await context.application.persistence.update_conversation(
+                'reserve', key, 'PAID')
         except Exception as e:
-            webhook_hl_logger.error(f"Не удалось обновить состояние в persistence: {e}")
+            text = f'Не удалось обновить состояние в persistence: {e}'
+            webhook_hl_logger.error(text)
 
     if is_admin_booking:
         # Для админских бронирований: списываем неподтвержденные места и отправляем сразу подтверждение пользователю
@@ -148,13 +152,16 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
         for ticket_id in ticket_ids:
             try:
                 t = await db_postgres.get_ticket(context.session, ticket_id)
-                await decrease_nonconfirm_seat(context, t.schedule_event_id, t.base_ticket_id)
+                await decrease_nonconfirm_seat(
+                    context, t.schedule_event_id, t.base_ticket_id)
             except Exception as e:
-                webhook_hl_logger.exception(f'Не удалось списать неподтвержденные места для {ticket_id}: {e}')
+                text = f'Не удалось списать неподтвержденные места для {ticket_id}: {e}'
+                webhook_hl_logger.exception(text)
         try:
             await send_approve_message(chat_id, context, ticket_ids)
         except Exception as e:
-            webhook_hl_logger.exception(f'Не удалось отправить подтверждение пользователю для {ticket_ids}: {e}')
+            text = f'Не удалось отправить подтверждение пользователю для {ticket_ids}: {e}'
+            webhook_hl_logger.exception(text)
 
         # Уведомление в админ-группу
         try:
@@ -177,7 +184,8 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
                 parse_mode='HTML'
             )
         except Exception as e:
-            webhook_hl_logger.exception(f'Не удалось отправить уведомление админу о платеже админ-брони: {e}')
+            text = f'Не удалось отправить уведомление админу о платеже админ-брони: {e}'
+            webhook_hl_logger.exception(text)
     else:
         text += (
             'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '

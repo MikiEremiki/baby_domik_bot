@@ -4,13 +4,13 @@ from telegram.error import BadRequest
 from telegram.ext import TypeHandler, ContextTypes
 
 from api.broker_nats import SalesReportData
-from handlers.sales_hl import sales_logger
 from settings.settings import ADMIN_GROUP, FEEDBACK_THREAD_ID_GROUP_ADMIN
 
 saleshook_logger = logging.getLogger('bot.saleshook')
 
 
-async def sales_hook_update(update: SalesReportData, context: 'ContextTypes.DEFAULT_TYPE'):
+async def sales_hook_update(update: SalesReportData,
+                            context: 'ContextTypes.DEFAULT_TYPE'):
     """Receive sales_report messages and notify admins."""
     try:
         action = update.data.get('action')
@@ -31,7 +31,8 @@ async def sales_hook_update(update: SalesReportData, context: 'ContextTypes.DEFA
             text = f'Рассылка завершилась ошибкой (кампания #{campaign_id}). Статус: {status}.'
         else:
             # Unknown action; log and ignore
-            saleshook_logger.info('Unknown sales_report action: %s | payload=%s', action, update)
+            saleshook_logger.info(
+                'Unknown sales_report action: %s | payload=%s', action, update)
             return
 
         # Prefer sending report to the admin who created the campaign (if provided)
@@ -49,7 +50,8 @@ async def sales_hook_update(update: SalesReportData, context: 'ContextTypes.DEFA
         saleshook_logger.error('Failed to send sales report to admin: %s', e)
         saleshook_logger.info('Payload: %s', update)
     except Exception as e:
-        saleshook_logger.exception('Unexpected error in saleshook_update: %s | payload=%s', e, update)
+        saleshook_logger.exception(
+            'Unexpected error in saleshook_update: %s | payload=%s', e, update)
 
 
 SalesHookHandler = TypeHandler(SalesReportData, sales_hook_update)

@@ -42,6 +42,7 @@ from settings.settings import (
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
+
 async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Начальный шаг выбора способа подбора мероприятий: по дате или по репертуару.
@@ -230,7 +231,7 @@ async def choice_show_by_repertoire(update: Update,
     else:
         text = f'<b>{group_title}</b>\n\n'
         text += ('В данный момент спектакли отсутствуют.\n'
-                'Вернитесь "Назад" и посмотрите спектакли из других групп.')
+                 'Вернитесь "Назад" и посмотрите спектакли из других групп.')
         keyboard = []
 
     state = 'SHOW'

@@ -13,7 +13,9 @@ from db import db_postgres
 from handlers.common_hl import validate_phone_or_request
 from utilities.schemas import birthday_data
 from utilities.utl_func import (
-    set_back_context, del_keyboard_messages, append_message_ids_back_context,
+    set_back_context,
+    del_keyboard_messages,
+    append_message_ids_back_context,
     get_full_name_event,
 )
 from utilities.utl_kbd import (
@@ -21,6 +23,7 @@ from utilities.utl_kbd import (
 )
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
+
 
 async def get_name(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     name = update.effective_message.text
@@ -151,8 +154,8 @@ async def get_note(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         context, [message_1.message_id])
     context.user_data['common_data']['text_for_notification_massage'] = text
 
-    text = ('Проверьте и нажмите подтвердить\n'
-             'или вернитесь и исправьте необходимые данные')
+    text = ('Проверьте и нажмите п  одтвердить\n'
+            'или вернитесь и исправьте необходимые данные')
     keyboard = [
         [InlineKeyboardButton('Подтвердить', callback_data='confirm')],
         add_btn_back_and_cancel(

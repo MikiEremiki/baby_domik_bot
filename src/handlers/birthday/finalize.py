@@ -22,6 +22,7 @@ from utilities.utl_func import (
 
 birthday_hl_logger = logging.getLogger('bot.birthday_hl')
 
+
 async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     await query.delete_message()
@@ -72,7 +73,7 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     context.user_data['common_data'][
         'message_id_for_admin'] = message.message_id
     context.user_data['birthday_user_data'][
-            'custom_made_event_id'] = custom_made_event.id
+        'custom_made_event_id'] = custom_made_event.id
 
     sheet_id_cme = context.config.sheets.sheet_id_cme
     await write_client_cme(sheet_id_cme, custom_made_event)
