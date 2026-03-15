@@ -112,6 +112,8 @@ async def set_menu(bot: ExtBot) -> None:
                    COMMAND_DICT['RESERVE_ADMIN'][1]),
         BotCommand(COMMAND_DICT['MIGRATION_ADMIN'][0],
                    COMMAND_DICT['MIGRATION_ADMIN'][1]),
+        BotCommand(COMMAND_DICT['SALES'][0],
+                   COMMAND_DICT['SALES'][1]),
         BotCommand(COMMAND_DICT['AFISHA'][0],
                    COMMAND_DICT['AFISHA'][1]),
         BotCommand(COMMAND_DICT['ADM_INFO'][0],
