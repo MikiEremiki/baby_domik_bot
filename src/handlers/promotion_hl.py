@@ -32,8 +32,9 @@ logger = logging.getLogger('bot.promotion_hl')
     PROM_RESTRICT_THEATER,
     PROM_RESTRICT_TICKET,
     PROM_RESTRICT_SCHEDULE,
-) = range(50, 67)
-PROM_MAX_USAGE_USER = 67
+    PROM_WEEKDAYS,
+) = range(50, 68)
+PROM_MAX_USAGE_USER = 68
 
 async def _edit_or_send_new_message(
     update: Update,
@@ -138,6 +139,7 @@ async def handle_promotion_to_update(update: Update, context: ContextTypes.DEFAU
             'flag_active': promo.flag_active,
             'count_of_usage': promo.count_of_usage,
             'for_who_discount': promo.for_who_discount,
+            'weekdays': promo.weekdays,
             'type_event_ids': [te.id for te in promo.type_events],
             'theater_event_ids': [te.id for te in promo.theater_events],
             'base_ticket_ids': [bt.base_ticket_id for bt in promo.base_tickets],
@@ -977,25 +979,87 @@ async def handle_prom_max_usage_user(update: Update, context: ContextTypes.DEFAU
     if is_update:
         return await ask_promotion_summary(update, context)
 
-    text = "Введите описание для пользователя (отображается на кнопке льготы или в подтверждении, например: 'Скидка 10% для многодетных'):"
-    current_desc = promotion_['data'].get('description_user')
-    if current_desc:
-        text = f"Текущее описание: {current_desc}\n\n" + text
+    return await handle_prom_weekdays_start(update, context)
 
-    keyboard = [
-        [InlineKeyboardButton("Пропустить (использовать название)", callback_data='skip')],
-        add_btn_back_and_cancel(postfix_for_cancel='settings',
-                                add_back_btn=True,
-                                postfix_for_back=PROM_MAX_USAGE_USER)
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await _edit_or_send_new_message(update, context, text, reply_markup)
+async def handle_prom_weekdays_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    promotion_ = context.user_data['new_promotion']
+    weekdays_mask = promotion_['data'].get('weekdays')
+    if weekdays_mask is None:
+        # По умолчанию все дни разрешены (или можно сделать 0 - ни один)
+        # Лучше по умолчанию None (любой день)
+        pass
+
+    text = "Выберите дни недели, в которые будет действовать промокод (если не выбрано ничего, промокод действует в любой день):"
+
+    keyboard = []
+    weekdays_map = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
     
-    state = PROM_DESC
+    # Кнопки дней недели в два ряда (4 + 3)
+    row1 = []
+    for i in range(4):
+        mark = '✅' if weekdays_mask is not None and (weekdays_mask & (1 << i)) else '▫️'
+        row1.append(InlineKeyboardButton(f"{mark} {weekdays_map[i]}", callback_data=f"prom_wd_{i}"))
+    keyboard.append(row1)
+    
+    row2 = []
+    for i in range(4, 7):
+        mark = '✅' if weekdays_mask is not None and (weekdays_mask & (1 << i)) else '▫️'
+        row2.append(InlineKeyboardButton(f"{mark} {weekdays_map[i]}", callback_data=f"prom_wd_{i}"))
+    row2.append(InlineKeyboardButton("Сбросить", callback_data="prom_wd_reset"))
+    keyboard.append(row2)
+
+    keyboard.append([InlineKeyboardButton("Готово", callback_data="prom_wd_done")])
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings',
+                                            add_back_btn=True,
+                                            postfix_for_back=PROM_MAX_USAGE_USER))
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await _edit_or_send_new_message(update, context, text, reply_markup)
+
+    state = PROM_WEEKDAYS
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
+
+
+async def handle_prom_weekdays(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    promotion_ = context.user_data['new_promotion']
+    data = promotion_['data']
+    weekdays_mask = data.get('weekdays')
+    
+    if query.data.startswith('prom_wd_'):
+        action = query.data.replace('prom_wd_', '')
+        if action == 'done':
+            # Переходим к следующему шагу (Описание)
+            if promotion_['service'].get('is_update'):
+                return await ask_promotion_summary(update, context)
+            
+            return await handle_prom_desc_start(update, context)
+        
+        if action == 'reset':
+            data['weekdays'] = None
+        else:
+            day_index = int(action)
+            if weekdays_mask is None:
+                weekdays_mask = 0
+            
+            # Переключаем бит
+            data['weekdays'] = weekdays_mask ^ (1 << day_index)
+            # Если после переключения маска стала 0, можно оставить 0 (тогда промокод не будет работать никогда)
+            # или сбросить в None. Оставим 0, админ увидит в саммари "Ни один день".
+            
+        return await handle_prom_weekdays_start(update, context)
+    
+    return PROM_WEEKDAYS
+
 
 async def handle_prom_desc_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1042,6 +1106,14 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
     expire_date = promo.get('expire_date').strftime('%d.%m.%Y') if promo.get('expire_date') else 'Нет'
     max_usage_count = promo.get('max_count_of_usage') if promo.get('max_count_of_usage', 0) > 0 else 'Бесконечно'
     max_usage_per_user = promo.get('max_usage_per_user') if promo.get('max_usage_per_user', 0) > 0 else 'Бесконечно'
+
+    weekdays_map = {0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс'}
+    weekdays_mask = promo.get('weekdays')
+    if weekdays_mask is not None:
+        selected_days = [v for k, v in weekdays_map.items() if weekdays_mask & (1 << k)]
+        weekdays_str = ", ".join(selected_days) if selected_days else "Ни один день (промокод не сработает!)"
+    else:
+        weekdays_str = "Любой день"
     
     summary = (
         f"<b>{'Редактирование' if is_update else 'Проверка'} промокода</b>\n\n"
@@ -1056,8 +1128,9 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
         f"9. 📆 <b>Дата окончания:</b> {expire_date}\n"
         f"10. ♾ <b>Общий лимит:</b> {max_usage_count}\n"
         f"11. 👤 <b>Лимит на пользователя:</b> {max_usage_per_user}\n"
-        f"12. 💬 <b>Описание:</b> {promo.get('description_user', 'Не указано')}\n"
-        f"13. 📝 <b>Текст верификации:</b> {promo.get('verification_text', 'Не указано')}\n"
+        f"12. 🗓 <b>Дни недели:</b> {weekdays_str}\n"
+        f"13. 💬 <b>Описание:</b> {promo.get('description_user', 'Не указано')}\n"
+        f"14. 📝 <b>Текст верификации:</b> {promo.get('verification_text', 'Не указано')}\n"
     )
 
     if promo.get('type_event_ids'):
@@ -1091,8 +1164,11 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
             InlineKeyboardButton("11. Лимит на пользователя", callback_data='prom_edit_max_usage_user'),
         ],
         [
-            InlineKeyboardButton("12. Описание", callback_data='prom_edit_desc'),
-            InlineKeyboardButton("13. Текст верификации", callback_data='prom_edit_vtext'),
+            InlineKeyboardButton("12. Дни недели", callback_data='prom_edit_weekdays'),
+            InlineKeyboardButton("13. Описание", callback_data='prom_edit_desc'),
+        ],
+        [
+            InlineKeyboardButton("14. Текст верификации", callback_data='prom_edit_vtext'),
         ],
         [
             InlineKeyboardButton("🎭 Типы событий", callback_data='prom_restrict_type'),
