@@ -13,13 +13,13 @@ from db.models import SalesCampaign, SalesCampaignSchedule, SalesRecipient, Sche
 
 async def create_campaign(session: AsyncSession, *,
                           created_by_admin_id: int,
-                          type: str,
-                          theater_event_id: int,
+                          campaign_type: str,
+                          theater_event_id: Optional[int],
                           title: str,
                           status: str = 'draft') -> SalesCampaign:
     campaign = SalesCampaign(
         created_by_admin_id=created_by_admin_id,
-        type=type,
+        type=campaign_type,
         theater_event_id=theater_event_id,
         title=title,
         status=status,

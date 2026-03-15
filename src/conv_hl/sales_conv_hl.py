@@ -40,6 +40,42 @@ states = {
         back_callback_handler,
         CallbackQueryHandler(sales_hl.pick_audience_theater, pattern='^sales:aud_theater'),
     ],
+    sales_hl.PICK_FILTERS: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filters, pattern='^sales:filters'),
+    ],
+    sales_hl.PICK_FILTER_STATUS: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_status, pattern='^sales:f_status'),
+    ],
+    sales_hl.PICK_FILTER_TYPE_EVENT: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_type_event, pattern='^sales:f_type_event'),
+    ],
+    sales_hl.PICK_FILTER_THEATER_EVENT: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_theater_event, pattern='^sales:f_theater_event'),
+    ],
+    sales_hl.PICK_FILTER_SCHEDULE_EVENT: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_schedule_event, pattern='^sales:f_schedule_page'),
+        CallbackQueryHandler(sales_hl.pick_filter_schedule_event, pattern='^sales:f_schedule'),
+    ],
+    sales_hl.PICK_FILTER_BASE_TICKET: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_base_ticket, pattern='^sales:f_base_ticket'),
+    ],
+    sales_hl.PICK_TICKET_IDS: [
+        cancel_callback_handler,
+        back_callback_handler,
+        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_ticket_ids),
+    ],
     sales_hl.BUILD_AUDIENCE: [
         cancel_callback_handler,
         back_callback_handler,

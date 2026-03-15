@@ -451,7 +451,7 @@ class SalesCampaign(BaseModelTimed):
 
     created_by_admin_id: Mapped[int] = mapped_column(BigInteger)
     type: Mapped[str]
-    theater_event_id: Mapped[int] = mapped_column(ForeignKey('theater_events.id'))
+    theater_event_id: Mapped[Optional[int]] = mapped_column(ForeignKey('theater_events.id'))
     title: Mapped[Optional[str]]
     status: Mapped[str] = mapped_column(default='draft')  # draft|running|done|canceled|failed
 
