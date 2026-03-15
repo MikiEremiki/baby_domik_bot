@@ -125,10 +125,7 @@ async def choice_show_by_repertoire(update: Update,
     intent_id = None
     payload = None
     if query:
-        try:
-            intent_id, payload = remove_intent_id(query.data)
-        except Exception:
-            intent_id, payload = (None, None)
+        intent_id, payload = remove_intent_id(query.data)
 
     # Шаг 1: показать выбор группы спектаклей
     repertoire = 'REPERTOIRE'
@@ -218,7 +215,7 @@ async def choice_show_by_repertoire(update: Update,
             context.session, theater_event_id_order)
         theater_events = sorted(
             theater_events,
-            key=lambda e: theater_event_id_order.index(e.id)
+            key=lambda t_e: theater_event_id_order.index(t_e.id)
         )
         enum_theater_events = tuple(enumerate(theater_events, start=1))
 
@@ -293,10 +290,7 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Устанавливаем режим выбора, если пришли из шага MODE (По календарю/По репертуару)
     if query:
-        try:
-            intent_id_mode, callback_data = remove_intent_id(query.data)
-        except Exception:
-            intent_id_mode, callback_data = (None, None)
+        intent_id_mode, callback_data = remove_intent_id(query.data)
         if intent_id_mode == 'MODE':
             if callback_data == 'DATE':
                 # По календарю => далее после выбора месяца показываем даты
@@ -555,7 +549,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             'command') not in ['list_wait', 'list']:
         # Кнопки: все показы выбранного спектакля (ДАТА ВРЕМЯ + флаги)
         schedule_events_sorted = sorted(schedule_events,
-                                        key=lambda e: e.datetime_event)
+                                        key=lambda s_e: s_e.datetime_event)
         keyboard = []
         unique_times = []
         seen_times = set()
@@ -906,7 +900,7 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         context.session, theater_event_id_order)
     theater_events = sorted(
         theater_events,
-        key=lambda e: theater_event_id_order.index(e.id)
+        key=lambda t_e: theater_event_id_order.index(t_e.id)
     )
     enum_theater_events = tuple(enumerate(theater_events, start=1))
 
