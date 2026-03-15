@@ -398,6 +398,7 @@ class Promotion(BaseModelTimed):
     description_user: Mapped[Optional[str]]
     requires_verification: Mapped[bool] = mapped_column(default=False)
     verification_text: Mapped[Optional[str]]
+    weekdays: Mapped[Optional[int]]
 
     tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
 

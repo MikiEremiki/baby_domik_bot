@@ -527,8 +527,7 @@ async def processing_successful_payment(
             message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
                 update, context)
 
-            schedule_event = await db_postgres.get_schedule_event(context.session, ticket.schedule_event_id)
-            thread_id = await get_thread_id(context, command, schedule_event)
+            thread_id = await get_thread_id(context, command)
             await send_message_to_admin(
                 chat_id=ADMIN_GROUP,
                 text=text,
@@ -587,9 +586,9 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     return message_id_for_admin, reply_markup
 
 
-async def get_thread_id(context, command, schedule_event):
+async def get_thread_id(context, command):
     thread_id = None
-    if 'reserve' in command:
+    if 'reserve' in command or 'migration' in command:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
         # TODO Переписать ключи словаря с топиками на использование enum
@@ -670,7 +669,7 @@ async def forward_message_to_admin(
 
     text = f'#Бронирование\n{doc_type} по билету: <code>{ticket_id}</code>\n'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code>\n'
+        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
 
     message_id = await update.effective_message.copy(
         chat_id=ADMIN_GROUP,
@@ -879,7 +878,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
     text += f'Платеж успешно обработан<br>'
 
     booking_details = await get_booking_admin_text(context, ticket_ids, user, user_data)
-    text += booking_details.replace('\n', '<br>') + '<br>'
+    text += booking_details.replace('\n', '<br>') + '<br><br>'
 
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
@@ -975,9 +974,9 @@ async def get_booking_admin_text(
     text = f'Покупатель: {username} {full_name}\n\n'
     text += f'#event_id <code>{schedule_event_id}</code>\n'
     text += f'{theater_event.name}\n{date_event} в {time_event}\n'
-    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n'
+    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n\n'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code>\n'
+        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
 
     text += '\n'.join([
         client_data.get('name_adult', 'Не указано'),
