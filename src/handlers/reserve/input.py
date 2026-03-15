@@ -28,7 +28,7 @@ from handlers.sub_hl import (
 from api.googlesheets import write_client_list_waiting
 from utilities.utl_check import (
     check_available_ticket_by_free_seat,
-    check_entered_command, check_input_text, is_skip_ticket
+    check_entered_command, is_skip_ticket
 )
 from utilities.utl_func import (
     set_back_context,
@@ -655,24 +655,6 @@ async def get_children(
     await set_back_context(context, 'CHILDREN', text, reply_markup)
 
     return 'CHILDREN'
-
-
-async def check_children_names(update: Update,
-                               context: 'ContextTypes.DEFAULT_TYPE',
-                               text):
-    reserve_user_data = context.user_data['reserve_user_data']
-    result = await check_input_text(update.effective_message.text)
-    if not result:
-        keyboard = [add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False)]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        message = await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-        )
-        reserve_user_data['message_id'] = message.message_id
-    return result
 
 
 async def send_clients_data(

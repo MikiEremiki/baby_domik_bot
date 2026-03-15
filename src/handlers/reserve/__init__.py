@@ -15,7 +15,6 @@ from .input import (
     get_adult,
     get_phone,
     get_children,
-    check_children_names,
     send_clients_data,
     write_list_of_waiting,
     adult_confirm,

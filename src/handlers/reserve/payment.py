@@ -27,7 +27,6 @@ from handlers.sub_hl import (
     forward_message_to_admin,
 )
 from api.googlesheets import write_client_reserve
-from utilities.utl_check import check_input_text
 from utilities.utl_date import to_naive
 from utilities.utl_func import (
     set_back_context,
@@ -509,24 +508,6 @@ async def apply_option_promo(update: Update,
         reserve_user_data['discounted_price'] = discounted_price
 
     return await show_reservation_summary(update, context)
-
-
-async def check_children_names(update: Update,
-                               context: 'ContextTypes.DEFAULT_TYPE',
-                               text):
-    reserve_user_data = context.user_data['reserve_user_data']
-    result = await check_input_text(update.effective_message.text)
-    if not result:
-        keyboard = [add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False)]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        message = await update.effective_chat.send_message(
-            text=text,
-            reply_markup=reply_markup,
-        )
-        reserve_user_data['message_id'] = message.message_id
-    return result
 
 
 async def forward_photo_or_file(
