@@ -527,8 +527,7 @@ async def processing_successful_payment(
             message_id_for_admin, reply_markup = await create_reply_markup_and_msg_id_for_admin(
                 update, context)
 
-            schedule_event = await db_postgres.get_schedule_event(context.session, ticket.schedule_event_id)
-            thread_id = await get_thread_id(context, command, schedule_event)
+            thread_id = await get_thread_id(context, command)
             await send_message_to_admin(
                 chat_id=ADMIN_GROUP,
                 text=text,
@@ -587,9 +586,9 @@ async def create_reply_markup_and_msg_id_for_admin(update, context):
     return message_id_for_admin, reply_markup
 
 
-async def get_thread_id(context, command, schedule_event):
+async def get_thread_id(context, command):
     thread_id = None
-    if 'reserve' in command:
+    if 'reserve' in command or 'migration' in command:
         thread_id = (context.bot_data['dict_topics_name']
                      .get('Бронирования спектаклей', None))
         # TODO Переписать ключи словаря с топиками на использование enum
