@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import pytz
 import sqlalchemy as sa
@@ -91,22 +91,21 @@ async def _send_to_chat(
         reserve_text: str
 ) -> None:
     kind = campaign.message_kind
+    extra = ''
+    if campaign.type == 'WAS_THIS_YEAR_ON_PLAY':
+        extra += f"\n\n{full_name}" if full_name else ""
+        extra += f"\n\n{availability_block}" if availability_block else ""
+        extra += f"\n\n{reserve_text}"
+
     if kind == 'text':
-        text = (campaign.message_text or '')
-        print(text)
-        text += '\n\n' + full_name
-        print(text)
-        text += '\n\n' + availability_block + f"\n\n{reserve_text}"
-        print(text)
+        text = (campaign.message_text or '') + extra
         await bot.send_message(
             chat_id=chat_id,
             text=text,
             disable_web_page_preview=True
         )
     elif kind == 'photo' and campaign.photo_file_id:
-        caption = (campaign.caption_text or '')
-        caption += '\n\n' + full_name
-        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption = (campaign.caption_text or '') + extra
         await bot.send_photo(
             chat_id=chat_id,
             photo=campaign.photo_file_id,
@@ -114,9 +113,7 @@ async def _send_to_chat(
             disable_notification=False
         )
     elif kind == 'video' and campaign.video_file_id:
-        caption = (campaign.caption_text or '')
-        caption += '\n\n' + full_name
-        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption = (campaign.caption_text or '') + extra
         await bot.send_video(
             chat_id=chat_id,
             video=campaign.video_file_id,
@@ -124,9 +121,7 @@ async def _send_to_chat(
             disable_notification=False
         )
     elif kind == 'animation' and campaign.animation_file_id:
-        caption = (campaign.caption_text or '')
-        caption += '\n\n' + full_name
-        caption += '\n\n' + availability_block + f"\n\n{reserve_text}"
+        caption = (campaign.caption_text or '') + extra
         await bot.send_animation(
             chat_id=chat_id,
             animation=campaign.animation_file_id,
@@ -135,9 +130,7 @@ async def _send_to_chat(
         )
     else:
         # fallback to text if no proper payload
-        text = (campaign.message_text or '')
-        text += '\n\n' + full_name
-        text += '\n\n' + availability_block + f"\n\n{reserve_text}"
+        text = (campaign.message_text or '') + extra
         await bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -191,13 +184,16 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
             if not recipients:
                 break
 
-            theater_event = await db_postgres.get_theater_event(
-                session, campaign.theater_event_id)
-
-            full_name = get_full_name_event(theater_event)
-
-            # Recalculate availability before batch
-            availability_block = await _availability_block(session, campaign_id)
+            full_name = ""
+            availability_block = ""
+            if campaign.type == 'WAS_THIS_YEAR_ON_PLAY' and campaign.theater_event_id:
+                theater_event = await db_postgres.get_theater_event(
+                    session, campaign.theater_event_id)
+                if theater_event:
+                    full_name = get_full_name_event(theater_event)
+                # Recalculate availability before batch
+                availability_block = await _availability_block(session,
+                                                               campaign_id)
 
             for r in recipients:
                 try:
@@ -229,7 +225,8 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
                     # simple retry once
                     try:
                         await _send_to_chat(
-                            bot, campaign,
+                            bot,
+                            campaign,
                             int(r.chat_id),
                             full_name,
                             availability_block,

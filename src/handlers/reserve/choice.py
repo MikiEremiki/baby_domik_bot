@@ -4,6 +4,7 @@ from datetime import datetime
 from sulguk import transform_html
 from telegram import (
     Update, InlineKeyboardMarkup, InlineKeyboardButton,
+    LinkPreviewOptions,
 )
 from telegram.error import TimedOut, BadRequest
 from telegram.ext import ContextTypes, ConversationHandler
@@ -93,7 +94,8 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
     state = 'MODE'
@@ -165,6 +167,7 @@ async def choice_show_by_repertoire(update: Update,
             text=text,
             reply_markup=reply_markup,
             message_thread_id=update.effective_message.message_thread_id,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
         state = 'REP_GROUP'
         await set_back_context(context, state, text, reply_markup)
@@ -222,7 +225,7 @@ async def choice_show_by_repertoire(update: Update,
         text_legend = context.bot_data['texts']['text_legend']
         text = f'<b>{group_title}</b>\n\n'
         text += f'<b>Выберите мероприятие\n</b>{text_legend}'
-        text = await create_event_names_text(enum_theater_events, text)
+        text = await create_event_names_text(enum_theater_events, text, add_link=True)
 
         keyboard = await create_kbd_schedule(enum_theater_events)
     else:
@@ -247,7 +250,8 @@ async def choice_show_by_repertoire(update: Update,
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=update.effective_message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
     else:
         await query.edit_message_text(text=text, reply_markup=reply_markup)
@@ -334,7 +338,8 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
     schedule_event_ids = [item.id for item in schedule_events]
@@ -392,6 +397,7 @@ async def choice_show(
     if (not is_pagination) and (select_mode == 'DATE'):
         # Показываем только уникальные даты без разделения по спектаклям
         text = f'<b>Выберите удобную дату\n</b>{text_legend}'
+        text = await create_event_names_text(enum_theater_events, text, add_link=True)
         state = 'DATE'
         keyboard = await create_kbd_unique_dates(
             schedule_events_filter_by_month,
@@ -424,7 +430,7 @@ async def choice_show(
             start_idx:end_idx] if use_pagination else all_events
 
         text = f'<b>Выберите мероприятие\n</b>{text_legend}'
-        text = await create_event_names_text(tuple(events_page), text)
+        text = await create_event_names_text(tuple(all_events), text, add_link=True)
 
         state = 'SHOW'
 
@@ -517,6 +523,7 @@ async def choice_show(
                 text=text,
                 reply_markup=reply_markup,
                 message_thread_id=update.effective_message.message_thread_id,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
 
     reserve_user_data['number_of_month_str'] = number_of_month_str
@@ -589,13 +596,14 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         )
 
         full_name, _text = await get_text_for_reserve(schedule_events,
-                                                      theater_event)
+                                                      theater_event,
+                                                      add_note=True)
 
         text = (f'Вы выбрали мероприятие:\n'
                 f'<b>{full_name}</b>\n\n')
         if unique_times:
-            text += '<b>Доступное время:</b> ' + ', '.join(
-                unique_times) + '\n\n'
+            text += '<b>Доступное время:</b> '
+            text += ', '.join(unique_times) + '\n\n'
         text += f'<i>Выберите удобные дату и время</i>\n\n{_text}'
 
         # Информация о свободных местах по каждому показу
@@ -621,14 +629,18 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         if update.effective_chat.type == ChatType.PRIVATE and photo:
             if update.effective_message.photo:
                 await query.edit_message_caption(
-                    caption=text, reply_markup=reply_markup)
+                    caption=text,
+                    reply_markup=reply_markup,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
+                )
             else:
                 await query.delete_message()
                 await update.effective_chat.send_photo(
                     photo=photo,
                     caption=text,
                     reply_markup=reply_markup,
-                    message_thread_id=update.effective_message.message_thread_id
+                    message_thread_id=update.effective_message.message_thread_id,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
                 )
         else:
             if update.effective_message.photo:
@@ -636,11 +648,15 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 await update.effective_chat.send_message(
                     text=text,
                     reply_markup=reply_markup,
-                    message_thread_id=update.effective_message.message_thread_id
+                    message_thread_id=update.effective_message.message_thread_id,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
                 )
             else:
                 await query.edit_message_text(
-                    text=text, reply_markup=reply_markup)
+                    text=text,
+                    reply_markup=reply_markup,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
+                )
 
         # Переходим сразу к TIME
         state = 'TIME'
@@ -695,14 +711,16 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         )
 
     full_name, _text = await get_text_for_reserve(schedule_events,
-                                                  theater_event)
+                                                  theater_event,
+                                                  add_note=True)
 
     text = (f'Вы выбрали мероприятие:\n'
             f'<b>{full_name}</b>\n\n')
 
     # Добавим строку с доступными временами (уникальные значения)
     if unique_times:
-        text += '<b>Доступное время:</b> ' + ', '.join(unique_times) + '\n\n'
+        text += '<b>Доступное время:</b> '
+        text += ', '.join(unique_times) + '\n\n'
 
     # Подсказка по следующему шагу
     if use_direct_time:
@@ -744,7 +762,8 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=update.effective_message.message_thread_id
+            message_thread_id=update.effective_message.message_thread_id,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
     else:
         if update.effective_message.photo:
@@ -752,7 +771,8 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await update.effective_chat.send_message(
                 text=text,
                 reply_markup=reply_markup,
-                message_thread_id=update.effective_message.message_thread_id
+                message_thread_id=update.effective_message.message_thread_id,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
         else:
             await query.edit_message_text(
@@ -865,12 +885,14 @@ async def choice_month_rep_continue(update: Update,
             caption=text,
             reply_markup=reply_markup,
             message_thread_id=update.effective_message.message_thread_id,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
     else:
         await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
             message_thread_id=update.effective_message.message_thread_id,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
 
     schedule_event_ids = [item.id for item in schedule_events]
@@ -882,13 +904,13 @@ async def choice_month_rep_continue(update: Update,
     return state
 
 
-async def get_text_for_reserve(schedule_events, theater_event):
+async def get_text_for_reserve(schedule_events, theater_event, add_note=False):
     flag_gift = any(ev.flag_gift for ev in schedule_events)
     flag_christmas_tree = any(
         ev.flag_christmas_tree for ev in schedule_events)
     flag_santa = any(ev.flag_santa for ev in schedule_events)
 
-    full_name = get_full_name_event(theater_event)
+    full_name = get_full_name_event(theater_event, add_note=add_note)
     _text = ''
     if flag_gift:
         _text += f'{SUPPORT_DATA['Подарок'][0]} - {SUPPORT_DATA['Подарок'][1]}\n'
@@ -971,7 +993,7 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         f"Вы выбрали дату:\n<b>{selected_date_dt.strftime('%d.%m')}</b>\n\n"
         f"<b>Выберите спектакль и удобное время</b>\n\n"
     )
-    text = await create_event_names_text(enum_theater_events, text)
+    text = await create_event_names_text(enum_theater_events, text, add_link=True)
     text += ('<i>Вы также можете выбрать вариант с 0 кол-вом мест '
              'для записи в лист ожидания на данное время</i>\n\n'
              'Кол-во свободных мест:\n')
@@ -985,7 +1007,8 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await update.effective_chat.send_message(
         text=text,
         reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id
+        message_thread_id=update.effective_message.message_thread_id,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
     await set_back_context(context, state, text, reply_markup)

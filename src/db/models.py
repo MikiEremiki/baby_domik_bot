@@ -261,6 +261,7 @@ class TheaterEvent(BaseModel):
     flag_indiv_cost: Mapped[bool] = mapped_column(default=False)
     price_type: Mapped[PriceType] = mapped_column(Enum(PriceType, name='price_type'), default=PriceType.NONE)
     note: Mapped[Optional[str]]
+    link: Mapped[Optional[str]]
 
     schedule_events: Mapped[List['ScheduleEvent']] = relationship(
         back_populates='theater_event', lazy='selectin')
@@ -450,7 +451,7 @@ class SalesCampaign(BaseModelTimed):
 
     created_by_admin_id: Mapped[int] = mapped_column(BigInteger)
     type: Mapped[str]
-    theater_event_id: Mapped[int] = mapped_column(ForeignKey('theater_events.id'))
+    theater_event_id: Mapped[Optional[int]] = mapped_column(ForeignKey('theater_events.id'))
     title: Mapped[Optional[str]]
     status: Mapped[str] = mapped_column(default='draft')  # draft|running|done|canceled|failed
 
