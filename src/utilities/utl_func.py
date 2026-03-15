@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 import os
@@ -269,17 +270,57 @@ async def print_ud(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def clean_ud(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        user_ids = []
-        qty_users = len(context.application.user_data)
-        i = 1
-        for key, item in context.application.user_data.items():
+        if context.bot_data.get('clean_ud_running'):
             await update.effective_chat.send_message(
-                f'{key}:{i} из {qty_users}')
-            await clean_context(item)
-            user_ids.append(key)
-            i += 1
-        context.application.mark_data_for_update_persistence(user_ids=user_ids)
+                'Очистка уже выполняется')
+            return
+        context.bot_data['clean_ud_running'] = True
+        await update.effective_chat.send_message(
+            'Очистка user_data запущена в фоне...')
+        context.application.create_task(
+            _clean_ud_background(context, update.effective_chat.id),
+            update=update,
+        )
+
+
+async def _clean_ud_background(
+        context: 'ContextTypes.DEFAULT_TYPE',
+        chat_id: int,
+):
+    batch_size = 10
+    try:
+        user_ids = list(context.application.user_data.keys())
+        qty_users = len(user_ids)
+
+        for i in range(0, qty_users, batch_size):
+            batch = user_ids[i:i + batch_size]
+            for key in batch:
+                item = context.application.user_data.get(key)
+                if item is not None:
+                    await clean_context(item)
+
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f'Обработано {min(i + batch_size, qty_users)}'
+                     f' из {qty_users}',
+            )
+            await asyncio.sleep(0)
+
+        context.application.mark_data_for_update_persistence(
+            user_ids=user_ids)
         await context.application.update_persistence()
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text='Очистка завершена ✅',
+        )
+    except Exception as e:
+        utilites_logger.error(f'Ошибка при очистке user_data: {e}')
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f'Ошибка при очистке: {e}',
+        )
+    finally:
+        context.bot_data.pop('clean_ud_running', None)
 
 
 async def clean_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
