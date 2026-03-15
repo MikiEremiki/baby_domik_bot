@@ -242,7 +242,15 @@ async def choice_show_by_repertoire(update: Update,
     )
 
     # Отправляем текст со списком спектаклей
-    await query.edit_message_text(text=text, reply_markup=reply_markup)
+    if update.effective_message.photo:
+        await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            message_thread_id=update.effective_message.message_thread_id
+        )
+    else:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
 
     # Сохраняем IDs всех событий, чтобы следующий шаг отобрал нужные по спектаклю
     schedule_event_ids = [item.id for item in schedule_events]
@@ -481,8 +489,16 @@ async def choice_show(
                     reserve_hl_logger.error(e)
         else:
             try:
-                await query.edit_message_text(
-                    text=text, reply_markup=reply_markup)
+                if update.effective_message.photo:
+                    await query.delete_message()
+                    await update.effective_chat.send_message(
+                        text=text,
+                        reply_markup=reply_markup,
+                        message_thread_id=update.effective_message.message_thread_id
+                    )
+                else:
+                    await query.edit_message_text(
+                        text=text, reply_markup=reply_markup)
             except BadRequest as e:
                 if 'Message is not modified' in str(e):
                     reserve_hl_logger.info(
@@ -603,11 +619,28 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             except (TypeError, ValueError):
                 photo = False
         if update.effective_chat.type == ChatType.PRIVATE and photo:
-            await query.edit_message_caption(
-                caption=text, reply_markup=reply_markup)
+            if update.effective_message.photo:
+                await query.edit_message_caption(
+                    caption=text, reply_markup=reply_markup)
+            else:
+                await query.delete_message()
+                await update.effective_chat.send_photo(
+                    photo=photo,
+                    caption=text,
+                    reply_markup=reply_markup,
+                    message_thread_id=update.effective_message.message_thread_id
+                )
         else:
-            await query.edit_message_text(
-                text=text, reply_markup=reply_markup)
+            if update.effective_message.photo:
+                await query.delete_message()
+                await update.effective_chat.send_message(
+                    text=text,
+                    reply_markup=reply_markup,
+                    message_thread_id=update.effective_message.message_thread_id
+                )
+            else:
+                await query.edit_message_text(
+                    text=text, reply_markup=reply_markup)
 
         # Переходим сразу к TIME
         state = 'TIME'
@@ -709,10 +742,21 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if update.effective_chat.type == ChatType.PRIVATE and photo:
         await query.delete_message()
         await update.effective_chat.send_message(
-            text=text, reply_markup=reply_markup)
+            text=text,
+            reply_markup=reply_markup,
+            message_thread_id=update.effective_message.message_thread_id
+        )
     else:
-        await query.edit_message_text(
-            text=text, reply_markup=reply_markup)
+        if update.effective_message.photo:
+            await query.delete_message()
+            await update.effective_chat.send_message(
+                text=text,
+                reply_markup=reply_markup,
+                message_thread_id=update.effective_message.message_thread_id
+            )
+        else:
+            await query.edit_message_text(
+                text=text, reply_markup=reply_markup)
 
     # Сохраним id событий выбранного спектакля для следующего шага
     schedule_event_ids = [item.id for item in schedule_events]
@@ -1043,11 +1087,20 @@ async def choice_option_of_reserve(
         )
 
         res_text = transform_html(no_seats_text)
-        await query.edit_message_text(
-            text=res_text.text,
-            entities=res_text.entities,
-            parse_mode=None,
-            reply_markup=reply_markup)
+        if update.effective_message.photo:
+            await query.delete_message()
+            await update.effective_chat.send_message(
+                text=res_text.text,
+                entities=res_text.entities,
+                reply_markup=reply_markup,
+                message_thread_id=update.effective_message.message_thread_id
+            )
+        else:
+            await query.edit_message_text(
+                text=res_text.text,
+                entities=res_text.entities,
+                parse_mode=None,
+                reply_markup=reply_markup)
 
         # Сохраняем состояние и контекст для возврата Назад
         state = 'CHOOSING'
