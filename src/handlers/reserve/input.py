@@ -57,8 +57,8 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 update.effective_chat.id,
                 message_id=reserve_user_data['message_id']
             )
-        except Exception:
-            pass
+        except BadRequest as e:
+            reserve_hl_logger.error(e)
         await check_email_and_update_user(update, context)
 
     reserve_user_data = context.user_data['reserve_user_data']
@@ -642,8 +642,8 @@ async def get_children(
     try:
         await context.bot.delete_message(
             update.effective_chat.id, reserve_user_data['message_id'])
-    except Exception:
-        pass
+    except BadRequest as e:
+        reserve_hl_logger.error(e)
 
     children = await _update_children(update, context)
     reserve_user_data['children'] = children
@@ -935,8 +935,8 @@ async def get_phone_for_waiting(
             update.effective_chat.id,
             message_id=reserve_user_data['message_id']
         )
-    except Exception:
-        pass
+    except BadRequest as e:
+        reserve_hl_logger.error(e)
 
     phone, message = await validate_phone_or_request(
         update,

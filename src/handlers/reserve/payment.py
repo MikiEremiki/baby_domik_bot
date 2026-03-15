@@ -431,8 +431,8 @@ async def handle_promo_code_input(update: Update,
             update.effective_chat.id,
             message_id=reserve_user_data['message_id']
         )
-    except Exception:
-        pass
+    except BadRequest as e:
+        reserve_hl_logger.error(e)
 
     code = update.effective_message.text.strip().upper()
     chose_price = reserve_user_data['chose_price']
