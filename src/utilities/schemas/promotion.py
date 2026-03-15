@@ -30,6 +30,7 @@ class PromotionDTO(BaseModel):
     description_user: Optional[str] = None
     requires_verification: bool = False
     verification_text: Optional[str] = None
+    weekdays: Optional[int] = None
 
     def to_dto(self) -> dict:
         return {
@@ -53,6 +54,7 @@ class PromotionDTO(BaseModel):
             "requires_verification": self.requires_verification,
             "verification_text": self.verification_text,
             "discount_type": self.discount_type,
+            "weekdays": self.weekdays,
         }
 
 
@@ -69,4 +71,5 @@ kv_name_attr_promotion = {
     'min_purchase_sum': 'Мин. сумма заказа',
     'max_count_of_usage': 'Макс. кол-во (0-беск)',
     'description_user': 'Описание для пользователя',
+    'weekdays': 'Дни недели',
 }

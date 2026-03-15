@@ -87,11 +87,17 @@ async def check_promo_restrictions(
         if schedule_event.theater_event_id not in theater_event_ids:
             return False, "Этот промокод не действует на данный спектакль."
 
-    # Проверка по конкретным сеансам
+    # Проверка по сеансам
     if promo.schedule_events:
         schedule_ids = [se.id for se in promo.schedule_events]
         if schedule_event.id not in schedule_ids:
             return False, "Этот промокод не действует на выбранный сеанс."
+
+    # Проверка по дням недели
+    if promo.weekdays is not None:
+        event_weekday = schedule_event.datetime_event.weekday()
+        if not (promo.weekdays & (1 << event_weekday)):
+            return False, "Этот промокод не действует в данный день недели."
 
     # Проверка по типам билетов
     if promo.base_tickets:

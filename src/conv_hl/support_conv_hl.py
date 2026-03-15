@@ -178,6 +178,11 @@ states = {
     67: [
         back_callback_handler,
         cancel_callback_handler,
+        CallbackQueryHandler(promotion_hl.handle_prom_weekdays, r'^prom_wd_.*$'),
+    ],
+    68: [
+        back_callback_handler,
+        cancel_callback_handler,
         CallbackQueryHandler(promotion_hl.ask_promotion_summary, '^skip_to_confirm$'),
         MessageHandler(F_text_and_no_command, promotion_hl.handle_prom_max_usage_user),
     ],
@@ -272,6 +277,7 @@ states = {
         CallbackQueryHandler(promotion_hl.handle_prom_max_usage_start, '^prom_edit_max_usage$'),
         CallbackQueryHandler(promotion_hl.handle_prom_max_usage_user_start, '^prom_edit_max_usage_user$'),
         CallbackQueryHandler(promotion_hl.handle_prom_desc_start, '^prom_edit_desc$'),
+        CallbackQueryHandler(promotion_hl.handle_prom_weekdays_start, '^prom_edit_weekdays$'),
         # Restrictions menu
         CallbackQueryHandler(promotion_hl.open_restrict_type, '^prom_restrict_type$'),
         CallbackQueryHandler(promotion_hl.open_restrict_theater, '^prom_restrict_theater$'),
