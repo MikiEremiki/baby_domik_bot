@@ -808,10 +808,18 @@ async def filter_schedule_event_by_active(
     return schedule_events_tmp
 
 
-async def create_event_names_text(enum_theater_events, text, add_note=False, add_link=False):
+async def create_event_names_text(
+        enum_theater_events,
+        text,
+        add_note=False,
+        add_link=False,
+        add_emojis=True
+):
     for i, event in enum_theater_events:
         full_name = get_full_name_event(event, add_note=add_note, add_link=add_link)
-        text += f'{DICT_OF_EMOJI_FOR_BUTTON[i]} {full_name}\n\n'
+        if add_emojis:
+            text += f'{DICT_OF_EMOJI_FOR_BUTTON[i]} '
+        text += f'{full_name}\n\n'
     return text
 
 

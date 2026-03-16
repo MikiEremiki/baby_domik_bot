@@ -396,8 +396,9 @@ async def choice_show(
     select_mode = context.user_data.get('select_mode')
     if (not is_pagination) and (select_mode == 'DATE'):
         # Показываем только уникальные даты без разделения по спектаклям
-        text = f'<b>Выберите удобную дату\n</b>{text_legend}'
-        text = await create_event_names_text(enum_theater_events, text, add_link=True)
+        text = f'<b>Выберите дату\n</b>{text_legend}'
+        text = await create_event_names_text(
+            enum_theater_events, text, add_link=True, add_emojis=False)
         state = 'DATE'
         keyboard = await create_kbd_unique_dates(
             schedule_events_filter_by_month,
