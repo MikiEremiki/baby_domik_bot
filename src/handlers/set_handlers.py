@@ -62,6 +62,8 @@ def set_handlers(application: Application, config):
         CallbackQueryHandler(main_hl.reject_reserve, '^reject-studio'),
         CallbackQueryHandler(main_hl.confirm_birthday, '^confirm-birthday'),
         CallbackQueryHandler(main_hl.reject_birthday, '^reject-birthday'),
+        CallbackQueryHandler(main_hl.approve_privilege, '^approve-privilege'),
+        CallbackQueryHandler(main_hl.reject_privilege, '^reject-privilege'),
     ])
 
     conversation_handlers = [
