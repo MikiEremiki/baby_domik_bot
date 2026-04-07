@@ -3,6 +3,8 @@ import uuid
 from typing import List, Union, Optional
 
 from requests import ConnectTimeout
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from sulguk import transform_html
 from telegram import (
@@ -950,16 +952,60 @@ async def get_booking_admin_text(
             if promo:
                 reserve_user_data['applied_promo_code'] = promo.code
 
-        person_ticket = await db_postgres.get_person_ticket_by_ticket_id(context.session, ticket_ids[0])
-        if person_ticket:
-            person = await db_postgres.get_person(context.session, person_ticket.person_id)
-            if person:
-                reserve_user_data['client_data'] = {
-                    'name_adult': person.full_name,
-                    'phone': person.phone
-                }
-        reserve_user_data.setdefault('client_data', {'name_adult': 'Неизвестно', 'phone': '0000000000'})
-        reserve_user_data.setdefault('original_child_text', 'Не указано')
+        # Пытаемся найти всех людей, привязанных к билету
+        # people_tickets — это M2M связь
+        people = []
+        # Мы можем получить людей через relationship в Ticket, если он загружен, 
+        # но надежнее через запрос, так как ticket мог быть загружен без selectin
+        stmt = (
+            select(db_postgres.Person)
+            .join(db_postgres.PersonTicket)
+            .where(db_postgres.PersonTicket.ticket_id == ticket_ids[0])
+            .options(selectinload(db_postgres.Person.adult), selectinload(db_postgres.Person.child))
+        )
+        res = await context.session.execute(stmt)
+        people = res.scalars().all()
+
+        adult_name = 'Неизвестно'
+        phone = '0000000000'
+        children_names = []
+
+        for p in people:
+            if p.age_type == db_postgres.AgeType.adult:
+                adult_name = p.name or 'Неизвестно'
+                if p.adult:
+                    phone = p.adult.phone or '0000000000'
+            elif p.age_type == db_postgres.AgeType.child:
+                child_info = p.name or 'Без имени'
+                if p.child and p.child.age:
+                    child_info += f" {int(p.child.age)}"
+                children_names.append(child_info)
+
+        reserve_user_data['client_data'] = {
+            'name_adult': adult_name,
+            'phone': phone
+        }
+        reserve_user_data['original_child_text'] = ", ".join(children_names) if children_names else 'Не указано'
+
+        # Восстанавливаем text_for_notification_massage для пользователя
+        if 'common_data' not in user_data:
+            user_data['common_data'] = {}
+        
+        if not user_data['common_data'].get('text_for_notification_massage'):
+            try:
+                from utilities.utl_func import create_str_info_by_schedule_event_id
+                text_select_event = await create_str_info_by_schedule_event_id(
+                    context, ticket.schedule_event_id)
+                chose_base_ticket = await db_postgres.get_base_ticket(
+                    context.session, ticket.base_ticket_id)
+                
+                text_notification = (f'{text_select_event}<br>'
+                                     f'Вариант бронирования:<br>'
+                                     f'{chose_base_ticket.name} '
+                                     f'{int(ticket.price)}руб<br>')
+                user_data['common_data']['text_for_notification_massage'] = text_notification
+            except Exception as e:
+                sub_hl_logger.error(f"Failed to restore text_for_notification_massage in get_booking_admin_text: {e}")
     else:
         reserve_user_data = user_data['reserve_user_data']
 
@@ -978,16 +1024,26 @@ async def get_booking_admin_text(
     price_to_pay = reserve_user_data.get('discounted_price', chose_price)
     promo_code = reserve_user_data.get('applied_promo_code')
 
-    username = f'@{user.username}' if user and user.username else ''
-    full_name = user.full_name if user else 'Неизвестно'
-    text = f'Покупатель: {username} {full_name}\n\n'
-    text += f'#event_id <code>{schedule_event_id}</code>\n'
-    text += f'{theater_event.name}\n{date_event} в {time_event}\n'
-    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n\n'
+    str_ticket_ids = ", ".join([f"<code>{i}</code>" for i in ticket_ids])
+    is_website = ticket.notes and ("Website booking:" in ticket.notes or "Web booking." in ticket.notes)
+    if is_website:
+        email = "Неизвестно"
+        if "Website booking:" in ticket.notes:
+            email = ticket.notes.replace("Website booking:", "").strip().split('\n')[0]
+        text = f'Покупатель: Сайт ({email})<br><br>'
+    else:
+        username = f'@{user.username}' if user and user.username else ''
+        full_name = user.full_name if user else 'Неизвестно'
+        text = f'Покупатель: {username} {full_name}<br><br>'
+    
+    text += f'#Билеты {str_ticket_ids}<br>'
+    text += f'#event_id <code>{schedule_event_id}</code><br>'
+    text += f'{theater_event.name}<br>{date_event} в {time_event}<br>'
+    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб<br><br>'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
+        text += f'Применен промокод: <code>{promo_code}</code><br><br>'
 
-    text += '\n'.join([
+    text += '<br>'.join([
         client_data.get('name_adult', 'Не указано'),
         f'+7{client_data.get("phone", "0000000000")}',
         original_child_text,
