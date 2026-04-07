@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes
 
 from db import db_postgres
 from utilities.utl_kbd import add_btn_back_and_cancel
-from utilities.utl_check import check_email
+from utilities.utl_text import check_email
 
 
 async def check_email_and_update_user(update, context: 'ContextTypes.DEFAULT_TYPE'):

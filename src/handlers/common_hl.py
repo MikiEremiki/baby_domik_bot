@@ -1,7 +1,7 @@
 from telegram import Message
 
 from handlers.sub_hl import request_phone_number
-from utilities.utl_func import check_phone_number, extract_phone_number_from_text
+from utilities.utl_text import check_phone_number, extract_phone_number_from_text
 
 
 async def validate_phone_or_request(
