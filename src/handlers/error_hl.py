@@ -24,18 +24,25 @@ del_err_msg = "Message can't be deleted for everyone"
 
 
 async def _send_text_after_bad_request(update: Update, text: str) -> None:
+    effective_chat = getattr(update, 'effective_chat', None)
+    if not effective_chat:
+        return
     try:
-        await update.effective_chat.send_message(text)
+        await effective_chat.send_message(text)
     except BadRequest as e:
         error_hl_logger.error(e)
 
 
 async def _reply_or_fallback(update: Update, text: str) -> None:
     """Попытаться отправить ответ в ветке сообщения, иначе отправить текст в чат."""
-    message_thread_id = getattr(
-        update.effective_message, 'message_thread_id', None)
+    effective_message = getattr(update, 'effective_message', None)
+    if not effective_message:
+        await _send_text_after_bad_request(update, text)
+        return
+
+    message_thread_id = getattr(effective_message, 'message_thread_id', None)
     try:
-        await update.effective_message.reply_text(
+        await effective_message.reply_text(
             text=text, message_thread_id=message_thread_id)
     except BadRequest as e:
         error_hl_logger.error(e)
@@ -136,7 +143,8 @@ async def _error_handler_logic(update: Update,
         except TimedOut as e:
             error_hl_logger.error(e)
 
-    await cancel_tickets_db_and_gspread(update, context)
+    if update:
+        await cancel_tickets_db_and_gspread(update, context)
 
     await clean_context(context)
     await clean_context_on_end_handler(error_hl_logger, context)
