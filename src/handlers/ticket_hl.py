@@ -5,6 +5,7 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes, ConversationHandler
 
 from db import db_postgres
+from utilities.utl_check import check_entered_command
 from handlers.sub_hl import (
     send_info_about_individual_ticket, send_request_email, send_agreement)
 from utilities.utl_kbd import remove_intent_id
@@ -38,6 +39,22 @@ async def get_ticket(
         return state
 
     reserve_user_data = context.user_data['reserve_user_data']
+
+    if check_entered_command(context, 'reserve'):
+        schedule_event_id = reserve_user_data.get('choose_schedule_event_ids')
+        schedule_event = await db_postgres.get_schedule_event_by_id(
+            context.session, schedule_event_id)
+        if not schedule_event.flag_turn_in_bot:
+            text_info = (
+                'К сожалению, данное мероприятие на данное время, более не '
+                'доступно для бронирования.\n'
+                'Пожалуйста, выберите другое время или мероприятие.\n\n')
+            state = 'TIME'
+            text, reply_markup, _ = await get_back_context(context, state)
+            await query.edit_message_text(text=text_info + text,
+                                          reply_markup=reply_markup)
+            return state
+
     reserve_user_data['chose_price'] = price
     reserve_user_data['chose_base_ticket_id'] = chose_base_ticket.base_ticket_id
 

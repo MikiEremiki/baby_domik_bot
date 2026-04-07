@@ -16,6 +16,8 @@ from api.gspread_pub import (
 from db import db_postgres, Promotion
 from db.db_googlesheets import decrease_free_seat
 from db.enum import TicketStatus, PromotionDiscountType
+from utilities.utl_check import (
+    check_entered_command, check_available_ticket_by_free_seat)
 from handlers.reserve.common import (
     promo_requires_verification,
     process_successful_payment_with_verification,
@@ -30,6 +32,7 @@ from api.googlesheets import write_client_reserve
 from utilities.utl_date import to_naive
 from utilities.utl_func import (
     set_back_context,
+    get_back_context,
     get_full_name_event, get_formatted_date_and_time_of_event,
     clean_context,
     add_reserve_clients_data_to_text,
@@ -278,6 +281,61 @@ async def show_reservation_summary(update: Update,
 async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    if check_entered_command(context, 'reserve'):
+        reserve_user_data = context.user_data['reserve_user_data']
+        schedule_event_id = reserve_user_data.get('choose_schedule_event_ids')
+        chose_base_ticket_id = reserve_user_data.get('chose_base_ticket_id')
+
+        # Загружаем актуальные данные из БД
+        schedule_event = await db_postgres.get_schedule_event_by_id(
+            context.session, schedule_event_id)
+        theater_event = await db_postgres.get_theater_event(
+            context.session, schedule_event.theater_event_id)
+        type_event = await db_postgres.get_type_event(
+            context.session, theater_event.type_event_id)
+        base_ticket = await db_postgres.get_base_ticket(
+            context.session, chose_base_ticket_id)
+
+        # 1. Проверка активности мероприятия
+        if not schedule_event.flag_turn_in_bot:
+            text_info = (
+                'К сожалению, данное мероприятие на данное время, более не '
+                'доступно для бронирования.\n'
+                'Пожалуйста, выберите другое время или мероприятие.\n\n')
+            state = 'TIME'
+            text, reply_markup, _ = await get_back_context(context, state)
+            await query.edit_message_text(text=text_info + text,
+                                          reply_markup=reply_markup)
+            context.user_data['STATE'] = state
+            return state
+
+        # 2. Проверка наличия свободных мест
+        check_ticket = check_available_ticket_by_free_seat(
+            schedule_event, theater_event, type_event, base_ticket)
+        if not check_ticket:
+            text = ('К сожалению, места на выбранный сеанс закончились. '
+                    'Пожалуйста, выберите другое время или запишитесь в лист '
+                    'ожидания.')
+            state = 'TIME'
+            _, reply_markup, _ = await get_back_context(context, state)
+
+            # Добавляем кнопку листа ожидания, если её нет
+            keyboard = reply_markup.inline_keyboard
+            has_wait = any('WAIT' in btn.callback_data
+                           for row in keyboard for btn in row)
+            if not has_wait:
+                keyboard.insert(-1, [InlineKeyboardButton(
+                    'Записаться в лист ожидания',
+                    callback_data='CHOOSING|WAIT')])
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+            res_text = transform_html(text)
+            await query.edit_message_text(text=res_text.text,
+                                          entities=res_text.entities,
+                                          reply_markup=reply_markup)
+            context.user_data['STATE'] = state
+            return state
 
     # Удаляем клавиатуру из текущего сообщения
     try:
