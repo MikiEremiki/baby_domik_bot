@@ -8,7 +8,7 @@ WORKDIR /app/src
 RUN --mount=type=bind,source=requirements-sales.txt,target=requirements-sales.txt \
     python -m pip install -r requirements-sales.txt
 
-COPY /src/api ./api
-COPY /src/db ./db
-COPY /src/settings ./settings
-COPY /src/utilities ./utilities
+COPY src/api ./api
+COPY src/db ./db
+COPY src/settings ./settings
+COPY src/utilities ./utilities
