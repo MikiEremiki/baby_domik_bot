@@ -355,18 +355,20 @@ async def create_and_send_payment(
     else:
         reserve_user_data['changed_seat'] = True
 
+    ticket_id = ticket_ids[0]
     ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
+
     max_len_decs = 128
-    len_desc_without_name = len(
-        f'Билет на мероприятие  {date_event} в {time_event}' +
-        ticket_name_for_desc
-    )
-    len_for_name = max_len_decs - len_desc_without_name
-    name_for_desc = name[:len_for_name]
-    description = f'Билет на мероприятие {name_for_desc} {date_event} в {time_event}'
+    prefix = f"Билет №{ticket_id} на "
+    suffix = f" {date_event} в {time_event} ({ticket_name_for_desc})"
+
+    len_for_name = max_len_decs - len(prefix) - len(suffix)
+    name_for_desc = name[:len_for_name] if len_for_name > 0 else ""
+    description = f"{prefix}{name_for_desc}{suffix}"
+
     param = create_param_payment(
         price=price_to_pay,
-        description=' '.join([description, ticket_name_for_desc]),
+        description=description,
         email=email,
         payment_method_type=context.config.yookassa.payment_method_type,
         chat_id=update.effective_chat.id,
