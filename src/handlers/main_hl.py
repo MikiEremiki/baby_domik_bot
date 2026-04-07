@@ -674,6 +674,33 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.info('Cообщение уже удалено')
 
 
+async def approve_privilege(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data.split('|')
+    chat_id = int(data[1])
+    ticket_id = int(data[2])
+
+    user = await db_postgres.get_user(context.session, chat_id)
+    if user:
+        await db_postgres.update_user(
+            context.session, chat_id, is_privilege=True)
+        text = (f"Статус привилегии для пользователя {chat_id} подтвержден. "
+                f"Пожалуйста, повторите подтверждение/отклонение на "
+                f"билете {ticket_id}.")
+    else:
+        text = f"Пользователь {chat_id} не найден в базе данных."
+
+    await query.edit_message_text(text)
+
+
+async def reject_privilege(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("Действие отменено.")
+
+
 async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     if await is_user_blocked(context, chat_id, 'sending approve message'):
         return
