@@ -53,3 +53,18 @@ timeweb в качестве хостинга
 `docker exec -i migration bash`
 - выполнять команды на хосте, но надо разворачивать окружение (что в общем то 
   всё равно, что первые два варианта)
+
+---
+### Управление SSL-сертификатами (Certbot)
+
+Для получения нового сертификата (первичный запуск):
+`docker compose -f docker-compose-dev.yaml run --rm certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN`
+
+Для ручного обновления всех сертификатов:
+`docker compose -f docker-compose-dev.yaml run --rm certbot renew`
+
+После ручного обновления необходимо перезагрузить Nginx для применения изменений:
+`docker compose exec nginx nginx -s reload`
+
+Для проверки процесса обновления (dry-run):
+`docker compose -f docker-compose-dev.yaml run --rm certbot renew --dry-run`
