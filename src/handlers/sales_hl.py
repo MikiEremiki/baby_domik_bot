@@ -1106,7 +1106,6 @@ async def pick_filter_schedule_event(update: Update,
         filters['schedule_event_ids'] = list(selected)
 
     # Find current page from text if we can
-    import re
     match = re.search(r"Стр\. (\d+)/", query.message.text)
     page = int(match.group(1)) if match else 1
 

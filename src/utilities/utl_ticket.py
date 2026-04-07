@@ -27,11 +27,16 @@ async def get_spec_ticket_price(context: 'ContextTypes.DEFAULT_TYPE',
 
     reserve_user_data['type_ticket_price'] = type_ticket_price
     if theater_event.flag_indiv_cost:
-        try:
-            # TODO Загружать и читать в базу данных, а не из bot_data
-            special_ticket_price = context.bot_data['special_ticket_price']
-            price = special_ticket_price[option][type_ticket_price][key]
-        except KeyError:
+        # Пытаемся получить индивидуальную стоимость из БД
+        special_price = await db_postgres.get_special_ticket_price(
+            context.session,
+            option=option,
+            base_ticket_id=key,
+            type_ticket_price=type_ticket_price
+        )
+        if special_price is not None:
+            price = special_price
+        else:
             utl_ticket_logger.error(
                 f'{key=} - данному билету не назначена индив. цена')
             utl_ticket_logger.error(theater_event.model_dump())
@@ -65,7 +70,7 @@ async def set_type_ticket_price(schedule_event: ScheduleEvent,
 def get_option(
         schedule_event: ScheduleEvent,
         theater_event: TheaterEvent
-):
+) -> str:
     option = ''
     if schedule_event.flag_gift:
         option = 'Подарок'
@@ -106,8 +111,11 @@ async def cancel_tickets_db_and_gspread(update, context):
         utl_ticket_logger.info(context.user_data['STATE'])
 
         try:
+            effective_chat = getattr(update, 'effective_chat', None)
+            if not effective_chat:
+                return
             await context.bot.edit_message_reply_markup(
-                chat_id=update.effective_chat.id,
+                chat_id=effective_chat.id,
                 message_id=context.user_data['common_data'][
                     'message_id_buy_info']
             )
@@ -198,12 +206,14 @@ async def check_and_set_privilege(session, ticket_id, ticket=None):
             users = user
 
         for u in users:
-            if not u.is_privilege:
+            if u and not u.is_privilege:
                 await db_postgres.update_user(session, u.user_id, is_privilege=True)
                 utl_ticket_logger.info(
                     f"User {u.user_id} status updated to privilege "
                     f"because of ticket {ticket_id}"
                 )
+            elif not u:
+                raise AttributeError("'NoneType' object has no attribute 'is_privilege'")
 
 
 async def cancel_ticket_db_when_end_handler(update, context, text):

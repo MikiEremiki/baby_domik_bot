@@ -1,0 +1,343 @@
+{% extends "layout.html" %}
+
+{% block title %}Бронирование — {{ event.title }}{% endblock %}
+
+{% block content %}
+<div id="toast-container" class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-3 w-full max-w-md px-4"></div>
+
+<section class="mb-8">
+    <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/event/{{ event.id }}">← Назад к сеансам</a>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">Бронирование</h1>
+    <p class="mt-2 text-slate-600">
+        {{ event.title }} · {{ session.date }} · {{ session.time }} · Мест: {{ session.free_seats_child }} (дети), {{ session.free_seats_adult }} (взрослые)
+    </p>
+</section>
+
+<section class="grid gap-6 lg:grid-cols-3">
+    <form class="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2" action="/booking/{{ session.id }}" method="post">
+        <input name="status" type="hidden" value="success">
+
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="ticket_type">Формат билета</label>
+                <select class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="ticket_type" name="ticket_type">
+                    {% for ticket in ticket_types %}
+                    <option value="{{ ticket.id }}" data-price="{{ ticket.price }}" data-children="{{ ticket.quality_of_children }}" {% if form_data and form_data.ticket_type == ticket.id %}selected{% endif %}>{{ ticket.name }} — {{ ticket.price }} ₽</option>
+                    {% else %}
+                    <option disabled value="">Нет доступных типов билетов</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="adult_name">Имя взрослого</label>
+                <input class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="adult_name" name="adult_name" placeholder="Например, Анна" type="text" value="{{ form_data.adult_name if form_data else '' }}" required>
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="phone">Телефон</label>
+                <input class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="phone" name="phone" placeholder="+7 (999) 111-22-33" type="tel" value="{{ form_data.phone if form_data else '' }}" required>
+            </div>
+            <div class="sm:col-span-2">
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email (для билета)</label>
+                <input class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="email" name="email" placeholder="anna@example.com" type="email" value="{{ form_data.email if form_data else '' }}" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+            </div>
+        </div>
+
+        <div class="space-y-4" id="children-container">
+            <div class="flex items-center justify-between">
+                <label class="block text-sm font-medium text-slate-700">Дети</label>
+                <button type="button" id="add-child" class="text-xs font-semibold text-domik-green-soft hover:underline">
+                    + Добавить ребенка
+                </button>
+            </div>
+            
+            {% if form_data and form_data.child_name %}
+                {% for i in range(form_data.child_name|length) %}
+                <div class="child-entry grid gap-4 sm:grid-cols-2 relative rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-slate-500">Имя ребёнка</label>
+                        <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_name" placeholder="Например, Миша" type="text" value="{{ form_data.child_name[i] }}" required>
+                    </div>
+                    <div class="flex gap-2 items-end">
+                        <div class="flex-1">
+                            <label class="mb-1 block text-xs font-medium text-slate-500">Возраст</label>
+                            <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_age" placeholder="5" type="number" min="1" max="17" value="{{ form_data.child_age[i] }}" required>
+                        </div>
+                        <button type="button" class="remove-child mb-0.5 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить ребенка">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="child-entry grid gap-4 sm:grid-cols-2 relative rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-slate-500">Имя ребёнка</label>
+                        <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_name" placeholder="Например, Миша" type="text" required>
+                    </div>
+                    <div class="flex gap-2 items-end">
+                        <div class="flex-1">
+                            <label class="mb-1 block text-xs font-medium text-slate-500">Возраст</label>
+                            <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_age" placeholder="5" type="number" min="1" max="17" required>
+                        </div>
+                        <button type="button" class="remove-child mb-0.5 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить ребенка">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700" for="promo_code">Промокод</label>
+            <div class="flex gap-2">
+                <input class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="promo_code" name="promo_code" placeholder="SPRING25" type="text" value="{{ form_data.promo_code if form_data else '' }}">
+                <button id="check-promo-btn" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors" type="button">Проверить</button>
+            </div>
+            <p id="promo-message" class="mt-1 text-xs hidden"></p>
+            <input type="hidden" id="applied_promo_id" name="applied_promo_id" value="{{ form_data.applied_promo_id if form_data and form_data.applied_promo_id else '' }}">
+        </div>
+
+        <button class="w-full rounded-lg bg-domik-green-soft px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition-colors shadow-sm" type="submit">
+            Перейти к оплате
+        </button>
+    </form>
+
+    <aside class="rounded-2xl border border-slate-200 bg-white p-6">
+        <h2 class="text-lg font-semibold">Итого</h2>
+        <p class="mt-2 text-sm text-slate-600">Расчёт стоимости заказа.</p>
+        <div class="mt-4 rounded-xl bg-slate-50 p-4">
+            <p class="text-sm text-slate-600">Стоимость билета</p>
+            <p class="mt-1 text-2xl font-bold" id="preview-price">
+                {% if ticket_types %}
+                {{ ticket_types[0].price }} ₽
+                {% else %}
+                —
+                {% endif %}
+            </p>
+        </div>
+        <ul class="mt-4 space-y-2 text-sm text-slate-600">
+            <li>• Подтверждение придёт после оплаты</li>
+            <li>• Пожалуйста, проверьте корректность данных перед оплатой</li>
+        </ul>
+    </aside>
+</section>
+
+<script src="https://unpkg.com/imask"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const phoneInput = document.getElementById('phone');
+        if (phoneInput) {
+            IMask(phoneInput, {
+                mask: '+{7} (000) 000-00-00'
+            });
+        }
+    });
+
+    const ticketSelect = document.getElementById('ticket_type');
+    const previewPrice = document.getElementById('preview-price');
+    const childrenContainer = document.getElementById('children-container');
+    const addChildBtn = document.getElementById('add-child');
+    
+    const checkPromoBtn = document.getElementById('check-promo-btn');
+    const promoInput = document.getElementById('promo_code');
+    const promoMessage = document.getElementById('promo-message');
+    const appliedPromoIdInput = document.getElementById('applied_promo_id');
+
+    let currentPrice = 0;
+    let originalPrice = 0;
+
+    function updateDisplayPrice(price) {
+        previewPrice.textContent = `${price} ₽`;
+        currentPrice = price;
+    }
+
+    // Инициализация цен
+    function initPrices() {
+        const selected = ticketSelect.options[ticketSelect.selectedIndex];
+        if (selected) {
+            originalPrice = parseInt(selected.dataset.price);
+            currentPrice = originalPrice;
+            updateDisplayPrice(currentPrice);
+        }
+    }
+    initPrices();
+
+    // Обновление цены при смене билета
+    ticketSelect.addEventListener('change', () => {
+        initPrices();
+        // Сбрасываем промокод при смене билета для простоты
+        resetPromo();
+    });
+
+    function resetPromo() {
+        appliedPromoIdInput.value = '';
+        promoMessage.classList.add('hidden');
+        promoInput.value = '';
+        updateDisplayPrice(originalPrice);
+    }
+
+    checkPromoBtn.addEventListener('click', async () => {
+        const code = promoInput.value.trim();
+        if (!code) {
+            resetPromo();
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('code', code);
+        formData.append('schedule_id', '{{ session.id }}');
+        formData.append('base_ticket_id', ticketSelect.value);
+        formData.append('price', originalPrice);
+
+        try {
+            checkPromoBtn.disabled = true;
+            checkPromoBtn.textContent = '...';
+            
+            const response = await fetch('/api/check-promo', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            promoMessage.classList.remove('hidden');
+            if (result.success) {
+                promoMessage.textContent = result.message;
+                promoMessage.className = 'mt-1 text-xs text-green-600 font-medium';
+                appliedPromoIdInput.value = result.promo_id;
+                updateDisplayPrice(result.new_price);
+            } else {
+                promoMessage.textContent = result.message;
+                promoMessage.className = 'mt-1 text-xs text-red-500 font-medium';
+                appliedPromoIdInput.value = '';
+                updateDisplayPrice(originalPrice);
+            }
+        } catch (error) {
+            console.error('Error checking promo:', error);
+            promoMessage.textContent = 'Ошибка при проверке промокода';
+            promoMessage.className = 'mt-1 text-xs text-red-500 font-medium';
+            promoMessage.classList.remove('hidden');
+        } finally {
+            checkPromoBtn.disabled = false;
+            checkPromoBtn.textContent = 'Проверить';
+        }
+    });
+
+    // Добавление ребенка
+    addChildBtn.addEventListener('click', () => {
+        const entry = document.createElement('div');
+        entry.className = 'child-entry grid gap-4 sm:grid-cols-2 relative rounded-xl border border-slate-100 bg-slate-50/50 p-4';
+        entry.innerHTML = `
+            <div>
+                <label class="mb-1 block text-xs font-medium text-slate-500">Имя ребёнка</label>
+                <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_name" placeholder="Например, Миша" type="text" required>
+            </div>
+            <div class="flex gap-2 items-end">
+                <div class="flex-1">
+                    <label class="mb-1 block text-xs font-medium text-slate-500">Возраст</label>
+                    <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_age" placeholder="5" type="number" min="1" max="17" required>
+                </div>
+                <button type="button" class="remove-child mb-0.5 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить ребенка">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        `;
+        childrenContainer.appendChild(entry);
+        updateRemoveButtons();
+    });
+
+    // Делегирование удаления
+    childrenContainer.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.remove-child');
+        if (removeBtn) {
+            const entry = removeBtn.closest('.child-entry');
+            const entries = childrenContainer.querySelectorAll('.child-entry');
+            if (entries.length > 1) {
+                entry.remove();
+                updateRemoveButtons();
+            } else {
+                showToast('Должен быть хотя бы один ребенок', 'error');
+            }
+        }
+    });
+
+    function updateRemoveButtons() {
+        const entries = childrenContainer.querySelectorAll('.child-entry');
+        entries.forEach((entry, index) => {
+            const btn = entry.querySelector('.remove-child');
+            if (entries.length === 1) {
+                btn.classList.add('invisible');
+            } else {
+                btn.classList.remove('invisible');
+            }
+        });
+    }
+
+    // Инициализация кнопок
+    updateRemoveButtons();
+
+    // Функция для показа всплывающих уведомлений
+    function showToast(message, type = 'error') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        const bgColor = type === 'error' ? 'bg-red-600' : 'bg-green-600';
+        
+        toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-xl transform transition-all duration-500 translate-y-[-20px] opacity-0 flex items-center justify-between gap-4 min-w-[300px] border border-white/20`;
+        toast.innerHTML = `
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <span class="font-medium">${message}</span>
+            </div>
+            <button type="button" class="text-white/80 hover:text-white transition-colors" onclick="this.parentElement.classList.add('opacity-0'); setTimeout(() => this.parentElement.remove(), 500)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Анимация появления
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-[-20px]', 'opacity-0');
+        });
+        
+        // Автоматическое удаление через 6 секунд
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.classList.add('opacity-0', 'translate-y-[-20px]');
+                setTimeout(() => toast.remove(), 500);
+            }
+        }, 6000);
+    }
+
+    // Если есть серверная ошибка, показываем её всплывашкой
+    {% if error_message %}
+        showToast("{{ error_message }}", 'error');
+        // Также можно прокрутить к форме, если нужно, но всплывашка и так видна
+    {% endif %}
+
+    // Валидация при отправке формы
+    const bookingForm = document.querySelector('form');
+    bookingForm.addEventListener('submit', (e) => {
+        const selectedOption = ticketSelect.options[ticketSelect.selectedIndex];
+        const requiredChildren = parseInt(selectedOption.getAttribute('data-children') || '0');
+        const currentChildren = childrenContainer.querySelectorAll('.child-entry').length;
+
+        if (currentChildren < requiredChildren) {
+            e.preventDefault();
+            showToast(`Для выбранного типа билета необходимо указать данные как минимум для ${requiredChildren} детей.`, 'error');
+            return false;
+        }
+    });
+</script>
+{% endblock %}

@@ -606,54 +606,79 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
-        await decrease_nonconfirm_seat(
-            context, ticket.schedule_event_id, ticket.base_ticket_id)
+        ticket_status = TicketStatus.APPROVED
+        if ticket.status != TicketStatus.APPROVED:
+            await decrease_nonconfirm_seat(
+                context, ticket.schedule_event_id, ticket.base_ticket_id)
 
-    text = f'{message.text}\nСписаны неподтвержденные места...'
-    try:
-        await message.edit_text(text)
-    except TimedOut as e:
-        main_handlers_logger.error(e)
-        main_handlers_logger.info(text)
+            text = f'{message.text}\nСписаны неподтвержденные места...'
+            try:
+                await message.edit_text(text)
+            except TimedOut as e:
+                main_handlers_logger.error(e)
+                main_handlers_logger.info(text)
 
-    ticket_status = TicketStatus.APPROVED
-    sheet_id_domik = context.config.sheets.sheet_id_domik
-    for ticket_id in ticket_ids:
+            sheet_id_domik = context.config.sheets.sheet_id_domik
+            try:
+                await publish_update_ticket(
+                    sheet_id_domik,
+                    ticket_id,
+                    str(ticket_status.value),
+                )
+            except Exception as e:
+                main_handlers_logger.exception(
+                    f"Failed to publish gspread task, fallback to direct call: {e}")
+                await update_ticket_in_gspread(
+                    sheet_id_domik, ticket_id, ticket_status.value)
+            await db_postgres.update_ticket(context.session,
+                                            ticket_id,
+                                            status=ticket_status)
+        
         try:
-            await publish_update_ticket(
-                sheet_id_domik,
-                ticket_id,
-                str(ticket_status.value),
-            )
-        except Exception as e:
-            main_handlers_logger.exception(
-                f"Failed to publish gspread task, fallback to direct call: {e}")
-            await update_ticket_in_gspread(
-                sheet_id_domik, ticket_id, ticket_status.value)
-        await db_postgres.update_ticket(context.session,
-                                        ticket_id,
-                                        status=ticket_status)
-        await check_and_set_privilege(context.session, ticket_id)
+            await check_and_set_privilege(context.session, ticket_id)
+        except AttributeError as e:
+            if "'NoneType' object has no attribute 'is_privilege'" in str(e):
+                if int(chat_id) != 0:
+                    keyboard = [
+                        [
+                            InlineKeyboardButton(
+                                "Да",
+                                callback_data=f"approve-privilege|{chat_id}|{ticket_id}"
+                            ),
+                            InlineKeyboardButton(
+                                "Нет",
+                                callback_data="reject-privilege"
+                            )
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    await update.effective_chat.send_message(
+                        text=f"У пользователя (ID: {chat_id}) не было подтверждения о документе, сделать подтверждение? "
+                             f"После повторите подтверждение/отклонение на билете {ticket_id}",
+                        reply_markup=reply_markup,
+                        message_thread_id=message_thread_id
+                    )
+                else:
+                    main_handlers_logger.warning(
+                        f"Could not set privilege for ticket {ticket_id}: "
+                        f"user is not a Telegram user (chat_id=0)"
+                    )
+        
+        if int(chat_id) != 0 and ticket.status != TicketStatus.APPROVED:
+            await send_approve_message(chat_id, context, [ticket_id])
+
+        if ticket.status != TicketStatus.APPROVED:
+            text = f'{message.text}\nОтправлено сообщение о подтверждении бронирования...'
+            try:
+                await message.edit_text(text)
+            except TimedOut as e:
+                main_handlers_logger.error(e)
+                main_handlers_logger.info(text)
 
     try:
         await query.edit_message_reply_markup()
     except TimedOut as e:
         main_handlers_logger.error(e)
-
-    text = f'{message.text}\nОбновлен статус билета: {ticket_status.value}...'
-    try:
-        await message.edit_text(text)
-    except TimedOut as e:
-        main_handlers_logger.error(e)
-        main_handlers_logger.info(text)
-
-    await send_approve_message(chat_id, context, ticket_ids)
-    text = f'{message.text}\nОтправлено сообщение о подтверждении бронирования...'
-    try:
-        await message.edit_text(text)
-    except TimedOut as e:
-        main_handlers_logger.error(e)
-        main_handlers_logger.info(text)
 
     text = f'Бронь подтверждена\n'
     for ticket_id in ticket_ids:
@@ -664,14 +689,42 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.error(e)
         main_handlers_logger.info(text)
 
-    try:
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id_buy_info
-        )
-    except BadRequest as e:
-        main_handlers_logger.error(e)
-        main_handlers_logger.info('Cообщение уже удалено')
+    if int(chat_id) != 0 and message_id_buy_info != 0:
+        try:
+            await context.bot.delete_message(
+                chat_id=chat_id,
+                message_id=message_id_buy_info
+            )
+        except BadRequest as e:
+            main_handlers_logger.error(e)
+            main_handlers_logger.info('Cообщение уже удалено')
+
+
+async def approve_privilege(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data.split('|')
+    chat_id = int(data[1])
+    ticket_id = int(data[2])
+
+    user = await db_postgres.get_user(context.session, chat_id)
+    if user:
+        await db_postgres.update_user(
+            context.session, chat_id, is_privilege=True)
+        text = (f"Статус привилегии для пользователя {chat_id} подтвержден. "
+                f"Пожалуйста, повторите подтверждение/отклонение на "
+                f"билете {ticket_id}.")
+    else:
+        text = f"Пользователь {chat_id} не найден в базе данных."
+
+    await query.edit_message_text(text)
+
+
+async def reject_privilege(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("Действие отменено.")
 
 
 async def send_approve_message(chat_id, context, ticket_ids: List[int]):
@@ -788,7 +841,9 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.error(e)
         main_handlers_logger.info(text)
 
-    await send_reject_message(chat_id, context)
+    if int(chat_id) != 0:
+        await send_reject_message(chat_id, context)
+    
     text = f'{message.text}\nОтправлено сообщение об отклонении бронирования...'
     try:
         await message.edit_text(text)
@@ -805,14 +860,15 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         main_handlers_logger.error(e)
         main_handlers_logger.info(text)
 
-    try:
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id_buy_info
-        )
-    except BadRequest as e:
-        main_handlers_logger.error(e)
-        main_handlers_logger.info('Cообщение уже удалено')
+    if int(chat_id) != 0 and message_id_buy_info != 0:
+        try:
+            await context.bot.delete_message(
+                chat_id=chat_id,
+                message_id=message_id_buy_info
+            )
+        except BadRequest as e:
+            main_handlers_logger.error(e)
+            main_handlers_logger.info('Cообщение уже удалено')
 
 
 async def confirm_birthday(update: Update,

@@ -1,0 +1,32 @@
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+:root {
+    --domik-pink: #f14b7e;
+    --domik-green: #25b018;
+    --domik-green-soft: #81c784;
+    --domik-yellow: #f7ea14;
+    --domik-orange: #f3921f;
+}
+
+.bg-domik-pink { background-color: var(--domik-pink); }
+.text-domik-pink { color: var(--domik-pink); }
+.border-domik-pink { border-color: var(--domik-pink); }
+
+.bg-domik-green { background-color: var(--domik-green); }
+.text-domik-green { color: var(--domik-green); }
+
+.bg-domik-green-soft { background-color: var(--domik-green-soft); }
+.text-domik-green-soft { color: var(--domik-green-soft); }
+.border-domik-green-soft { border-color: var(--domik-green-soft); }
+
+.bg-domik-yellow { background-color: var(--domik-yellow); }
+.text-domik-yellow { color: var(--domik-yellow); }
+
+.domik-gradient {
+    background: linear-gradient(135deg, #f7ea14 0%, #25b018 50%, #f14b7e 100%);
+}

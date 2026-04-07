@@ -8,4 +8,13 @@ WORKDIR /app
 RUN --mount=type=bind,source=requirements-fastapi.txt,target=requirements-fastapi.txt \
     python -m pip install -r requirements-fastapi.txt
 
-COPY /src/api/fastapi_nats.py .
+COPY src/__init__.py ./src/
+COPY src/api/__init__.py ./src/api/
+COPY src/api/web ./src/api/web
+COPY src/api/yookassa_connect.py src/api/gspread_pub.py ./src/api/
+COPY src/db ./src/db
+COPY src/settings ./src/settings
+COPY src/log ./src/log
+COPY src/utilities ./src/utilities
+COPY templates ./templates
+COPY static ./static

@@ -3,7 +3,7 @@ import logging
 from telegram.ext import ContextTypes
 
 from db import db_postgres
-from utilities import clean_context, extract_command
+from utilities.utl_func import clean_context, extract_command
 
 
 async def init_conv_hl_dialog(update, context: 'ContextTypes.DEFAULT_TYPE'):

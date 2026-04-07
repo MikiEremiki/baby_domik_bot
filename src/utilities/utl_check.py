@@ -46,14 +46,6 @@ def check_available_ticket_by_free_seat(schedule_event,
     return check_child and check_adult and check_ratio_child_and_adult
 
 
-def check_email(email: str):
-    return re.fullmatch(r"^[-a-z0-9!#$%&'*+/=?^_`{|}~]+"
-                        r"(?:\.[-a-z0-9!#$%&'*+/=?^_`{|}~]+)*"
-                        r"@(?:[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\.)*"
-                        r"(?:aero|arpa|asia|biz|cat|com|coop|"
-                        r"edu|gov|info|int|jobs|mil|mobi|museum|"
-                        r"name|net|org|pro|tel|travel|[a-z][a-z])$",
-                        email.lower())
 
 
 def check_entered_command(context, command_to_check):

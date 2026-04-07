@@ -9,7 +9,8 @@ from faststream import FastStream
 from yookassa.domain.notification import WebhookNotificationFactory
 
 from api.broker_nats import connect_to_nats
-from db import pickle_persistence, PTBSQLAlchemyJobStore
+from db.pickle_persistence import pickle_persistence
+from db.jobpersistence import PTBSQLAlchemyJobStore
 from handlers.set_handlers import set_handlers
 from log.logging_conf import setup_logs
 from settings.config_loader import parse_settings

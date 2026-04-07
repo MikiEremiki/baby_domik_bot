@@ -3,3 +3,13 @@ fastapi
 faststream
 nats-py
 pydantic
+pydantic-settings
+jinja2
+itsdangerous
+sqlalchemy
+psycopg
+psycopg-binary
+pyyaml
+python-multipart
+yookassa
+pytz

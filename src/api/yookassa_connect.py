@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Optional, Union
 
 from yookassa.domain import models
 from settings.settings import URL_BOT
 
 
 def create_param_payment(
-        price: [str, int],
+        price: Union[str, int],
         description: str,
         email: str,
         return_url: str = URL_BOT,

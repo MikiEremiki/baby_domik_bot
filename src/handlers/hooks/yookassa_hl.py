@@ -1,7 +1,7 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import BadRequest
+from telegram.error import BadRequest, Forbidden
 from telegram.ext import TypeHandler, ContextTypes
 from yookassa.domain.notification import WebhookNotification
 
@@ -17,6 +17,7 @@ from handlers.sub_hl import (
 )
 from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP, ADMIN_GROUP
 
+from utilities.utl_func import create_str_info_by_schedule_event_id
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
 INVOICE_NUMBER = {
@@ -59,25 +60,75 @@ async def parsing_metadata(update: WebhookNotification, text: str) -> str:
 
 
 async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
-    message_id = update.object.metadata['message_id']
-    chat_id = update.object.metadata['chat_id']
-    ticket_ids = update.object.metadata['ticket_ids'].split('|')
+    metadata = update.object.metadata
+    source = metadata.get('source', 'bot')
+    is_website = source == 'website'
+
+    message_id = metadata['message_id']
+    chat_id = metadata['chat_id']
+    try:
+        int_chat_id = int(chat_id)
+    except (ValueError, TypeError):
+        int_chat_id = 0
+
+    ticket_ids = metadata['ticket_ids'].split('|')
     ticket_ids = [int(ticket_id) for ticket_id in ticket_ids]
-    choose_schedule_event_ids = update.object.metadata[
+    choose_schedule_event_ids = metadata[
         'choose_schedule_event_ids'].split('|')
-    command = update.object.metadata['command']
+    command = metadata['command']
     is_admin_booking = '_admin' in command
     webhook_hl_logger.info(
         f'webhook_update: '
         f'{ticket_ids=}, '
         f'{choose_schedule_event_ids=}, '
-        f'{command=}'
+        f'{command=}, '
+        f'{source=}, '
+        f'{chat_id=}'
     )
-    try:
-        await context.bot.edit_message_reply_markup(chat_id, message_id)
-    except BadRequest as e:
-        webhook_hl_logger.error(e)
-        webhook_hl_logger.error('Удаление кнопки для оплаты не произошло')
+
+    # Для заказов с сайта инициализируем user_data, чтобы работала кнопка "ДАЛЕЕ"
+    if is_website and int_chat_id != 0:
+        if int_chat_id not in context.application.user_data:
+            if context.application.persistence:
+                context.application.persistence.get_user_data().setdefault(
+                    int_chat_id, {})
+
+        user_data = context.application.user_data.get(int_chat_id)
+        if user_data:
+            user_data['command'] = command
+            user_data['postfix_for_cancel'] = 'reserve' if 'reserve' in command else 'studio'
+            if 'reserve_user_data' not in user_data:
+                user_data['reserve_user_data'] = {}
+            user_data['reserve_user_data']['ticket_ids'] = ticket_ids
+            user_data['reserve_user_data']['flag_send_ticket_info'] = True
+            if 'common_data' not in user_data:
+                user_data['common_data'] = {}
+
+            # Добавляем данные о мероприятии для уведомления, если их нет
+            if not user_data['common_data'].get('text_for_notification_massage'):
+                try:
+                    schedule_event_id = int(choose_schedule_event_ids[0])
+                    text_select_event = await create_str_info_by_schedule_event_id(
+                        context, schedule_event_id)
+
+                    ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
+                    chose_base_ticket = await db_postgres.get_base_ticket(
+                        context.session, ticket.base_ticket_id)
+
+                    text_notification = (f'{text_select_event}<br>'
+                                         f'Вариант бронирования:<br>'
+                                         f'{chose_base_ticket.name} '
+                                         f'{int(ticket.price)}руб<br>')
+                    user_data['common_data']['text_for_notification_massage'] = text_notification
+                except Exception as e:
+                    webhook_hl_logger.error(f'Ошибка при формировании текста уведомления: {e}')
+
+    if int_chat_id != 0 and message_id != 0:
+        try:
+            await context.bot.edit_message_reply_markup(chat_id, message_id)
+        except BadRequest as e:
+            webhook_hl_logger.error(e)
+            webhook_hl_logger.error('Удаление кнопки для оплаты не произошло')
     text = f'<b>Номер вашего билета '
     ticket_status = TicketStatus.APPROVED if is_admin_booking else TicketStatus.PAID
     sheet_id_domik = context.config.sheets.sheet_id_domik
@@ -118,8 +169,6 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     if promo_id:
         promo = await db_postgres.get_promotion(context.session, promo_id)
 
-    user_data = context.application.user_data.get(int(chat_id))
-
     thread_id = None
     callback_name = None
     base_command = command.replace('_admin', '')
@@ -136,16 +185,20 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
                      .get('Бронирования студия', None))
         callback_name = 'studio'
 
-    if user_data is not None:
-        user_data['STATE'] = 'PAID'
-        # Пытаемся принудительно установить состояние в разговоре
-        key = (int(chat_id), int(chat_id))
-        try:
-            await context.application.persistence.update_conversation(
-                'reserve', key, 'PAID')
-        except Exception as e:
-            text = f'Не удалось обновить состояние в persistence: {e}'
-            webhook_hl_logger.error(text)
+    user_data = None
+    if int_chat_id != 0:
+        user_data = context.application.user_data.get(int_chat_id)
+
+        if user_data is not None:
+            user_data['STATE'] = 'PAID'
+            # Пытаемся принудительно установить состояние в разговоре
+            key = (int_chat_id, int_chat_id)
+            try:
+                await context.application.persistence.update_conversation(
+                    'reserve', key, 'PAID')
+            except Exception as e:
+                text = f'Не удалось обновить состояние в persistence: {e}'
+                webhook_hl_logger.error(text)
 
     if is_admin_booking:
         # Для админских бронирований: списываем неподтвержденные места и отправляем сразу подтверждение пользователю
@@ -157,15 +210,16 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             except Exception as e:
                 text = f'Не удалось списать неподтвержденные места для {ticket_id}: {e}'
                 webhook_hl_logger.exception(text)
-        try:
-            await send_approve_message(chat_id, context, ticket_ids)
-        except Exception as e:
-            text = f'Не удалось отправить подтверждение пользователю для {ticket_ids}: {e}'
-            webhook_hl_logger.exception(text)
+        if int_chat_id != 0:
+            try:
+                await send_approve_message(int_chat_id, context, ticket_ids)
+            except Exception as e:
+                text = f'Не удалось отправить подтверждение пользователю для {ticket_ids}: {e}'
+                webhook_hl_logger.exception(text)
 
         # Уведомление в админ-группу
         try:
-            user = user_data['user'] if user_data else None
+            user = user_data['user'] if int_chat_id != 0 and user_data else None
             text_to_admin = f'#Бронирование #Админ_бронь\n'
             text_to_admin += f'Платеж по ссылке успешно обработан. Бронь подтверждена автоматически.\n'
             if user:
@@ -187,25 +241,31 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             text = f'Не удалось отправить уведомление админу о платеже админ-брони: {e}'
             webhook_hl_logger.exception(text)
     else:
-        text += (
-            'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
-            'подробной информации\n\n'
-            '<i>Или отправьте квитанцию/чек об оплате</i>'
-        )
+        if int_chat_id != 0:
+            text += (
+                'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
+                'подробной информации\n\n'
+                '<i>Или отправьте квитанцию/чек об оплате</i>'
+            )
 
-        reply_markup = InlineKeyboardMarkup(
-            [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
-        try:
-            await context.bot.send_message(
-                chat_id=chat_id, text=text, reply_markup=reply_markup)
-        except BadRequest as e:
-            webhook_hl_logger.error(e)
-            webhook_hl_logger.error(
-                'Отправка сообщения о обработке платежа не произошла')
+            reply_markup = InlineKeyboardMarkup(
+                [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
+            try:
+                message = await context.bot.send_message(
+                    chat_id=int_chat_id, text=text, reply_markup=reply_markup)
+                # Сохраняем ID сообщения для корректной работы кнопки "ДАЛЕЕ"
+                if is_website:
+                    user_data = context.application.user_data.get(int_chat_id)
+                    if user_data:
+                        user_data['common_data']['message_id_buy_info'] = message.message_id
+            except (BadRequest, Forbidden) as e:
+                webhook_hl_logger.error(e)
+                webhook_hl_logger.error(
+                    'Отправка сообщения о обработке платежа не произошла')
 
         try:
             await send_approve_reject_message_to_admin_in_webhook(context,
-                                                                  chat_id,
+                                                                  int_chat_id,
                                                                   message_id,
                                                                   ticket_ids,
                                                                   thread_id,
@@ -215,7 +275,10 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             error_text = 'Отправление в админский чат не произошло'
             webhook_hl_logger.error(error_text)
             text = f'{error_text} {ticket_ids=} {command=}'
-            await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+            if int_chat_id != 0:
+                await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+            else:
+                webhook_hl_logger.error(text)
 
 
 async def processing_successful_payment(update: WebhookNotification,

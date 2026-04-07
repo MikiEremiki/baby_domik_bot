@@ -30,6 +30,8 @@ from settings.settings import (
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, DICT_OF_EMOJI_FOR_BUTTON
 )
 from utilities.schemas import context_user_data
+from utilities.settings_parser import sync_settings_to_db, load_bot_settings
+from utilities.utl_db import open_session
 
 utilites_logger = logging.getLogger('bot.utilites')
 
@@ -237,9 +239,6 @@ async def send_postgres_log(update: Update,
                 i += 1
 
 
-def extract_phone_number_from_text(phone):
-    phone = re.sub(r'[-\s)(+]', '', phone)
-    return re.sub(r'^[78]{,2}(?=9)', '', phone)
 
 
 def yrange(n):
@@ -386,6 +385,9 @@ async def get_contact(
 
 def is_admin(update: Update):
     user = update.effective_user
+    if not hasattr(user, 'id'):
+        return False
+
     is_admin_flag = user.id in ADMIN_ID
     text = f'Пользователь: {user.id}: {user.full_name}'
     if is_admin_flag:
@@ -605,9 +607,6 @@ async def update_config(_: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 
 async def update_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    from utilities.settings_parser import sync_settings_to_db, load_bot_settings
-    from utilities.utl_db import open_session
-
     session = await open_session(context.config)
     try:
         await sync_settings_to_db(session)
@@ -621,11 +620,6 @@ async def update_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await session.close()
 
 
-def check_phone_number(phone):
-    if len(phone) != 10 or phone[0] != '9':
-        return True
-    else:
-        return False
 
 
 def create_approve_and_reject_replay(

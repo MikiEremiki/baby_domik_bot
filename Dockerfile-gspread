@@ -8,6 +8,6 @@ WORKDIR /app/src
 RUN --mount=type=bind,source=requirements-gspread.txt,target=requirements-gspread.txt \
     python -m pip install -r requirements-gspread.txt
 
-COPY /src/api ./api
-COPY /src/db ./db
-COPY /src/settings ./settings
+COPY src/api ./api
+COPY src/db ./db
+COPY src/settings ./settings

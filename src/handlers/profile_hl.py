@@ -10,9 +10,9 @@ from db.enum import AgeType, TicketStatus
 from handlers import init_conv_hl_dialog
 from handlers.sub_hl import request_phone_number
 from utilities.utl_func import (
-    extract_phone_number_from_text, check_phone_number,
     create_str_info_by_schedule_event_id, extract_command
 )
+from utilities.utl_text import extract_phone_number_from_text, check_phone_number
 
 profile_logger = logging.getLogger('bot.profile')
 

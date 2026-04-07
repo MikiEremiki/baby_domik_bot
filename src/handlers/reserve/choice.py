@@ -1,4 +1,5 @@
-﻿import logging
+﻿from collections import defaultdict
+import logging
 from datetime import datetime
 
 from sulguk import transform_html
@@ -570,7 +571,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Если репертуар и не лист ожидания — объединяем дату и время в один шаг
     if select_mode == 'REPERTOIRE' and context.user_data.get(
-            'command') not in ['list_wait', 'list']:
+            'command') != 'list_wait':
         # Кнопки: все показы выбранного спектакля (ДАТА ВРЕМЯ + флаги)
         schedule_events_sorted = sorted(schedule_events,
                                         key=lambda s_e: s_e.datetime_event)
@@ -588,9 +589,14 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 seen_times.add(time_txt)
                 unique_times.append(time_txt)
 
+        if context.user_data.get('command', False) == 'list':
+            state = 'LIST'
+        else:
+            state = 'TIME'
+
         reply_markup = await create_replay_markup(
             keyboard,
-            intent_id='TIME',
+            intent_id=state,
             postfix_for_cancel=context.user_data['postfix_for_cancel'],
             postfix_for_back='SHOW',
             size_row=2
@@ -659,8 +665,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
                 )
 
-        # Переходим сразу к TIME
-        state = 'TIME'
+        # Переходим к следующему шагу (бронирование или список)
         schedule_event_ids = [item.id for item in schedule_events]
         state_data = context.user_data['reserve_user_data'][state] = {}
         state_data['schedule_event_ids'] = schedule_event_ids
@@ -793,7 +798,6 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def unique_events_group_by_date(schedule_events):
     # Группируем события по дате и собираем список уникальных времен
-    from collections import defaultdict
     by_date: dict = defaultdict(list)
     unique_times = []
     seen_times = set()

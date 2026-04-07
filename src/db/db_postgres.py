@@ -1,5 +1,5 @@
-from datetime import date, datetime
-from typing import Collection, List
+from datetime import date, datetime, timedelta, timezone
+from typing import Collection, List, Type
 
 from sqlalchemy import select, func, DATE, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload, Mapped
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
     ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
-    FeedbackTopic, FeedbackMessage)
+    FeedbackTopic, FeedbackMessage, SpecialTicketPrice)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket
@@ -27,11 +27,11 @@ async def attach_user_and_people_to_ticket(
     ))
     ticket = result.scalar_one()
     for person_id in people_ids:
-        person: Person | None = await session.get(Person, person_id)
+        person: Type[Person] | None = await session.get(Person, person_id)
         if person:
             ticket.people.append(person)
 
-    user: User | None = await session.get(User, user_id)
+    user: Type[User] | None = await session.get(User, user_id)
     ticket.user = user
     await session.commit()
 
@@ -187,6 +187,18 @@ async def get_adult_person_id_by_phone(session: AsyncSession, phone: str):
     return res.scalars().first()
 
 
+async def get_user_by_phone(session: AsyncSession, phone: str) -> User | None:
+    """Возвращает объект User по номеру телефона взрослого"""
+    result = await session.execute(
+        select(User)
+        .join(Person, User.user_id == Person.user_id)
+        .join(Adult, Person.id == Adult.person_id)
+        .where(Adult.phone == phone)
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
 async def create_people(
         session: AsyncSession,
         user_id,
@@ -199,7 +211,7 @@ async def create_people(
     name_adult = client_data['name_adult']
     phone = client_data['phone']
     data_children = client_data['data_children']
-    user: User | None = await session.get(User, user_id)
+    user: Type[User] | None = await session.get(User, user_id)
 
     if user is None:
         raise ValueError(f"User with ID {user_id} does not exist")
@@ -291,7 +303,7 @@ async def create_user(
 
 
 async def create_person(session: AsyncSession, user_id, name, age_type, parent_id=None):
-    user: User | None = await session.get(User, user_id)
+    user: Type[User] | None = await session.get(User, user_id)
 
     if user is None:
         raise ValueError(f"User with ID {user_id} does not exist")
@@ -569,19 +581,43 @@ async def get_ticket(session: AsyncSession,
     return await session.get(Ticket, ticket_id)
 
 
-async def get_type_event(session: AsyncSession,
-                         type_event_id: Mapped[int]):
-    return await session.get(TypeEvent, type_event_id)
+async def get_type_event(
+        session: AsyncSession,
+        type_event_id: Mapped[int] | int
+) -> TypeEvent | None:
+    result = await session.execute(
+        select(TypeEvent)
+        .where(TypeEvent.id == type_event_id)
+    )
+    return result.scalar_one_or_none()
 
 
-async def get_theater_event(session: AsyncSession,
-                            theater_event_id: Mapped[int]):
-    return await session.get(TheaterEvent, theater_event_id)
+async def get_theater_event(
+        session: AsyncSession,
+        theater_event_id: Mapped[int] | int
+) -> TheaterEvent | None:
+    result = await session.execute(
+        select(TheaterEvent)
+        .where(TheaterEvent.id == theater_event_id)
+        .options(selectinload(TheaterEvent.schedule_events))
+    )
+    return result.scalar_one_or_none()
 
 
-async def get_schedule_event(session: AsyncSession,
-                             schedule_event_id: Mapped[int]):
-    return await session.get(ScheduleEvent, schedule_event_id)
+async def get_schedule_event(
+        session: AsyncSession,
+        schedule_event_id: Mapped[int] | int
+) -> ScheduleEvent | None:
+    result = await session.execute(
+        select(ScheduleEvent)
+        .where(ScheduleEvent.id == schedule_event_id)
+        .options(
+            selectinload(ScheduleEvent.theater_event).selectinload(TheaterEvent.base_tickets),
+            selectinload(ScheduleEvent.type_event).selectinload(TypeEvent.base_tickets),
+            selectinload(ScheduleEvent.base_tickets)
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_users_by_ids(session: AsyncSession,
@@ -683,7 +719,7 @@ async def get_all_theater_events(session: AsyncSession):
 async def get_all_theater_events_actual(session: AsyncSession):
     query = select(TheaterEvent).where(
         or_(TheaterEvent.flag_active_repertoire == True, TheaterEvent.flag_active_bd == True)
-    )
+    ).options(selectinload(TheaterEvent.schedule_events))
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -794,6 +830,65 @@ async def update_promotions_from_googlesheets(session: AsyncSession, promotions)
         dto_model = {k: v for k, v in _promotion.to_dto().items() if k in allowed_fields}
         await session.merge(Promotion(**dto_model))
     await session.commit()
+
+
+async def update_special_ticket_prices_from_googlesheets(
+    session: AsyncSession,
+    special_ticket_prices: dict
+):
+    """
+    Обновляет таблицу special_ticket_prices на основе словаря, полученного из Google Sheets.
+    Ожидаемый формат словаря:
+    {
+        option: {
+            'будни': { base_ticket_id: price },
+            'выходные': { base_ticket_id: price }
+        }
+    }
+    """
+    await session.execute(delete(SpecialTicketPrice))
+
+    for option, types in special_ticket_prices.items():
+        weekday_prices = types.get('будни', {})
+        weekend_prices = types.get('выходные', {})
+
+        # Собираем все base_ticket_id для этой опции
+        all_ids = set(weekday_prices.keys()) | set(weekend_prices.keys())
+
+        for bt_id in all_ids:
+            price_weekday = weekday_prices.get(bt_id)
+            price_weekend = weekend_prices.get(bt_id)
+
+            new_price = SpecialTicketPrice(
+                option=str(option),
+                base_ticket_id=bt_id,
+                price_weekday=price_weekday,
+                price_weekend=price_weekend
+            )
+            session.add(new_price)
+
+    await session.commit()
+
+
+async def get_special_ticket_price(
+    session: AsyncSession,
+    option: str,
+    base_ticket_id: int,
+    type_ticket_price: str
+):
+    query = select(SpecialTicketPrice).where(
+        SpecialTicketPrice.option == str(option),
+        SpecialTicketPrice.base_ticket_id == base_ticket_id
+    )
+    result = await session.execute(query)
+    spec_price = result.scalar_one_or_none()
+
+    if spec_price:
+        if type_ticket_price == 'будни':
+            return spec_price.price_weekday
+        else:
+            return spec_price.price_weekend
+    return None
 
 
 async def get_all_promotions(session: AsyncSession):
@@ -914,11 +1009,11 @@ async def get_all_custom_made_format(session: AsyncSession):
 
 
 async def get_base_tickets_by_event_or_all(
-        schedule_event,
-        theater_event,
-        type_event,
-        session
-):
+        schedule_event: ScheduleEvent,
+        theater_event: TheaterEvent,
+        type_event: TypeEvent,
+        session: AsyncSession
+) -> List[BaseTicket] | None:
     if schedule_event.base_tickets:
         base_tickets = schedule_event.base_tickets
     elif theater_event.base_tickets:
@@ -999,10 +1094,16 @@ async def get_actual_schedule_events_by_date(
 async def get_schedule_theater_base_tickets(context, choice_event_id):
     schedule_event = await get_schedule_event(context.session,
                                               choice_event_id)
+    if not schedule_event:
+        raise ValueError("Schedule event not found")
     theater_event = await get_theater_event(context.session,
                                             schedule_event.theater_event_id)
+    if not theater_event:
+        raise ValueError("Theater event not found")
     type_event = await get_type_event(context.session,
                                       schedule_event.type_event_id)
+    if not type_event:
+        raise ValueError("Type event not found")
     base_tickets = await get_base_tickets_by_event_or_all(schedule_event,
                                                           theater_event,
                                                           type_event,
@@ -1219,7 +1320,10 @@ async def get_bot_settings(session: AsyncSession):
     result = await session.execute(stmt)
     return result.scalars().all()
 
-async def get_or_create_user_status(session: AsyncSession, user_id: int) -> UserStatus:
+async def get_or_create_user_status(
+        session: AsyncSession,
+        user_id: int
+) -> Type[UserStatus] | UserStatus:
     status = await session.get(UserStatus, user_id)
     if status is None:
         status = UserStatus(user_id=user_id, role=UserRole.USER)
@@ -1228,7 +1332,11 @@ async def get_or_create_user_status(session: AsyncSession, user_id: int) -> User
     return status
 
 
-async def update_user_status(session: AsyncSession, user_id: int, **kwargs) -> UserStatus:
+async def update_user_status(
+        session: AsyncSession,
+        user_id: int,
+        **kwargs
+) -> Type[UserStatus] | UserStatus:
     status = await get_or_create_user_status(session, user_id)
     for key, value in kwargs.items():
         if hasattr(status, key):
@@ -1291,3 +1399,14 @@ async def get_feedback_message_by_user_message_id(session: AsyncSession, user_me
     query = select(FeedbackMessage).where(FeedbackMessage.user_message_id == user_message_id)
     result = await session.execute(query)
     return result.scalar_one_or_none()
+
+
+async def get_expired_tickets(session: AsyncSession, minutes: int = 10):
+    threshold = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    result = await session.execute(
+        select(Ticket).where(
+            Ticket.status == TicketStatus.CREATED,
+            Ticket.created_at < threshold
+        )
+    )
+    return result.scalars().all()

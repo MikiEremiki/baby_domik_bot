@@ -1,0 +1,224 @@
+{% extends "layout.html" %}
+
+{% block title %}Афиша — BabyDomik{% endblock %}
+
+{% block content %}
+<section class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight">Афиша спектаклей</h1>
+        <p class="mt-2 text-slate-600">Выберите постановку и удобный сеанс для бронирования.</p>
+    </div>
+    
+    <!-- Фильтры -->
+    <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+        <!-- По возрасту -->
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-slate-700">Возраст:</span>
+            <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                <a href="/?only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == None %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    Все
+                </a>
+                <a href="/?age=1&only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 1 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    1+
+                </a>
+                <a href="/?age=3&only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 3 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    3+
+                </a>
+                <a href="/?age=5&only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 5 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    5+
+                </a>
+            </div>
+        </div>
+
+        <!-- По месяцу -->
+        {% if months %}
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-slate-700">Месяц:</span>
+            <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                <a href="/?only_actual={{ 'true' if only_actual else 'false' }}{% if current_age %}&age={{ current_age }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if not current_month %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    Все
+                </a>
+                {% for m in months %}
+                <a href="/?month={{ m.key }}&only_actual={{ 'true' if only_actual else 'false' }}{% if current_age %}&age={{ current_age }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_month == m.key %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    {{ m.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- По конкретной дате -->
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-slate-700">Дата:</span>
+            <div class="relative min-w-[140px]">
+                <input type="text" 
+                       id="date-filter" 
+                       placeholder="Выбрать дату..."
+                       value="{{ current_date or '' }}"
+                       readonly
+                       class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm focus:border-domik-green-soft focus:ring-domik-green-soft outline-none transition-all cursor-pointer">
+                {% if current_date %}
+                <button onclick="applyDateFilter('')" 
+                        class="absolute right-8 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 border border-slate-200 shadow-sm transition-colors z-10"
+                        title="Сбросить дату">
+                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+                </button>
+                {% endif %}
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Стили и скрипты для календаря -->
+        <div id="calendar-data" data-available-dates='{{ available_dates | tojson | safe }}' class="hidden"></div>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <style>
+            .event-dot {
+                position: absolute;
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background: var(--domik-green-soft);
+                bottom: 4px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            .flatpickr-day.has-event {
+                font-weight: bold;
+                color: #1e293b;
+            }
+            .flatpickr-calendar {
+                box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 12px !important;
+            }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+        <script>
+            function applyDateFilter(date) {
+                let url = '/?only_actual={{ "true" if only_actual else "false" }}';
+                let age = '{{ current_age or "" }}';
+                if (age) url += '&age=' + age;
+                if (date) url += '&date=' + date;
+                window.location.href = url;
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const calendarData = document.getElementById('calendar-data');
+                const availableDates = JSON.parse(calendarData.dataset.availableDates);
+                
+                flatpickr("#date-filter", {
+                    locale: "ru",
+                    dateFormat: "Y-m-d",
+                    disableMobile: "true",
+                    onDayCreate: function(dObj, dStr, fp, dayElem) {
+                        const date = dayElem.dateObj;
+                        const year = date.getFullYear();
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                        const day = date.getDate().toString().padStart(2, '0');
+                        const dateStr = `${year}-${month}-${day}`;
+                        
+                        if (availableDates.includes(dateStr)) {
+                            dayElem.classList.add("has-event");
+                            const dot = document.createElement("span");
+                            dot.className = "event-dot";
+                            dayElem.appendChild(dot);
+                        }
+                    },
+                    onChange: function(selectedDates, dateStr) {
+                        if (dateStr !== '{{ current_date or "" }}') {
+                            applyDateFilter(dateStr);
+                        }
+                    }
+                });
+            });
+        </script>
+
+        <!-- По наличию сеансов -->
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-slate-700">Сеансы:</span>
+            <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                <a href="/?only_actual=false{% if current_age %}&age={{ current_age }}{% endif %}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if not only_actual %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    Все
+                </a>
+                <a href="/?only_actual=true{% if current_age %}&age={{ current_age }}{% endif %}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if only_actual %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    Актуальные
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Название спектакля</th>
+                    <th class="hidden px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 sm:table-cell">Возраст</th>
+                    <th class="hidden px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 md:table-cell">Длительность</th>
+                    <th class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Действие</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                {% for event in events %}
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-6 py-4">
+                        <a href="/event/{{ event.id }}" class="block hover:text-domik-green-soft transition-colors">
+                            <div class="font-bold text-slate-900">{{ event.title }}</div>
+                            <div class="mt-1 text-sm text-slate-500 line-clamp-1 max-w-xs sm:max-w-md lg:max-w-xl">
+                                {{ event.description }}
+                            </div>
+                        </a>
+                        <!-- Мобильные бейджи, если скрыты в колонках -->
+                        <div class="mt-2 flex items-center gap-2 sm:hidden">
+                            <span class="inline-flex items-center rounded-full bg-domik-green/10 px-2 py-0.5 text-[10px] font-medium text-domik-green">
+                                {{ event.age }}
+                            </span>
+                            <span class="inline-flex items-center text-[10px] text-slate-400">
+                                <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+                                {{ event.duration }}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="hidden px-6 py-4 whitespace-nowrap sm:table-cell">
+                        <span class="inline-flex items-center rounded-full bg-domik-green/10 px-2.5 py-0.5 text-xs font-medium text-domik-green">
+                            {{ event.age }}
+                        </span>
+                    </td>
+                    <td class="hidden px-6 py-4 whitespace-nowrap text-sm text-slate-500 md:table-cell">
+                        {{ event.duration }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                        {% if event.has_sessions and event.has_free_seats %}
+                        <a href="/event/{{ event.id }}" class="inline-flex items-center rounded-lg bg-domik-green-soft px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors">
+                            Сеансы
+                        </a>
+                        {% elif event.has_sessions and not event.has_free_seats %}
+                        <div class="flex flex-col items-end">
+                            <span class="inline-flex items-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed">
+                                Сеансы
+                            </span>
+                            <span class="mt-1 text-[10px] font-medium text-red-500 uppercase tracking-wider">мест нет</span>
+                        </div>
+                        {% else %}
+                        <span class="inline-flex items-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed" title="Нет доступных сеансов">
+                            Сеансы
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-12 text-center text-slate-500">
+                        По заданным критериям спектаклей не найдено.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

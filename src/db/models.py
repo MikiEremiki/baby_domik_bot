@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint, Enum
+from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -592,3 +592,17 @@ class FeedbackMessage(BaseModelTimed):
         BigInteger, ForeignKey('users.user_id', ondelete='CASCADE'))
     user_message_id: Mapped[int] = mapped_column(BigInteger)
     admin_message_id: Mapped[int] = mapped_column(BigInteger)
+
+
+class SpecialTicketPrice(BaseModelTimed):
+    __tablename__ = 'special_ticket_prices'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    option: Mapped[str] = mapped_column(String(255))
+    base_ticket_id: Mapped[int] = mapped_column(ForeignKey('base_tickets.base_ticket_id'))
+    price_weekday: Mapped[Optional[int]] = mapped_column()
+    price_weekend: Mapped[Optional[int]] = mapped_column()
+
+    __table_args__ = (
+        UniqueConstraint('option', 'base_ticket_id', name='uq_option_base_ticket'),
+    )

@@ -24,7 +24,7 @@ from handlers.reserve.common import (
 from handlers.sub_hl import (
     remove_button_from_last_message,
     create_and_send_payment, processing_successful_payment,
-    forward_message_to_admin,
+    forward_message_to_admin, send_by_ticket_info,
 )
 from api.googlesheets import write_client_reserve
 from utilities.utl_date import to_naive
@@ -399,7 +399,6 @@ async def handle_certificate_file(update: Update,
     )
 
     # Теперь отправляем финальное сообщение с правилами
-    from handlers.sub_hl import send_by_ticket_info
     reserve_user_data = context.user_data['reserve_user_data']
     if reserve_user_data.get('flag_send_ticket_info'):
         await send_by_ticket_info(update, context)
