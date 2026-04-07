@@ -135,13 +135,14 @@ async def update_special_ticket_price(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
-    context.bot_data['special_ticket_price'] = await load_special_ticket_price()
+    special_ticket_price = await load_special_ticket_price()
+    await db_postgres.update_special_ticket_prices_from_googlesheets(
+        context.session, special_ticket_price)
+
     text = 'Индивидуальные стоимости обновлены'
     await update.effective_chat.send_message(text)
 
     sub_hl_logger.info(text)
-    for item in context.bot_data['special_ticket_price']:
-        sub_hl_logger.info(f'{str(item)}')
 
     try:
         await update.callback_query.answer()
