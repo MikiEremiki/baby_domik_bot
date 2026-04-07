@@ -43,7 +43,6 @@ README.md
 **/archive/
 src/log/*.log
 src/db/data/
-src/db/jobpersistence/
 src/utilities/pickle/json_files/
 src/utilities/pickle/ud_ids/
 src/utilities/pickle/user_ids/
