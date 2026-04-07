@@ -187,6 +187,18 @@ async def get_adult_person_id_by_phone(session: AsyncSession, phone: str):
     return res.scalars().first()
 
 
+async def get_user_by_phone(session: AsyncSession, phone: str) -> User | None:
+    """Возвращает объект User по номеру телефона взрослого"""
+    result = await session.execute(
+        select(User)
+        .join(Person, User.user_id == Person.user_id)
+        .join(Adult, Person.id == Adult.person_id)
+        .where(Adult.phone == phone)
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
 async def create_people(
         session: AsyncSession,
         user_id,
@@ -1387,3 +1399,14 @@ async def get_feedback_message_by_user_message_id(session: AsyncSession, user_me
     query = select(FeedbackMessage).where(FeedbackMessage.user_message_id == user_message_id)
     result = await session.execute(query)
     return result.scalar_one_or_none()
+
+
+async def get_expired_tickets(session: AsyncSession, minutes: int = 10):
+    threshold = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    result = await session.execute(
+        select(Ticket).where(
+            Ticket.status == TicketStatus.CREATED,
+            Ticket.created_at < threshold
+        )
+    )
+    return result.scalars().all()
