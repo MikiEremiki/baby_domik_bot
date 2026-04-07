@@ -37,6 +37,7 @@ class YookassaSettings(BaseModel):
     account_id: int
     secret_key: SecretStr
     payment_method_type: str
+    return_url: Optional[str] = None
 
 
 class Settings(BaseSettings):
