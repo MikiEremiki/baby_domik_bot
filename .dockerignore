@@ -4,40 +4,56 @@
 # For more help, visit the .dockerignore file reference guide at
 # https://docs.docker.com/go/build-context-dockerignore/
 
+# --- Стандартные исключения IDE и окружения ---
 **/.DS_Store
 **/__pycache__
 **/.venv
+**/venv
 **/.idea
-**/.classpath
-**/.dockerignore
-**/.env
+**/.vscode
 **/.git
 **/.github
 **/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
-**/.vscode
+**/.dockerignore
+**/node_modules
+**/npm-debug.log
+
+# --- Секреты и инфраструктура ---
+# Полное скрытие конфигураций и сертификатов
+config/
+certbot/
+**/settings.py
+
+# --- Разработка и документация (не нужны в контейнере) ---
+test/
+.junie/
+.aiassistant/
+.ruff_cache/
+.jbeval/
+.pytest_cache/
+LICENSE
+README.md
+**/docker-compose*
+**/Dockerfile*
+**/pyproject.toml
+**/uv.lock
+
+# --- Временные данные и логи ---
+**/*.log
+**/archive/
+src/log/*.log
+src/db/data/
+src/db/jobpersistence/
+src/utilities/pickle/json_files/
+src/utilities/pickle/ud_ids/
+src/utilities/pickle/user_ids/
+
+# --- Прочие артефакты ---
 **/*.*proj.user
 **/*.dbmdl
 **/*.jfm
 **/bin
 **/charts
-**/docker-compose*
-**/Dockerfile*
-**/node_modules
-**/npm-debug.log
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
-**/venv
-**/LICENSE
-**/README.md
-**/pyproject.toml
-
-config/*
-**/archive/log.txt*
-**/data/conversationbot
-**/json_files/*
-settings.py
