@@ -117,7 +117,7 @@ async def update_base_ticket_data(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
-    ticket_list = await load_base_tickets(True)
+    ticket_list = await load_base_tickets(False)
     await db_postgres.update_base_tickets_from_googlesheets(
         context.session, ticket_list)
 
