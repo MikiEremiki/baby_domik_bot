@@ -1,5 +1,5 @@
-from datetime import date, datetime
 from typing import Collection, List
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, func, DATE, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload, Mapped
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
     ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
-    FeedbackTopic, FeedbackMessage)
+    FeedbackTopic, FeedbackMessage, SpecialTicketPrice)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket
@@ -794,6 +794,65 @@ async def update_promotions_from_googlesheets(session: AsyncSession, promotions)
         dto_model = {k: v for k, v in _promotion.to_dto().items() if k in allowed_fields}
         await session.merge(Promotion(**dto_model))
     await session.commit()
+
+
+async def update_special_ticket_prices_from_googlesheets(
+    session: AsyncSession,
+    special_ticket_prices: dict
+):
+    """
+    Обновляет таблицу special_ticket_prices на основе словаря, полученного из Google Sheets.
+    Ожидаемый формат словаря:
+    {
+        option: {
+            'будни': { base_ticket_id: price },
+            'выходные': { base_ticket_id: price }
+        }
+    }
+    """
+    await session.execute(delete(SpecialTicketPrice))
+
+    for option, types in special_ticket_prices.items():
+        weekday_prices = types.get('будни', {})
+        weekend_prices = types.get('выходные', {})
+
+        # Собираем все base_ticket_id для этой опции
+        all_ids = set(weekday_prices.keys()) | set(weekend_prices.keys())
+
+        for bt_id in all_ids:
+            price_weekday = weekday_prices.get(bt_id)
+            price_weekend = weekend_prices.get(bt_id)
+
+            new_price = SpecialTicketPrice(
+                option=str(option),
+                base_ticket_id=bt_id,
+                price_weekday=price_weekday,
+                price_weekend=price_weekend
+            )
+            session.add(new_price)
+
+    await session.commit()
+
+
+async def get_special_ticket_price(
+    session: AsyncSession,
+    option: str,
+    base_ticket_id: int,
+    type_ticket_price: str
+):
+    query = select(SpecialTicketPrice).where(
+        SpecialTicketPrice.option == str(option),
+        SpecialTicketPrice.base_ticket_id == base_ticket_id
+    )
+    result = await session.execute(query)
+    spec_price = result.scalar_one_or_none()
+
+    if spec_price:
+        if type_ticket_price == 'будни':
+            return spec_price.price_weekday
+        else:
+            return spec_price.price_weekend
+    return None
 
 
 async def get_all_promotions(session: AsyncSession):
