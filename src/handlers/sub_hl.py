@@ -445,8 +445,11 @@ async def create_and_send_payment(
                                                  "отклонен, в этом случае средства будут возвращены.")
             verification_msg = f"<b>Внимание!</b> {v_text}\n\n"
 
+    str_ticket_ids = ", ".join([f"<code>{i}</code>" for i in ticket_ids])
     await message.edit_text(
-        text=f"""Бронь билета осуществляется по 100% оплате.
+        text=f"""<b>Ваш номер билета: {str_ticket_ids}</b>
+
+Бронь билета осуществляется по 100% оплате.
         
 {verification_msg}{refund}
 Более подробно о правилах возврата в группе театра <a href="https://vk.com/baby_theater_domik?w=wall-202744340_3109">ссылка</a>
@@ -694,7 +697,8 @@ async def send_by_ticket_info(update, context):
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
     text = f'<b>Номер вашего билета <code>{ticket_id}</code></b><br><br>'
-    text += context.user_data['common_data']['text_for_notification_massage']
+    common_data = context.user_data.get('common_data', {})
+    text += common_data.get('text_for_notification_massage', '')
     text += f'__________<br>'
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
     text += refund + '<br><br>'
@@ -873,11 +877,12 @@ async def send_approve_reject_message_to_admin_in_webhook(
         thread_id,
         callback_name
 ):
-    user_data = context.application.user_data.get(int(chat_id))
-    user = user_data['user']
-    reserve_user_data = user_data['reserve_user_data']
+    user_data = context.application.user_data.get(int(chat_id)) if chat_id and int(chat_id) != 0 else None
+    user = user_data['user'] if user_data else None
+    reserve_user_data = user_data.get('reserve_user_data', {}) if user_data else {}
 
-    text = f'#Бронирование<br>'
+    is_website = not message_id or int(message_id) == 0
+    text = f'#Бронирование #Сайт<br>' if is_website else f'#Бронирование<br>'
     text += f'Платеж успешно обработан<br>'
 
     booking_details = await get_booking_admin_text(context, ticket_ids, user, user_data)
@@ -915,7 +920,8 @@ async def send_approve_reject_message_to_admin_in_webhook(
     for t_id in ticket_ids:
         await db_postgres.update_ticket(context.session, t_id, is_admin_notified=True)
 
-    reserve_user_data['admin_notified'] = True
+    if reserve_user_data:
+        reserve_user_data['admin_notified'] = True
 
 
 async def get_booking_admin_text(
