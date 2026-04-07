@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}BabyDomik — Бронирование{% endblock %}</title>
+    <link rel="icon" type="image/jpeg" href="/static/img/logo.jpg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                'domik-pink': '#f14b7e',
+                'domik-green': '#25b018',
+                'domik-green-soft': '#81c784',
+                'domik-yellow': '#f7ea14',
+                'domik-orange': '#f3921f',
+              }
+            }
+          }
+        }
+    </script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/css/site.css">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+<header class="bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <a class="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900" href="/">
+                <img src="/static/img/logo.jpg" alt="Logo" class="h-10 w-10 rounded-full border border-slate-100 object-cover shadow-sm transition hover:scale-105">
+                <span class="flex flex-col sm:flex-row sm:gap-1.5">
+                    <span class="text-domik-pink">Бэби-театр</span>
+                    <span class="text-domik-green">Домик</span>
+                </span>
+            </a>
+            <div class="flex items-center gap-6">
+                <nav class="flex items-center gap-3 text-sm font-medium">
+                    <a class="rounded-lg px-3 py-2 text-slate-700 transition hover:bg-slate-100 hover:text-domik-green-soft" href="/">Афиша</a>
+                </nav>
+
+                <div class="flex items-center">
+                    {% if request.session.user %}
+                        <div class="flex items-center gap-3 border-l border-slate-200 pl-6">
+                            {% if request.session.user.photo_url %}
+                                <img src="{{ request.session.user.photo_url }}" alt="Profile" class="h-8 w-8 rounded-full border border-slate-200 object-cover">
+                            {% else %}
+                                <div class="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            {% endif %}
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-900 leading-tight">{{ request.session.user.first_name }}</span>
+                                <a href="/logout" class="text-[10px] text-domik-pink hover:underline uppercase tracking-wider font-semibold">Выйти</a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="border-l border-slate-200 pl-6">
+                             <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                                    data-telegram-login="{{ bot_username }}" 
+                                    data-size="medium" 
+                                    data-auth-url="/auth/telegram/callback" 
+                                    data-request-access="write"></script>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="mt-16 border-t border-slate-200 bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
+            <div class="flex items-center justify-center gap-3 md:justify-start">
+                <img src="/static/img/logo.jpg" alt="Logo" class="h-12 w-12 rounded-full border border-slate-100 object-cover shadow-sm">
+                <div>
+                    <div class="font-bold text-slate-900">Бэби-театр «Домик»</div>
+                    <div class="text-xs text-slate-500">Театр для самых маленьких</div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-3 text-sm text-slate-600">
+                <div class="font-semibold text-slate-900 uppercase tracking-wider text-xs">Мы в соцсетях</div>
+                <div class="flex gap-4">
+                    <a href="https://vk.com/baby_theater_domik" target="_blank" rel="noopener noreferrer" class="hover:text-domik-pink transition-colors underline decoration-slate-200 underline-offset-4">ВКонтакте</a>
+                    <a href="https://t.me/theater_domik" target="_blank" rel="noopener noreferrer" class="hover:text-domik-green-soft transition-colors underline decoration-slate-200 underline-offset-4">Telegram</a>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2 text-sm text-slate-600 md:items-end">
+                <div class="font-semibold text-slate-900 uppercase tracking-wider text-xs">Контакты администратора</div>
+                <a href="https://t.me/Theater_Domik_admin" target="_blank" rel="noopener noreferrer" class="hover:text-domik-green-soft transition-colors font-medium">@Theater_Domik_admin</a>
+                <a href="tel:+79991400114" class="hover:text-domik-pink transition-colors font-medium">+7 (999) 140-01-14</a>
+            </div>
+        </div>
+
+        <div class="mt-8 flex flex-col items-center justify-between border-t border-slate-100 pt-8 md:flex-row">
+            <div class="flex justify-center py-4">
+                <img src="/static/img/banner.jpg" alt="Бэби-театр Домик"
+                     class="h-[60px] sm:h-[100px] w-auto object-contain">
+            </div>
+            <div class="text-center text-sm text-slate-500 md:text-right">
+                <p>&copy; 2026 BabyDomik. Все права защищены.</p>
+            </div>
+        </div>
+    </div>
+</footer>
+</body>
+</html>

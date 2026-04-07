@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ event.title }} — Сеансы{% endblock %}
+
+{% block content %}
+<section class="mb-8">
+    <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/">← Назад к афише</a>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">{{ event.title }}</h1>
+    <p class="mt-2 max-w-3xl text-slate-600">{{ event.description }}</p>
+</section>
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50 text-left">
+                <tr>
+                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Дата</th>
+                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Время</th>
+                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Свободно мест (Дети)</th>
+                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Свободно мест (Взрослые)</th>
+                    <th class="px-6 py-4"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                {% for session in sessions %}
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-6 py-4 text-sm text-slate-900 font-medium">{{ session.date }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600">{{ session.time }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600">{{ session.free_seats_child }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600">{{ session.free_seats_adult }}</td>
+                    <td class="px-6 py-4 text-right">
+                        {% if session.free_seats_child > 0 %}
+                        <a href="/booking/{{ session.id }}" class="inline-flex items-center rounded-lg bg-domik-green-soft px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors">
+                            Выбрать
+                        </a>
+                        {% else %}
+                        <span class="inline-flex items-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed">
+                            Мест нет
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                        <p>На данный момент нет доступных сеансов для этого спектакля.</p>
+                        <p class="mt-2 text-sm text-slate-400">Пожалуйста, загляните позже или выберите другую постановку.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
