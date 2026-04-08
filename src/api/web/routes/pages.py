@@ -18,6 +18,7 @@ async def show_index(
     date: str | None = None,
     session: AsyncSession = Depends(get_session)
 ):
+    only_actual = True
     events_db = await get_all_theater_events_actual(session)
     events = []
     now = datetime.now(timezone.utc)

@@ -15,16 +15,16 @@
         <div class="flex items-center gap-3">
             <span class="text-sm font-medium text-slate-700">Возраст:</span>
             <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-                <a href="/?only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == None %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                <a href="/?{% if current_month %}month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == None %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
                     Все
                 </a>
-                <a href="/?age=1&only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 1 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                <a href="/?age=1{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 1 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
                     1+
                 </a>
-                <a href="/?age=3&only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 3 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                <a href="/?age=3{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 3 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
                     3+
                 </a>
-                <a href="/?age=5&only_actual={{ 'true' if only_actual else 'false' }}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 5 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                <a href="/?age=5{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_age == 5 %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
                     5+
                 </a>
             </div>
@@ -35,11 +35,11 @@
         <div class="flex items-center gap-3">
             <span class="text-sm font-medium text-slate-700">Месяц:</span>
             <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-                <a href="/?only_actual={{ 'true' if only_actual else 'false' }}{% if current_age %}&age={{ current_age }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if not current_month %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                <a href="/?{% if current_age %}&age={{ current_age }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if not current_month %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
                     Все
                 </a>
                 {% for m in months %}
-                <a href="/?month={{ m.key }}&only_actual={{ 'true' if only_actual else 'false' }}{% if current_age %}&age={{ current_age }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_month == m.key %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                <a href="/?month={{ m.key }}{% if current_age %}&age={{ current_age }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_month == m.key %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
                     {{ m.name }}
                 </a>
                 {% endfor %}
@@ -98,10 +98,10 @@
         <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
         <script>
             function applyDateFilter(date) {
-                let url = '/?only_actual={{ "true" if only_actual else "false" }}';
+                let url = '/?';
                 let age = '{{ current_age or "" }}';
-                if (age) url += '&age=' + age;
-                if (date) url += '&date=' + date;
+                if (age) url += 'age=' + age;
+                if (date) url += (age ? '&' : '') + 'date=' + date;
                 window.location.href = url;
             }
 
@@ -136,18 +136,6 @@
             });
         </script>
 
-        <!-- По наличию сеансов -->
-        <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-slate-700">Сеансы:</span>
-            <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-                <a href="/?only_actual=false{% if current_age %}&age={{ current_age }}{% endif %}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if not only_actual %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
-                    Все
-                </a>
-                <a href="/?only_actual=true{% if current_age %}&age={{ current_age }}{% endif %}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if only_actual %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
-                    Актуальные
-                </a>
-            </div>
-        </div>
     </div>
 </section>
 
