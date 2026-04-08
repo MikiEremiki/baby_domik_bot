@@ -42,7 +42,7 @@ async def get_ticket(
 
     if check_entered_command(context, 'reserve'):
         schedule_event_id = reserve_user_data.get('choose_schedule_event_ids')
-        schedule_event = await db_postgres.get_schedule_event_by_id(
+        schedule_event = await db_postgres.get_schedule_event(
             context.session, schedule_event_id)
         if not schedule_event.flag_turn_in_bot:
             text_info = (

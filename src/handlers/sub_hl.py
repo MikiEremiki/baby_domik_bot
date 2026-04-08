@@ -999,10 +999,10 @@ async def get_booking_admin_text(
                 chose_base_ticket = await db_postgres.get_base_ticket(
                     context.session, ticket.base_ticket_id)
                 
-                text_notification = (f'{text_select_event}<br>'
-                                     f'Вариант бронирования:<br>'
+                text_notification = (f'{text_select_event}\n'
+                                     f'Вариант бронирования:\n'
                                      f'{chose_base_ticket.name} '
-                                     f'{int(ticket.price)}руб<br>')
+                                     f'{int(ticket.price)}руб\n')
                 user_data['common_data']['text_for_notification_massage'] = text_notification
             except Exception as e:
                 sub_hl_logger.error(f"Failed to restore text_for_notification_massage in get_booking_admin_text: {e}")
@@ -1030,20 +1030,20 @@ async def get_booking_admin_text(
         email = "Неизвестно"
         if "Website booking:" in ticket.notes:
             email = ticket.notes.replace("Website booking:", "").strip().split('\n')[0]
-        text = f'Покупатель: Сайт ({email})<br><br>'
+        text = f'Покупатель: Сайт ({email})\n\n'
     else:
         username = f'@{user.username}' if user and user.username else ''
         full_name = user.full_name if user else 'Неизвестно'
-        text = f'Покупатель: {username} {full_name}<br><br>'
+        text = f'Покупатель: {username} {full_name}\n\n'
     
-    text += f'#Билеты {str_ticket_ids}<br>'
-    text += f'#event_id <code>{schedule_event_id}</code><br>'
-    text += f'{theater_event.name}<br>{date_event} в {time_event}<br>'
-    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб<br><br>'
+    text += f'#Билеты {str_ticket_ids}\n'
+    text += f'#event_id <code>{schedule_event_id}</code>\n'
+    text += f'{theater_event.name}\n{date_event} в {time_event}\n'
+    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n\n'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code><br><br>'
+        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
 
-    text += '<br>'.join([
+    text += '\n'.join([
         client_data.get('name_adult', 'Не указано'),
         f'+7{client_data.get("phone", "0000000000")}',
         original_child_text,
