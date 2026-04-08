@@ -288,7 +288,7 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chose_base_ticket_id = reserve_user_data.get('chose_base_ticket_id')
 
         # Загружаем актуальные данные из БД
-        schedule_event = await db_postgres.get_schedule_event_by_id(
+        schedule_event = await db_postgres.get_schedule_event(
             context.session, schedule_event_id)
         theater_event = await db_postgres.get_theater_event(
             context.session, schedule_event.theater_event_id)
