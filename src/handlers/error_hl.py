@@ -146,9 +146,6 @@ async def _error_handler_logic(update: Update,
     if update:
         await cancel_tickets_db_and_gspread(update, context)
 
-    await clean_context(context)
-    await clean_context_on_end_handler(error_hl_logger, context)
-
     message = pformat(context.bot_data, compact=True)
     error_hl_logger.info('bot_data')
     error_hl_logger.info(message)
@@ -156,3 +153,6 @@ async def _error_handler_logic(update: Update,
     message = pformat(context.user_data)
     error_hl_logger.info('user_data')
     error_hl_logger.info(message)
+
+    await clean_context(context)
+    await clean_context_on_end_handler(error_hl_logger, context)
