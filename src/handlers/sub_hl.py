@@ -35,6 +35,7 @@ from utilities.utl_func import (
     create_approve_and_reject_replay, set_back_context,
     clean_context_on_end_handler,
 )
+from utilities.utl_retry import retry_on_timeout
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
@@ -871,6 +872,11 @@ async def send_message_to_admin(
     return message
 
 
+@retry_on_timeout(retries=3, retry_delay=2.0)
+async def _send_admin_message_with_retry(bot, *args, **kwargs):
+    return await bot.send_message(*args, **kwargs)
+
+
 async def send_approve_reject_message_to_admin_in_webhook(
         context,
         chat_id,
@@ -910,7 +916,8 @@ async def send_approve_reject_message_to_admin_in_webhook(
         return
 
     res_text = transform_html(text)
-    await context.bot.send_message(
+    await _send_admin_message_with_retry(
+        context.bot,
         chat_id=ADMIN_GROUP,
         text=res_text.text,
         entities=res_text.entities,
@@ -936,9 +943,12 @@ async def get_booking_admin_text(
         user_data = {}
 
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
+    is_website = ticket.notes and ("Сайт:" in ticket.notes or "Web booking." in ticket.notes)
 
     # Восстановление данных если их нет в сессии
-    if 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
+    # Для веб-бронирований ВСЕГДА загружаем данные из БД, т.к. client_data в user_data
+    # может содержать устаревшие данные от предыдущего бронирования через бота
+    if is_website or 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
         user_data.setdefault('reserve_user_data', {})
         reserve_user_data = user_data['reserve_user_data']
         reserve_user_data['ticket_ids'] = ticket_ids
@@ -1025,11 +1035,10 @@ async def get_booking_admin_text(
     promo_code = reserve_user_data.get('applied_promo_code')
 
     str_ticket_ids = ", ".join([f"<code>{i}</code>" for i in ticket_ids])
-    is_website = ticket.notes and ("Website booking:" in ticket.notes or "Web booking." in ticket.notes)
     if is_website:
         email = "Неизвестно"
-        if "Website booking:" in ticket.notes:
-            email = ticket.notes.replace("Website booking:", "").strip().split('\n')[0]
+        if "Сайт:" in ticket.notes:
+            email = ticket.notes.replace("Сайт:", "").strip().split('\n')[0]
         text = f'Покупатель: Сайт ({email})\n\n'
     else:
         username = f'@{user.username}' if user and user.username else ''

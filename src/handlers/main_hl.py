@@ -326,9 +326,9 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         adult_str = ''
         child_str = ''
         for person in people:
-            if hasattr(person.adult, 'phone'):
+            if person.adult and hasattr(person.adult, 'phone'):
                 adult_str = f'{person.name}<br>+7{person.adult.phone}<br>'
-            elif hasattr(person.child, 'age'):
+            elif person.child and hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}<br>'
         people_str = adult_str + child_str
         date_event, time_event = await get_formatted_date_and_time_of_event(
@@ -337,7 +337,7 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f'Техническая информация по билету {ticket_id}<br><br>'
             f'Событие {schedule_event.id}: {theater_event.name}<br>'
             f'{date_event} в {time_event}<br><br>'
-            f'Привязан к профилю: {user.user_id}<br>'
+            f'Привязан к профилю: {user.user_id if user else "Нет привязки"}<br>'
             f'Билет: {base_ticket.name}<br>'
             f'Стоимость: {ticket.price}<br>'
             f'Статус: {ticket.status.value}<br>'

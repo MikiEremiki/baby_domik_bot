@@ -249,7 +249,7 @@ async def post_booking_form(
         base_ticket_id=ticket_type,
         schedule_event_id=schedule_id,
         status=TicketStatus.CREATED,
-        notes=f"Website booking: {email}\nPromo: {promo_code if promo_id else 'None'}",
+        notes=f"Сайт: {email}\nPromo: {promo_code if promo_id else 'None'}",
         payment_id=None,
         price=final_price,
     )
