@@ -578,7 +578,16 @@ async def get_base_ticket(session: AsyncSession,
 
 async def get_ticket(session: AsyncSession,
                      ticket_id: int):
-    return await session.get(Ticket, ticket_id)
+    result = await session.execute(
+        select(Ticket)
+        .where(Ticket.id == ticket_id)
+        .options(
+            selectinload(Ticket.people).selectinload(Person.adult),
+            selectinload(Ticket.people).selectinload(Person.child),
+            selectinload(Ticket.user),
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_type_event(
