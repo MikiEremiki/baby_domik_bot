@@ -35,6 +35,7 @@ from utilities.utl_func import (
     create_approve_and_reject_replay, set_back_context,
     clean_context_on_end_handler,
 )
+from utilities.utl_retry import retry_on_timeout
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
@@ -871,6 +872,11 @@ async def send_message_to_admin(
     return message
 
 
+@retry_on_timeout(retries=3, retry_delay=2.0)
+async def _send_admin_message_with_retry(bot, *args, **kwargs):
+    return await bot.send_message(*args, **kwargs)
+
+
 async def send_approve_reject_message_to_admin_in_webhook(
         context,
         chat_id,
@@ -910,7 +916,8 @@ async def send_approve_reject_message_to_admin_in_webhook(
         return
 
     res_text = transform_html(text)
-    await context.bot.send_message(
+    await _send_admin_message_with_retry(
+        context.bot,
         chat_id=ADMIN_GROUP,
         text=res_text.text,
         entities=res_text.entities,

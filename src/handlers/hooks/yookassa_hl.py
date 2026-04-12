@@ -1,7 +1,7 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import BadRequest, Forbidden
+from telegram.error import BadRequest, Forbidden, TimedOut, NetworkError
 from telegram.ext import TypeHandler, ContextTypes
 from yookassa.domain.notification import WebhookNotification
 
@@ -18,6 +18,8 @@ from handlers.sub_hl import (
 from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP, ADMIN_GROUP
 
 from utilities.utl_func import create_str_info_by_schedule_event_id
+from utilities.utl_retry import retry_on_timeout
+
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
 INVOICE_NUMBER = {
@@ -26,20 +28,33 @@ INVOICE_NUMBER = {
 }
 
 
+@retry_on_timeout(retries=3, retry_delay=2.0)
+async def _send_message(bot, *args, **kwargs):
+    return await bot.send_message(*args, **kwargs)
+
+
+@retry_on_timeout(retries=3, retry_delay=2.0)
+async def _edit_message_reply_markup(bot, *args, **kwargs):
+    return await bot.edit_message_reply_markup(*args, **kwargs)
+
+
 async def yookassa_hook_update(update: WebhookNotification,
                                context: 'ContextTypes.DEFAULT_TYPE'):
     text = 'Платеж\n'
     text = await parsing_metadata(update, text)
     chat_dev = context.config.bot.developer_chat_id
     try:
-        await context.bot.send_message(chat_dev, text)
+        await _send_message(context.bot, chat_dev, text)
     except BadRequest as e:
         webhook_hl_logger.error(e)
         webhook_hl_logger.info(text)
 
     if update.object.status == 'pending':
-        await context.bot.send_message(chat_dev,
-                                       'Платеж ожидает оплаты')
+        try:
+            await _send_message(context.bot, chat_dev,
+                                'Платеж ожидает оплаты')
+        except (BadRequest, TimedOut, NetworkError) as e:
+            webhook_hl_logger.error(f'Не удалось отправить уведомление pending: {e}')
     elif update.object.status == 'waiting_for_capture':
         pass  # Для двух стадийной оплаты
     elif update.object.status == 'succeeded':
@@ -101,6 +116,9 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
                 user_data['reserve_user_data'] = {}
             user_data['reserve_user_data']['ticket_ids'] = ticket_ids
             user_data['reserve_user_data']['flag_send_ticket_info'] = True
+            # Очищаем client_data, чтобы get_booking_admin_text загрузил актуальные данные из БД
+            user_data['reserve_user_data'].pop('client_data', None)
+            user_data['reserve_user_data'].pop('original_child_text', None)
             if 'common_data' not in user_data:
                 user_data['common_data'] = {}
 
@@ -125,8 +143,8 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     if int_chat_id != 0 and message_id != 0:
         try:
-            await context.bot.edit_message_reply_markup(chat_id, message_id)
-        except BadRequest as e:
+            await _edit_message_reply_markup(context.bot, chat_id, message_id)
+        except (BadRequest, TimedOut, NetworkError) as e:
             webhook_hl_logger.error(e)
             webhook_hl_logger.error('Удаление кнопки для оплаты не произошло')
     text = f'<b>Номер вашего билета '
@@ -231,7 +249,8 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             for ticket_id in ticket_ids:
                 text_to_admin += f'#ticket_id <code>{ticket_id}</code>\n'
 
-            await context.bot.send_message(
+            await _send_message(
+                context.bot,
                 chat_id=ADMIN_GROUP,
                 text=text_to_admin,
                 message_thread_id=thread_id,
@@ -251,10 +270,11 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             reply_markup = InlineKeyboardMarkup(
                 [[InlineKeyboardButton('ДАЛЕЕ', callback_data='Next')]])
             try:
-                message = await context.bot.send_message(
+                message = await _send_message(
+                    context.bot,
                     chat_id=int_chat_id, text=text, reply_markup=reply_markup)
                 # Сохраняем ID сообщения для корректной работы кнопки "ДАЛЕЕ"
-                if is_website:
+                if is_website and message:
                     user_data = context.application.user_data.get(int_chat_id)
                     if user_data:
                         user_data['common_data']['message_id_buy_info'] = message.message_id
@@ -270,13 +290,17 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
                                                                   ticket_ids,
                                                                   thread_id,
                                                                   callback_name)
-        except (NameError, BadRequest) as e:
+        except (NameError, BadRequest, TimedOut, NetworkError) as e:
             webhook_hl_logger.error(e)
             error_text = 'Отправление в админский чат не произошло'
             webhook_hl_logger.error(error_text)
             text = f'{error_text} {ticket_ids=} {command=}'
             if int_chat_id != 0:
-                await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+                try:
+                    await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+                except (TimedOut, NetworkError) as fallback_err:
+                    webhook_hl_logger.error(
+                        f'Не удалось отправить fallback-сообщение: {fallback_err}')
             else:
                 webhook_hl_logger.error(text)
 
@@ -313,17 +337,22 @@ async def processing_cme_prepaid(update, context):
 
         text += 'Ждем сообщения от пользователя с квитанцией и номером заявки'
 
-        await context.bot.send_message(
+        await _send_message(
+            context.bot,
             chat_id=ADMIN_CME_GROUP,
             text=text,
             message_thread_id=thread_id,
         )
-    except (NameError, BadRequest) as e:
+    except (NameError, BadRequest, TimedOut, NetworkError) as e:
         webhook_hl_logger.error(e)
         error_text = 'Отправление в админский чат не произошло'
         webhook_hl_logger.error(error_text)
         text = f'{error_text}'
-        await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+        try:
+            await context.bot.send_message(CHAT_ID_MIKIEREMIKI, text)
+        except (TimedOut, NetworkError) as fallback_err:
+            webhook_hl_logger.error(
+                f'Не удалось отправить fallback-сообщение: {fallback_err}')
 
 
 YookassaHookHandler = TypeHandler(WebhookNotification, yookassa_hook_update)
