@@ -943,6 +943,7 @@ async def get_booking_admin_text(
         user_data = {}
 
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
+    is_website = ticket.notes and ("Сайт:" in ticket.notes or "Web booking." in ticket.notes)
 
     # Восстановление данных если их нет в сессии
     if 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
@@ -1032,11 +1033,10 @@ async def get_booking_admin_text(
     promo_code = reserve_user_data.get('applied_promo_code')
 
     str_ticket_ids = ", ".join([f"<code>{i}</code>" for i in ticket_ids])
-    is_website = ticket.notes and ("Website booking:" in ticket.notes or "Web booking." in ticket.notes)
     if is_website:
         email = "Неизвестно"
-        if "Website booking:" in ticket.notes:
-            email = ticket.notes.replace("Website booking:", "").strip().split('\n')[0]
+        if "Сайт:" in ticket.notes:
+            email = ticket.notes.replace("Сайт:", "").strip().split('\n')[0]
         text = f'Покупатель: Сайт ({email})\n\n'
     else:
         username = f'@{user.username}' if user and user.username else ''
