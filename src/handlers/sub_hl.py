@@ -946,7 +946,9 @@ async def get_booking_admin_text(
     is_website = ticket.notes and ("Сайт:" in ticket.notes or "Web booking." in ticket.notes)
 
     # Восстановление данных если их нет в сессии
-    if 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
+    # Для веб-бронирований ВСЕГДА загружаем данные из БД, т.к. client_data в user_data
+    # может содержать устаревшие данные от предыдущего бронирования через бота
+    if is_website or 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
         user_data.setdefault('reserve_user_data', {})
         reserve_user_data = user_data['reserve_user_data']
         reserve_user_data['ticket_ids'] = ticket_ids
