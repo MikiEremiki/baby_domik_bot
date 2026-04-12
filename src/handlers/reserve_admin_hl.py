@@ -109,7 +109,13 @@ async def choice_option_of_reserve(
     await context.bot.delete_message(
         update.effective_chat.id,
         context.user_data['message'])
-    choice_event_id = update.effective_message.text
+    try:
+        choice_event_id = int(update.effective_message.text)
+    except (ValueError, TypeError):
+        await update.effective_chat.send_message(
+            'Некорректный ID события. Пожалуйста, введите числовое значение.'
+        )
+        return ConversationHandler.END
     message = await update.effective_chat.send_message('Загружаю данные')
 
     (

@@ -1100,9 +1100,9 @@ async def get_actual_schedule_events_by_date(
     return result.scalars().all()
 
 
-async def get_schedule_theater_base_tickets(context, choice_event_id):
+async def get_schedule_theater_base_tickets(context, choice_event_id: int):
     schedule_event = await get_schedule_event(context.session,
-                                              choice_event_id)
+                                              int(choice_event_id))
     if not schedule_event:
         raise ValueError("Schedule event not found")
     theater_event = await get_theater_event(context.session,
