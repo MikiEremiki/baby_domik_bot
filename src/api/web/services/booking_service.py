@@ -173,7 +173,7 @@ async def check_promo_restrictions_web(
 
 async def compute_discounted_price_web(price: int, promo: Promotion) -> int:
     if promo.discount_type == PromotionDiscountType.fixed:
-        new_price = price - promo.discount_value
+        new_price = price - promo.discount
     else:
-        new_price = price * (100 - promo.discount_value) / 100
+        new_price = price * (100 - promo.discount) / 100
     return max(0, int(new_price))
