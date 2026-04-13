@@ -284,7 +284,7 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if check_entered_command(context, 'reserve'):
         reserve_user_data = context.user_data['reserve_user_data']
-        schedule_event_id = reserve_user_data.get('choose_schedule_event_ids')
+        schedule_event_id = reserve_user_data.get('choose_schedule_event_id')
         chose_base_ticket_id = reserve_user_data.get('chose_base_ticket_id')
 
         # Загружаем актуальные данные из БД
