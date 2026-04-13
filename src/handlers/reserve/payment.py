@@ -293,7 +293,7 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
         theater_event = await db_postgres.get_theater_event(
             context.session, schedule_event.theater_event_id)
         type_event = await db_postgres.get_type_event(
-            context.session, theater_event.type_event_id)
+            context.session, schedule_event.type_event_id)
         base_ticket = await db_postgres.get_base_ticket(
             context.session, chose_base_ticket_id)
 
