@@ -2,6 +2,8 @@
 
 {% block title %}Афиша — BabyDomik{% endblock %}
 
+{% set type_label_colors = {2: 'bg-red-50 text-red-600', 14: 'bg-amber-50 text-amber-700'} %}
+
 {% block content %}
 <section class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
     <div>
@@ -29,6 +31,23 @@
                 </a>
             </div>
         </div>
+
+        <!-- По типу мероприятия -->
+        {% if types %}
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-slate-700">Тип:</span>
+            <div class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                <a href="/?{% if current_age %}age={{ current_age }}&{% endif %}{% if current_month %}month={{ current_month }}&{% endif %}{% if current_date %}date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if not current_type_id %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    Все
+                </a>
+                {% for t in types %}
+                <a href="/?type_id={{ t.id }}{% if current_age %}&age={{ current_age }}{% endif %}{% if current_month %}&month={{ current_month }}{% endif %}{% if current_date %}&date={{ current_date }}{% endif %}" class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {% if current_type_id == t.id %}bg-domik-green-soft text-white shadow-sm{% else %}text-slate-600 hover:bg-slate-50{% endif %}">
+                    {{ t.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- По месяцу -->
         {% if months %}
@@ -155,7 +174,14 @@
                 <tr class="hover:bg-slate-50/80 transition-colors">
                     <td class="px-6 py-4">
                         <a href="/event/{{ event.id }}" class="block hover:text-domik-green-soft transition-colors">
-                            <div class="font-bold text-slate-900">{{ event.title }}</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-bold text-slate-900">{{ event.title }}</span>
+                                {% if not current_type_id and event.type_event_label %}
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium {{ type_label_colors.get(event.type_event_id, 'bg-slate-100 text-slate-600') }}">
+                                    {{ event.type_event_label }}
+                                </span>
+                                {% endif %}
+                            </div>
                             <div class="mt-1 text-sm text-slate-500 line-clamp-1 max-w-xs sm:max-w-md lg:max-w-xl">
                                 {{ event.description }}
                             </div>

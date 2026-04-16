@@ -40,6 +40,9 @@ from utilities.utl_kbd import (
 )
 from settings.settings import (
     SUPPORT_DATA,
+    REPERTOIRE_TYPE_ID,
+    NEW_YEAR_TYPE_ID,
+    INVITED_TYPE_ID,
 )
 
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
@@ -151,11 +154,43 @@ async def choice_show_by_repertoire(update: Update,
             'За новостями можно следить в '
             '<a href="https://t.me/theater_domik">Группе театра</a> в телеграм'
         )
-        kb = [
-            InlineKeyboardButton('Репертуарные', callback_data=repertoire),
-            InlineKeyboardButton('Новогодние', callback_data=new_years),
-            InlineKeyboardButton('Приглашенные', callback_data=invited),
+        # Определяем, для каких групп есть актуальные расписания,
+        # чтобы не показывать кнопки пустых групп.
+        type_event_ids_cmd = await get_type_event_ids_by_command(command)
+        schedule_events_for_groups = await db_postgres.get_schedule_events_by_type_actual(
+            context.session, type_event_ids_cmd)
+        schedule_events_for_groups = await filter_schedule_event_by_active(
+            schedule_events_for_groups)
+        available_type_ids = {ev.type_event_id for ev in schedule_events_for_groups}
+
+        group_buttons_spec = [
+            (REPERTOIRE_TYPE_ID, 'Репертуарные', repertoire),
+            (NEW_YEAR_TYPE_ID, 'Новогодние', new_years),
+            (INVITED_TYPE_ID, 'Приглашенные', invited),
         ]
+        kb = [
+            InlineKeyboardButton(title, callback_data=cb)
+            for tid, title, cb in group_buttons_spec
+            if tid in available_type_ids
+        ]
+
+        if not kb:
+            empty_text = (
+                'Сейчас нет доступных спектаклей. Загляните позже или следите '
+                'за новостями в '
+                '<a href="https://t.me/theater_domik">Группе театра</a>.'
+            )
+            await update.effective_chat.send_message(
+                text=empty_text,
+                message_thread_id=update.effective_message.message_thread_id,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
+            if query:
+                try:
+                    await query.delete_message()
+                except BadRequest as e:
+                    reserve_hl_logger.error(e)
+            return 'MODE'
         # Клавиатура: намеренно используем intent REP_GROUP, чтобы следующий клик обрабатывался здесь же
         reply_markup = await create_replay_markup(
             kb,

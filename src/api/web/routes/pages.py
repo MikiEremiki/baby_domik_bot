@@ -5,7 +5,11 @@ from ..config import MOSCOW_TZ, templates
 from ..deps import get_session
 from ..logger import logger
 from db.db_postgres import get_all_theater_events_actual, get_theater_event
-from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
+from settings.settings import (
+    DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
+    PUBLIC_TYPE_EVENT_IDS,
+    PUBLIC_TYPE_EVENT_LABELS,
+)
 
 router = APIRouter()
 
@@ -16,21 +20,27 @@ async def show_index(
     only_actual: bool = True,
     month: str | None = None,
     date: str | None = None,
+    type_id: int | None = None,
     session: AsyncSession = Depends(get_session)
 ):
     only_actual = True
+    # Невалидный/непубличный type_id игнорируем (показываем все публичные типы)
+    if type_id is not None and type_id not in PUBLIC_TYPE_EVENT_IDS:
+        type_id = None
+
     events_db = await get_all_theater_events_actual(session)
     events = []
     now = datetime.now(timezone.utc)
-    
+
     available_months = set()
     all_available_dates = set()
-    
+    available_types_map = {}
+
     for e in events_db:
         active_sessions_count = 0
         free_seats_child_in_filtered_sessions = 0
         free_seats_adult_in_filtered_sessions = 0
-        
+
         for s in e.schedule_events:
             if not s.flag_turn_in_bot:
                 continue
@@ -63,6 +73,17 @@ async def show_index(
         if (month or date) and active_sessions_count == 0:
             continue
 
+        # Собираем доступные типы по тем событиям, что прошли базовые проверки,
+        # до применения фильтра type_id — чтобы селект не пустел после выбора.
+        te_type_id = e.type_event_id
+        te_type_name = e.type_event.name if getattr(e, 'type_event', None) else ''
+        if te_type_id in PUBLIC_TYPE_EVENT_IDS:
+            available_types_map.setdefault(te_type_id, te_type_name)
+
+        # Фильтр по выбранному типу (применяется после сбора available_types)
+        if type_id is not None and te_type_id != type_id:
+            continue
+
         events.append({
             'id': e.id,
             'title': e.name,
@@ -72,6 +93,9 @@ async def show_index(
             'has_sessions': active_sessions_count > 0,
             'has_free_seats': free_seats_child_in_filtered_sessions > 0,
             'sessions_count': active_sessions_count,
+            'type_event_id': te_type_id,
+            'type_event_name': te_type_name,
+            'type_event_label': PUBLIC_TYPE_EVENT_LABELS.get(te_type_id, ''),
         })
     
     sorted_months = sorted(list(available_months))
@@ -85,6 +109,13 @@ async def show_index(
         for m in sorted_months
     ]
     
+    # Список типов для селекта — отсортирован по порядку PUBLIC_TYPE_EVENT_IDS
+    types_display = [
+        {'id': tid, 'name': available_types_map[tid]}
+        for tid in PUBLIC_TYPE_EVENT_IDS
+        if tid in available_types_map
+    ]
+
     return templates.TemplateResponse(
         request=request,
         name='index.html',
@@ -94,7 +125,9 @@ async def show_index(
             'only_actual': only_actual,
             'current_month': month,
             'current_date': date,
+            'current_type_id': type_id,
             'months': months_display,
+            'types': types_display,
             'available_dates': list(all_available_dates),
         },
     )

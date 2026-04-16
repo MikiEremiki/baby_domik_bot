@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,10 +13,9 @@ from ..services.booking_service import (
     check_promo_restrictions_web,
     compute_discounted_price_web,
 )
-from db.models import BaseTicket, ScheduleEvent, TheaterEvent, Promotion, Adult, Child, Person, Ticket, PersonTicket, UserTicket
+from db.models import ScheduleEvent, Adult, Child, Person, Ticket, PersonTicket, UserTicket
 from db.enum import AgeType, TicketStatus, UserRole
 from db.db_postgres import (
-    get_theater_event,
     get_schedule_event,
     get_base_tickets_by_event_or_all,
     get_promotion,
