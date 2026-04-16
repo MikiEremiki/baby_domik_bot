@@ -230,9 +230,6 @@ async def choice_show_by_repertoire(update: Update,
     schedule_events = await filter_schedule_event_by_active(schedule_events)
 
     # Фильтрация по группе:
-    REPERTOIRE_TYPE_ID = 1
-    NEW_YEAR_TYPE_ID = 2
-    INVITED_TYPE_ID = 14
     group_to_type_id = {
         repertoire: [REPERTOIRE_TYPE_ID, 'Репертуарные'],
         new_years: [NEW_YEAR_TYPE_ID, 'Новогодние'],
