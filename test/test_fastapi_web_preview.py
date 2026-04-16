@@ -40,6 +40,10 @@ def _create_mock_event(free_seats_child=10, free_seats_adult=5):
     s_event.qty_adult_nonconfirm_seat = 0
     s_event.flag_turn_in_bot = True
     s_event.theater_event = event
+    s_event.type_event_id = 1
+    type_event_mock = MagicMock()
+    type_event_mock.name = 'Репертуарный'
+    s_event.type_event = type_event_mock
     
     event.schedule_events = [s_event]
     return event
@@ -288,6 +292,8 @@ def test_index_filtering_and_button_states(monkeypatch):
     s_future.qty_child_free_seat = 10
     s_future.qty_adult_free_seat = 5
     s_future.flag_turn_in_bot = True
+    s_future.type_event_id = 1
+    s_future.type_event = MagicMock(name='Репертуарный')
     event1.schedule_events = [s_future]
     
     event2 = MagicMock()
@@ -301,6 +307,8 @@ def test_index_filtering_and_button_states(monkeypatch):
     s_past.qty_child_free_seat = 0
     s_past.qty_adult_free_seat = 0
     s_past.flag_turn_in_bot = True
+    s_past.type_event_id = 1
+    s_past.type_event = MagicMock(name='Репертуарный')
     event2.schedule_events = [s_past]
     
     with _create_client(monkeypatch) as client:
@@ -376,6 +384,8 @@ def test_index_month_filtering(monkeypatch):
     s_jan.qty_child_free_seat = 10
     s_jan.qty_adult_free_seat = 5
     s_jan.flag_turn_in_bot = True
+    s_jan.type_event_id = 1
+    s_jan.type_event = MagicMock(name='Репертуарный')
     event1.schedule_events = [s_jan]
     
     event2 = MagicMock()
@@ -389,6 +399,8 @@ def test_index_month_filtering(monkeypatch):
     s_feb.qty_child_free_seat = 5
     s_feb.qty_adult_free_seat = 2
     s_feb.flag_turn_in_bot = True
+    s_feb.type_event_id = 1
+    s_feb.type_event = MagicMock(name='Репертуарный')
     event2.schedule_events = [s_feb]
     
     with _create_client(monkeypatch) as client:

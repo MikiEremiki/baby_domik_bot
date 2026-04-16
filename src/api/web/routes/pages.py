@@ -40,6 +40,10 @@ async def show_index(
         active_sessions_count = 0
         free_seats_child_in_filtered_sessions = 0
         free_seats_adult_in_filtered_sessions = 0
+        # type_event_id живёт на ScheduleEvent, а не на TheaterEvent —
+        # определяем тип по первому активному сеансу.
+        te_type_id = None
+        te_type_name = ''
 
         for s in e.schedule_events:
             if not s.flag_turn_in_bot:
@@ -49,6 +53,11 @@ async def show_index(
                 dt = dt.replace(tzinfo=timezone.utc)
             
             if dt >= now:
+                # Запоминаем тип из первого подходящего сеанса
+                if te_type_id is None:
+                    te_type_id = s.type_event_id
+                    te_type_name = s.type_event.name if getattr(s, 'type_event', None) else ''
+
                 dt_moscow = dt.astimezone(MOSCOW_TZ)
                 m_key = dt_moscow.strftime('%Y-%m')
                 d_key = dt_moscow.strftime('%Y-%m-%d')
@@ -73,12 +82,13 @@ async def show_index(
         if (month or date) and active_sessions_count == 0:
             continue
 
+        # Фильтр по публичным типам (аналог type_event_id.in_(PUBLIC_TYPE_EVENT_IDS))
+        if te_type_id is None or te_type_id not in PUBLIC_TYPE_EVENT_IDS:
+            continue
+
         # Собираем доступные типы по тем событиям, что прошли базовые проверки,
         # до применения фильтра type_id — чтобы селект не пустел после выбора.
-        te_type_id = e.type_event_id
-        te_type_name = e.type_event.name if getattr(e, 'type_event', None) else ''
-        if te_type_id in PUBLIC_TYPE_EVENT_IDS:
-            available_types_map.setdefault(te_type_id, te_type_name)
+        available_types_map.setdefault(te_type_id, te_type_name)
 
         # Фильтр по выбранному типу (применяется после сбора available_types)
         if type_id is not None and te_type_id != type_id:
