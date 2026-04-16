@@ -89,11 +89,11 @@ async def get_ticket_by_id(
         child_str = ''
         client_data['data_children'] = []
         for person in people:
-            if hasattr(person.adult, 'phone'):
+            if person.adult and hasattr(person.adult, 'phone'):
                 adult_str = f'{person.name}\n+7{person.adult.phone}\n'
                 client_data['name_adult'] = person.name
                 client_data['phone'] = person.adult.phone
-            elif hasattr(person.child, 'age'):
+            elif person.child and hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}\n'
                 client_data['data_children'].append(
                     [person.name, str(person.child.age)])
@@ -103,7 +103,7 @@ async def get_ticket_by_id(
         text = (
             f'Событие: {theater_event.name}\n'
             f'{date_event} в {time_event}\n\n'
-            f'Привязан к профилю: {user.user_id}\n'
+            f'Привязан к профилю: {user.user_id if user else "Нет привязки"}\n'
             f'Билет: {base_ticket.name}\n'
             f'Стоимость: {ticket.price}\n'
             f'Статус: {ticket.status.value}\n'
