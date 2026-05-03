@@ -44,6 +44,7 @@ async def show_index(
         # определяем тип по первому активному сеансу.
         te_type_id = None
         te_type_name = ''
+        min_session_dt = None
 
         for s in e.schedule_events:
             if not s.flag_turn_in_bot:
@@ -69,6 +70,9 @@ async def show_index(
                     active_sessions_count += 1
                     free_seats_child_in_filtered_sessions += max(getattr(s, 'qty_child_free_seat', 0) or 0, 0)
                     free_seats_adult_in_filtered_sessions += max(getattr(s, 'qty_adult_free_seat', 0) or 0, 0)
+
+                    if min_session_dt is None or dt < min_session_dt:
+                        min_session_dt = dt
 
                 available_months.add(m_key)
                 all_available_dates.add(d_key)
@@ -106,7 +110,10 @@ async def show_index(
             'type_event_id': te_type_id,
             'type_event_name': te_type_name,
             'type_event_label': PUBLIC_TYPE_EVENT_LABELS.get(te_type_id, ''),
+            'min_session_dt': min_session_dt,
         })
+    
+    events.sort(key=lambda x: x['min_session_dt'])
     
     sorted_months = sorted(list(available_months))
     month_names = {
