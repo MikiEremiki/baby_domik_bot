@@ -452,6 +452,8 @@ async def create_and_send_payment(
     await message.edit_text(
         text=f"""<b>Ваш номер билета: {str_ticket_ids}</b>
 
+<b>❗️ ВАЖНАЯ ИНФОРМАЦИЯ: В ЧЕКЕ ОБ ОПЛАТЕ УКАЗАН НОМЕР БИЛЕТА. ВХОД НА СПЕКТАКЛЬ ОСУЩЕСТВЛЯЕТСЯ ПО ИМЕНИ ИЛИ НОМЕРУ БИЛЕТА.</b>
+
 Бронь билета осуществляется по 100% оплате.
         
 {verification_msg}{refund}
@@ -700,6 +702,7 @@ async def send_by_ticket_info(update, context):
     ticket_ids = context.user_data['reserve_user_data']['ticket_ids']
     ticket_id = ticket_ids[0]
     text = f'<b>Номер вашего билета <code>{ticket_id}</code></b><br><br>'
+    text += '<b>❗️ ВАЖНАЯ ИНФОРМАЦИЯ: В ЧЕКЕ ОБ ОПЛАТЕ УКАЗАН НОМЕР БИЛЕТА. ВХОД НА СПЕКТАКЛЬ ОСУЩЕСТВЛЯЕТСЯ ПО ИМЕНИ ИЛИ НОМЕРУ БИЛЕТА.</b><br><br>'
     common_data = context.user_data.get('common_data', {})
     text += common_data.get('text_for_notification_massage', '')
     text += f'__________<br>'
