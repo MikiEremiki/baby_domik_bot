@@ -1,6 +1,6 @@
 ﻿from collections import defaultdict
 import logging
-from datetime import datetime
+from datetime import datetime, date
 
 from sulguk import transform_html
 from telegram import (
@@ -504,11 +504,16 @@ async def choice_show(
                 size_row=4
             )
 
-    photo = (
-        context.bot_data
-        .get('afisha', {})
-        .get(int(number_of_month_str), False)
-    )
+    photo = False
+    if number_of_month_str is not None:
+        try:
+            afisha_record = await db_postgres.get_afisha(
+                context.session, int(number_of_month_str), date.today().year
+            )
+            if afisha_record:
+                photo = afisha_record.file_id
+        except (TypeError, ValueError):
+            pass
 
     if is_pagination:
         if (
@@ -658,11 +663,11 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         photo = False
         if number_of_month_str is not None and select_mode == 'DATE':
             try:
-                photo = (
-                    context.bot_data
-                    .get('afisha', {})
-                    .get(int(number_of_month_str), False)
+                afisha_record = await db_postgres.get_afisha(
+                    context.session, int(number_of_month_str), date.today().year
                 )
+                if afisha_record:
+                    photo = afisha_record.file_id
             except (TypeError, ValueError):
                 photo = False
         if update.effective_chat.type == ChatType.PRIVATE and photo:
@@ -788,11 +793,11 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     photo = False
     if number_of_month_str is not None:
         try:
-            photo = (
-                context.bot_data
-                .get('afisha', {})
-                .get(int(number_of_month_str), False)
+            afisha_record = await db_postgres.get_afisha(
+                context.session, int(number_of_month_str), date.today().year
             )
+            if afisha_record:
+                photo = afisha_record.file_id
         except (TypeError, ValueError):
             photo = False
     if update.effective_chat.type == ChatType.PRIVATE and photo:
@@ -904,11 +909,16 @@ async def choice_month_rep_continue(update: Update,
             f'{_text}')
 
     # Переходим от текстового сообщения к фото с подписью, если возможно
-    photo = (
-        context.bot_data
-        .get('afisha', {})
-        .get(int(number_of_month_str), False)
-    )
+    photo = False
+    if number_of_month_str is not None:
+        try:
+            afisha_record = await db_postgres.get_afisha(
+                context.session, int(number_of_month_str), date.today().year
+            )
+            if afisha_record:
+                photo = afisha_record.file_id
+        except (TypeError, ValueError):
+            pass
 
     # Удаляем сообщение с выбором месяца и отправляем новое
     try:
