@@ -45,7 +45,8 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
                         f'<b>{full_name}\n'
                         f'{date_event}\n'
                         f'{time_event}</b>\n'
-                        f'<b>Номер вашего билета <code>{ticket.id}</code></b>\n')
+                        f'<b>Номер вашего билета <code>{ticket.id}</code></b>\n\n'
+                        f'<b>❗️ ВАЖНАЯ ИНФОРМАЦИЯ: В ЧЕКЕ ОБ ОПЛАТЕ УКАЗАН НОМЕР БИЛЕТА. ВХОД НА СПЕКТАКЛЬ ОСУЩЕСТВЛЯЕТСЯ ПО ИМЕНИ ИЛИ НОМЕРУ БИЛЕТА.</b>\n')
                 text += f'__________\n'
                 refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
                 text += refund + '\n\n'

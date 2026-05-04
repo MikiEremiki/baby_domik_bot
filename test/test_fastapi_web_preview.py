@@ -67,6 +67,7 @@ def _create_client(monkeypatch) -> TestClient:
     monkeypatch.setattr(broker, 'close', AsyncMock(return_value=None))
     monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None))
     monkeypatch.setattr(booking_service, 'cleanup_expired_bookings', AsyncMock())
+    monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
 
     # Переопределяем зависимость сессии
     mock_session = AsyncMock()
@@ -88,6 +89,7 @@ def _create_client(monkeypatch) -> TestClient:
 def test_index_page_is_rendered(monkeypatch):
     mock_event = _create_mock_event()
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
+    monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
     with _create_client(monkeypatch) as client:
         response = client.get('/')
 

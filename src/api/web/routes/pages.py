@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import MOSCOW_TZ, templates
 from ..deps import get_session
 from ..logger import logger
-from db.db_postgres import get_all_theater_events_actual, get_theater_event
+from db.db_postgres import get_all_theater_events_actual, get_theater_event, get_afishas
 from settings.settings import (
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
     PUBLIC_TYPE_EVENT_IDS,
@@ -44,6 +44,7 @@ async def show_index(
         # определяем тип по первому активному сеансу.
         te_type_id = None
         te_type_name = ''
+        min_session_dt = None
 
         for s in e.schedule_events:
             if not s.flag_turn_in_bot:
@@ -69,6 +70,9 @@ async def show_index(
                     active_sessions_count += 1
                     free_seats_child_in_filtered_sessions += max(getattr(s, 'qty_child_free_seat', 0) or 0, 0)
                     free_seats_adult_in_filtered_sessions += max(getattr(s, 'qty_adult_free_seat', 0) or 0, 0)
+
+                    if min_session_dt is None or dt < min_session_dt:
+                        min_session_dt = dt
 
                 available_months.add(m_key)
                 all_available_dates.add(d_key)
@@ -106,7 +110,10 @@ async def show_index(
             'type_event_id': te_type_id,
             'type_event_name': te_type_name,
             'type_event_label': PUBLIC_TYPE_EVENT_LABELS.get(te_type_id, ''),
+            'min_session_dt': min_session_dt,
         })
+    
+    events.sort(key=lambda x: x['min_session_dt'])
     
     sorted_months = sorted(list(available_months))
     month_names = {
@@ -126,6 +133,23 @@ async def show_index(
         if tid in available_types_map
     ]
 
+    year_for_afisha = int(month.split('-')[0]) if month else now.year
+    afishas_db = await get_afishas(session, year_for_afisha)
+    afishas = []
+    
+    selected_month_int = int(month.split('-')[1]) if month else None
+    
+    for a in afishas_db:
+        if selected_month_int and a.month != selected_month_int:
+            continue
+        path = '/' + a.file_path if not a.file_path.startswith('/') else a.file_path
+        afishas.append({
+            'month': a.month,
+            'year': a.year,
+            'image_url': path
+        })
+    afishas.sort(key=lambda x: x['month'])
+
     return templates.TemplateResponse(
         request=request,
         name='index.html',
@@ -139,6 +163,7 @@ async def show_index(
             'months': months_display,
             'types': types_display,
             'available_dates': list(all_available_dates),
+            'afishas': afishas,
         },
     )
 

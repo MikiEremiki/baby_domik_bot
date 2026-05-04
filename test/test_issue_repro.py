@@ -100,6 +100,7 @@ def test_index_page_filters_turned_off_session(client, monkeypatch):
     
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
+    monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
     
     # 1. Проверяем главную страницу
     response = client.get('/')

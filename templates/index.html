@@ -158,6 +158,68 @@
     </div>
 </section>
 
+{% if afishas %}
+<section class="mb-8">
+    <div class="flex overflow-x-auto gap-4 py-4 snap-x snap-mandatory scrollbar-hide">
+        {% for afisha in afishas %}
+        <div class="snap-center shrink-0 w-[280px] sm:w-[320px] md:w-[400px] overflow-hidden rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:opacity-95 transition-opacity" onclick="openAfishaModal('{{ afisha.image_url }}')">
+            <img src="{{ afisha.image_url }}" alt="Афиша {{ afisha.month }}.{{ afisha.year }}" class="w-full h-auto object-cover">
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Модальное окно для афиши -->
+<div id="afishaModal" class="fixed inset-0 z-[100] hidden bg-black/90 p-4 sm:p-8 flex items-center justify-center opacity-0 transition-opacity duration-300 backdrop-blur-sm" onclick="closeAfishaModal()">
+    <button type="button" class="absolute top-4 right-4 sm:top-8 sm:right-8 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full p-2 transition-all cursor-pointer z-[110]" onclick="closeAfishaModal()" title="Закрыть">
+        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    </button>
+    <img id="afishaModalImage" src="" alt="Афиша полноэкранная" class="max-h-full max-w-full object-contain rounded-lg shadow-2xl scale-95 transition-transform duration-300" onclick="event.stopPropagation()">
+</div>
+
+<script>
+    function openAfishaModal(imageUrl) {
+        const modal = document.getElementById('afishaModal');
+        const modalImage = document.getElementById('afishaModalImage');
+        
+        modalImage.src = imageUrl;
+        modal.classList.remove('hidden');
+        
+        // Force reflow
+        void modal.offsetWidth;
+        
+        modal.classList.remove('opacity-0');
+        modalImage.classList.remove('scale-95');
+        modalImage.classList.add('scale-100');
+        
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeAfishaModal() {
+        const modal = document.getElementById('afishaModal');
+        const modalImage = document.getElementById('afishaModalImage');
+        
+        if (modal.classList.contains('hidden')) return;
+        
+        modal.classList.add('opacity-0');
+        modalImage.classList.remove('scale-100');
+        modalImage.classList.add('scale-95');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modalImage.src = '';
+            document.body.style.overflow = '';
+        }, 300);
+    }
+    
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape") {
+            closeAfishaModal();
+        }
+    });
+</script>
+{% endif %}
+
 <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200">

@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import List
 
 from sulguk import transform_html, RenderResult
@@ -1169,11 +1170,11 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await query.delete_message()
             photo = None
             if number_of_month_str is not None:
-                photo = (
-                    context.bot_data
-                    .get('afisha', {})
-                    .get(int(number_of_month_str), False)
-                )
+                month_afisha = int(number_of_month_str)
+                year_afisha = date.today().year
+                afisha_record = await db_postgres.get_afisha(context.session, month_afisha, year_afisha)
+                if afisha_record:
+                    photo = afisha_record.file_id
             if (
                     update.effective_chat.type == ChatType.PRIVATE and
                     photo and

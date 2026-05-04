@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
-from typing import Collection, List, Type
+from typing import Collection, List, Type, Sequence
 
 from sqlalchemy import select, func, DATE, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,7 @@ from db import (
     FeedbackTopic, FeedbackMessage, SpecialTicketPrice)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
-from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket
+from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, Afisha
 
 
 async def attach_user_and_people_to_ticket(
@@ -1421,3 +1421,41 @@ async def get_expired_tickets(session: AsyncSession, minutes: int = 10):
         )
     )
     return result.scalars().all()
+
+
+async def get_afisha(session: AsyncSession, month: int, year: int) -> Afisha | None:
+    query = select(Afisha).where(Afisha.month == month, Afisha.year == year)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_afishas(session: AsyncSession, year: int) -> Sequence[Afisha]:
+    query = select(Afisha)
+    if year:
+        query = select(Afisha).where(Afisha.year == year)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def create_or_update_afisha(
+    session: AsyncSession, month: int, year: int, file_id: str, file_path: str, zones: dict = None
+) -> Afisha:
+    afisha = await get_afisha(session, month, year)
+    if afisha:
+        afisha.file_id = file_id
+        afisha.file_path = file_path
+        if zones is not None:
+            afisha.zones = zones
+    else:
+        afisha = Afisha(
+            month=month, year=year, file_id=file_id, file_path=file_path, zones=zones
+        )
+        session.add(afisha)
+    await session.commit()
+    return afisha
+
+
+async def delete_afisha(session: AsyncSession, month: int, year: int):
+    query = delete(Afisha).where(Afisha.month == month, Afisha.year == year)
+    await session.execute(query)
+    await session.commit()

@@ -17,14 +17,19 @@ afisha_conv_hl = ConversationHandler(
     states={
         1: [
             cancel_callback_handler,
-            CallbackQueryHandler(afisha_hl.show_data, pattern='show_data'),
             CallbackQueryHandler(afisha_hl.set_month, pattern="^([1-9]|1[0-2])$"),
         ],
         2: [
             cancel_callback_handler,
-            CallbackQueryHandler(afisha_hl.skip, pattern='skip'),
-            MessageHandler(filters.PHOTO, afisha_hl.check),
+            CallbackQueryHandler(afisha_hl.view_afisha, pattern='view_afisha'),
+            CallbackQueryHandler(afisha_hl.request_update_afisha, pattern='update_afisha'),
+            CallbackQueryHandler(afisha_hl.delete_afisha_action, pattern='delete_afisha'),
+            MessageHandler(filters.PHOTO, afisha_hl.upload_afisha),
         ],
+        3: [
+            cancel_callback_handler,
+            MessageHandler(filters.PHOTO, afisha_hl.upload_afisha),
+        ]
     },
     fallbacks=common_fallbacks,
     name='afisha',

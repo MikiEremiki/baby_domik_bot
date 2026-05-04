@@ -23,6 +23,7 @@ services:
       - ./config/settings.py:/app/src/settings/settings.py
       - ./src/db/data:/app/src/db/data
       - ./src/log/archive:/app/src/log/archive
+      - ./static:/app/static
     command: faststream run bot:fast_stream
 
   postgres:
@@ -125,6 +126,7 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./config/settings.py:/app/src/settings/settings.py
+      - ./static:/app/static
     command: [ "python3", "-m", "api.web.main" ]
 
   gspread_worker:
