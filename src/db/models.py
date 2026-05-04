@@ -606,3 +606,18 @@ class SpecialTicketPrice(BaseModelTimed):
     __table_args__ = (
         UniqueConstraint('option', 'base_ticket_id', name='uq_option_base_ticket'),
     )
+
+
+class Afisha(BaseModelTimed):
+    __tablename__ = 'afishas'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    month: Mapped[int]
+    year: Mapped[int]
+    file_id: Mapped[str]
+    file_path: Mapped[str]
+    zones: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    __table_args__ = (
+        UniqueConstraint('month', 'year', name='uq_afisha_month_year'),
+    )
