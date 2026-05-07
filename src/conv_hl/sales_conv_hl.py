@@ -76,6 +76,16 @@ states = {
         back_callback_handler,
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_ticket_ids),
     ],
+    sales_hl.PICK_FILTER_CHILD_AGE_MIN: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_child_age_min, pattern='^sales:f_child_age_min'),
+    ],
+    sales_hl.PICK_FILTER_CHILD_AGE_MAX: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_filter_child_age_max, pattern='^sales:f_child_age_max'),
+    ],
     sales_hl.BUILD_AUDIENCE: [
         cancel_callback_handler,
         back_callback_handler,
@@ -84,6 +94,7 @@ states = {
     ],
     sales_hl.GET_MESSAGE: [
         cancel_callback_handler,
+        CallbackQueryHandler(sales_hl.back_to_pick_filters, pattern='^Назад-PICK_FILTERS$'),
         back_callback_handler,
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.handle_admin_message),
         MessageHandler(filters.PHOTO, sales_hl.handle_admin_message),
