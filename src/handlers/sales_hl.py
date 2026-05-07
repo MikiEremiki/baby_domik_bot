@@ -12,8 +12,8 @@ from telegram.error import BadRequest
 from db import (
     TheaterEvent, ScheduleEvent, User, Ticket, SalesRecipient, SalesCampaign,
     TypeEvent, BaseTicket, db_postgres)
-from db.enum import TicketStatus
-from db.models import UserTicket
+from db.enum import TicketStatus, AgeType
+from db.models import UserTicket, Person, Child, PersonTicket
 from db.sales_crud import (
     create_campaign, set_campaign_schedules, snapshot_recipients,
     update_campaign_message, set_campaign_status, get_free_places
@@ -50,6 +50,8 @@ PICK_FILTER_THEATER_EVENT = 'PICK_FILTER_THEATER_EVENT'
 PICK_FILTER_SCHEDULE_EVENT = 'PICK_FILTER_SCHEDULE_EVENT'
 PICK_FILTER_BASE_TICKET = 'PICK_FILTER_BASE_TICKET'
 PICK_TICKET_IDS = 'PICK_TICKET_IDS'
+PICK_FILTER_CHILD_AGE_MIN = 'PICK_FILTER_CHILD_AGE_MIN'
+PICK_FILTER_CHILD_AGE_MAX = 'PICK_FILTER_CHILD_AGE_MAX'
 
 # Sales types registry
 SALES_TYPES: Dict[str, Dict] = {
@@ -100,9 +102,10 @@ def _get_usage_text_for_type(type_code: str) -> str:
     if type_code == "TICKET_HOLDERS":
         return (
             '<b>Как пользоваться этим типом рассылки:</b>\n'
-            '1) Задайте фильтры для отбора аудитории (статус билетов, сеансы, спектакли, типы мероприятий или конкретные билеты).\n'
-            '2) Если фильтры не заданы, рассылка пойдёт по всем, у кого билеты Оплачены/Подтверждены.\n'
-            '3) Пришлите текст или медиа, проверьте и запустите.'
+            '1) Задайте фильтры для отбора аудитории (статус билетов, спектакли, типы, сеансы, возраст детей или конкретные билеты).\n'
+            '2) Событийные фильтры (спектакль/тип/сеанс) отключают фильтрацию по времени — вы получите всех, у кого есть билет на любой из выбранных объектов.\n'
+            '3) Если фильтры не заданы, рассылка пойдёт по всем, у кого Оплаченные/Подтверждённые билеты на будущие сеансы.\n'
+            '4) Пришлите текст или медиа, проверьте и запустите.'
         )
     # Default hint for future types
     return (
@@ -229,9 +232,6 @@ async def _select_ticket_holders_audience(session, sales_state: dict) -> tuple[L
         stmt = stmt.where(t.c.id.in_(list(map(int, filters['ticket_ids']))))
     else:
         if filters.get('status'):
-            # Convert values back to TicketStatus members if possible, 
-            # but strings matching values should also work with SQLAlchemy Enums
-            # To be safe, try to match by value to Enum member
             status_members = []
             for val in filters['status']:
                 for member in TicketStatus:
@@ -240,25 +240,25 @@ async def _select_ticket_holders_audience(session, sales_state: dict) -> tuple[L
                         break
             if status_members:
                 stmt = stmt.where(t.c.status.in_(status_members))
-        else:
-            # Default to successful tickets if no status filter
-            stmt = stmt.where(t.c.status.in_([TicketStatus.PAID, TicketStatus.APPROVED]))
 
+        has_event_filter = False
         if filters.get('type_event_ids'):
             stmt = stmt.where(se.c.type_event_id.in_(list(map(int, filters['type_event_ids']))))
+            has_event_filter = True
 
         if filters.get('theater_event_ids'):
             stmt = stmt.where(se.c.theater_event_id.in_(list(map(int, filters['theater_event_ids']))))
+            has_event_filter = True
 
         if filters.get('schedule_event_ids'):
             stmt = stmt.where(t.c.schedule_event_id.in_(list(map(int, filters['schedule_event_ids']))))
-        else:
-            # Apply default/selected sub-filters if no specific sessions selected
+            has_event_filter = True
+
+        if not has_event_filter:
             if f_time == 'past':
                 stmt = stmt.where(se.c.datetime_event < now)
             elif f_time == 'future':
                 stmt = stmt.where(se.c.datetime_event >= now)
-
             if f_show == 'on':
                 stmt = stmt.where(se.c.flag_turn_in_bot == True)
             elif f_show == 'off':
@@ -266,6 +266,28 @@ async def _select_ticket_holders_audience(session, sales_state: dict) -> tuple[L
 
         if filters.get('base_ticket_ids'):
             stmt = stmt.where(t.c.base_ticket_id.in_(list(map(int, filters['base_ticket_ids']))))
+
+        child_age_min = filters.get('child_age_min')
+        child_age_max = filters.get('child_age_max')
+        if child_age_min is not None or child_age_max is not None:
+            pt = PersonTicket.__table__
+            p = Person.__table__
+            c = Child.__table__
+            computed_age = sa.case(
+                (c.c.birthdate.isnot(None), sa.func.date_part('year', sa.func.age(c.c.birthdate))),
+                else_=c.c.age
+            )
+            child_subq_stmt = (
+                sa.select(sa.literal(1))
+                .select_from(pt.join(p, pt.c.person_id == p.c.id).join(c, c.c.person_id == p.c.id))
+                .where(pt.c.ticket_id == t.c.id)
+                .where(p.c.age_type == AgeType.child)
+            )
+            if child_age_min is not None:
+                child_subq_stmt = child_subq_stmt.where(computed_age >= child_age_min)
+            if child_age_max is not None:
+                child_subq_stmt = child_subq_stmt.where(computed_age <= child_age_max)
+            stmt = stmt.where(child_subq_stmt.exists())
 
     rows = (await session.execute(stmt)).all()
     
@@ -284,6 +306,25 @@ async def _select_ticket_holders_audience(session, sales_state: dict) -> tuple[L
     return result_rows, sorted(list(set(found_ticket_ids)))
 
 
+def _compress_ids(ids: List[int], max_chars: int = 200) -> str:
+    """Convert sorted list of ints to range notation, e.g. [1,2,3,5,7,8] → '1–3, 5, 7–8'."""
+    if not ids:
+        return ''
+    ranges = []
+    start = prev = ids[0]
+    for n in ids[1:]:
+        if n == prev + 1:
+            prev = n
+        else:
+            ranges.append(f"{start}–{prev}" if prev != start else str(start))
+            start = prev = n
+    ranges.append(f"{start}–{prev}" if prev != start else str(start))
+    result = ', '.join(ranges)
+    if len(result) > max_chars:
+        result = result[:max_chars].rsplit(',', 1)[0] + ', …'
+    return result
+
+
 async def show_build_audience(update: Update,
                               context: ContextTypes.DEFAULT_TYPE):
     """Build audience snapshot and show summary. In dev mode prompt to enter chat_id list; otherwise proceed to GET_MESSAGE."""
@@ -294,12 +335,34 @@ async def show_build_audience(update: Update,
     # Determine audience rows
     if campaign_type == 'TICKET_HOLDERS':
         rows, ticket_ids = await _select_ticket_holders_audience(session, sales_state)
-        audience_info = "Аудитория: обладатели билетов по заданным фильтрам."
+        filters = sales_state.get('filters', {})
+        f_time = sales_state.get('f_schedule_time', 'all')
+        f_show = sales_state.get('f_schedule_show', 'all')
+        filter_lines = []
+        if filters.get('ticket_ids'):
+            filter_lines.append("• ID билетов вручную")
+        else:
+            if filters.get('status'):
+                filter_lines.append("• Статус билета")
+            if filters.get('type_event_ids'):
+                filter_lines.append("• Тип мероприятия")
+            if filters.get('theater_event_ids'):
+                filter_lines.append("• Спектакль")
+            if filters.get('schedule_event_ids'):
+                filter_lines.append("• Сеанс")
+            if filters.get('base_ticket_ids'):
+                filter_lines.append("• Базовый билет")
+            if filters.get('child_age_min') is not None or filters.get('child_age_max') is not None:
+                filter_lines.append("• Возраст детей")
+            has_event = any([filters.get('type_event_ids'), filters.get('theater_event_ids'), filters.get('schedule_event_ids')])
+            if not has_event:
+                time_label = {'all': 'все', 'past': 'прошедшие', 'future': 'будущие'}.get(f_time, f_time)
+                show_label = {'all': 'любая', 'on': 'вкл в боте', 'off': 'выкл в боте'}.get(f_show, f_show)
+                filter_lines.append(f"• Время сеансов: {time_label}, видимость: {show_label}")
+        filters_text = "\n<b>Применённые фильтры:</b>\n" + "\n".join(filter_lines) if filter_lines else "\n<b>Фильтры не заданы</b> (выбраны все билеты)"
+        audience_info = "Аудитория: обладатели билетов." + filters_text
         if ticket_ids:
-            ids_str = ", ".join(map(str, ticket_ids[:100]))
-            if len(ticket_ids) > 100:
-                ids_str += "..."
-            audience_info += f"\n<b>ID билетов:</b> {ids_str}"
+            audience_info += f"\n<b>ID билетов ({len(ticket_ids)}):</b> {_compress_ids(ticket_ids)}"
         postfix_for_back = PICK_FILTERS
     else:
         # Determine which theater_event(s) to use for audience filter
@@ -339,37 +402,31 @@ async def show_build_audience(update: Update,
         audience_info,
     ]
 
-    kb = []
-    if sales_state.get('dev_mode'):
-        text_lines.append(
-            '\nDev-режим: отправьте одним сообщением список chat_id через пробелы или переносы строк.\nПример: 123 456 789')
-        kb.append(InlineKeyboardButton("Далее (сообщение)", callback_data="next_message"))
-
-    reply_markup = await create_replay_markup(
-        kb,
-        intent_id='sales',
-        postfix_for_cancel='sales',
-        add_back_btn=True,
-        postfix_for_back=postfix_for_back,
-        size_row=1
-    )
-
     text = '\n'.join([t for t in text_lines if t is not None and t != ''])
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=getattr(update.effective_message, 'message_thread_id',
-                                  None)
-    )
-
-    state = BUILD_AUDIENCE
-    await set_back_context(context, state, text, reply_markup)
-    context.user_data['STATE'] = state
 
     if sales_state.get('dev_mode'):
+        text += '\n\nDev-режим: отправьте одним сообщением список chat_id через пробелы или переносы строк.\nПример: 123 456 789'
+        kb = [InlineKeyboardButton("Далее (сообщение)", callback_data="next_message")]
+        reply_markup = await create_replay_markup(
+            kb,
+            intent_id='sales',
+            postfix_for_cancel='sales',
+            add_back_btn=True,
+            postfix_for_back=postfix_for_back,
+            size_row=1
+        )
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            message_thread_id=getattr(update.effective_message, 'message_thread_id', None)
+        )
+        state = BUILD_AUDIENCE
+        await set_back_context(context, state, text, reply_markup)
+        context.user_data['STATE'] = state
         return BUILD_AUDIENCE
 
-    # Prompt for a message right away in normal mode
+    # Prompt for a message right away in normal mode; pass audience summary
+    sales_state['audience_summary'] = text
     return await ask_message(update, context)
 
 
@@ -477,8 +534,8 @@ async def start_sales(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'schedule_ids': [],
         'filters': {},
         'audience_theater_ids': [],
-        'f_schedule_time': 'future',
-        'f_schedule_show': 'on',
+        'f_schedule_time': 'all',
+        'f_schedule_show': 'all',
     }
 
     if args and args[0].lower() == 'dev':
@@ -664,6 +721,8 @@ async def _proceed_to_audience_selection(update: Update, context: ContextTypes.D
 async def show_pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sales_state = context.user_data.setdefault('sales', {})
     filters = sales_state.setdefault('filters', {})
+    f_time = sales_state.get('f_schedule_time', 'future')
+    f_show = sales_state.get('f_schedule_show', 'on')
 
     text = "<b>Настройка фильтров аудитории (Обладатели билетов)</b>\n\n"
     text += "Выберите критерии для отбора пользователей. Если фильтр не задан, он не учитывается.\n\n"
@@ -682,24 +741,56 @@ async def show_pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text += f"✅ Билеты: {len(filters['base_ticket_ids'])}\n"
     if filters.get('ticket_ids'):
         text += f"✅ ID билетов (вручную): {len(filters['ticket_ids'])}\n"
+    child_age_min = filters.get('child_age_min')
+    child_age_max = filters.get('child_age_max')
+    if child_age_min is not None or child_age_max is not None:
+        if child_age_min is not None and child_age_max is not None:
+            text += f"✅ Возраст детей: от {child_age_min} до {child_age_max}\n"
+        elif child_age_min is not None:
+            text += f"✅ Возраст детей: {child_age_min}+\n"
+        else:
+            text += f"✅ Возраст детей: до {child_age_max}\n"
 
-    kb = [
+    # Time/show sub-filters (applied when no event filter is set)
+    time_label = {'all': 'Все', 'past': 'Прошедшие', 'future': 'Будущие'}.get(f_time, f_time)
+    show_label = {'all': 'Все', 'on': 'Вкл в боте', 'off': 'Выкл в боте'}.get(f_show, f_show)
+    text += f"\n📅 Без событийного фильтра: <b>{time_label}</b>, видимость <b>{show_label}</b>"
+
+    time_kb = add_intent_id([[
+        InlineKeyboardButton(f"{'✅' if f_time == 'all' else '▫️'} Все", callback_data="time:all"),
+        InlineKeyboardButton(f"{'✅' if f_time == 'past' else '▫️'} Прош.", callback_data="time:past"),
+        InlineKeyboardButton(f"{'✅' if f_time == 'future' else '▫️'} Буд.", callback_data="time:future"),
+    ]], 'sales:filters')
+    show_kb = add_intent_id([[
+        InlineKeyboardButton(f"{'✅' if f_show == 'all' else '▫️'} Любая", callback_data="show:all"),
+        InlineKeyboardButton(f"{'✅' if f_show == 'on' else '▫️'} Вкл", callback_data="show:on"),
+        InlineKeyboardButton(f"{'✅' if f_show == 'off' else '▫️'} Выкл", callback_data="show:off"),
+    ]], 'sales:filters')
+
+    has_filters = any([
+        filters.get('status'), filters.get('type_event_ids'), filters.get('theater_event_ids'),
+        filters.get('schedule_event_ids'), filters.get('base_ticket_ids'), filters.get('ticket_ids'),
+        filters.get('child_age_min') is not None, filters.get('child_age_max') is not None,
+    ])
+    action_btns = [
         InlineKeyboardButton("Статус билета", callback_data="status"),
         InlineKeyboardButton("Тип мероприятия", callback_data="type_event"),
         InlineKeyboardButton("Спектакль", callback_data="theater_event"),
         InlineKeyboardButton("Сеанс", callback_data="schedule_event"),
         InlineKeyboardButton("Базовый билет", callback_data="base_ticket"),
+        InlineKeyboardButton("Возраст детей", callback_data="child_age"),
         InlineKeyboardButton("Ввести ID билетов вручную", callback_data="manual_ids"),
-        InlineKeyboardButton("ГОТОВО - Перейти к отбору", callback_data="done"),
     ]
-    reply_markup = await create_replay_markup(
-        kb,
-        intent_id='sales:filters',
-        postfix_for_cancel='sales',
-        add_back_btn=True,
-        postfix_for_back=PICK_TYPE,
-        size_row=1
-    )
+    if has_filters:
+        action_btns.append(InlineKeyboardButton("🗑 Сбросить фильтры", callback_data="reset"))
+    action_btns.append(InlineKeyboardButton("ГОТОВО - Перейти к отбору", callback_data="done"))
+    action_rows = adjust_kbd(action_btns, 1)
+    action_rows = add_intent_id(action_rows, 'sales:filters')
+
+    kb = time_kb + show_kb + action_rows
+    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                      postfix_for_back=PICK_TYPE))
+    reply_markup = InlineKeyboardMarkup(kb)
 
     if update.callback_query:
         try:
@@ -715,10 +806,30 @@ async def show_pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return PICK_FILTERS
 
 
+async def back_to_pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Live re-render of pick_filters screen (used instead of snapshot-based back)."""
+    if update.callback_query:
+        await update.callback_query.answer()
+    return await show_pick_filters(update, context)
+
+
 async def pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     _, action = remove_intent_id(query.data)
+
+    sales_state = context.user_data.setdefault('sales', {})
+    if action.startswith('time:'):
+        sales_state['f_schedule_time'] = action.split(':')[1]
+        return await show_pick_filters(update, context)
+    if action.startswith('show:'):
+        sales_state['f_schedule_show'] = action.split(':')[1]
+        return await show_pick_filters(update, context)
+
+    if action == "reset":
+        sales_state = context.user_data.setdefault('sales', {})
+        sales_state['filters'] = {}
+        return await show_pick_filters(update, context)
 
     if action == "status":
         return await show_pick_filter_status(update, context)
@@ -730,9 +841,12 @@ async def pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await show_pick_filter_schedule_event(update, context)
     if action == "base_ticket":
         return await show_pick_filter_base_ticket(update, context)
+    if action == "child_age":
+        return await show_pick_filter_child_age_min(update, context)
     if action == "manual_ids":
         return await show_pick_ticket_ids(update, context)
     if action == "done":
+        await query.delete_message()
         return await show_build_audience(update, context)
 
     return PICK_FILTERS
@@ -1022,7 +1136,7 @@ async def show_pick_filter_schedule_event(update: Update,
         InlineKeyboardButton(f"{'✅' if f_time == 'future' else '▫️'} Буд.", callback_data="time:future"),
     ]
     show_kb = [
-        InlineKeyboardButton(f"{'✅' if f_show == 'all' else '▫️'} Все ст.", callback_data="show:all"),
+        InlineKeyboardButton(f"{'✅' if f_show == 'all' else '▫️'} Любая", callback_data="show:all"),
         InlineKeyboardButton(f"{'✅' if f_show == 'on' else '▫️'} Вкл", callback_data="show:on"),
         InlineKeyboardButton(f"{'✅' if f_show == 'off' else '▫️'} Выкл", callback_data="show:off"),
     ]
@@ -1192,6 +1306,92 @@ async def pick_filter_base_ticket(update: Update,
     return await show_pick_filter_base_ticket(update, context)
 
 
+async def show_pick_filter_child_age_min(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lines = [
+        "<b>Возраст детей — минимум</b>",
+        "Выберите минимальный возраст ребёнка (включительно).",
+        "«12+» означает от 12 лет без верхней границы.",
+    ]
+    kb_btns = [InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(0, 13)]
+    kb_btns.append(InlineKeyboardButton("12+", callback_data="12plus"))
+    btn_rows = adjust_kbd(kb_btns, 5)
+    btn_rows = add_intent_id(btn_rows, 'sales:f_child_age_min')
+    kb = btn_rows
+    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                      postfix_for_back=PICK_FILTERS))
+    reply_markup = InlineKeyboardMarkup(kb)
+    text = "\n".join(lines)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+    else:
+        await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+    return PICK_FILTER_CHILD_AGE_MIN
+
+
+async def pick_filter_child_age_min(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, payload = remove_intent_id(query.data)
+
+    sales_state = context.user_data.setdefault('sales', {})
+    filters = sales_state.setdefault('filters', {})
+
+    if payload == "12plus":
+        filters['child_age_min'] = 12
+        filters['child_age_max'] = None
+        return await show_pick_filters(update, context)
+
+    if payload.isdigit():
+        filters['child_age_min'] = int(payload)
+        filters.pop('child_age_max', None)
+        return await show_pick_filter_child_age_max(update, context)
+
+    return PICK_FILTER_CHILD_AGE_MIN
+
+
+async def show_pick_filter_child_age_max(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sales_state = context.user_data.get('sales', {})
+    filters = sales_state.get('filters', {})
+    age_min = filters.get('child_age_min', 0)
+
+    lines = [
+        "<b>Возраст детей — максимум</b>",
+        f"Минимум: {age_min}. Выберите максимальный возраст или «Пропустить» для без ограничения.",
+    ]
+    kb_btns = [InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(age_min + 1, 13)]
+    kb_btns.append(InlineKeyboardButton("Пропустить", callback_data="skip"))
+    btn_rows = adjust_kbd(kb_btns, 5)
+    btn_rows = add_intent_id(btn_rows, 'sales:f_child_age_max')
+    kb = btn_rows
+    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                      postfix_for_back=PICK_FILTER_CHILD_AGE_MIN))
+    reply_markup = InlineKeyboardMarkup(kb)
+    text = "\n".join(lines)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+    else:
+        await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+    return PICK_FILTER_CHILD_AGE_MAX
+
+
+async def pick_filter_child_age_max(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    _, payload = remove_intent_id(query.data)
+
+    sales_state = context.user_data.setdefault('sales', {})
+    filters = sales_state.setdefault('filters', {})
+
+    if payload == "skip":
+        filters['child_age_max'] = None
+    elif payload.isdigit():
+        filters['child_age_max'] = int(payload)
+    else:
+        return PICK_FILTER_CHILD_AGE_MAX
+
+    return await show_pick_filters(update, context)
+
+
 async def show_pick_ticket_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "<b>Ввод ID билетов вручную</b>\n\n"
@@ -1208,10 +1408,13 @@ async def show_pick_ticket_ids(update: Update, context: ContextTypes.DEFAULT_TYP
         postfix_for_back=PICK_FILTERS
     )
 
+    sales_state = context.user_data.setdefault('sales', {})
     if update.callback_query:
         await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+        sales_state['ticket_ids_prompt_msg_id'] = update.callback_query.message.message_id
     else:
-        await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+        sent = await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+        sales_state['ticket_ids_prompt_msg_id'] = sent.message_id
 
     state = PICK_TICKET_IDS
     await set_back_context(context, state, text, reply_markup)
@@ -1227,6 +1430,17 @@ async def pick_ticket_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return PICK_TICKET_IDS
 
     sales_state = context.user_data.setdefault('sales', {})
+    prompt_msg_id = sales_state.pop('ticket_ids_prompt_msg_id', None)
+    if prompt_msg_id:
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=update.effective_chat.id,
+                message_id=prompt_msg_id,
+                reply_markup=None
+            )
+        except Exception:
+            pass
+
     filters = sales_state.setdefault('filters', {})
     filters['ticket_ids'] = list(map(int, ids))
 
@@ -1671,7 +1885,8 @@ async def ask_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_chat.send_message(
             'Внутренняя ошибка: нет кампании. Начните заново /sales')
         return ConversationHandler.END
-    text = (
+    audience_summary = sales_state.pop('audience_summary', None)
+    step_text = (
         'Шаг 5 — отправьте сообщение для рассылки.\n\n'
         'Допустимые варианты:\n'
         '• Текстовое сообщение\n'
@@ -1679,12 +1894,15 @@ async def ask_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '• Одно фото/видео/анимация с подписью\n\n'
         'Медиа-группы (альбомы) пока не поддерживаются.'
     )
+    text = (audience_summary + '\n\n' + step_text) if audience_summary else step_text
 
+    back_target = BUILD_AUDIENCE if sales_state.get('dev_mode') else PICK_FILTERS
     reply_markup = InlineKeyboardMarkup([
         add_btn_back_and_cancel(postfix_for_cancel='sales',
                                 add_back_btn=True,
-                                postfix_for_back=BUILD_AUDIENCE)])
-    await update.effective_chat.send_message(text, reply_markup=reply_markup)
+                                postfix_for_back=back_target)])
+    sent = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    sales_state['ask_message_msg_id'] = sent.message_id
     state = GET_MESSAGE
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
@@ -1707,6 +1925,17 @@ async def handle_admin_message(update: Update,
         await update.effective_chat.send_message(
             'Внутренняя ошибка: нет кампании. Начните заново /sales')
         return ConversationHandler.END
+
+    prompt_msg_id = sales_state.pop('ask_message_msg_id', None)
+    if prompt_msg_id:
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=update.effective_chat.id,
+                message_id=prompt_msg_id,
+                reply_markup=None
+            )
+        except Exception:
+            pass
 
     msg = update.effective_message
     fields = {
