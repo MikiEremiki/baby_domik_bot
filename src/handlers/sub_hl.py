@@ -1001,24 +1001,24 @@ async def get_booking_admin_text(
         reserve_user_data['original_child_text'] = ", ".join(children_names) if children_names else 'Не указано'
 
         # Восстанавливаем text_for_notification_massage для пользователя
+        # Для website-бронирований всегда перезаписываем текст, так как он может быть устаревшим
         if 'common_data' not in user_data:
             user_data['common_data'] = {}
         
-        if not user_data['common_data'].get('text_for_notification_massage'):
-            try:
-                from utilities.utl_func import create_str_info_by_schedule_event_id
-                text_select_event = await create_str_info_by_schedule_event_id(
-                    context, ticket.schedule_event_id)
-                chose_base_ticket = await db_postgres.get_base_ticket(
-                    context.session, ticket.base_ticket_id)
-                
-                text_notification = (f'{text_select_event}\n'
-                                     f'Вариант бронирования:\n'
-                                     f'{chose_base_ticket.name} '
-                                     f'{int(ticket.price)}руб\n')
-                user_data['common_data']['text_for_notification_massage'] = text_notification
-            except Exception as e:
-                sub_hl_logger.error(f"Failed to restore text_for_notification_massage in get_booking_admin_text: {e}")
+        try:
+            from utilities.utl_func import create_str_info_by_schedule_event_id
+            text_select_event = await create_str_info_by_schedule_event_id(
+                context, ticket.schedule_event_id)
+            chose_base_ticket = await db_postgres.get_base_ticket(
+                context.session, ticket.base_ticket_id)
+            
+            text_notification = (f'{text_select_event}\n'
+                                 f'Вариант бронирования:\n'
+                                 f'{chose_base_ticket.name} '
+                                 f'{int(ticket.price)}руб\n')
+            user_data['common_data']['text_for_notification_massage'] = text_notification
+        except Exception as e:
+            sub_hl_logger.error(f"Failed to restore text_for_notification_massage in get_booking_admin_text: {e}")
     else:
         reserve_user_data = user_data['reserve_user_data']
 
