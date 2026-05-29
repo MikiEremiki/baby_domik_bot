@@ -122,24 +122,24 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             if 'common_data' not in user_data:
                 user_data['common_data'] = {}
 
-            # Добавляем данные о мероприятии для уведомления, если их нет
-            if not user_data['common_data'].get('text_for_notification_massage'):
-                try:
-                    schedule_event_id = int(choose_schedule_event_ids[0])
-                    text_select_event = await create_str_info_by_schedule_event_id(
-                        context, schedule_event_id)
+            # Для website-бронирований ВСЕГДА перезаписываем text_for_notification_massage,
+            # т.к. user_data может содержать устаревший текст от предыдущего бронирования через бота
+            try:
+                schedule_event_id = int(choose_schedule_event_ids[0])
+                text_select_event = await create_str_info_by_schedule_event_id(
+                    context, schedule_event_id)
 
-                    ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
-                    chose_base_ticket = await db_postgres.get_base_ticket(
-                        context.session, ticket.base_ticket_id)
+                ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
+                chose_base_ticket = await db_postgres.get_base_ticket(
+                    context.session, ticket.base_ticket_id)
 
-                    text_notification = (f'{text_select_event}<br>'
-                                         f'Вариант бронирования:<br>'
-                                         f'{chose_base_ticket.name} '
-                                         f'{int(ticket.price)}руб<br>')
-                    user_data['common_data']['text_for_notification_massage'] = text_notification
-                except Exception as e:
-                    webhook_hl_logger.error(f'Ошибка при формировании текста уведомления: {e}')
+                text_notification = (f'{text_select_event}<br>'
+                                     f'Вариант бронирования:<br>'
+                                     f'{chose_base_ticket.name} '
+                                     f'{int(ticket.price)}руб<br>')
+                user_data['common_data']['text_for_notification_massage'] = text_notification
+            except Exception as e:
+                webhook_hl_logger.error(f'Ошибка при формировании текста уведомления: {e}')
 
     if int_chat_id != 0 and message_id != 0:
         try:
