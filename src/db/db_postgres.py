@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
-from typing import Collection, List, Type, Sequence
+from typing import Collection, List, Type, Sequence, Any
 
 from sqlalchemy import select, func, DATE, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -883,7 +883,7 @@ async def update_special_ticket_prices_from_googlesheets(
 
 async def get_special_ticket_price(
     session: AsyncSession,
-    option: str,
+    option: Any,
     base_ticket_id: int,
     type_ticket_price: str
 ):
