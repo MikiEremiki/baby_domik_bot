@@ -96,7 +96,7 @@ async def get_ticket_price_for_web(
         else:
             type_ticket_price = 'выходные'
 
-    date_for_price = dt_moscow.date()
+    date_for_price = schedule_event.datetime_event
     price, _ = ticket.get_price_from_date(date_for_price)
 
     if theater_event.flag_indiv_cost:

@@ -138,21 +138,24 @@ class BaseTicket(BaseModelTimed):
         lazy='selectin')
 
     def get_price_from_date(self, _date: date = date.today()):
+        # Приводим все объекты к date для корректного сравнения
+        target_date = _date.date() if isinstance(_date, datetime) else _date
+
         flag_set_period_price = False
         date_gt_start = False
         date_le_end = False
-        if isinstance(self.period_start_change_price, date):
-            # Для варианта расчета по наступлению даты
-            # s_date = datetime.fromtimestamp(
-            #    self.period_start_change_price.timestamp())
-            # Для варианта расчета по дате мероприятия
+
+        if self.period_start_change_price is not None:
             s_date = self.period_start_change_price
-            date_gt_start = _date >= s_date
-        if isinstance(self.period_end_change_price, date):
-            # e_date = datetime.fromtimestamp(
-            #     self.period_end_change_price.timestamp())
+            if isinstance(s_date, datetime):
+                s_date = s_date.date()
+            date_gt_start = target_date >= s_date
+
+        if self.period_end_change_price is not None:
             e_date = self.period_end_change_price
-            date_le_end = _date <= e_date
+            if isinstance(e_date, datetime):
+                e_date = e_date.date()
+            date_le_end = target_date <= e_date
 
         check_1 = date_gt_start and date_le_end
         check_2 = date_gt_start and not date_le_end
