@@ -20,6 +20,7 @@ from db.models import ScheduleEvent, Adult, Child, Person, Ticket, PersonTicket,
 from db.enum import AgeType, TicketStatus, UserRole
 from db.db_postgres import (
     get_schedule_event,
+    get_schedule_event_available_seats,
     get_base_tickets_by_event_or_all,
     get_promotion,
     get_user_by_phone,
@@ -29,7 +30,11 @@ from db.db_postgres import (
     get_email,
     get_adult_name,
 )
-from api.gspread_pub import publish_write_data_reserve, publish_write_client_reserve
+from api.gspread_pub import (
+    publish_write_data_reserve,
+    publish_write_client_reserve,
+    publish_update_ticket,
+)
 from api.yookassa_connect import create_param_payment
 from utilities.utl_text import extract_phone_number_from_text, check_email
 from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
@@ -279,17 +284,13 @@ async def post_booking_form(
     q_adult = ticket_type_obj.quality_of_adult
     q_add_adult = ticket_type_obj.quality_of_add_adult
 
-    s.qty_child_free_seat -= q_child
-    s.qty_child_nonconfirm_seat += q_child
-    s.qty_adult_free_seat -= (q_adult + q_add_adult)
-    s.qty_adult_nonconfirm_seat += (q_adult + q_add_adult)
-
     await session.commit()
     log_ctx.ticket_id = str(ticket.id)
     log_ctx.info("[2/5]", f"Seats locked & Ticket created in DB (ticket_id={ticket.id}, q_child={q_child}, q_adult={q_adult + q_add_adult})")
     
     try:
-        numbers = [s.qty_child_free_seat, s.qty_child_nonconfirm_seat, s.qty_adult_free_seat, s.qty_adult_nonconfirm_seat]
+        seats = await get_schedule_event_available_seats(session, s.id)
+        numbers = [seats['free_child'], seats['nonconfirm_child'], seats['free_adult'], seats['nonconfirm_adult']]
         await publish_write_data_reserve(settings.sheets.sheet_id_domik, s.id, numbers)
         
         reserve_user_data_gs = {
@@ -374,16 +375,14 @@ async def post_booking_form(
         metrics_service.record_yookassa_call('timeout', dur_yoo / 1000.0)
         log_ctx.error("[5/5]", "Payment failed rollback: YooKassa timeout (10s)")
 
-        # Rollback seats and cancel ticket
-        s.qty_child_free_seat += q_child
-        s.qty_child_nonconfirm_seat -= q_child
-        s.qty_adult_free_seat += (q_adult + q_add_adult)
-        s.qty_adult_nonconfirm_seat -= (q_adult + q_add_adult)
+        # Cancel ticket (dynamic seats will automatically free)
         ticket.status = TicketStatus.CANCELED
         await session.commit()
 
         try:
-            numbers = [s.qty_child_free_seat, s.qty_child_nonconfirm_seat, s.qty_adult_free_seat, s.qty_adult_nonconfirm_seat]
+            await publish_update_ticket(settings.sheets.sheet_id_domik, ticket.id, TicketStatus.CANCELED.value)
+            seats = await get_schedule_event_available_seats(session, s.id)
+            numbers = [seats['free_child'], seats['nonconfirm_child'], seats['free_adult'], seats['nonconfirm_adult']]
             await publish_write_data_reserve(settings.sheets.sheet_id_domik, s.id, numbers)
         except Exception as gs_err:
             log_ctx.error("[5/5]", f"Failed to publish rollback to gspread: {gs_err}")
@@ -410,16 +409,14 @@ async def post_booking_form(
         metrics_service.record_yookassa_call('error', dur_yoo / 1000.0)
         log_ctx.exception("[5/5]", f"Payment failed rollback: {pay_err}")
 
-        # Rollback seats and cancel ticket
-        s.qty_child_free_seat += q_child
-        s.qty_child_nonconfirm_seat -= q_child
-        s.qty_adult_free_seat += (q_adult + q_add_adult)
-        s.qty_adult_nonconfirm_seat -= (q_adult + q_add_adult)
+        # Cancel ticket (dynamic seats will automatically free)
         ticket.status = TicketStatus.CANCELED
         await session.commit()
 
         try:
-            numbers = [s.qty_child_free_seat, s.qty_child_nonconfirm_seat, s.qty_adult_free_seat, s.qty_adult_nonconfirm_seat]
+            await publish_update_ticket(settings.sheets.sheet_id_domik, ticket.id, TicketStatus.CANCELED.value)
+            seats = await get_schedule_event_available_seats(session, s.id)
+            numbers = [seats['free_child'], seats['nonconfirm_child'], seats['free_adult'], seats['nonconfirm_adult']]
             await publish_write_data_reserve(settings.sheets.sheet_id_domik, s.id, numbers)
         except Exception as gs_err:
             log_ctx.error("[5/5]", f"Failed to publish rollback to gspread: {gs_err}")
