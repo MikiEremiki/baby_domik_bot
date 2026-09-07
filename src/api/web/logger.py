@@ -1,6 +1,20 @@
 import logging
+import sys
 
 logger = logging.getLogger("api.web")
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        '{asctime:16s}|{name:20s}|{lineno:4d}|{levelname:8s}|{message}',
+        datefmt='%y%m%d %H:%M:%S',
+        style='{'
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.propagate = True
 
 
 class PaymentLogContext:
