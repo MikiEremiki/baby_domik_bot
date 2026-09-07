@@ -16,17 +16,42 @@
 .bg-domik-pink { background-color: var(--domik-pink); }
 .text-domik-pink { color: var(--domik-pink); }
 .border-domik-pink { border-color: var(--domik-pink); }
+.hover\:text-domik-pink:hover { color: var(--domik-pink); }
 
 .bg-domik-green { background-color: var(--domik-green); }
 .text-domik-green { color: var(--domik-green); }
+.border-domik-green { border-color: var(--domik-green); }
+.hover\:text-domik-green:hover { color: var(--domik-green); }
 
 .bg-domik-green-soft { background-color: var(--domik-green-soft); }
 .text-domik-green-soft { color: var(--domik-green-soft); }
 .border-domik-green-soft { border-color: var(--domik-green-soft); }
+.hover\:text-domik-green-soft:hover { color: var(--domik-green-soft); }
+.ring-domik-green-soft\/50:focus { --tw-ring-color: rgba(129, 199, 132, 0.5); }
 
 .bg-domik-yellow { background-color: var(--domik-yellow); }
 .text-domik-yellow { color: var(--domik-yellow); }
+.border-domik-yellow { border-color: var(--domik-yellow); }
+.hover\:text-domik-yellow:hover { color: var(--domik-yellow); }
+
+.bg-domik-orange { background-color: var(--domik-orange); }
+.text-domik-orange { color: var(--domik-orange); }
 
 .domik-gradient {
     background: linear-gradient(135deg, #f7ea14 0%, #25b018 50%, #f14b7e 100%);
+}
+
+.spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #ffffff;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }

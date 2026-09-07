@@ -101,8 +101,9 @@
             <input type="hidden" id="applied_promo_id" name="applied_promo_id" value="{{ form_data.applied_promo_id if form_data and form_data.applied_promo_id else '' }}">
         </div>
 
-        <button class="w-full rounded-lg bg-domik-green-soft px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition-colors shadow-sm" type="submit">
-            Перейти к оплате
+        <button id="submit-btn" class="w-full flex items-center justify-center gap-2 rounded-lg bg-domik-green-soft px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition-colors shadow-sm disabled:opacity-75 disabled:cursor-not-allowed" type="submit">
+            <span id="submit-btn-spinner" class="spinner hidden"></span>
+            <span id="submit-btn-text">Перейти к оплате</span>
         </button>
     </form>
 
@@ -129,7 +130,7 @@
     </aside>
 </section>
 
-<script src="https://unpkg.com/imask"></script>
+<script src="/static/js/imask.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const phoneInput = document.getElementById('phone');
@@ -329,8 +330,12 @@
         // Также можно прокрутить к форме, если нужно, но всплывашка и так видна
     {% endif %}
 
-    // Валидация при отправке формы
+    // Валидация при отправке формы и защита от повторных нажатий
     const bookingForm = document.querySelector('form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitBtnSpinner = document.getElementById('submit-btn-spinner');
+    const submitBtnText = document.getElementById('submit-btn-text');
+
     bookingForm.addEventListener('submit', (e) => {
         const selectedOption = ticketSelect.options[ticketSelect.selectedIndex];
         const requiredChildren = parseInt(selectedOption.getAttribute('data-children') || '0');
@@ -341,6 +346,16 @@
             showToast(`Для выбранного типа билета необходимо указать данные как минимум для ${requiredChildren} детей.`, 'error');
             return false;
         }
+
+        if (submitBtn.disabled) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Блокируем кнопку и включаем индикатор загрузки
+        submitBtn.disabled = true;
+        if (submitBtnSpinner) submitBtnSpinner.classList.remove('hidden');
+        if (submitBtnText) submitBtnText.textContent = 'Оформляем платеж...';
     });
 </script>
 {% endblock %}
