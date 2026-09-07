@@ -1,9 +1,17 @@
+import sys
+from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from datetime import datetime, timezone
-from src.api.web import main, deps
-from src.api.web.routes import booking, pages
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / 'src'
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from api.web import main, deps
+from api.web.routes import booking, pages
 
 def _create_mock_event():
     mock_event = MagicMock()
@@ -23,14 +31,19 @@ def _create_mock_session_event(flag_turn_in_bot=True):
     mock_s_event.qty_child_free_seat = 10
     mock_s_event.qty_adult_free_seat = 10
     mock_s_event.flag_turn_in_bot = flag_turn_in_bot
+    mock_s_event.type_event_id = 1
+    type_event_mock = MagicMock()
+    type_event_mock.name = 'Репертуарный'
+    mock_s_event.type_event = type_event_mock
     mock_s_event.theater_event = _create_mock_event()
     return mock_s_event
 
 @pytest.fixture
 def client(monkeypatch):
     # Мокаем зависимости, чтобы не лезть в реальную БД или NATS
-    monkeypatch.setattr(main.broker, 'connect', AsyncMock(return_value=None))
-    monkeypatch.setattr(main.broker, 'close', AsyncMock(return_value=None))
+    monkeypatch.setattr(main.broker, 'connect', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(main.broker, 'close', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(main.broker, 'stop', AsyncMock(return_value=None), raising=False)
     main.app.dependency_overrides[deps.get_session] = lambda: AsyncMock()
     
     # Мокаем _get_booking_form_context, чтобы не мокать кучу вложенных вызовов

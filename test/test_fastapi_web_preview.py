@@ -63,9 +63,10 @@ def _create_mock_session_event(free_seats_child=None, free_seats_adult=None):
 
 def _create_client(monkeypatch) -> TestClient:
     # Инфраструктурные моки, чтобы тесты работали быстро и не зависали
-    monkeypatch.setattr(broker, 'connect', AsyncMock(return_value=None))
-    monkeypatch.setattr(broker, 'close', AsyncMock(return_value=None))
-    monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None))
+    monkeypatch.setattr(broker, 'connect', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(broker, 'close', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(broker, 'stop', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None), raising=False)
     monkeypatch.setattr(booking_service, 'cleanup_expired_bookings', AsyncMock())
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
 
@@ -354,8 +355,8 @@ def test_index_filtering_and_button_states(monkeypatch):
 def test_index_date_filtering(monkeypatch):
     # Тестируем фильтрацию по дате и наличие данных для календаря
     event = _create_mock_event()
-    # Устанавливаем конкретную дату сеанса
-    target_date = "2026-05-20"
+    # Устанавливаем конкретную дату сеанса в будущем
+    target_date = "2030-05-20"
     event.schedule_events[0].datetime_event = datetime.strptime(target_date, "%Y-%m-%d")
     
     with _create_client(monkeypatch) as client:
@@ -483,7 +484,7 @@ def test_check_promo_api(monkeypatch):
     mock_promo = MagicMock()
     mock_promo.id = 55
     mock_promo.code = "HELLO"
-    mock_promo.discount_value = 500
+    mock_promo.discount = 500
     mock_promo.discount_type = PromotionDiscountType.fixed
     mock_promo.min_purchase_sum = 1000
     mock_promo.flag_active = True
@@ -658,3 +659,203 @@ def test_post_booking_form_skips_chat_id_for_admin(monkeypatch):
         args, kwargs = mock_payment_create.call_args
         payment_params = args[0]
         assert payment_params['metadata']['chat_id'] == 0
+
+
+def test_server_timing_and_request_id_headers(monkeypatch):
+    mock_event = _create_mock_event()
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
+    with _create_client(monkeypatch) as client:
+        response = client.get('/', headers={'X-Request-ID': 'custom-req-123'})
+
+    assert response.status_code == 200
+    assert response.headers.get('X-Request-ID') == 'custom-req-123'
+    assert 'Server-Timing' in response.headers
+    server_timing = response.headers['Server-Timing']
+    assert 'total;dur=' in server_timing
+    assert 'db;dur=' in server_timing
+    assert 'render;dur=' in server_timing
+
+
+def test_prometheus_metrics_endpoint(monkeypatch):
+    with _create_client(monkeypatch) as client:
+        response = client.get('/metrics')
+
+    assert response.status_code == 200
+    assert '# HELP http_requests_total' in response.text
+    assert '# HELP yookassa_requests_total' in response.text
+    assert '# HELP db_query_duration_seconds' in response.text
+
+
+def test_static_cache_control_header(monkeypatch):
+    with _create_client(monkeypatch) as client:
+        response = client.get('/static/css/site.css')
+
+    assert response.status_code == 200
+    assert 'public, max-age=86400' in response.headers.get('Cache-Control', '')
+
+
+def test_booking_form_button_and_spinner_elements(monkeypatch):
+    mock_s_event = _create_mock_session_event()
+    monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
+    monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[]))
+    monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2000))
+    
+    with _create_client(monkeypatch) as client:
+        response = client.get('/booking/101')
+
+    assert response.status_code == 200
+    assert 'id="submit-btn"' in response.text
+    assert 'id="submit-btn-spinner"' in response.text
+    assert 'id="submit-btn-text"' in response.text
+
+
+def test_post_booking_yookassa_success(monkeypatch):
+    mock_payment = MagicMock()
+    mock_payment.id = "pay_async_ok"
+    mock_payment.confirmation.confirmation_url = "https://yookassa.ru/confirm/async_ok"
+    mock_payment_create = MagicMock(return_value=mock_payment)
+    monkeypatch.setattr(Payment, "create", mock_payment_create)
+
+    with _create_client(monkeypatch) as client:
+        mock_event = _create_mock_event()
+        mock_ticket_type = MagicMock()
+        mock_ticket_type.base_ticket_id = 1
+        mock_ticket_type.flag_active = True
+        mock_ticket_type.name = "1+1"
+        mock_ticket_type.cost_main = 2400
+        mock_ticket_type.quality_of_children = 1
+        mock_ticket_type.quality_of_adult = 1
+        mock_ticket_type.quality_of_add_adult = 0
+        mock_ticket_type.to_dto = MagicMock(return_value={})
+
+        monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
+        monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2400))
+        monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
+        monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
+
+        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
+        monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=None))
+
+        form_data = {
+            'ticket_type': '1',
+            'adult_name': 'Иван',
+            'phone': '+79990001122',
+            'email': 'ivan@example.com',
+            'child_name': ['Аня'],
+            'child_age': ['4'],
+        }
+
+        response = client.post('/booking/101', data=form_data, follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers['Location'] == "https://yookassa.ru/confirm/async_ok"
+        assert mock_s_event.qty_child_free_seat == 9
+        assert mock_s_event.qty_child_nonconfirm_seat == 1
+
+
+def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
+    import asyncio
+    def timeout_create(*args, **kwargs):
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr(Payment, "create", timeout_create)
+
+    with _create_client(monkeypatch) as client:
+        mock_event = _create_mock_event()
+        mock_ticket_type = MagicMock()
+        mock_ticket_type.base_ticket_id = 1
+        mock_ticket_type.flag_active = True
+        mock_ticket_type.name = "1+1"
+        mock_ticket_type.cost_main = 2400
+        mock_ticket_type.quality_of_children = 1
+        mock_ticket_type.quality_of_adult = 1
+        mock_ticket_type.quality_of_add_adult = 0
+        mock_ticket_type.to_dto = MagicMock(return_value={})
+
+        monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
+        monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2400))
+        monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
+        monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
+
+        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
+        monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=None))
+
+        form_data = {
+            'ticket_type': '1',
+            'adult_name': 'Иван',
+            'phone': '+79990001122',
+            'email': 'ivan@example.com',
+            'child_name': ['Аня'],
+            'child_age': ['4'],
+        }
+
+        response = client.post('/booking/101', data=form_data)
+        assert response.status_code == 504
+        assert "Сервис оплаты временно недоступен" in response.text
+        # Проверяем, что места откатились назад к исходным 10
+        assert mock_s_event.qty_child_free_seat == 10
+        assert mock_s_event.qty_child_nonconfirm_seat == 0
+
+
+def test_post_booking_yookassa_error_rolls_back_seats(monkeypatch):
+    def error_create(*args, **kwargs):
+        raise RuntimeError("YooKassa API connection error")
+
+    monkeypatch.setattr(Payment, "create", error_create)
+
+    with _create_client(monkeypatch) as client:
+        mock_event = _create_mock_event()
+        mock_ticket_type = MagicMock()
+        mock_ticket_type.base_ticket_id = 1
+        mock_ticket_type.flag_active = True
+        mock_ticket_type.name = "1+1"
+        mock_ticket_type.cost_main = 2400
+        mock_ticket_type.quality_of_children = 1
+        mock_ticket_type.quality_of_adult = 1
+        mock_ticket_type.quality_of_add_adult = 0
+        mock_ticket_type.to_dto = MagicMock(return_value={})
+
+        monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
+        monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2400))
+        monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
+        monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
+
+        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
+        monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=None))
+
+        form_data = {
+            'ticket_type': '1',
+            'adult_name': 'Иван',
+            'phone': '+79990001122',
+            'email': 'ivan@example.com',
+            'child_name': ['Аня'],
+            'child_age': ['4'],
+        }
+
+        response = client.post('/booking/101', data=form_data)
+        assert response.status_code == 500
+        assert "Ошибка при создании платежа" in response.text
+        # Проверяем, что места откатились назад к исходным 10
+        assert mock_s_event.qty_child_free_seat == 10
+        assert mock_s_event.qty_child_nonconfirm_seat == 0
+
+
+def test_payment_result_with_payment_find_one(monkeypatch):
+    mock_ticket = MagicMock()
+    mock_ticket.schedule_event_id = 101
+    mock_ticket.status = MagicMock()
+    mock_ticket.status.value = 'created'
+    mock_ticket.payment_id = "pay_check_123"
+
+    mock_payment = MagicMock()
+    mock_payment.status = "succeeded"
+    monkeypatch.setattr(Payment, "find_one", MagicMock(return_value=mock_payment))
+    monkeypatch.setattr(booking, 'get_ticket', AsyncMock(return_value=mock_ticket))
+
+    with _create_client(monkeypatch) as client:
+        response = client.get('/payment-result?ticket_id=456')
+
+    assert response.status_code == 200
+    assert "Оплата прошла успешно" in response.text
