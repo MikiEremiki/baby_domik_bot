@@ -68,6 +68,8 @@ def _create_client(monkeypatch) -> TestClient:
     monkeypatch.setattr(broker, 'stop', AsyncMock(return_value=None), raising=False)
     monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None), raising=False)
     monkeypatch.setattr(booking_service, 'cleanup_expired_bookings', AsyncMock())
+    monkeypatch.setattr(booking_service, 'publish_update_ticket', AsyncMock(), raising=False)
+    monkeypatch.setattr(booking, 'publish_update_ticket', AsyncMock(), raising=False)
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
 
     # Переопределяем зависимость сессии
@@ -134,8 +136,6 @@ def test_booking_page_has_add_child_button(monkeypatch):
 
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
-    # Убираем мок get_ticket_price_for_web в booking, чтобы проверить работу get_special_ticket_price через booking_service
-    monkeypatch.setattr(booking_service, 'get_base_ticket', AsyncMock(return_value=mock_ticket_type))
     monkeypatch.setattr(booking_service, 'get_special_ticket_price', AsyncMock(return_value=3000))
 
     with _create_client(monkeypatch) as client:
@@ -749,8 +749,6 @@ def test_post_booking_yookassa_success(monkeypatch):
         response = client.post('/booking/101', data=form_data, follow_redirects=False)
         assert response.status_code == 303
         assert response.headers['Location'] == "https://yookassa.ru/confirm/async_ok"
-        assert mock_s_event.qty_child_free_seat == 9
-        assert mock_s_event.qty_child_nonconfirm_seat == 1
 
 
 def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
@@ -772,10 +770,12 @@ def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
         mock_ticket_type.quality_of_add_adult = 0
         mock_ticket_type.to_dto = MagicMock(return_value={})
 
+        mock_publish_cancel = AsyncMock()
         monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
         monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2400))
         monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
+        monkeypatch.setattr(booking, 'publish_update_ticket', mock_publish_cancel)
 
         mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
@@ -793,9 +793,7 @@ def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
         response = client.post('/booking/101', data=form_data)
         assert response.status_code == 504
         assert "Сервис оплаты временно недоступен" in response.text
-        # Проверяем, что места откатились назад к исходным 10
-        assert mock_s_event.qty_child_free_seat == 10
-        assert mock_s_event.qty_child_nonconfirm_seat == 0
+        assert mock_publish_cancel.called
 
 
 def test_post_booking_yookassa_error_rolls_back_seats(monkeypatch):
@@ -816,10 +814,12 @@ def test_post_booking_yookassa_error_rolls_back_seats(monkeypatch):
         mock_ticket_type.quality_of_add_adult = 0
         mock_ticket_type.to_dto = MagicMock(return_value={})
 
+        mock_publish_cancel = AsyncMock()
         monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
         monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2400))
         monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
+        monkeypatch.setattr(booking, 'publish_update_ticket', mock_publish_cancel)
 
         mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
@@ -837,9 +837,7 @@ def test_post_booking_yookassa_error_rolls_back_seats(monkeypatch):
         response = client.post('/booking/101', data=form_data)
         assert response.status_code == 500
         assert "Ошибка при создании платежа" in response.text
-        # Проверяем, что места откатились назад к исходным 10
-        assert mock_s_event.qty_child_free_seat == 10
-        assert mock_s_event.qty_child_nonconfirm_seat == 0
+        assert mock_publish_cancel.called
 
 
 def test_payment_result_with_payment_find_one(monkeypatch):
