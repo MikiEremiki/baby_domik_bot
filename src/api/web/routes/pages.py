@@ -1,9 +1,11 @@
+import time
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import MOSCOW_TZ, templates
 from ..deps import get_session
 from ..logger import logger
+from ..services.metrics_service import metrics_service
 from db.db_postgres import get_all_theater_events_actual, get_theater_event, get_afishas
 from settings.settings import (
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
@@ -23,12 +25,14 @@ async def show_index(
     type_id: int | None = None,
     session: AsyncSession = Depends(get_session)
 ):
-    only_actual = True
     # Невалидный/непубличный type_id игнорируем (показываем все публичные типы)
     if type_id is not None and type_id not in PUBLIC_TYPE_EVENT_IDS:
         type_id = None
 
+    t_db0 = time.perf_counter()
     events_db = await get_all_theater_events_actual(session)
+    dur_db = (time.perf_counter() - t_db0) * 1000
+    metrics_service.record_db_query(dur_db / 1000.0)
     events = []
     now = datetime.now(timezone.utc)
 
@@ -49,16 +53,15 @@ async def show_index(
         for s in e.schedule_events:
             if not s.flag_turn_in_bot:
                 continue
+            if te_type_id is None:
+                te_type_id = s.type_event_id
+                te_type_name = s.type_event.name if getattr(s, 'type_event', None) else ''
+
             dt = s.datetime_event
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             
             if dt >= now:
-                # Запоминаем тип из первого подходящего сеанса
-                if te_type_id is None:
-                    te_type_id = s.type_event_id
-                    te_type_name = s.type_event.name if getattr(s, 'type_event', None) else ''
-
                 dt_moscow = dt.astimezone(MOSCOW_TZ)
                 m_key = dt_moscow.strftime('%Y-%m')
                 d_key = dt_moscow.strftime('%Y-%m-%d')
@@ -113,7 +116,7 @@ async def show_index(
             'min_session_dt': min_session_dt,
         })
     
-    events.sort(key=lambda x: x['min_session_dt'])
+    events.sort(key=lambda x: x['min_session_dt'] or datetime.max.replace(tzinfo=timezone.utc))
     
     sorted_months = sorted(list(available_months))
     month_names = {
@@ -134,9 +137,15 @@ async def show_index(
     ]
 
     year_for_afisha = int(month.split('-')[0]) if month else now.year
+    t_af0 = time.perf_counter()
     afishas_db = await get_afishas(session, year_for_afisha)
+    dur_af = (time.perf_counter() - t_af0) * 1000
+    metrics_service.record_db_query(dur_af / 1000.0)
+    dur_db += dur_af
+    if hasattr(request.state, 'timings'):
+        request.state.timings['db'] = round(dur_db, 1)
+
     afishas = []
-    
     selected_month_int = int(month.split('-')[1]) if month else None
     
     for a in afishas_db:
@@ -150,7 +159,8 @@ async def show_index(
         })
     afishas.sort(key=lambda x: x['month'])
 
-    return templates.TemplateResponse(
+    t_render0 = time.perf_counter()
+    response = templates.TemplateResponse(
         request=request,
         name='index.html',
         context={
@@ -166,11 +176,20 @@ async def show_index(
             'afishas': afishas,
         },
     )
+    if hasattr(request.state, 'timings'):
+        request.state.timings['render'] = round((time.perf_counter() - t_render0) * 1000, 1)
+    return response
 
 @router.get('/event/{event_id}')
 async def show_event_details(request: Request, event_id: int, session: AsyncSession = Depends(get_session)):
     logger.info(f"Showing details for event {event_id}")
+    t_db0 = time.perf_counter()
     e = await get_theater_event(session, event_id)
+    dur_db = (time.perf_counter() - t_db0) * 1000
+    metrics_service.record_db_query(dur_db / 1000.0)
+    if hasattr(request.state, 'timings'):
+        request.state.timings['db'] = round(dur_db, 1)
+
     if e is None:
         logger.warning(f"Event {event_id} not found")
         raise HTTPException(status_code=404, detail="Event not found")
@@ -204,8 +223,13 @@ async def show_event_details(request: Request, event_id: int, session: AsyncSess
         'age': f'{e.min_age_child}+',
         'sessions': sessions,
     }
-    return templates.TemplateResponse(
+
+    t_render0 = time.perf_counter()
+    response = templates.TemplateResponse(
         request=request,
         name='event_details.html',
         context={'event': event, 'sessions': sessions},
     )
+    if hasattr(request.state, 'timings'):
+        request.state.timings['render'] = round((time.perf_counter() - t_render0) * 1000, 1)
+    return response

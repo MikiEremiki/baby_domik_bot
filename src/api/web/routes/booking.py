@@ -1,3 +1,5 @@
+import asyncio
+import time
 import uuid
 from datetime import timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
@@ -7,7 +9,8 @@ from yookassa import Payment
 
 from ..config import MOSCOW_TZ, templates, settings
 from ..deps import get_session
-from ..logger import logger
+from ..logger import logger, PaymentLogContext
+from ..services.metrics_service import metrics_service
 from ..services.booking_service import (
     get_ticket_price_for_web,
     check_promo_restrictions_web,
@@ -113,19 +116,27 @@ async def post_booking_form(
     applied_promo_id: int | None = Form(None),
     session: AsyncSession = Depends(get_session)
 ):
-    logger.info(f"Processing booking for schedule {schedule_id}. Promo: {promo_code}, ID: {applied_promo_id}")
+    req_id = getattr(request.state, 'request_id', None)
+    clean_phone = extract_phone_number_from_text(phone)
+    if len(clean_phone) > 10:
+        clean_phone = clean_phone[-10:]
     
-    phone = extract_phone_number_from_text(phone)
-    if len(phone) > 10:
-        phone = phone[-10:]
+    log_ctx = PaymentLogContext(
+        request_id=req_id,
+        schedule_id=schedule_id,
+        ticket_id=None,
+        phone=clean_phone
+    )
+    log_ctx.info("[1/5]", f"Form received & validated for schedule {schedule_id}. Promo: {promo_code}, adult: {adult_name}, email: {email}")
 
+    phone = clean_phone
     s = await get_schedule_event(session, schedule_id)
     if s is None:
-        logger.warning(f"Schedule event {schedule_id} not found")
+        log_ctx.warning("[1/5]", f"Schedule event {schedule_id} not found")
         raise HTTPException(status_code=404, detail="Сеанс не найден")
     
     if not s.flag_turn_in_bot:
-        logger.warning(f"Schedule event {schedule_id} is turned off for bot/web")
+        log_ctx.warning("[1/5]", f"Schedule event {schedule_id} is turned off for bot/web")
         context = await _get_booking_form_context(request, s, session)
         context.update({
             'error_message': 'Извините, этот сеанс более не доступен для бронирования.',
@@ -144,6 +155,7 @@ async def post_booking_form(
     
     t_e = s.theater_event
     if not check_email(email):
+        log_ctx.warning("[1/5]", f"Invalid email format: {email}")
         context = await _get_booking_form_context(request, s, session)
         context.update({
             'error_message': 'Указан неверный формат email.',
@@ -161,7 +173,7 @@ async def post_booking_form(
         return templates.TemplateResponse(request=request, name='booking_form.html', context=context, status_code=400)
     
     if not t_e.flag_active_repertoire:
-        logger.warning(f"Theater event {t_e.id} is not active in repertoire")
+        log_ctx.warning("[1/5]", f"Theater event {t_e.id} is not active in repertoire")
         context = await _get_booking_form_context(request, s, session)
         context.update({
             'error_message': 'Извините, этот спектакль более не доступен для бронирования',
@@ -180,7 +192,7 @@ async def post_booking_form(
     
     num_children = len(child_name)
     if s.qty_child_free_seat < num_children:
-        logger.warning(f"Not enough seats for schedule {schedule_id}. Requested: {num_children}, Available: {s.qty_child_free_seat}")
+        log_ctx.warning("[1/5]", f"Not enough seats for schedule {schedule_id}. Requested: {num_children}, Available: {s.qty_child_free_seat}")
         context = await _get_booking_form_context(request, s, session)
         context.update({
             'error_message': f"Извините, осталось всего {max(s.qty_child_free_seat, 0)} детских мест",
@@ -273,6 +285,8 @@ async def post_booking_form(
     s.qty_adult_nonconfirm_seat += (q_adult + q_add_adult)
 
     await session.commit()
+    log_ctx.ticket_id = str(ticket.id)
+    log_ctx.info("[2/5]", f"Seats locked & Ticket created in DB (ticket_id={ticket.id}, q_child={q_child}, q_adult={q_adult + q_add_adult})")
     
     try:
         numbers = [s.qty_child_free_seat, s.qty_child_nonconfirm_seat, s.qty_adult_free_seat, s.qty_adult_nonconfirm_seat]
@@ -295,8 +309,9 @@ async def post_booking_form(
             ticket_type_obj.to_dto(),
             str(TicketStatus.CREATED.value)
         )
+        log_ctx.info("[3/5]", f"NATS notification published for ticket {ticket.id}")
     except Exception as gs_err:
-        logger.error(f"Failed to publish gspread tasks: {gs_err}")
+        log_ctx.error("[3/5]", f"Failed to publish gspread tasks: {gs_err}")
 
     dt_event = s.datetime_event.replace(tzinfo=timezone.utc).astimezone(MOSCOW_TZ)
     ticket_id = ticket.id
@@ -335,15 +350,96 @@ async def post_booking_form(
     )
 
     idempotency_id = uuid.uuid4()
+    log_ctx.info("[4/5]", f"YooKassa Payment.create called (idempotency_id={idempotency_id})")
+
+    t_yoo0 = time.perf_counter()
     try:
-        payment = Payment.create(payment_params, idempotency_id)
-        logger.info(f"YooKassa payment created: {payment.id} for ticket {ticket.id}")
+        payment = await asyncio.wait_for(
+            asyncio.to_thread(Payment.create, payment_params, idempotency_id),
+            timeout=10.0
+        )
+        dur_yoo = (time.perf_counter() - t_yoo0) * 1000
+        if hasattr(request.state, 'timings'):
+            request.state.timings['yookassa'] = round(dur_yoo, 1)
+        metrics_service.record_yookassa_call('success', dur_yoo / 1000.0)
+
+        log_ctx.info("[5/5]", f"Redirect 303 to confirmation_url (payment_id={payment.id})")
         ticket.payment_id = payment.id
         await session.commit()
         return RedirectResponse(url=payment.confirmation.confirmation_url, status_code=303)
+    except asyncio.TimeoutError:
+        dur_yoo = (time.perf_counter() - t_yoo0) * 1000
+        if hasattr(request.state, 'timings'):
+            request.state.timings['yookassa'] = round(dur_yoo, 1)
+        metrics_service.record_yookassa_call('timeout', dur_yoo / 1000.0)
+        log_ctx.error("[5/5]", "Payment failed rollback: YooKassa timeout (10s)")
+
+        # Rollback seats and cancel ticket
+        s.qty_child_free_seat += q_child
+        s.qty_child_nonconfirm_seat -= q_child
+        s.qty_adult_free_seat += (q_adult + q_add_adult)
+        s.qty_adult_nonconfirm_seat -= (q_adult + q_add_adult)
+        ticket.status = TicketStatus.CANCELED
+        await session.commit()
+
+        try:
+            numbers = [s.qty_child_free_seat, s.qty_child_nonconfirm_seat, s.qty_adult_free_seat, s.qty_adult_nonconfirm_seat]
+            await publish_write_data_reserve(settings.sheets.sheet_id_domik, s.id, numbers)
+        except Exception as gs_err:
+            log_ctx.error("[5/5]", f"Failed to publish rollback to gspread: {gs_err}")
+
+        context = await _get_booking_form_context(request, s, session)
+        context.update({
+            'error_message': 'Сервис оплаты временно недоступен (тайм-аут). Места освобождены. Пожалуйста, попробуйте еще раз.',
+            'form_data': {
+                'ticket_type': ticket_type,
+                'adult_name': adult_name,
+                'phone': phone,
+                'email': email,
+                'child_name': child_name,
+                'child_age': child_age,
+                'promo_code': promo_code,
+                'applied_promo_id': applied_promo_id,
+            }
+        })
+        return templates.TemplateResponse(request=request, name='booking_form.html', context=context, status_code=504)
     except Exception as pay_err:
-        logger.exception(f"YooKassa payment creation failed: {pay_err}")
-        return RedirectResponse(url=f"/payment-result?status=error&ticket_id={ticket.id}", status_code=303)
+        dur_yoo = (time.perf_counter() - t_yoo0) * 1000
+        if hasattr(request.state, 'timings'):
+            request.state.timings['yookassa'] = round(dur_yoo, 1)
+        metrics_service.record_yookassa_call('error', dur_yoo / 1000.0)
+        log_ctx.exception("[5/5]", f"Payment failed rollback: {pay_err}")
+
+        # Rollback seats and cancel ticket
+        s.qty_child_free_seat += q_child
+        s.qty_child_nonconfirm_seat -= q_child
+        s.qty_adult_free_seat += (q_adult + q_add_adult)
+        s.qty_adult_nonconfirm_seat -= (q_adult + q_add_adult)
+        ticket.status = TicketStatus.CANCELED
+        await session.commit()
+
+        try:
+            numbers = [s.qty_child_free_seat, s.qty_child_nonconfirm_seat, s.qty_adult_free_seat, s.qty_adult_nonconfirm_seat]
+            await publish_write_data_reserve(settings.sheets.sheet_id_domik, s.id, numbers)
+        except Exception as gs_err:
+            log_ctx.error("[5/5]", f"Failed to publish rollback to gspread: {gs_err}")
+
+        context = await _get_booking_form_context(request, s, session)
+        context.update({
+            'error_message': 'Ошибка при создании платежа. Места освобождены. Пожалуйста, попробуйте еще раз.',
+            'form_data': {
+                'ticket_type': ticket_type,
+                'adult_name': adult_name,
+                'phone': phone,
+                'email': email,
+                'child_name': child_name,
+                'child_age': child_age,
+                'promo_code': promo_code,
+                'applied_promo_id': applied_promo_id,
+            }
+        })
+        return templates.TemplateResponse(request=request, name='booking_form.html', context=context, status_code=500)
+
 
 @router.get('/payment-result')
 async def show_payment_result(
@@ -352,6 +448,10 @@ async def show_payment_result(
     ticket_id: int | None = None,
     session: AsyncSession = Depends(get_session)
 ):
+    req_id = getattr(request.state, 'request_id', None)
+    log_ctx = PaymentLogContext(request_id=req_id, ticket_id=ticket_id)
+    log_ctx.info("PAYMENT_RESULT", f"Checking payment status for ticket_id={ticket_id}, status_param={status}")
+
     is_success = False
     schedule_id = None
     confirmation_url = None
@@ -364,14 +464,17 @@ async def show_payment_result(
                 is_success = True
             elif ticket.payment_id:
                 try:
-                    payment = Payment.find_one(ticket.payment_id)
+                    payment = await asyncio.wait_for(
+                        asyncio.to_thread(Payment.find_one, ticket.payment_id),
+                        timeout=10.0
+                    )
                     if payment.status == 'succeeded':
                         is_success = True
                     elif payment.status == 'pending':
                         if hasattr(payment, 'confirmation') and hasattr(payment.confirmation, 'confirmation_url'):
                             confirmation_url = payment.confirmation.confirmation_url
                 except Exception as e:
-                    logger.error(f"Error checking payment status for ticket {ticket_id}: {e}")
+                    log_ctx.error("PAYMENT_RESULT", f"Error checking payment status for ticket {ticket_id}: {e}")
                     is_success = (status.lower() == 'success')
         else:
             is_success = (status.lower() == 'success')
