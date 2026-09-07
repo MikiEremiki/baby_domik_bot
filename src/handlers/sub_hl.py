@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from typing import List, Union, Optional
@@ -384,9 +385,35 @@ async def create_and_send_payment(
     )
     idempotency_id = uuid.uuid4()
     try:
-        text += '\nСоздаю ссылку на оплату...'
-        await message.edit_text(text)
-        payment = Payment.create(param, idempotency_id)
+        text_loading = '\n\n⏳ Формирую ссылку на оплату...'
+        await message.edit_text(text_loading)
+
+        payment = await asyncio.wait_for(
+            asyncio.to_thread(Payment.create, param, idempotency_id),
+            timeout=10.0
+        )
+    except asyncio.TimeoutError as e:
+        sub_hl_logger.error(
+            f'YooKassa gateway error for ticket_ids={ticket_ids}: {e}')
+
+        keyboard = [
+            [InlineKeyboardButton('🔄 Попробовать снова',
+                                  callback_data='retry_payment')],
+            [InlineKeyboardButton('❌ Отменить бронирование',
+                                  callback_data=f"{context.user_data['postfix_for_cancel']}|cancel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await message.edit_text(
+            text=(
+                '⏳ <b>Платежный сервис временно недоступен или отвечает дольше обычного.</b>\n\n'
+                'Ваши места сохранены. Нажмите <b>«Попробовать снова»</b> или отмените заказ.'
+            ),
+            reply_markup=reply_markup
+        )
+        state = 'CONFIRM_RESERVATION'
+        context.user_data['STATE'] = state
+        return state
     except ValueError as e:
         sub_hl_logger.error(e)
         sub_hl_logger.error(param)

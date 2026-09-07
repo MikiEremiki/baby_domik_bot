@@ -41,6 +41,7 @@ from handlers.reserve.payment import (
     forward_photo_or_file,
     processing_successful_notification,
     confirm_payment,
+    retry_payment,
     conversation_timeout,
     TIMEOUT_HANDLER,
 )
@@ -77,6 +78,7 @@ __all__ = [
     'forward_photo_or_file',
     'processing_successful_notification',
     'confirm_payment',
+    'retry_payment',
     'conversation_timeout',
     'TIMEOUT_HANDLER',
     'send_clients_data',

@@ -615,6 +615,18 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return 'WAIT_RECEIPT'
 
 
+async def retry_payment(update: Update,
+                                context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Повторяем запрос к платежному сервису...")
+
+    # Удаляем кнопки и показываем спиннер
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    # Повторно вызываем создание платежа для сохраненных параметров
+    return await create_and_send_payment(update, context)
+
+
 async def conversation_timeout(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'

@@ -103,31 +103,24 @@ async def get_ticket_and_price(context, base_ticket_id):
 
 
 async def cancel_tickets_db_and_gspread(update, context):
-    # TODO переделать на более надежный флаг: билет Требует/Не требует отмены.
-    #  По сути не должно быть билетов в статусе CREATED
-    states_for_cancel = ['CHILDREN', 'PAID']
-    state = context.user_data.get('STATE', None)
-    if state in states_for_cancel:
-        utl_ticket_logger.info(context.user_data['STATE'])
+    reserve_user_data = context.user_data.get('reserve_user_data', {})
+    ticket_ids = reserve_user_data.get('ticket_ids')
+    changed_seat = reserve_user_data.get('changed_seat', False)
 
+    # Если билеты созданы или места были списаны — гарантированно возвращаем
+    if ticket_ids or changed_seat:
         try:
             effective_chat = getattr(update, 'effective_chat', None)
-            if not effective_chat:
-                return
-            await context.bot.edit_message_reply_markup(
-                chat_id=effective_chat.id,
-                message_id=context.user_data['common_data'][
-                    'message_id_buy_info']
-            )
-        except BadRequest as e:
-            utl_ticket_logger.error(e)
-        except KeyError as e:
-            utl_ticket_logger.error(e)
-            utl_ticket_logger.error(
-                f'state={context.user_data['STATE']}, если это CHILDREN, '
-                f'то сообщение с оплатой еще не создалось, '
-                f'так как обычно не создается платеж из-за неверного email'
-            )
+            if effective_chat and 'common_data' in context.user_data:
+                msg_id = context.user_data['common_data'].get(
+                    'message_id_buy_info')
+                if msg_id:
+                    await context.bot.edit_message_reply_markup(
+                        chat_id=effective_chat.id,
+                        message_id=msg_id
+                    )
+        except Exception as e:
+            utl_ticket_logger.error(f"Error editing reply markup: {e}")
 
         await write_to_return_seats_for_sale(context)
 
