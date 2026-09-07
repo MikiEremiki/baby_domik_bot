@@ -729,7 +729,7 @@ async def get_all_theater_events_actual(session: AsyncSession):
     query = select(TheaterEvent).where(
         or_(TheaterEvent.flag_active_repertoire == True, TheaterEvent.flag_active_bd == True),
     ).options(
-        selectinload(TheaterEvent.schedule_events),
+        selectinload(TheaterEvent.schedule_events).selectinload(ScheduleEvent.type_event),
     )
     result = await session.execute(query)
     return result.scalars().all()
