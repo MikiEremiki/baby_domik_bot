@@ -300,11 +300,11 @@ class ScheduleEvent(BaseModelTimed):
         back_populates='schedule_events', lazy='selectin')
 
     qty_child: Mapped[int]
-    qty_child_free_seat: Mapped[int]
-    qty_child_nonconfirm_seat: Mapped[int]
+    qty_child_free_seat: Mapped[int] = mapped_column(default=0)
+    qty_child_nonconfirm_seat: Mapped[int] = mapped_column(default=0)
     qty_adult: Mapped[int]
-    qty_adult_free_seat: Mapped[int]
-    qty_adult_nonconfirm_seat: Mapped[int]
+    qty_adult_free_seat: Mapped[int] = mapped_column(default=0)
+    qty_adult_nonconfirm_seat: Mapped[int] = mapped_column(default=0)
 
     flag_gift: Mapped[bool] = mapped_column(default=False)
     flag_christmas_tree: Mapped[bool] = mapped_column(default=False)
