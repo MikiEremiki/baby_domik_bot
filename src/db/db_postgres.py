@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Collection, List, Type, Sequence, Any
 
-from sqlalchemy import select, func, DATE, and_, delete, or_
+from sqlalchemy import select, func, DATE, and_, delete, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, Mapped
 
@@ -63,6 +63,11 @@ async def update_schedule_events_from_googlesheets(
         session: AsyncSession, schedule_events):
     for _event in schedule_events:
         dto_model = _event.to_dto()
+        # Прекращаем перезапись расчетных остатков свободных мест из Google Sheets
+        dto_model.pop('qty_child_free_seat', None)
+        dto_model.pop('qty_child_nonconfirm_seat', None)
+        dto_model.pop('qty_adult_free_seat', None)
+        dto_model.pop('qty_adult_nonconfirm_seat', None)
         await session.merge(ScheduleEvent(**dto_model))
     await session.commit()
 
@@ -610,7 +615,10 @@ async def get_theater_event(
         .where(TheaterEvent.id == theater_event_id)
         .options(selectinload(TheaterEvent.schedule_events))
     )
-    return result.scalar_one_or_none()
+    event = result.scalar_one_or_none()
+    if event and event.schedule_events:
+        await populate_schedule_events_seats(session, event.schedule_events)
+    return event
 
 
 async def get_schedule_event(
@@ -626,7 +634,10 @@ async def get_schedule_event(
             selectinload(ScheduleEvent.base_tickets)
         )
     )
-    return result.scalar_one_or_none()
+    event = result.scalar_one_or_none()
+    if event:
+        await populate_schedule_events_seats(session, [event])
+    return event
 
 
 async def get_users_by_ids(session: AsyncSession,
@@ -675,7 +686,10 @@ async def get_schedule_events_by_ids(session: AsyncSession,
         ScheduleEvent.id.in_(schedule_event_ids)
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_promotion(session: AsyncSession,
@@ -732,7 +746,14 @@ async def get_all_theater_events_actual(session: AsyncSession):
         selectinload(TheaterEvent.schedule_events).selectinload(ScheduleEvent.type_event),
     )
     result = await session.execute(query)
-    return result.scalars().all()
+    theater_events = result.scalars().all()
+    all_schedules = []
+    for te in theater_events:
+        if te.schedule_events:
+            all_schedules.extend(te.schedule_events)
+    if all_schedules:
+        await populate_schedule_events_seats(session, all_schedules)
+    return theater_events
 
 
 async def get_all_type_events(session: AsyncSession):
@@ -758,7 +779,10 @@ async def get_all_schedule_events_actual(session: AsyncSession):
         selectinload(ScheduleEvent.type_event)
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_schedule_events_filtered(
@@ -782,7 +806,10 @@ async def get_schedule_events_filtered(
 
     query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_promotion_by_code(session: AsyncSession,
@@ -1061,7 +1088,10 @@ async def get_schedule_events_by_type_actual(
         ScheduleEvent.datetime_event >= datetime.now()
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_last_schedule_update_time(session: AsyncSession) -> datetime:
@@ -1078,7 +1108,10 @@ async def get_schedule_events_by_theater_ids_actual(
         ScheduleEvent.datetime_event >= datetime.now()
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_schedule_events_by_ids_and_theater(
@@ -1091,7 +1124,10 @@ async def get_schedule_events_by_ids_and_theater(
         ScheduleEvent.theater_event_id.in_(theater_event_ids),
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_actual_schedule_events_by_date(
@@ -1099,7 +1135,10 @@ async def get_actual_schedule_events_by_date(
     query = select(ScheduleEvent).where(
         and_(func.cast(ScheduleEvent.datetime_event, DATE) == date_event))
     result = await session.execute(query)
-    return result.scalars().all()
+    events = result.scalars().all()
+    if events:
+        await populate_schedule_events_seats(session, events)
+    return events
 
 
 async def get_schedule_theater_base_tickets(context, choice_event_id: int):
@@ -1459,3 +1498,152 @@ async def delete_afisha(session: AsyncSession, month: int, year: int):
     query = delete(Afisha).where(Afisha.month == month, Afisha.year == year)
     await session.execute(query)
     await session.commit()
+
+
+async def get_schedule_events_with_seats(
+    session: AsyncSession,
+    schedule_event_ids: Collection[int]
+) -> dict[int, dict]:
+    """
+    Пакетный динамический расчет свободных и занятых мест для списка сеансов.
+    Источник истины — таблица tickets (активные билеты PAID/APPROVED, либо CREATED <= 10 мин).
+    """
+    if not schedule_event_ids:
+        return {}
+
+    ids = list(schedule_event_ids)
+    cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+
+    # Активные билеты, удерживающие места
+    active_ticket_filter = or_(
+        Ticket.status.in_([TicketStatus.PAID, TicketStatus.APPROVED]),
+        and_(
+            Ticket.status == TicketStatus.CREATED,
+            Ticket.created_at >= cutoff_time
+        )
+    )
+
+    subq = (
+        select(
+            Ticket.schedule_event_id.label('schedule_event_id'),
+            func.coalesce(func.sum(BaseTicket.quality_of_children), 0).label('occupied_child'),
+            func.coalesce(
+                func.sum(BaseTicket.quality_of_adult + BaseTicket.quality_of_add_adult), 0
+            ).label('occupied_adult'),
+            func.coalesce(
+                func.sum(case((Ticket.status == TicketStatus.CREATED, BaseTicket.quality_of_children), else_=0)), 0
+            ).label('nonconfirm_child'),
+            func.coalesce(
+                func.sum(case((Ticket.status == TicketStatus.CREATED, BaseTicket.quality_of_adult + BaseTicket.quality_of_add_adult), else_=0)), 0
+            ).label('nonconfirm_adult'),
+        )
+        .join(BaseTicket, Ticket.base_ticket_id == BaseTicket.base_ticket_id)
+        .where(
+            Ticket.schedule_event_id.in_(ids),
+            active_ticket_filter
+        )
+        .group_by(Ticket.schedule_event_id)
+        .subquery()
+    )
+
+    query = (
+        select(
+            ScheduleEvent.id,
+            ScheduleEvent.qty_child,
+            ScheduleEvent.qty_adult,
+            func.coalesce(subq.c.occupied_child, 0).label('occupied_child'),
+            func.coalesce(subq.c.occupied_adult, 0).label('occupied_adult'),
+            func.coalesce(subq.c.nonconfirm_child, 0).label('nonconfirm_child'),
+            func.coalesce(subq.c.nonconfirm_adult, 0).label('nonconfirm_adult'),
+        )
+        .outerjoin(subq, ScheduleEvent.id == subq.c.schedule_event_id)
+        .where(ScheduleEvent.id.in_(ids))
+    )
+
+    result = await session.execute(query)
+    seats_map = {}
+    for row in result:
+        total_child = int(row.qty_child or 0)
+        total_adult = int(row.qty_adult or 0)
+        occupied_child = int(row.occupied_child or 0)
+        occupied_adult = int(row.occupied_adult or 0)
+        nonconfirm_child = int(row.nonconfirm_child or 0)
+        nonconfirm_adult = int(row.nonconfirm_adult or 0)
+        free_child = max(0, total_child - occupied_child)
+        free_adult = max(0, total_adult - occupied_adult)
+
+        seats_map[row.id] = {
+            'schedule_event_id': row.id,
+            'total_child': total_child,
+            'total_adult': total_adult,
+            'occupied_child': occupied_child,
+            'occupied_adult': occupied_adult,
+            'free_child': free_child,
+            'free_adult': free_adult,
+            'nonconfirm_child': nonconfirm_child,
+            'nonconfirm_adult': nonconfirm_adult,
+        }
+    return seats_map
+
+
+async def get_schedule_event_available_seats(
+    session: AsyncSession,
+    schedule_event_id: int
+) -> dict:
+    """
+    Динамический расчет свободных мест для одного сеанса.
+    """
+    seats_map = await get_schedule_events_with_seats(session, [schedule_event_id])
+    if schedule_event_id in seats_map:
+        return seats_map[schedule_event_id]
+
+    se = await session.get(ScheduleEvent, schedule_event_id)
+    if not se:
+        return {
+            'schedule_event_id': schedule_event_id,
+            'total_child': 0,
+            'total_adult': 0,
+            'occupied_child': 0,
+            'occupied_adult': 0,
+            'free_child': 0,
+            'free_adult': 0,
+            'nonconfirm_child': 0,
+            'nonconfirm_adult': 0,
+        }
+
+    return {
+        'schedule_event_id': schedule_event_id,
+        'total_child': int(se.qty_child or 0),
+        'total_adult': int(se.qty_adult or 0),
+        'occupied_child': 0,
+        'occupied_adult': 0,
+        'free_child': int(se.qty_child or 0),
+        'free_adult': int(se.qty_adult or 0),
+        'nonconfirm_child': 0,
+        'nonconfirm_adult': 0,
+    }
+
+
+async def populate_schedule_events_seats(
+    session: AsyncSession,
+    schedule_events: Sequence[ScheduleEvent]
+) -> Sequence[ScheduleEvent]:
+    """
+    Заполняет расчетные поля свободных/неподтвержденных мест для коллекции событий.
+    """
+    if not schedule_events:
+        return schedule_events
+
+    event_ids = [e.id for e in schedule_events if e and e.id is not None]
+    if not event_ids:
+        return schedule_events
+
+    seats_map = await get_schedule_events_with_seats(session, event_ids)
+    for event in schedule_events:
+        if event and event.id in seats_map:
+            s = seats_map[event.id]
+            event.qty_child_free_seat = s['free_child']
+            event.qty_adult_free_seat = s['free_adult']
+            event.qty_child_nonconfirm_seat = s['nonconfirm_child']
+            event.qty_adult_nonconfirm_seat = s['nonconfirm_adult']
+    return schedule_events

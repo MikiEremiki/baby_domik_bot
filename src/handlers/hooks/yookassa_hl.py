@@ -220,14 +220,23 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     if is_admin_booking:
         # Для админских бронирований: списываем неподтвержденные места и отправляем сразу подтверждение пользователю
+        event_ids_to_sync = set()
         for ticket_id in ticket_ids:
             try:
                 t = await db_postgres.get_ticket(context.session, ticket_id)
-                await decrease_nonconfirm_seat(
-                    context, t.schedule_event_id, t.base_ticket_id)
+                if t:
+                    event_ids_to_sync.add(t.schedule_event_id)
             except Exception as e:
-                text = f'Не удалось списать неподтвержденные места для {ticket_id}: {e}'
+                text = f'Не удалось получить билет {ticket_id}: {e}'
                 webhook_hl_logger.exception(text)
+
+        for event_id in event_ids_to_sync:
+            try:
+                await decrease_nonconfirm_seat(context, event_id)
+            except Exception as e:
+                text = f'Не удалось списать неподтвержденные места для {event_id=}: {e}'
+                webhook_hl_logger.exception(text)
+
         if int_chat_id != 0:
             try:
                 await send_approve_message(int_chat_id, context, ticket_ids)

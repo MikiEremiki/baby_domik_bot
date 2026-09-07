@@ -7,15 +7,15 @@ from db.models import BaseTicket, ScheduleEvent, TheaterEvent, Promotion
 from db.enum import PriceType, PromotionDiscountType, TicketStatus
 from db.db_postgres import (
     get_expired_tickets,
-    get_base_ticket,
     get_schedule_event,
+    get_schedule_event_available_seats,
     get_special_ticket_price,
 )
-from api.gspread_pub import publish_write_data_reserve
+from api.gspread_pub import publish_write_data_reserve, publish_update_ticket
 
 async def cleanup_expired_bookings():
     """
-    Периодическая задача для освобождения мест билетов, 
+    Периодическая задача для отмены билетов, 
     которые не были оплачены в течение 10 минут.
     """
     while True:
@@ -29,32 +29,26 @@ async def cleanup_expired_bookings():
                 logger.info(f"Found {len(expired_tickets)} expired tickets. Starting cleanup.")
                 for ticket in expired_tickets:
                     try:
-                        bt = await get_base_ticket(session, ticket.base_ticket_id)
-                        s = await get_schedule_event(session, ticket.schedule_event_id)
-                        
-                        if bt and s:
-                            q_child = bt.quality_of_children
-                            q_adult = bt.quality_of_adult
-                            q_add_adult = bt.quality_of_add_adult
-                            
-                            s.qty_child_free_seat += q_child
-                            s.qty_child_nonconfirm_seat -= q_child
-                            s.qty_adult_free_seat += (q_adult + q_add_adult)
-                            s.qty_adult_nonconfirm_seat -= (q_adult + q_add_adult)
-                            
-                            logger.info(f"Returning seats for ticket {ticket.id} on schedule {s.id}")
-                            
-                            numbers = [
-                                s.qty_child_free_seat,
-                                s.qty_child_nonconfirm_seat,
-                                s.qty_adult_free_seat,
-                                s.qty_adult_nonconfirm_seat
-                            ]
-                            await publish_write_data_reserve(settings.sheets.sheet_id_domik, s.id, numbers)
-                        
                         ticket.status = TicketStatus.CANCELED
                         await session.commit()
                         logger.info(f"Ticket {ticket.id} marked as CANCELED")
+
+                        try:
+                            await publish_update_ticket(
+                                settings.sheets.sheet_id_domik,
+                                ticket.id,
+                                TicketStatus.CANCELED.value
+                            )
+                            seats = await get_schedule_event_available_seats(session, ticket.schedule_event_id)
+                            numbers = [
+                                seats['free_child'],
+                                seats['nonconfirm_child'],
+                                seats['free_adult'],
+                                seats['nonconfirm_adult']
+                            ]
+                            await publish_write_data_reserve(settings.sheets.sheet_id_domik, ticket.schedule_event_id, numbers)
+                        except Exception as nats_err:
+                            logger.error(f"Error publishing cancel update to NATS for ticket {ticket.id}: {nats_err}")
                         
                     except Exception as ticket_err:
                         logger.error(f"Error cleaning up ticket {ticket.id}: {ticket_err}")

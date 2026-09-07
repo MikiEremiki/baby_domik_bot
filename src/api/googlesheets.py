@@ -321,8 +321,8 @@ async def _write_data_to_batch_update(
     ss = await _open_spreadsheet(spreadsheet_id)
 
     try:
-        responses = await ss.agcm._call(ss.ss.values_batch_update,
-                                       body=value_range_body)
+        responses = await _agcm._call(ss.ss.values_batch_update,
+                                      body=value_range_body)
         googlesheets_logger.info(
             f"spreadsheetId: {responses.get('spreadsheetId', '')}")
         for response in responses.get('responses', []):
@@ -330,6 +330,10 @@ async def _write_data_to_batch_update(
                 ['updatedRange: ', response.get('updatedRange', '')]))
     except TimeoutError:
         googlesheets_logger.error(value_range_body)
+    except Exception as err:
+        googlesheets_logger.error(
+            f"Error in _write_data_to_batch_update: {err}", exc_info=True)
+        raise
 
 
 async def write_client_cme(

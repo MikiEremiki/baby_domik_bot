@@ -323,6 +323,50 @@ async def load_special_ticket_price() -> Dict:
     return special_ticket_price
 
 
+async def _sync_schedule_event_seats(
+        context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+        option: int,
+        error_msg_title: str
+) -> int:
+    """
+    Вспомогательная функция для синхронизации мест сеанса с Google Sheets.
+    Получает актуальные остатки мест из БД Postgres и отправляет задачу на запись в Google Sheets.
+    """
+    try:
+        seats = await db_postgres.get_schedule_event_available_seats(
+            context.session, int(event_id))
+        match option:
+            case 1:
+                numbers = [
+                    seats['free_child'],
+                    seats['nonconfirm_child'],
+                    seats['free_adult'],
+                    seats['nonconfirm_adult']
+                ]
+            case 2:
+                numbers = [
+                    seats['nonconfirm_child'],
+                    seats['nonconfirm_adult']
+                ]
+            case 3:
+                numbers = [
+                    seats['free_child'],
+                    seats['free_adult']
+                ]
+            case _:
+                raise ValueError(f"Unknown seat sync option: {option}")
+
+        await _publish_write_data_reserve(int(event_id), numbers, option)
+        return 1
+    except Exception as e:
+        db_googlesheets_logger.error(f"Error in {error_msg_title}: {e}")
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=f'{error_msg_title} у {event_id=} в расписании')
+        return 0
+
+
 async def load_clients_wait_data(
         event_ids: List[int]
 ) -> Tuple[List[List[str]], Dict[int | str, int]]:
@@ -341,303 +385,95 @@ async def load_clients_wait_data(
 
 async def increase_free_and_decrease_nonconfirm_seat(
         context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+) -> int:
+    """
+    Синхронизирует свободные и неподтвержденные места сеанса (опция 1).
+    Используется при отмене/отклонении неоплаченной брони.
+    """
+    return await _sync_schedule_event_seats(
+        context,
         event_id,
-        chose_base_ticket_id,
-):
-    schedule_event = await db_postgres.get_schedule_event(
-        context.session, event_id)
-    chose_base_ticket = await db_postgres.get_base_ticket(
-        context.session, chose_base_ticket_id)
-
-    q_child_free_seat = schedule_event.qty_child_free_seat
-    q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
-    q_adult_free_seat = schedule_event.qty_adult_free_seat
-    q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
-
-    q_child = chose_base_ticket.quality_of_children
-    q_adult = chose_base_ticket.quality_of_adult
-    q_add_adult = chose_base_ticket.quality_of_add_adult
-
-    qty_child_free_seat_new = (
-            q_child_free_seat + q_child)
-    qty_child_nonconfirm_seat_new = (
-            q_child_nonconfirm_seat - q_child)
-    qty_adult_free_seat_new = (
-            q_adult_free_seat + (q_adult + q_add_adult))
-    qty_adult_nonconfirm_seat_new = (
-            q_adult_nonconfirm_seat - (q_adult + q_add_adult))
-
-    numbers = [
-        qty_child_free_seat_new,
-        qty_child_nonconfirm_seat_new,
-        qty_adult_free_seat_new,
-        qty_adult_nonconfirm_seat_new
-    ]
-
-    try:
-        await _publish_write_data_reserve(event_id, numbers)
-        await db_postgres.update_schedule_event(
-            context.session,
-            int(event_id),
-            qty_child_free_seat=qty_child_free_seat_new,
-            qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
-            qty_adult_free_seat=qty_adult_free_seat_new,
-            qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
-        )
-        return 1
-    except TimeoutError as e:
-        db_googlesheets_logger.error(e)
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не уменьшились свободные места и не увеличились '
-                 f'неподтвержденные места у {event_id=} в расписании')
-        return 0
+        option=1,
+        error_msg_title='Не уменьшились свободные места и не увеличились неподтвержденные места'
+    )
 
 
 async def decrease_free_and_increase_nonconfirm_seat(
         context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+) -> int:
+    """
+    Синхронизирует свободные и неподтвержденные места сеанса (опция 1).
+    Используется при резервировании билета пользователем до оплаты.
+    """
+    return await _sync_schedule_event_seats(
+        context,
         event_id,
-        chose_base_ticket_id,
-):
-    schedule_event = await db_postgres.get_schedule_event(
-        context.session, event_id)
-    chose_base_ticket = await db_postgres.get_base_ticket(
-        context.session, chose_base_ticket_id)
-
-    q_child_free_seat = schedule_event.qty_child_free_seat
-    q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
-    q_adult_free_seat = schedule_event.qty_adult_free_seat
-    q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
-
-    q_child = chose_base_ticket.quality_of_children
-    q_adult = chose_base_ticket.quality_of_adult
-    q_add_adult = chose_base_ticket.quality_of_add_adult
-
-    qty_child_free_seat_new = (
-            q_child_free_seat - q_child)
-    qty_child_nonconfirm_seat_new = (
-            q_child_nonconfirm_seat + q_child)
-    qty_adult_free_seat_new = (
-            q_adult_free_seat - (q_adult + q_add_adult))
-    qty_adult_nonconfirm_seat_new = (
-            q_adult_nonconfirm_seat + (q_adult + q_add_adult))
-
-    numbers = [
-        qty_child_free_seat_new,
-        qty_child_nonconfirm_seat_new,
-        qty_adult_free_seat_new,
-        qty_adult_nonconfirm_seat_new
-    ]
-
-    try:
-        await _publish_write_data_reserve(event_id, numbers)
-        await db_postgres.update_schedule_event(
-            context.session,
-            int(event_id),
-            qty_child_free_seat=qty_child_free_seat_new,
-            qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
-            qty_adult_free_seat=qty_adult_free_seat_new,
-            qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
-        )
-        return 1
-    except TimeoutError as e:
-        db_googlesheets_logger.error(e)
-        db_googlesheets_logger.error(
-            f'{event_id=} Ошибка при обновлении данных')
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не уменьшились свободные места и не увеличились '
-                 f'неподтвержденные места у {event_id=} в расписании')
-        return 0
+        option=1,
+        error_msg_title='Не уменьшились свободные места и не увеличились неподтвержденные места'
+    )
 
 
 async def increase_free_seat(
         context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+) -> int:
+    """
+    Синхронизирует свободные места сеанса (опция 3).
+    Используется при возврате оплаченного билета или освобождении мест.
+    """
+    return await _sync_schedule_event_seats(
+        context,
         event_id,
-        chose_base_ticket_id,
-):
-    schedule_event = await db_postgres.get_schedule_event(
-        context.session, event_id)
-    chose_base_ticket = await db_postgres.get_base_ticket(
-        context.session, chose_base_ticket_id)
-
-    q_child_free_seat = schedule_event.qty_child_free_seat
-    q_adult_free_seat = schedule_event.qty_adult_free_seat
-
-    q_child = chose_base_ticket.quality_of_children
-    q_adult = chose_base_ticket.quality_of_adult
-    q_add_adult = chose_base_ticket.quality_of_add_adult
-
-    qty_child_free_seat_new = (
-            q_child_free_seat + q_child)
-    qty_adult_free_seat_new = (
-            q_adult_free_seat + (q_adult + q_add_adult))
-
-    numbers = [
-        qty_child_free_seat_new,
-        qty_adult_free_seat_new,
-    ]
-
-    try:
-        await _publish_write_data_reserve(event_id, numbers, 3)
-        await db_postgres.update_schedule_event(
-            context.session,
-            int(event_id),
-            qty_child_free_seat=qty_child_free_seat_new,
-            qty_adult_free_seat=qty_adult_free_seat_new,
-        )
-        return 1
-    except TimeoutError as e:
-        db_googlesheets_logger.error(e)
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не увеличились свободные места у {event_id=}'
-                 f' в расписании')
-        return 0
+        option=3,
+        error_msg_title='Не увеличились свободные места'
+    )
 
 
 async def decrease_free_seat(
         context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+) -> int:
+    """
+    Синхронизирует свободные места сеанса (опция 3).
+    Используется при прямом списании свободных мест (например, админом или при оплате).
+    """
+    return await _sync_schedule_event_seats(
+        context,
         event_id,
-        chose_base_ticket_id,
-):
-    schedule_event = await db_postgres.get_schedule_event(
-        context.session, event_id)
-    chose_base_ticket = await db_postgres.get_base_ticket(
-        context.session, chose_base_ticket_id)
-
-    q_child_free_seat = schedule_event.qty_child_free_seat
-    q_adult_free_seat = schedule_event.qty_adult_free_seat
-
-    q_child = chose_base_ticket.quality_of_children
-    q_adult = chose_base_ticket.quality_of_adult
-    q_add_adult = chose_base_ticket.quality_of_add_adult
-
-    qty_child_free_seat_new = (
-            q_child_free_seat - q_child)
-    qty_adult_free_seat_new = (
-            q_adult_free_seat - (q_adult + q_add_adult))
-
-    numbers = [
-        qty_child_free_seat_new,
-        qty_adult_free_seat_new,
-    ]
-
-    try:
-        await _publish_write_data_reserve(event_id, numbers, 3)
-        await db_postgres.update_schedule_event(
-            context.session,
-            int(event_id),
-            qty_child_free_seat=qty_child_free_seat_new,
-            qty_adult_free_seat=qty_adult_free_seat_new,
-        )
-        return 1
-    except TimeoutError as e:
-        db_googlesheets_logger.error(e)
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не уменьшились свободные места у {event_id=}'
-                 f' в расписании')
-        return 0
+        option=3,
+        error_msg_title='Не уменьшились свободные места'
+    )
 
 
 async def decrease_nonconfirm_seat(
         context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+) -> int:
+    """
+    Синхронизирует неподтвержденные места сеанса (опция 2).
+    Используется при подтверждении брони (перевод из неподтвержденных в подтвержденные).
+    """
+    return await _sync_schedule_event_seats(
+        context,
         event_id,
-        chose_base_ticket_id
-):
-    schedule_event = await db_postgres.get_schedule_event(
-        context.session, event_id)
-    chose_base_ticket = await db_postgres.get_base_ticket(
-        context.session, chose_base_ticket_id)
-
-    q_child_nonconfirm_seat = schedule_event.qty_child_nonconfirm_seat
-    q_adult_nonconfirm_seat = schedule_event.qty_adult_nonconfirm_seat
-
-    q_child = chose_base_ticket.quality_of_children
-    q_adult = chose_base_ticket.quality_of_adult
-    q_add_adult = chose_base_ticket.quality_of_add_adult
-
-    qty_child_nonconfirm_seat_new = (
-            q_child_nonconfirm_seat - q_child)
-    qty_adult_nonconfirm_seat_new = (
-            q_adult_nonconfirm_seat - (q_adult + q_add_adult))
-
-    numbers = [
-        qty_child_nonconfirm_seat_new,
-        qty_adult_nonconfirm_seat_new
-    ]
-
-    try:
-        await _publish_write_data_reserve(event_id, numbers, 2)
-        await db_postgres.update_schedule_event(
-            context.session,
-            int(event_id),
-            qty_child_nonconfirm_seat=qty_child_nonconfirm_seat_new,
-            qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat_new,
-        )
-        return 1
-    except TimeoutError as e:
-        db_googlesheets_logger.error(e)
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не уменьшились неподтвержденные места у {event_id=}'
-                 f' в расписании')
-        return 0
+        option=2,
+        error_msg_title='Не уменьшились неподтвержденные места'
+    )
 
 
 async def update_free_seat(
         context: 'ContextTypes.DEFAULT_TYPE',
+        event_id: int | str,
+) -> int:
+    """
+    Синхронизирует свободные места сеанса (опция 3).
+    Используется при смене типа билета у существующей брони.
+    """
+    return await _sync_schedule_event_seats(
+        context,
         event_id,
-        old_base_ticket_id,
-        new_base_ticket_id
-):
-    schedule_event = await db_postgres.get_schedule_event(
-        context.session, event_id)
-    old_base_ticket = await db_postgres.get_base_ticket(
-        context.session, old_base_ticket_id)
-    new_base_ticket = await db_postgres.get_base_ticket(
-        context.session, new_base_ticket_id)
-
-    q_child_free_seat = schedule_event.qty_child_free_seat
-    q_adult_free_seat = schedule_event.qty_adult_free_seat
-
-    q_child_old = old_base_ticket.quality_of_children
-    q_adult_old = old_base_ticket.quality_of_adult
-    q_add_adult_old = old_base_ticket.quality_of_add_adult
-
-    q_child_new = new_base_ticket.quality_of_children
-    q_adult_new = new_base_ticket.quality_of_adult
-    q_add_adult_new = new_base_ticket.quality_of_add_adult
-
-    qty_child_free_seat_new = (
-            q_child_free_seat
-            + q_child_old
-            - q_child_new
+        option=3,
+        error_msg_title='Не обновились свободные места'
     )
-    qty_adult_free_seat_new = (
-            q_adult_free_seat
-            + (q_adult_old + q_add_adult_old)
-            - (q_adult_new + q_add_adult_new)
-    )
-
-    numbers = [
-        qty_child_free_seat_new,
-        qty_adult_free_seat_new,
-    ]
-
-    try:
-        await _publish_write_data_reserve(event_id, numbers, 3)
-        await db_postgres.update_schedule_event(
-            context.session,
-            int(event_id),
-            qty_child_free_seat=qty_child_free_seat_new,
-            qty_adult_free_seat=qty_adult_free_seat_new,
-        )
-        return 1
-    except TimeoutError as e:
-        db_googlesheets_logger.error(e)
-        await context.bot.send_message(
-            chat_id=context.config.bot.developer_chat_id,
-            text=f'Не обновились свободные места у {event_id=} в расписании')
-        return 0
