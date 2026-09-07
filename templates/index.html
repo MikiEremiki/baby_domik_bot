@@ -91,7 +91,7 @@
 
         <!-- Стили и скрипты для календаря -->
         <div id="calendar-data" data-available-dates='{{ available_dates | tojson | safe }}' class="hidden"></div>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <link rel="stylesheet" href="/static/css/flatpickr.min.css">
         <style>
             .event-dot {
                 position: absolute;
@@ -113,8 +113,8 @@
                 border-radius: 12px !important;
             }
         </style>
-        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-        <script src="https://npmcdn.com/flatpickr/dist/l10n/ru.js"></script>
+        <script src="/static/js/flatpickr.min.js"></script>
+        <script src="/static/js/flatpickr-ru.js"></script>
         <script>
             function applyDateFilter(date) {
                 let url = '/?';
