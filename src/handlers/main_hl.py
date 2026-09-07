@@ -392,29 +392,28 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                     return
 
                 schedule_event_id = ticket.schedule_event_id
-                base_ticket_id = ticket.base_ticket_id
 
                 if ticket.status == TicketStatus.CREATED:
                     if new_ticket_status == TicketStatus.CANCELED:
                         await increase_free_and_decrease_nonconfirm_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
                     if new_ticket_status == TicketStatus.APPROVED:
                         await decrease_nonconfirm_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
                     if new_ticket_status == TicketStatus.REJECTED:
                         await increase_free_and_decrease_nonconfirm_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
 
                 if ticket.status == TicketStatus.PAID:
                     if new_ticket_status == TicketStatus.APPROVED:
                         await decrease_nonconfirm_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
                     if new_ticket_status == TicketStatus.REJECTED:
                         await increase_free_and_decrease_nonconfirm_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
                     if new_ticket_status == TicketStatus.REFUNDED:
                         await increase_free_and_decrease_nonconfirm_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
 
                 if ticket.status == TicketStatus.APPROVED:
                     if (
@@ -425,7 +424,7 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                             new_ticket_status == TicketStatus.CANCELED
                     ):
                         await increase_free_seat(
-                            context, schedule_event_id, base_ticket_id)
+                            context, schedule_event_id)
 
                 if (
                         ticket.status == TicketStatus.REJECTED or
@@ -504,8 +503,6 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 await update_free_seat(
                     context,
                     ticket.schedule_event_id,
-                    old_base_ticket_id,
-                    new_base_ticket_id
                 )
             case _:
                 text = 'Не задано ключевое слово или оно написано с ошибкой\n\n'
@@ -605,12 +602,12 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_id_buy_info = int(query.data.split('|')[1].split()[1])
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
+    event_ids_to_decrease = set()
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         ticket_status = TicketStatus.APPROVED
         if ticket.status != TicketStatus.APPROVED:
-            await decrease_nonconfirm_seat(
-                context, ticket.schedule_event_id, ticket.base_ticket_id)
+            event_ids_to_decrease.add(ticket.schedule_event_id)
 
             text = f'{message.text}\nСписаны неподтвержденные места...'
             try:
@@ -634,6 +631,9 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await db_postgres.update_ticket(context.session,
                                             ticket_id,
                                             status=ticket_status)
+
+    for event_id in event_ids_to_decrease:
+        await decrease_nonconfirm_seat(context, event_id)
         
         try:
             await check_and_set_privilege(context.session, ticket_id)
@@ -804,21 +804,13 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     message_id_buy_info = int(query.data.split('|')[1].split()[1])
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
-    for ticket_id in ticket_ids:
-        ticket = await db_postgres.get_ticket(context.session, ticket_id)
-        await increase_free_and_decrease_nonconfirm_seat(
-            context, ticket.schedule_event_id, ticket.base_ticket_id)
-
-    text = f'{message.text}\nВозвращены места в продажу...'
-    try:
-        await message.edit_text(text)
-    except TimedOut as e:
-        main_handlers_logger.error(e)
-        main_handlers_logger.info(text)
-
+    event_ids_to_sync = set()
     ticket_status = TicketStatus.REJECTED
     sheet_id_domik = context.config.sheets.sheet_id_domik
     for ticket_id in ticket_ids:
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        if ticket:
+            event_ids_to_sync.add(ticket.schedule_event_id)
         try:
             await publish_update_ticket(
                 sheet_id_domik,
@@ -833,6 +825,16 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await db_postgres.update_ticket(context.session,
                                         ticket_id,
                                         status=ticket_status)
+
+    for event_id in event_ids_to_sync:
+        await increase_free_and_decrease_nonconfirm_seat(context, event_id)
+
+    text = f'{message.text}\nВозвращены места в продажу...'
+    try:
+        await message.edit_text(text)
+    except TimedOut as e:
+        main_handlers_logger.error(e)
+        main_handlers_logger.info(text)
 
     await query.edit_message_reply_markup()
     text = f'{message.text}\nОбновлен статус билета: {ticket_status.value}...'

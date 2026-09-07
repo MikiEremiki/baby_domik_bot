@@ -349,7 +349,7 @@ async def create_and_send_payment(
         sub_hl_logger.error(e)
     reserve_user_data['changed_seat'] = False
     result = await decrease_free_and_increase_nonconfirm_seat(
-        context, schedule_event_id, chose_base_ticket_id)
+        context, schedule_event_id)
     if not result:
         text = ('Произошла проблема сетевого соединения.'
                 '\nПриносим извинения за предоставленные неудобства.'

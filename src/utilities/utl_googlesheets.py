@@ -44,14 +44,13 @@ async def cancel_ticket_and_return_seat(
         text = f'Билет|{ticket.id}-{ticket.status.value}|'
         if ticket.status == TicketStatus.CREATED and changed_seat:
             schedule_event_id = ticket.schedule_event_id
-            base_ticket_id = ticket.base_ticket_id
             if '_admin' in command:
                 result = await increase_free_seat(
-                    context, schedule_event_id, base_ticket_id)
+                    context, schedule_event_id)
                 text += f'increase_free|{schedule_event_id=}'
             else:
                 result = await increase_free_and_decrease_nonconfirm_seat(
-                    context, schedule_event_id, base_ticket_id)
+                    context, schedule_event_id)
                 text += f'increase_free_and_decrease_nonconfirm|{schedule_event_id=}'
             if not result:
                 text += '|Надо проверить и возможно отменить билет в ручную'

@@ -208,7 +208,7 @@ async def start_forma_info(
             await query.edit_message_text(text)
             reserve_user_data['changed_seat'] = False
             result = await increase_free_seat(
-                context, ticket.schedule_event_id, ticket.base_ticket_id)
+                context, ticket.schedule_event_id)
             if not result:
                 await update_ticket_db_and_gspread(context,
                                                    ticket_id,
@@ -279,7 +279,7 @@ async def start_forma_info(
                     text=f'Не записался билет {ticket_ids} в клиентскую базу')
         reserve_user_data['changed_seat'] = False
         result = await decrease_free_seat(
-            context, schedule_event_id, base_ticket_id)
+            context, schedule_event_id)
         if not result:
             await update_ticket_db_and_gspread(context,
                                                ticket_id,
