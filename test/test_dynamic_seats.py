@@ -302,20 +302,21 @@ def test_dynamic_seats_overbooking_bounds():
     asyncio.run(_run_with_db(run))
 
 
-def test_gspread_batch_update_calls_agcm():
+def test_gspread_batch_update_calls_ss():
     async def run():
         mock_ss = MagicMock()
-        mock_ss.ss.values_batch_update = MagicMock()
+        mock_ss.values_batch_update = AsyncMock(return_value={'spreadsheetId': 'test_id', 'responses': []})
 
-        with patch("api.googlesheets._open_spreadsheet", AsyncMock(return_value=mock_ss)), \
-             patch("api.googlesheets._agcm._call", AsyncMock(return_value={'spreadsheetId': 'test_id', 'responses': []})) as mock_call:
+        with patch("api.googlesheets._open_spreadsheet", AsyncMock(return_value=mock_ss)):
             await _write_data_to_batch_update(
                 data=[{'range': 'A1:B2', 'values': [[1, 2]]}],
                 spreadsheet_id='test_sheet_id',
                 value_input_option='USER_ENTERED'
             )
 
-            assert mock_call.called
-            assert mock_call.call_args[0][0] == mock_ss.ss.values_batch_update
+            assert mock_ss.values_batch_update.called
+            mock_ss.values_batch_update.assert_awaited_once_with(
+                body={'valueInputOption': 'USER_ENTERED', 'data': [{'range': 'A1:B2', 'values': [[1, 2]]}]}
+            )
 
     asyncio.run(run())

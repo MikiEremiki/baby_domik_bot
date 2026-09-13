@@ -5,9 +5,9 @@ from typing import List, Any, Dict
 
 from google.oauth2.service_account import Credentials
 from gspread_asyncio import (
-    AsyncioGspreadClientManager,
-    AsyncioGspreadSpreadsheet,
-    AsyncioGspreadClient
+    ClientManager,
+    Spreadsheet,
+    Client,
 )
 
 from db import BaseTicket
@@ -35,12 +35,12 @@ def get_creds():
     return scoped
 
 
-_agcm = AsyncioGspreadClientManager(get_creds)
+_agcm = ClientManager(get_creds, gspread_timeout=15.0)
 
 
-async def _open_spreadsheet(spreadsheet_id: str) -> AsyncioGspreadSpreadsheet:
-    agc: AsyncioGspreadClient = await _agcm.authorize()
-    ss: AsyncioGspreadSpreadsheet = await agc.open_by_key(spreadsheet_id)
+async def _open_spreadsheet(spreadsheet_id: str) -> Spreadsheet:
+    agc: Client = await _agcm.authorize()
+    ss: Spreadsheet = await agc.open_by_key(spreadsheet_id)
     return ss
 
 
@@ -49,7 +49,7 @@ async def _get_values(
         range_name: str,
         value_render_option: str = 'FORMATTED_VALUE'
 ) -> List[List[Any]]:
-    ss: AsyncioGspreadSpreadsheet = await _open_spreadsheet(spreadsheet_id)
+    ss: Spreadsheet = await _open_spreadsheet(spreadsheet_id)
     values = await ss.values_get(
         range_name, params={'valueRenderOption': value_render_option})
     return values.get('values', [])
@@ -321,8 +321,7 @@ async def _write_data_to_batch_update(
     ss = await _open_spreadsheet(spreadsheet_id)
 
     try:
-        responses = await _agcm._call(ss.ss.values_batch_update,
-                                      body=value_range_body)
+        responses = await ss.values_batch_update(body=value_range_body)
         googlesheets_logger.info(
             f"spreadsheetId: {responses.get('spreadsheetId', '')}")
         for response in responses.get('responses', []):

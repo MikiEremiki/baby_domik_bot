@@ -17,8 +17,8 @@ dependencies = [
     "pydantic_core",
     "pydantic-settings",
     "pytest",
-    "gspread",
-    "gspread-asyncio",
+    "gspread>=6.2.1",
+    "gspread-asyncio>=3.0.0",
     "python-telegram-bot[ext]",
     "pytz",
     "PyYAML",
@@ -31,3 +31,7 @@ dependencies = [
     "faststream[cli]",
     "nats-py",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+norecursedirs = ["certbot", ".git", ".idea", ".junie"]
