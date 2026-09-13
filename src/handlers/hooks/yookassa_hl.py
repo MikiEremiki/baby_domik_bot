@@ -103,13 +103,8 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Для заказов с сайта инициализируем user_data, чтобы работала кнопка "ДАЛЕЕ"
     if is_website and int_chat_id != 0:
-        if int_chat_id not in context.application.user_data:
-            if context.application.persistence:
-                context.application.persistence.get_user_data().setdefault(
-                    int_chat_id, {})
-
-        user_data = context.application.user_data.get(int_chat_id)
-        if user_data:
+        user_data = context.application.user_data.setdefault(int_chat_id, {})
+        if user_data is not None:
             user_data['command'] = command
             user_data['postfix_for_cancel'] = 'reserve' if 'reserve' in command else 'studio'
             if 'reserve_user_data' not in user_data:
