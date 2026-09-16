@@ -916,7 +916,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
         callback_name
 ):
     user_data = context.application.user_data.get(int(chat_id)) if chat_id and int(chat_id) != 0 else None
-    user = user_data['user'] if user_data else None
+    user = user_data.get('user') if user_data else None
     reserve_user_data = user_data.get('reserve_user_data', {}) if user_data else {}
 
     is_website = not message_id or int(message_id) == 0
