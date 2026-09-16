@@ -107,6 +107,12 @@ async def handle_gspread_task(data: Dict[str, Any], logger: Logger):
         logger.info(f'gspread:{action} done | ' + log_text)
     except Exception as e:
         logger.exception(f'Failed to handle gspread task: {e} | payload={data}')
+        try:
+            await broker.publish(
+                data, subject='gspread_failed', stream='baby_domik')
+            logger.info(f'Published failed gspread task to gspread_failed: {data}')
+        except Exception as pub_err:
+            logger.exception(f'Failed to publish to gspread_failed: {pub_err}')
 
 
 fast_stream = FastStream(broker)

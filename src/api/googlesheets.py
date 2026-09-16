@@ -1,14 +1,17 @@
+import asyncio
 import logging
 import os
 from datetime import datetime
 from typing import List, Any, Dict
 
 from google.oauth2.service_account import Credentials
+import gspread.exceptions
 from gspread_asyncio import (
     ClientManager,
     Spreadsheet,
     Client,
 )
+import requests
 
 from db import BaseTicket
 from db.enum import TicketStatus
@@ -35,7 +38,77 @@ def get_creds():
     return scoped
 
 
-_agcm = ClientManager(get_creds, gspread_timeout=15.0)
+class RetryingClientManager(ClientManager):
+    def __init__(self, *args, max_retries: int = 3, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_retries = max_retries
+
+    async def _call(self, method, *args, **kwargs):
+        if "api_call_count" in kwargs:
+            api_call_count = kwargs["api_call_count"]
+            del kwargs["api_call_count"]
+        else:
+            api_call_count = 1
+
+        method_name = getattr(method, '__name__', str(method))
+        attempt = 0
+        while True:
+            attempt += 1
+            await self.call_lock.acquire()
+            try:
+                for _ in range(api_call_count):
+                    await self.delay()
+                await self.before_gspread_call(method, args, kwargs)
+                return await asyncio.to_thread(method, *args, **kwargs)
+            except gspread.exceptions.APIError as e:
+                code = getattr(getattr(e, 'response', None), 'status_code', None)
+                if code is not None and 400 <= code <= 499 and code != 429:
+                    googlesheets_logger.error(
+                        f"Non-retryable client error {code} in {method_name}: {e}",
+                        exc_info=True,
+                    )
+                    raise
+                if attempt > self.max_retries:
+                    googlesheets_logger.error(
+                        f"Max retries ({self.max_retries}) exceeded for {method_name}: {e}",
+                        exc_info=True,
+                    )
+                    raise
+                await self.handle_gspread_error(e, method, args, kwargs, attempt=attempt)
+            except requests.RequestException as e:
+                if attempt > self.max_retries:
+                    googlesheets_logger.error(
+                        f"Max retries ({self.max_retries}) exceeded for {method_name}: {e}",
+                        exc_info=True,
+                    )
+                    raise
+                await self.handle_requests_error(e, method, args, kwargs, attempt=attempt)
+            finally:
+                self.call_lock.release()
+
+    async def before_gspread_call(self, method, args, kwargs):
+        method_name = getattr(method, '__name__', str(method))
+        googlesheets_logger.debug(f"Calling {method_name} {args!s} {kwargs!s}")
+
+    async def handle_requests_error(self, e, method, args, kwargs, attempt: int = 1):
+        backoff = self.gspread_delay * (2 ** (attempt - 1))
+        method_name = getattr(method, '__name__', str(method))
+        googlesheets_logger.warning(
+            f"Network error in {method_name} (attempt {attempt}/{self.max_retries}): {e}. Retrying in {backoff:.1f}s..."
+        )
+        await asyncio.sleep(backoff)
+
+    async def handle_gspread_error(self, e, method, args, kwargs, attempt: int = 1):
+        backoff = self.gspread_delay * (2 ** (attempt - 1))
+        method_name = getattr(method, '__name__', str(method))
+        code = getattr(getattr(e, 'response', None), 'status_code', None)
+        googlesheets_logger.warning(
+            f"Google API error in {method_name} (attempt {attempt}/{self.max_retries}, status={code}): {e}. Retrying in {backoff:.1f}s..."
+        )
+        await asyncio.sleep(backoff)
+
+
+_agcm = RetryingClientManager(get_creds, gspread_timeout=(10.0, 60.0), max_retries=3)
 
 
 async def _open_spreadsheet(spreadsheet_id: str) -> Spreadsheet:
@@ -214,7 +287,9 @@ async def write_data_reserve(
             data, spreadsheet_id, value_input_option)
 
     except Exception as err:
-        googlesheets_logger.error(err)
+        googlesheets_logger.error(
+            f"Error in write_data_reserve: {err}", exc_info=True)
+        raise
 
 
 async def write_client_reserve(
@@ -305,7 +380,8 @@ async def write_client_reserve(
                                           value_range_body)
         return 1
     except Exception as err:
-        googlesheets_logger.error(err)
+        googlesheets_logger.error(
+            f"Error in write_client_reserve: {err}", exc_info=True)
         return 0
 
 
@@ -327,9 +403,11 @@ async def _write_data_to_batch_update(
         for response in responses.get('responses', []):
             googlesheets_logger.info(': '.join(
                 ['updatedRange: ', response.get('updatedRange', '')]))
-    except TimeoutError:
+    except TimeoutError as err:
+        googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)
-    except Exception as err:
+        raise
+    except (requests.RequestException, gspread.exceptions.APIError, Exception) as err:
         googlesheets_logger.error(
             f"Error in _write_data_to_batch_update: {err}", exc_info=True)
         raise
@@ -455,7 +533,9 @@ async def write_client_list_waiting(
                                           value_range_body)
 
     except Exception as err:
-        googlesheets_logger.error(err)
+        googlesheets_logger.error(
+            f"Error in write_client_list_waiting: {err}", exc_info=True)
+        raise
 
 
 async def update_ticket_in_gspread(
@@ -514,7 +594,9 @@ async def update_ticket_in_gspread(
             data, spreadsheet_id, value_input_option)
 
     except Exception as err:
-        googlesheets_logger.error(err)
+        googlesheets_logger.error(
+            f"Error in update_ticket_in_gspread: {err}", exc_info=True)
+        raise
 
 
 async def update_cme_in_gspread(
@@ -584,6 +666,11 @@ async def _execute_update_googlesheet(
     except TimeoutError as err:
         googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)
+        raise
+    except (requests.RequestException, gspread.exceptions.APIError, Exception) as err:
+        googlesheets_logger.error(
+            f"Error in _execute_update_googlesheet: {err}", exc_info=True)
+        raise
 
 
 async def _execute_append_googlesheet(
@@ -610,3 +697,8 @@ async def _execute_append_googlesheet(
     except TimeoutError as err:
         googlesheets_logger.error(err)
         googlesheets_logger.error(value_range_body)
+        raise
+    except (requests.RequestException, gspread.exceptions.APIError, Exception) as err:
+        googlesheets_logger.error(
+            f"Error in _execute_append_googlesheet: {err}", exc_info=True)
+        raise
