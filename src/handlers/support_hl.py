@@ -577,7 +577,7 @@ async def schedule_event_select(
         theater_name = row.theater_event.name if row.theater_event else "???"
         if len(theater_name) > 30:
             theater_name = theater_name[:27] + "..."
-        dt_str = row.datetime_event.strftime("%d.%m %H:%M")
+        dt_str = to_moscow_dt(row.datetime_event).strftime("%d.%m %H:%M")
         
         # Статус вкл/выкл
         status_bot = '🤖' if row.flag_turn_in_bot else '🚫'

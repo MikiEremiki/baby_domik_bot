@@ -28,8 +28,7 @@ from utilities.utl_func import (
     filter_schedule_event_by_active, get_unique_months,
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
-    get_emoji,
-    extract_command
+    get_emoji, extract_command, to_moscow_dt,
 )
 from utilities.utl_kbd import (
     create_kbd_schedule, create_replay_markup, add_btn_back_and_cancel,
@@ -845,7 +844,7 @@ async def unique_events_group_by_date(schedule_events):
             _, time_txt = await get_formatted_date_and_time_of_event(ev)
         except Exception as e:
             reserve_hl_logger.error(e)
-            time_txt = ev.datetime_event.strftime('%H:%M')
+            time_txt = to_moscow_dt(ev.datetime_event).strftime('%H:%M')
         if time_txt not in seen_times:
             seen_times.add(time_txt)
             unique_times.append(time_txt)

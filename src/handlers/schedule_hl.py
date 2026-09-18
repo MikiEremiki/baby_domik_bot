@@ -9,7 +9,7 @@ from db import db_postgres
 from db.enum import TicketPriceType
 from handlers.support_hl import choice_db_settings
 from utilities.utl_kbd import add_btn_back_and_cancel
-from utilities.utl_func import set_back_context
+from utilities.utl_func import set_back_context, to_moscow_dt, MOSCOW_TZ
 
 logger = logging.getLogger('bot.schedule_hl')
 
@@ -260,11 +260,12 @@ async def ask_schedule_summary(update: Update, context: ContextTypes.DEFAULT_TYP
     type_obj = await db_postgres.get_type_event(context.session, event_data['type_event_id'])
     theater_obj = await db_postgres.get_theater_event(context.session, event_data['theater_event_id'])
 
+    dt_str = to_moscow_dt(event_data['datetime_event']).strftime('%d.%m.%Y %H:%M')
     text = (
         f"<b>{'Редактирование' if is_update else 'Подтверждение'} события расписания</b>\n\n"
         f"1. 🎭 <b>Тип:</b> {type_obj.name if type_obj else '???'}\n"
         f"2. 🎬 <b>Спектакль:</b> {theater_obj.name if theater_obj else '???'}\n"
-        f"3. 📅 <b>Дата/время:</b> {event_data['datetime_event'].strftime('%d.%m.%Y %H:%M')}\n"
+        f"3. 📅 <b>Дата/время (МСК):</b> {dt_str}\n"
         f"4. 👶 <b>Места (дет):</b> {event_data['qty_child']}\n"
         f"5. 👨 <b>Места (взр):</b> {event_data['qty_adult']}\n"
         f"6. 💰 <b>Тип цены:</b> {event_data['ticket_price_type'].value if event_data['ticket_price_type'].value else 'По умолчанию'}\n"
@@ -471,12 +472,12 @@ async def ask_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    now = datetime.now()
+    now = datetime.now(MOSCOW_TZ)
     today_str = now.strftime('%d.%m')
     tomorrow_str = (now + timedelta(days=1)).strftime('%d.%m')
 
     text = (
-        'Шаг 3/8. Введите дату и время показа.\n\n'
+        'Шаг 3/8. Введите дату и время показа (по МСК).\n\n'
         'Форматы:\n'
         '<code>ДД.ММ.ГГГГ ЧЧ:ММ</code>\n'
         '<code>ДД.ММ ЧЧ:ММ</code> (текущий год)\n\n'
@@ -538,7 +539,7 @@ async def handle_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_input = update.effective_message.text.strip()
     temp_date = service.get('temp_date')
 
-    now = datetime.now()
+    now = datetime.now(MOSCOW_TZ)
     dt = None
 
     if temp_date:
@@ -546,7 +547,7 @@ async def handle_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             time_dt = datetime.strptime(text_input, '%H:%M')
             date_dt = datetime.strptime(temp_date, '%d.%m').replace(year=now.year)
-            dt = date_dt.replace(hour=time_dt.hour, minute=time_dt.minute)
+            dt = date_dt.replace(hour=time_dt.hour, minute=time_dt.minute, tzinfo=MOSCOW_TZ)
             service.pop('temp_date')
         except ValueError:
             text_err = f'Ошибка! Неверный формат времени для даты {temp_date}. Введите ЧЧ:ММ (например, 18:00):'
@@ -563,9 +564,10 @@ async def handle_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
         formats = ['%d.%m.%Y %H:%M', '%d.%m %H:%M']
         for fmt in formats:
             try:
-                dt = datetime.strptime(text_input, fmt)
+                parsed_dt = datetime.strptime(text_input, fmt)
                 if fmt == '%d.%m %H:%M':
-                    dt = dt.replace(year=now.year)
+                    parsed_dt = parsed_dt.replace(year=now.year)
+                dt = parsed_dt.replace(tzinfo=MOSCOW_TZ)
                 break
             except ValueError:
                 continue
@@ -984,11 +986,12 @@ async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
+    dt_str = to_moscow_dt(data['datetime_event']).strftime('%d.%m.%Y %H:%M')
     summary = (
         '<b>Проверьте данные события</b>\n\n'
         f"Тип: {(_fmt_type_event(type_obj) if type_obj else data.get('type_event_id'))}\n"
         f"Спектакль: {(_fmt_theater_event(theater_obj) if theater_obj else data.get('theater_event_id'))}\n"
-        f"Дата/время: {data['datetime_event'].strftime('%d.%m.%Y %H:%M')}\n"
+        f"Дата/время (МСК): {dt_str}\n"
         f"Места: {data.get('qty_child', 0)} дет / {data.get('qty_adult', 0)} взр\n"
         f"Стоимость: {data.get('ticket_price_type').name}\n"
         f"Флаги: 🎁={'✅' if data.get('flag_gift') else '❌'}, 🎄={'✅' if data.get('flag_christmas_tree') else '❌'}, 🧑‍🎄={'✅' if data.get('flag_santa') else '❌'}\n"
