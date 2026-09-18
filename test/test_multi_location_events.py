@@ -406,3 +406,61 @@ def test_update_schedule_event_data_unknown_place_id():
             assert "неизвестный place_id=999" in sent_text
 
     asyncio.run(_test())
+
+
+# -------------------------------------------------------------
+# 7. Тесты get_default_place
+# -------------------------------------------------------------
+
+def test_get_default_place_scenarios():
+    async def _test():
+        p1 = Place(id=1, name="Домик", address="Адрес 1")
+        p2 = Place(id=2, name="Покровка", address="Адрес 2")
+
+        # Сценарий 1: setting default_place_id существует и указывает на Place id=2
+        mock_session_1 = AsyncMock()
+        mock_res_1 = MagicMock()
+        mock_res_1.scalar_one_or_none.return_value = BotSettings(key='default_place_id', value='2')
+        mock_session_1.execute.return_value = mock_res_1
+        mock_session_1.get.return_value = p2
+
+        place = await db_postgres.get_default_place(mock_session_1)
+        assert place == p2
+
+        # Сценарий 2: setting отсутствует, но есть место 'Домик'
+        mock_session_2 = AsyncMock()
+        mock_res_2 = MagicMock()
+        mock_res_2.scalar_one_or_none.return_value = None
+        mock_session_2.execute.return_value = mock_res_2
+
+        with patch.object(db_postgres, 'get_place_by_name', AsyncMock(return_value=p1)):
+            place = await db_postgres.get_default_place(mock_session_2)
+            assert place == p1
+
+        # Сценарий 3: setting отсутствует, 'Домик' отсутствует, есть другие места
+        mock_session_3 = AsyncMock()
+        mock_res_setting = MagicMock()
+        mock_res_setting.scalar_one_or_none.return_value = None
+        mock_res_fallback = MagicMock()
+        mock_res_fallback.scalars.return_value.first.return_value = p2
+
+        mock_session_3.execute.side_effect = [mock_res_setting, mock_res_fallback]
+
+        with patch.object(db_postgres, 'get_place_by_name', AsyncMock(return_value=None)):
+            place = await db_postgres.get_default_place(mock_session_3)
+            assert place == p2
+
+        # Сценарий 4: все таблицы пусты или ошибки -> None
+        mock_session_4 = AsyncMock()
+        mock_res_empty_1 = MagicMock()
+        mock_res_empty_1.scalar_one_or_none.return_value = None
+        mock_res_empty_2 = MagicMock()
+        mock_res_empty_2.scalars.return_value.first.return_value = None
+
+        mock_session_4.execute.side_effect = [mock_res_empty_1, mock_res_empty_2]
+
+        with patch.object(db_postgres, 'get_place_by_name', AsyncMock(return_value=None)):
+            place = await db_postgres.get_default_place(mock_session_4)
+            assert place is None
+
+    asyncio.run(_test())
