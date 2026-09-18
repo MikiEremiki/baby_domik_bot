@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from pydantic import BaseModel, BeforeValidator
 
@@ -20,14 +20,24 @@ def str_to_int(s: str) -> int:
     except ValueError:
         return 0
 
+def str_to_optional_int(s) -> Optional[int]:
+    if s is None or s == '':
+        return None
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return None
+
 TicketPriceType = Annotated[TicketPriceType, BeforeValidator(empty_str_validator)]
 prepare_str_to_int = Annotated[int, BeforeValidator(str_to_int)]
+prepare_optional_int = Annotated[Optional[int], BeforeValidator(str_to_optional_int)]
 
 
 class ScheduleEventDTO(BaseModel):
     event_id: int
     event_type: int
     theater_event_id: int
+    place_id: prepare_optional_int = None
     flag_turn_on_off: bool
     date_show: int
     time_show: float
@@ -47,6 +57,7 @@ class ScheduleEventDTO(BaseModel):
             "id": self.event_id,
             "type_event_id": self.event_type,
             "theater_event_id": self.theater_event_id,
+            "place_id": self.place_id,
             "flag_turn_in_bot": self.flag_turn_on_off,
             "datetime_event": convert_sheets_datetime(self.date_show,
                                                       self.time_show,
@@ -75,6 +86,7 @@ class ScheduleEventDTO(BaseModel):
 kv_name_attr_schedule_event = {
     'type_event_id': 'id типа мероприятия',
     'theater_event_id': 'id репертуара',
+    'place_id': 'Локация',
     'flag_turn_in_bot': 'Вкл/Выкл в боте',
     'datetime_event': 'Дата и время',
     'qty_child': 'Кол-во детских мест',

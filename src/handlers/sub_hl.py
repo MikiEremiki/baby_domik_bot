@@ -27,7 +27,7 @@ from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
     load_schedule_events, load_theater_events, load_custom_made_format,
     decrease_free_and_increase_nonconfirm_seat,
-    load_promotions,
+    load_promotions, load_places,
 )
 from schedule.scheduler_jobs import schedule_notification_job
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
@@ -214,32 +214,93 @@ async def update_theater_event_data(
     return 'updates'
 
 
+async def update_place_data(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    query = update.callback_query
+    if query:
+        try:
+            await query.answer(text='Начато обновление локаций')
+        except (TimedOut, BadRequest) as e:
+            sub_hl_logger.error(e)
+    try:
+        place_list = await load_places()
+        seen_ids = set()
+        for p in place_list:
+            if p.place_id in seen_ids:
+                raise ValueError(f"Дублирующийся ID локации в таблице мест: {p.place_id}")
+            seen_ids.add(p.place_id)
+        await db_postgres.update_places_from_googlesheets(
+            context.session, place_list, auto_commit=True)
+        text = 'Локации обновлены'
+        await update.effective_chat.send_message(text)
+        sub_hl_logger.info(text)
+    except Exception as e:
+        sub_hl_logger.error(f'Ошибка обновления локаций: {e}')
+        await context.session.rollback()
+        text = f"Ошибка при обновлении локаций: {e}"
+        await update.effective_chat.send_message(text)
+    return 'updates'
+
+
 async def update_schedule_event_data(update: Update,
                                      context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
-    text = 'Начато обновление расписания'
+    if query:
+        text = 'Начато обновление расписания'
+        try:
+            await query.answer(text=text)
+        except (TimedOut, BadRequest) as e:
+            sub_hl_logger.error(e)
+
     try:
-        await query.answer(text=text)
-    except (TimedOut, BadRequest) as e:
-        sub_hl_logger.error(e)
-    schedule_event_list = await load_schedule_events(False, True)
-    try:
+        # 1. Загрузка и проверка справочника локаций
+        place_list = await load_places()
+        seen_place_ids = set()
+        for p in place_list:
+            if p.place_id in seen_place_ids:
+                raise ValueError(f"Дублирующийся ID локации в таблице мест: {p.place_id}")
+            seen_place_ids.add(p.place_id)
+
+        # 2. Загрузка расписания
+        schedule_event_list = await load_schedule_events(False, True)
+
+        # 3. Проверка корректности ссылок на place_id
+        existing_places = await db_postgres.get_places(context.session)
+        all_place_ids = seen_place_ids.union({p.id for p in existing_places})
+
+        for event in schedule_event_list:
+            if event.place_id is not None and event.place_id not in all_place_ids:
+                raise ValueError(
+                    f"Показ id={event.event_id} ссылается на неизвестный place_id={event.place_id}"
+                )
+
+        # 4. Согласованный upsert локаций и расписания в одной транзакции
+        await db_postgres.update_places_from_googlesheets(
+            context.session, place_list, auto_commit=False)
         await db_postgres.update_schedule_events_from_googlesheets(
-            context.session, schedule_event_list)
+            context.session, schedule_event_list, auto_commit=False)
+        await context.session.commit()
+
+        # 5. Планирование уведомлений
+        for event in schedule_event_list:
+            await schedule_notification_job(context, event)
+
+        text = 'Расписание и локации обновлены'
+        await update.effective_chat.send_message(text)
+        sub_hl_logger.info(text)
     except IntegrityError as e:
-        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        sub_hl_logger.error(f'Ошибка целостности при обновлении расписания: {e}')
         await context.session.rollback()
         text = "Сначала, выполните обновление репертуара"
         await update.effective_chat.send_message(text)
-        return 'updates'
+    except Exception as e:
+        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        await context.session.rollback()
+        text = f"Ошибка при обновлении расписания: {e}"
+        await update.effective_chat.send_message(text)
 
-    for event in schedule_event_list:
-        await schedule_notification_job(context, event)
-
-    text = 'Расписание обновлено'
-    await update.effective_chat.send_message(text)
-
-    sub_hl_logger.info(text)
     return 'updates'
 
 
