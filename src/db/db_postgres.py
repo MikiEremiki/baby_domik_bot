@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+import inspect
 from typing import Collection, List, Type, Sequence, Any
 
 from sqlalchemy import select, func, DATE, and_, delete, or_, case
@@ -8,10 +9,144 @@ from sqlalchemy.orm import selectinload, Mapped
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
     ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
-    FeedbackTopic, FeedbackMessage, SpecialTicketPrice)
+    FeedbackTopic, FeedbackMessage, SpecialTicketPrice, Place)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, Afisha
+from settings.settings import ADDRESS_OFFICE
+
+
+async def get_places(session: AsyncSession) -> Sequence[Place]:
+    result = await session.execute(select(Place).order_by(Place.id))
+    return result.scalars().all()
+
+
+async def get_place(session: AsyncSession, place_id: int) -> Place | None:
+    if place_id is None:
+        return None
+    return await session.get(Place, place_id)
+
+
+async def get_place_by_name(session: AsyncSession, name: str) -> Place | None:
+    result = await session.execute(
+        select(Place).where(func.lower(Place.name) == name.strip().lower())
+    )
+    return result.scalars().first()
+
+
+async def get_default_place(session: AsyncSession) -> Place | None:
+    # 1. Check BotSettings for 'default_place_id'
+    try:
+        stmt = select(BotSettings).where(BotSettings.key == 'default_place_id')
+        res = await session.execute(stmt)
+        if hasattr(res, 'scalar_one_or_none'):
+            setting = res.scalar_one_or_none()
+            if inspect.iscoroutine(setting):
+                setting = await setting
+            if setting and hasattr(setting, 'value') and setting.value:
+                try:
+                    place_id = int(setting.value)
+                    place = await session.get(Place, place_id)
+                    if place:
+                        return place
+                except (ValueError, TypeError):
+                    pass
+    except Exception:
+        pass
+
+    # 2. Check Place with name 'Домик'
+    try:
+        place = await get_place_by_name(session, 'Домик')
+        if place:
+            return place
+    except Exception:
+        pass
+
+    # 3. Fallback: first place in DB
+    try:
+        result = await session.execute(select(Place).order_by(Place.id))
+        if hasattr(result, 'scalars'):
+            scalars = result.scalars()
+            if hasattr(scalars, 'first'):
+                return scalars.first()
+    except Exception:
+        pass
+    return None
+
+
+async def get_or_create_default_place(session: AsyncSession) -> Place:
+    place = await get_default_place(session)
+    if place:
+        return place
+    place = Place(
+        id=1,
+        name='Домик',
+        address=ADDRESS_OFFICE,
+        link_on_yndx_maps=None,
+        link_about=None,
+    )
+    try:
+        session.add(place)
+        await session.commit()
+        await session.refresh(place)
+    except Exception:
+        pass
+    return place
+
+
+async def create_place(
+        session: AsyncSession,
+        name: str,
+        address: str,
+        link_on_yndx_maps: str | None = None,
+        link_about: str | None = None,
+        place_id: int | None = None,
+        auto_commit: bool = True
+) -> Place:
+    place_kwargs = {
+        'name': name.strip(),
+        'address': address.strip(),
+        'link_on_yndx_maps': link_on_yndx_maps.strip() if link_on_yndx_maps else None,
+        'link_about': link_about.strip() if link_about else None,
+    }
+    if place_id is not None:
+        place_kwargs['id'] = place_id
+    place = Place(**place_kwargs)
+    session.add(place)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(place)
+    return place
+
+
+async def update_place(
+        session: AsyncSession,
+        place_id: int,
+        auto_commit: bool = True,
+        **kwargs
+) -> Place | None:
+    place = await session.get(Place, place_id)
+    if not place:
+        return None
+    for key, value in kwargs.items():
+        if hasattr(place, key):
+            setattr(place, key, value)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(place)
+    return place
+
+
+async def update_places_from_googlesheets(
+        session: AsyncSession,
+        places,
+        auto_commit: bool = True
+):
+    for _place in places:
+        dto_model = _place.to_dto()
+        await session.merge(Place(**dto_model))
+    if auto_commit:
+        await session.commit()
 
 
 async def attach_user_and_people_to_ticket(
@@ -60,7 +195,7 @@ async def update_custom_made_format_from_googlesheets(
 
 
 async def update_schedule_events_from_googlesheets(
-        session: AsyncSession, schedule_events):
+        session: AsyncSession, schedule_events, auto_commit: bool = True):
     for _event in schedule_events:
         dto_model = _event.to_dto()
         # Прекращаем перезапись расчетных остатков свободных мест из Google Sheets
@@ -69,7 +204,8 @@ async def update_schedule_events_from_googlesheets(
         dto_model.pop('qty_adult_free_seat', None)
         dto_model.pop('qty_adult_nonconfirm_seat', None)
         await session.merge(ScheduleEvent(**dto_model))
-    await session.commit()
+    if auto_commit:
+        await session.commit()
 
 
 async def get_email(session: AsyncSession, user_id):
@@ -486,6 +622,7 @@ async def create_schedule_event(
         ticket_price_type=TicketPriceType.NONE,
         schedule_event_id=None,
         base_ticket_ids: list[int] | None = None,
+        place_id: int | None = None,
 ):
     # Автоинициализация свободных мест, если не заданы явно
     if qty_child_free_seat is None:
@@ -497,6 +634,7 @@ async def create_schedule_event(
         id=schedule_event_id,
         type_event_id=type_event_id,
         theater_event_id=theater_event_id,
+        place_id=place_id,
         flag_turn_in_bot=flag_turn_in_bot,
         datetime_event=datetime_event,
         qty_child=qty_child,

@@ -4,4 +4,4 @@ from .models import (User, Person, Child, Ticket, TypeEvent, TheaterEvent,
                      ScheduleEvent, Adult, BaseTicket, Promotion,
                      SalesCampaign, SalesCampaignSchedule, SalesRecipient,
                      TelegramUpdate, BotSettings, UserStatus, FeedbackTopic,
-                     FeedbackMessage, SpecialTicketPrice)
+                     FeedbackMessage, SpecialTicketPrice, Place, Afisha)
