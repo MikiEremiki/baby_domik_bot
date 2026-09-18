@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
 
 from db import db_postgres
 from db.enum import PriceType, TicketPriceType, PromotionDiscountType
-from handlers import init_conv_hl_dialog
+from handlers import init_conv_hl_dialog, place_hl
 from settings.settings import (
     RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR,
     ADMIN_ID)
@@ -122,10 +122,11 @@ async def choice_db_settings(
                                            callback_data='schedule_event')
     button_promotion = InlineKeyboardButton(text='Промокоды/Акции',
                                             callback_data='promotion')
+    button_place = InlineKeyboardButton(text='Локации',
+                                        callback_data='place')
     button_back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         postfix_for_back='1')
-
     keyboard = [[button_schedule,]]
     if user_is_admin:
         keyboard.extend([
@@ -136,6 +137,9 @@ async def choice_db_settings(
             [
                 button_event,
                 button_promotion,
+            ],
+            [
+                button_place,
             ],
         ])
     keyboard.append([*button_back_and_cancel, ])
@@ -170,6 +174,9 @@ async def get_updates_option(update: Update,
         )
         return context.user_data.get('STATE', 1)
 
+    btn_update_place_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_PLACE_DATA'][1],
+        callback_data=COMMAND_DICT['UP_PLACE_DATA'][0])
     btn_update_base_ticket_data = InlineKeyboardButton(
         COMMAND_DICT['UP_BT_DATA'][1],
         callback_data=COMMAND_DICT['UP_BT_DATA'][0])
@@ -191,6 +198,7 @@ async def get_updates_option(update: Update,
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             postfix_for_back='1')
     keyboard = [
+        [btn_update_place_data],
         [btn_update_base_ticket_data,
          btn_update_special_ticket_price],
         [btn_update_schedule_event_data,
@@ -204,6 +212,7 @@ async def get_updates_option(update: Update,
 
     text = 'Выберите что хотите настроить\n\n'
     text += (
+        f'{COMMAND_DICT['UP_PLACE_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_BT_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_SPEC_PRICE'][1]}\n'
         f'{COMMAND_DICT['UP_SE_DATA'][1]}\n'
@@ -272,6 +281,8 @@ async def get_settings(
         return await base_ticket_select(update, context)
     elif callback_data == 'event_type':
         return await event_type_select(update, context)
+    elif callback_data == 'place':
+        return await place_hl.place_select(update, context)
 
     state = await send_settings_menu(update, context, callback_data)
 
