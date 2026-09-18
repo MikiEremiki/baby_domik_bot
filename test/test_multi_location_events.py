@@ -14,7 +14,7 @@ from utilities.utl_place import (
 )
 from utilities.schemas.place import PlaceDTO
 from utilities.schemas.schedule_event import ScheduleEventDTO
-from utilities.utl_ticket import format_receipt_description
+from utilities.utl_text import format_receipt_description
 from api.web.main import app
 from api.web.config import broker
 from api.web.deps import get_session

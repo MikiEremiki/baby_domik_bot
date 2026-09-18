@@ -37,8 +37,11 @@ from api.gspread_pub import (
     publish_update_ticket,
 )
 from api.yookassa_connect import create_param_payment
-from utilities.utl_text import extract_phone_number_from_text, check_email
-from utilities.utl_ticket import format_receipt_description
+from utilities.utl_text import (
+    extract_phone_number_from_text,
+    check_email,
+    format_receipt_description,
+)
 from utilities.utl_place import effective_place
 from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
 

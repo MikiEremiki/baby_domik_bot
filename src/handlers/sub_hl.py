@@ -44,8 +44,8 @@ from utilities.utl_kbd import (
 from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
     create_tickets_and_people, cancel_ticket_db_when_end_handler,
-    format_receipt_description,
 )
+from utilities.utl_text import format_receipt_description
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 

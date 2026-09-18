@@ -847,3 +847,23 @@ def test_payment_result_with_payment_find_one(monkeypatch):
 
     assert response.status_code == 200
     assert "Оплата прошла успешно" in response.text
+
+
+def test_fastapi_imports_without_telegram(monkeypatch):
+    import sys
+    import importlib
+    monkeypatch.setitem(sys.modules, 'telegram', None)
+    monkeypatch.setitem(sys.modules, 'telegram.error', None)
+    monkeypatch.setitem(sys.modules, 'telegram.ext', None)
+    
+    # Verify utl_text, booking and web modules can be imported without telegram
+    import utilities.utl_text
+    importlib.reload(utilities.utl_text)
+    from utilities.utl_text import format_receipt_description
+    assert callable(format_receipt_description)
+    
+    import api.web.routes.booking
+    importlib.reload(api.web.routes.booking)
+
+    import api.web.main
+    importlib.reload(api.web.main)
