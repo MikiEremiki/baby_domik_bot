@@ -1,15 +1,9 @@
-import sys
-from pathlib import Path
+import asyncio
+from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
-
-from datetime import datetime, timezone, timedelta
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+from yookassa import Payment
 
 from api.web.main import app
 from api.web.config import broker
@@ -17,7 +11,6 @@ from api.web.deps import get_session
 from api.web.routes import pages, booking, api as api_route
 from api.web.services import booking_service
 from db.enum import PromotionDiscountType, UserRole
-from yookassa import Payment
 
 
 def _create_mock_event(free_seats_child=10, free_seats_adult=5):
@@ -479,8 +472,6 @@ def test_only_child_seats_determine_availability(monkeypatch):
 
 
 def test_check_promo_api(monkeypatch):
-    from db.enum import PromotionDiscountType
-
     mock_promo = MagicMock()
     mock_promo.id = 55
     mock_promo.code = "HELLO"
@@ -752,7 +743,6 @@ def test_post_booking_yookassa_success(monkeypatch):
 
 
 def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
-    import asyncio
     def timeout_create(*args, **kwargs):
         raise asyncio.TimeoutError()
 

@@ -33,5 +33,6 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["test"]
 norecursedirs = ["certbot", ".git", ".idea", ".junie"]

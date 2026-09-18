@@ -1,14 +1,7 @@
-import sys
-from pathlib import Path
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from fastapi.testclient import TestClient
 from datetime import datetime, timezone
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+from unittest.mock import AsyncMock, MagicMock
+import pytest
+from fastapi.testclient import TestClient
 
 from api.web import main, deps
 from api.web.routes import booking, pages

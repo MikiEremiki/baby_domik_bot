@@ -1,15 +1,8 @@
 import asyncio
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from telegram import Update, User, Chat, Message, CallbackQuery
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
 
 from custom_filters.admin import filter_settings, filter_admin
 from conv_hl.support_conv_hl import support_conv_hl
