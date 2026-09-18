@@ -17,6 +17,7 @@ states = {
     'TICKET': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-PLACE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),

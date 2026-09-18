@@ -11,6 +11,7 @@ from settings.settings import (
     DICT_CONVERT_MONTH_NUMBER_TO_STR)
 from utilities.utl_func import (
     get_time_with_timezone, get_formatted_date_and_time_of_event, get_emoji)
+from utilities.utl_place import effective_place
 from utilities.utl_ticket import get_spec_ticket_price
 
 _ID_SYMS = string.digits + string.ascii_letters
@@ -202,11 +203,11 @@ async def create_kbd_unique_dates(schedule_events: List[ScheduleEvent]):
     return keyboard
 
 
-async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum_theater_events):
+async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum_theater_events, default_place=None):
     """
     Создает клавиатуру вариантов (спектакль + время) для выбранной даты.
     Каждая кнопка соответствует конкретному событию расписания (schedule_event.id)
-    и отображает эмодзи спектакля, время и кол-во мест.
+    и отображает эмодзи спектакля, время, локацию и кол-во мест.
     """
     # Сопоставление спектакль -> индекс эмодзи
     index_map = {}
@@ -219,14 +220,20 @@ async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum
         idx = index_map.get(event.theater_event_id, 1)
         prefix = DICT_OF_EMOJI_FOR_BUTTON.get(idx, '') + ' '
 
-        # Эмодзи подарков/ёлок/Дед Мороз
+        # Эмодзи подарков/ё��ок/Дед Мороз
         text_emoji = await get_emoji(event)
 
-        # Время + кол-во мест
+        # Время + локация + кол-во мест
         time_txt = await get_time_with_timezone(event)
+        place_str = ""
+        if default_place is not None or getattr(event, 'place', None) is not None:
+            p = effective_place(event, default_place)
+            if p:
+                place_str = f" ({p.name})"
+
         qty_child = max(int(event.qty_child_free_seat), 0)
         qty_adult = max(int(event.qty_adult_free_seat), 0)
-        text = prefix + time_txt + text_emoji + f' | {qty_child} дет | {qty_adult} взр'
+        text = prefix + time_txt + text_emoji + place_str + f' | {qty_child} дет | {qty_adult} взр'
 
         keyboard.append(
             InlineKeyboardButton(text=text, callback_data=event.id)
