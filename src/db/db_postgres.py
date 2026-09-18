@@ -34,9 +34,9 @@ async def get_place_by_name(session: AsyncSession, name: str) -> Place | None:
 
 
 async def get_default_place(session: AsyncSession) -> Place | None:
-    # 1. Check BotSettings for 'default_place_id'
+    # 1. Check BotSettings for 'DEFAULT_PLACE_ID'
     try:
-        stmt = select(BotSettings).where(BotSettings.key == 'default_place_id')
+        stmt = select(BotSettings).where(BotSettings.key == 'DEFAULT_PLACE_ID')
         res = await session.execute(stmt)
         setting = res.scalar_one_or_none()
         if setting and setting.value:

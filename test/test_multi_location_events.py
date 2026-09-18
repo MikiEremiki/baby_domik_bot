@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from db import db_postgres
-from db.models import Place, ScheduleEvent, TheaterEvent
+from db.models import Place, ScheduleEvent, TheaterEvent, BotSettings
 from handlers.reserve.choice import choice_time, choice_place
 from handlers.sub_hl import update_schedule_event_data
 from utilities.utl_place import (

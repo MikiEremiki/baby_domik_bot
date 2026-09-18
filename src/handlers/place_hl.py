@@ -320,7 +320,7 @@ async def place_set_default(update: Update, context: ContextTypes.DEFAULT_TYPE):
     match = re.search(r'place_set_def_(\d+)', query.data)
     if match:
         place_id = int(match.group(1))
-        await db_postgres.update_bot_setting(context.session, 'default_place_id', str(place_id))
+        await db_postgres.update_bot_setting(context.session, 'DEFAULT_PLACE_ID', str(place_id))
         await update.effective_chat.send_message(f"⭐️ Локация ID {place_id} установлена по умолчанию!")
     return await place_select(update, context)
 
