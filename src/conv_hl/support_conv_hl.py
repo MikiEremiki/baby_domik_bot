@@ -2,7 +2,7 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler,
 )
 
-from custom_filters import filter_admin
+from custom_filters import filter_settings
 from handlers import support_hl, promotion_hl, schedule_hl
 from handlers.sub_hl import (
     update_base_ticket_data, update_theater_event_data,
@@ -293,7 +293,7 @@ support_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler('settings',
                        support_hl.start_settings,
-                       filter_admin),
+                       filter_settings),
     ],
     states=states,
     fallbacks=common_fallbacks,

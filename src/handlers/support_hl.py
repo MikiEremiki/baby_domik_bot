@@ -9,7 +9,9 @@ from db import db_postgres
 from db.enum import PriceType, TicketPriceType, PromotionDiscountType
 from handlers import init_conv_hl_dialog
 from settings.settings import (
-    RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR)
+    RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR,
+    ADMIN_ID)
+from utilities.utl_func import to_moscow_dt
 from utilities.schemas import (
     kv_name_attr_schedule_event,
     kv_name_attr_theater_event,
@@ -67,19 +69,22 @@ def validate_value(value, option):
 
 async def start_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await init_conv_hl_dialog(update, context)
+    user_is_admin = update.effective_user.id in ADMIN_ID
+
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
-    button_updates = InlineKeyboardButton(text='Обновление данных',
-                                          callback_data='update_data')
-    button_user_status = InlineKeyboardButton(text='Статусы пользователей',
-                                              callback_data='user_status_help')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
-    keyboard = [
-        [button_db, ],
-        [button_updates, ],
-        [button_user_status, ],
-        [*button_cancel, ],
-    ]
+    keyboard = [[button_db, ]]
+    if user_is_admin:
+        button_updates = InlineKeyboardButton(text='Обновление данных',
+                                              callback_data='update_data')
+        button_user_status = InlineKeyboardButton(text='Статусы пользователей',
+                                                  callback_data='user_status_help')
+        keyboard.extend([
+            [button_updates, ],
+            [button_user_status, ],
+        ])
+    keyboard.append([*button_cancel, ])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -105,6 +110,8 @@ async def choice_db_settings(
     except BadRequest:
         pass
 
+    user_is_admin = update.effective_user.id in ADMIN_ID
+
     button_base_ticket = InlineKeyboardButton(text='Базовые билеты',
                                               callback_data='base_ticket')
     button_event_type = InlineKeyboardButton(text='Типы показов',
@@ -118,20 +125,20 @@ async def choice_db_settings(
     button_back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         postfix_for_back='1')
-    keyboard = [
-        [
-            button_base_ticket,
-            button_event_type,
-        ],
-        [
-            button_event,
-            button_schedule,
-        ],
-        [
-            button_promotion,
-        ],
-        [*button_back_and_cancel, ],
-    ]
+
+    keyboard = [[button_schedule,]]
+    if user_is_admin:
+        keyboard.extend([
+            [
+                button_base_ticket,
+                button_event_type,
+            ],
+            [
+                button_event,
+                button_promotion,
+            ],
+        ])
+    keyboard.append([*button_back_and_cancel, ])
 
     # Добавляем intent-id только к функциональным кнопкам, но НЕ к ряду Назад/Отменить
     keyboard_intented = add_intent_id(keyboard[:-1], intent_id='db')
@@ -154,6 +161,14 @@ async def get_updates_option(update: Update,
         await query.answer()
     except BadRequest:
         pass
+
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался открыть меню обновления данных без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 1)
 
     btn_update_base_ticket_data = InlineKeyboardButton(
         COMMAND_DICT['UP_BT_DATA'][1],
@@ -238,6 +253,14 @@ async def get_settings(
     except BadRequest:
         pass
     _, callback_data = remove_intent_id(query.data)
+
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID and callback_data != 'schedule_event':
+        support_hl_logger.warning(
+            "Пользователь %s попытался открыть раздел %s без прав администратора",
+            user_id, callback_data
+        )
+        return context.user_data.get('STATE', 2)
 
     if callback_data == 'theater_event':
         return await theater_event_select(update, context)
@@ -399,6 +422,14 @@ async def theater_event_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть репертуар без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -617,6 +648,14 @@ async def promotion_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть промокоды без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -669,6 +708,14 @@ async def base_ticket_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть базовые билеты без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -710,6 +757,14 @@ async def event_type_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть типы показов без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
