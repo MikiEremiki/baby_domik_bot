@@ -34,15 +34,17 @@ from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
-    clean_context_on_end_handler,
+    clean_context_on_end_handler, create_str_info_by_schedule_event_id,
 )
+from utilities.utl_place import effective_place
 from utilities.utl_retry import retry_on_timeout
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
 from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
-    create_tickets_and_people, cancel_ticket_db_when_end_handler
+    create_tickets_and_people, cancel_ticket_db_when_end_handler,
+    format_receipt_description,
 )
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
@@ -423,13 +425,19 @@ async def create_and_send_payment(
     ticket_id = ticket_ids[0]
     ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
 
-    max_len_decs = 128
-    prefix = f"Билет №{ticket_id} на "
-    suffix = f" {date_event} в {time_event} ({ticket_name_for_desc})"
+    default_place = await db_postgres.get_or_create_default_place(context.session)
+    place_obj = effective_place(schedule_event, default_place)
+    place_name = place_obj.name if place_obj else 'Домик'
 
-    len_for_name = max_len_decs - len(prefix) - len(suffix)
-    name_for_desc = name[:len_for_name] if len_for_name > 0 else ""
-    description = f"{prefix}{name_for_desc}{suffix}"
+    description = format_receipt_description(
+        ticket_id=ticket_id,
+        event_name=name,
+        place_name=place_name,
+        date_str=date_event,
+        time_str=time_event,
+        ticket_format=ticket_name_for_desc,
+        max_len=128
+    )
 
     param = create_param_payment(
         price=price_to_pay,
@@ -1094,7 +1102,6 @@ async def get_booking_admin_text(
             user_data['common_data'] = {}
         
         try:
-            from utilities.utl_func import create_str_info_by_schedule_event_id
             text_select_event = await create_str_info_by_schedule_event_id(
                 context, ticket.schedule_event_id)
             chose_base_ticket = await db_postgres.get_base_ticket(
