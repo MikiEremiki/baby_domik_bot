@@ -29,6 +29,7 @@ from db.db_postgres import (
     get_phone,
     get_email,
     get_adult_name,
+    get_or_create_default_place,
 )
 from api.gspread_pub import (
     publish_write_data_reserve,
@@ -37,6 +38,8 @@ from api.gspread_pub import (
 )
 from api.yookassa_connect import create_param_payment
 from utilities.utl_text import extract_phone_number_from_text, check_email
+from utilities.utl_ticket import format_receipt_description
+from utilities.utl_place import effective_place
 from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
 
 router = APIRouter()
@@ -77,6 +80,9 @@ async def _get_booking_form_context(request: Request, s: ScheduleEvent, session:
                 'email': email or user.email or '',
             }
 
+    default_place = await get_or_create_default_place(session)
+    place_obj = effective_place(s, default_place)
+
     return {
         'request': request,
         'event': {
@@ -89,6 +95,10 @@ async def _get_booking_form_context(request: Request, s: ScheduleEvent, session:
             'time': dt_moscow.strftime('%H:%M'),
             'free_seats_child': max(s.qty_child_free_seat or 0, 0),
             'free_seats_adult': max(s.qty_adult_free_seat or 0, 0),
+            'place_name': place_obj.name,
+            'place_address': place_obj.address,
+            'link_on_yndx_maps': place_obj.link_on_yndx_maps,
+            'link_about': place_obj.link_about,
         },
         'ticket_types': tickets_data,
         'form_data': form_data,
@@ -323,13 +333,19 @@ async def post_booking_form(
     time_event_str = dt_event.strftime('%H:%M')
     name_event = t_e.name
 
-    max_len_decs = 128
-    prefix = f"Билет №{ticket_id} на "
-    suffix = f" {date_event_str} в {time_event_str} ({ticket_name_for_desc})"
+    default_place = await get_or_create_default_place(session)
+    place_obj = effective_place(s, default_place)
+    place_name = place_obj.name if place_obj else 'Домик'
 
-    len_for_name = max_len_decs - len(prefix) - len(suffix)
-    name_for_desc = name_event[:len_for_name] if len_for_name > 0 else ""
-    description = f"{prefix}{name_for_desc}{suffix}"
+    description = format_receipt_description(
+        ticket_id=ticket_id,
+        event_name=name_event,
+        place_name=place_name,
+        date_str=date_event_str,
+        time_str=time_event_str,
+        ticket_format=ticket_name_for_desc,
+        max_len=128
+    )
 
     base_return_url = settings.yookassa.return_url or str(request.url_for('show_payment_result'))
     sep = "&" if "?" in str(base_return_url) else "?"

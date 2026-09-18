@@ -9,7 +9,7 @@
     <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/event/{{ event.id }}">← Назад к сеансам</a>
     <h1 class="mt-3 text-3xl font-bold tracking-tight">Бронирование</h1>
     <p class="mt-2 text-slate-600">
-        {{ event.title }} · {{ session.date }} · {{ session.time }} · Мест: {{ session.free_seats_child }} (дети), {{ session.free_seats_adult }} (взрослые)
+        {{ event.title }} · 📍 {{ session.place_name }} ({{ session.place_address }}) · {{ session.date }} · {{ session.time }} · Мест: {{ session.free_seats_child }} (дети), {{ session.free_seats_adult }} (взрослые)
     </p>
 </section>
 

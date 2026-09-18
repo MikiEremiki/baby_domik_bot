@@ -6,7 +6,8 @@ from ..config import MOSCOW_TZ, templates
 from ..deps import get_session
 from ..logger import logger
 from ..services.metrics_service import metrics_service
-from db.db_postgres import get_all_theater_events_actual, get_theater_event, get_afishas
+from db.db_postgres import get_all_theater_events_actual, get_theater_event, get_afishas, get_or_create_default_place
+from utilities.utl_place import effective_place
 from settings.settings import (
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
     PUBLIC_TYPE_EVENT_IDS,
@@ -23,11 +24,14 @@ async def show_index(
     month: str | None = None,
     date: str | None = None,
     type_id: int | None = None,
+    place_id: int | None = None,
     session: AsyncSession = Depends(get_session)
 ):
     # Невалидный/непубличный type_id игнорируем (показываем все публичные типы)
     if type_id is not None and type_id not in PUBLIC_TYPE_EVENT_IDS:
         type_id = None
+
+    default_place = await get_or_create_default_place(session)
 
     t_db0 = time.perf_counter()
     events_db = await get_all_theater_events_actual(session)
@@ -39,6 +43,7 @@ async def show_index(
     available_months = set()
     all_available_dates = set()
     available_types_map = {}
+    available_places_map = {}
 
     for e in events_db:
         active_sessions_count = 0
@@ -68,8 +73,13 @@ async def show_index(
                 
                 match_month = not month or month == m_key
                 match_date = not date or date == d_key
+                eff_place = effective_place(s, default_place)
+                match_place = (place_id is None) or (eff_place.id == place_id)
                 
                 if match_month and match_date:
+                    available_places_map.setdefault(eff_place.id, eff_place.name)
+
+                if match_month and match_date and match_place:
                     active_sessions_count += 1
                     free_seats_child_in_filtered_sessions += max(getattr(s, 'qty_child_free_seat', 0) or 0, 0)
                     free_seats_adult_in_filtered_sessions += max(getattr(s, 'qty_adult_free_seat', 0) or 0, 0)
@@ -86,7 +96,7 @@ async def show_index(
         if only_actual and active_sessions_count == 0:
             continue
             
-        if (month or date) and active_sessions_count == 0:
+        if (month or date or place_id is not None) and active_sessions_count == 0:
             continue
 
         # Фильтр по публичным типам (аналог type_event_id.in_(PUBLIC_TYPE_EVENT_IDS))
@@ -136,6 +146,11 @@ async def show_index(
         if tid in available_types_map
     ]
 
+    places_display = [
+        {'id': pid, 'name': pname}
+        for pid, pname in sorted(available_places_map.items(), key=lambda x: x[0])
+    ]
+
     year_for_afisha = int(month.split('-')[0]) if month else now.year
     t_af0 = time.perf_counter()
     afishas_db = await get_afishas(session, year_for_afisha)
@@ -170,8 +185,10 @@ async def show_index(
             'current_month': month,
             'current_date': date,
             'current_type_id': type_id,
+            'current_place_id': place_id,
             'months': months_display,
             'types': types_display,
+            'places': places_display,
             'available_dates': list(all_available_dates),
             'afishas': afishas,
         },
@@ -181,7 +198,12 @@ async def show_index(
     return response
 
 @router.get('/event/{event_id}')
-async def show_event_details(request: Request, event_id: int, session: AsyncSession = Depends(get_session)):
+async def show_event_details(
+    request: Request,
+    event_id: int,
+    place_id: int | None = None,
+    session: AsyncSession = Depends(get_session)
+):
     logger.info(f"Showing details for event {event_id}")
     t_db0 = time.perf_counter()
     e = await get_theater_event(session, event_id)
@@ -194,6 +216,8 @@ async def show_event_details(request: Request, event_id: int, session: AsyncSess
         logger.warning(f"Event {event_id} not found")
         raise HTTPException(status_code=404, detail="Event not found")
 
+    default_place = await get_or_create_default_place(session)
+
     sessions = []
     now = datetime.now(timezone.utc)
     for s in e.schedule_events:
@@ -204,16 +228,39 @@ async def show_event_details(request: Request, event_id: int, session: AsyncSess
             dt = dt.replace(tzinfo=timezone.utc)
         if dt < now:
             continue
-            
+        
+        eff_place = effective_place(s, default_place)
+        if place_id is not None and eff_place.id != place_id:
+            continue
+
         dt_moscow = dt.astimezone(MOSCOW_TZ)
         sessions.append({
             'id': s.id,
+            'place_id': eff_place.id,
+            'place_name': eff_place.name,
+            'place_address': eff_place.address,
+            'link_on_yndx_maps': eff_place.link_on_yndx_maps,
+            'link_about': eff_place.link_about,
             'date': dt_moscow.strftime('%d.%m'),
             'time': dt_moscow.strftime('%H:%M'),
             'weekday': DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[dt_moscow.weekday()],
             'free_seats_child': max(s.qty_child_free_seat or 0, 0),
             'free_seats_adult': max(s.qty_adult_free_seat or 0, 0),
         })
+
+    # Сноски по отображаемым сеансам
+    seen_place_ids = set()
+    places_footnotes = []
+    for sess in sessions:
+        pid = sess['place_id']
+        if pid not in seen_place_ids:
+            seen_place_ids.add(pid)
+            places_footnotes.append({
+                'name': sess['place_name'],
+                'address': sess['place_address'],
+                'link_on_yndx_maps': sess['link_on_yndx_maps'],
+                'link_about': sess['link_about'],
+            })
 
     event = {
         'id': e.id,
@@ -228,7 +275,12 @@ async def show_event_details(request: Request, event_id: int, session: AsyncSess
     response = templates.TemplateResponse(
         request=request,
         name='event_details.html',
-        context={'event': event, 'sessions': sessions},
+        context={
+            'event': event,
+            'sessions': sessions,
+            'current_place_id': place_id,
+            'places_footnotes': places_footnotes,
+        },
     )
     if hasattr(request.state, 'timings'):
         request.state.timings['render'] = round((time.perf_counter() - t_render0) * 1000, 1)
