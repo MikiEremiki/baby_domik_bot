@@ -1,5 +1,4 @@
 from datetime import date, datetime, timedelta, timezone
-import inspect
 from typing import Collection, List, Type, Sequence, Any
 
 from sqlalchemy import select, func, DATE, and_, delete, or_, case
@@ -39,18 +38,15 @@ async def get_default_place(session: AsyncSession) -> Place | None:
     try:
         stmt = select(BotSettings).where(BotSettings.key == 'default_place_id')
         res = await session.execute(stmt)
-        if hasattr(res, 'scalar_one_or_none'):
-            setting = res.scalar_one_or_none()
-            if inspect.iscoroutine(setting):
-                setting = await setting
-            if setting and hasattr(setting, 'value') and setting.value:
-                try:
-                    place_id = int(setting.value)
-                    place = await session.get(Place, place_id)
-                    if place:
-                        return place
-                except (ValueError, TypeError):
-                    pass
+        setting = res.scalar_one_or_none()
+        if setting and setting.value:
+            try:
+                place_id = int(setting.value)
+                place = await session.get(Place, place_id)
+                if place:
+                    return place
+            except (ValueError, TypeError):
+                pass
     except Exception:
         pass
 
@@ -65,10 +61,7 @@ async def get_default_place(session: AsyncSession) -> Place | None:
     # 3. Fallback: first place in DB
     try:
         result = await session.execute(select(Place).order_by(Place.id))
-        if hasattr(result, 'scalars'):
-            scalars = result.scalars()
-            if hasattr(scalars, 'first'):
-                return scalars.first()
+        return result.scalars().first()
     except Exception:
         pass
     return None
