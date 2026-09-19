@@ -281,15 +281,18 @@ async def update_schedule_event_data(update: Update,
         # 4. Согласованный upsert локаций и расписания в одной транзакции
         await db_postgres.update_places_from_googlesheets(
             context.session, place_list, auto_commit=False)
-        await db_postgres.update_schedule_events_from_googlesheets(
+        skipped_ids = await db_postgres.update_schedule_events_from_googlesheets(
             context.session, schedule_event_list, auto_commit=False)
         await context.session.commit()
 
         # 5. Планирование уведомлений
         for event in schedule_event_list:
-            await schedule_notification_job(context, event)
+            if event.event_id not in skipped_ids:
+                await schedule_notification_job(context, event)
 
         text = 'Расписание и локации обновлены'
+        if skipped_ids:
+            text += f"\n⚠️ Пропущены сеансы с несинхронизированными изменениями в боте: {', '.join(f'#{i}' for i in sorted(skipped_ids))}"
         await update.effective_chat.send_message(text)
         sub_hl_logger.info(text)
     except IntegrityError as e:

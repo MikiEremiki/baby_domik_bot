@@ -8,8 +8,8 @@ from utilities.utl_date import convert_sheets_datetime
 moscow_timezone_offset = -3
 
 
-def empty_str_validator(value: str) -> TicketPriceType:
-    if not value:
+def empty_str_validator(value) -> TicketPriceType:
+    if not value or value == 'None' or value == 'NONE' or value is TicketPriceType.NONE:
         return TicketPriceType.NONE
     else:
         return TicketPriceType(value)
@@ -95,4 +95,8 @@ kv_name_attr_schedule_event = {
     'flag_christmas_tree': 'Елка',
     'flag_santa': 'Дед Мороз',
     'ticket_price_type': 'Назначение стоимости',
+    'date_show': 'Дата',
+    'time_show': 'Время',
+    'flag_turn_on_off': 'Вкл/Выкл в боте',
+    'event_type': 'id типа мероприятия',
 }

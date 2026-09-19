@@ -1132,14 +1132,30 @@ async def schedule_event_create(
     schedule_event = context.user_data['schedule_event']
     reply_markup = context.user_data['reply_markup']
 
+    user = update.effective_user
+    author_id = user.id if user else None
+    author_name = (f"@{user.username}" if user and user.username else (user.full_name if user else None))
+    msg_id = context.user_data.get('support_message_id', 0)
+    op_key = f"support_hl_{msg_id}_{author_id}"
+
     res = await db_postgres.create_schedule_event(
         context.session,
+        author_id=author_id,
+        author_name=author_name,
+        source='support_hl',
+        operation_key=op_key,
         **schedule_event
     )
 
     context.user_data.pop('schedule_event')
     await query.answer()
     if res:
+        try:
+            from handlers.schedule_sync_hl import send_pending_schedule_reports
+            await send_pending_schedule_reports(context)
+        except Exception as report_err:
+            support_hl_logger.warning(f"Failed to send schedule report: {report_err}")
+
         # Получаю элемент репертуара, так как название есть только в репертуаре
         the = await db_postgres.get_theater_event(
             context.session,

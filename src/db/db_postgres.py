@@ -8,10 +8,13 @@ from sqlalchemy.orm import selectinload, Mapped
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
     ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
-    FeedbackTopic, FeedbackMessage, SpecialTicketPrice, Place)
+    FeedbackTopic, FeedbackMessage, SpecialTicketPrice, Place,
+    ScheduleSyncRun, ScheduleChange)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, Afisha
+from utilities.utl_schedule_changes import (
+    normalize_schedule_snapshot, compute_schedule_diff)
 
 
 async def get_places(session: AsyncSession) -> Sequence[Place]:
@@ -151,17 +154,33 @@ async def update_custom_made_format_from_googlesheets(
 
 
 async def update_schedule_events_from_googlesheets(
-        session: AsyncSession, schedule_events, auto_commit: bool = True):
+        session: AsyncSession, schedule_events, auto_commit: bool = True
+) -> set[int]:
+    """
+    Импортирует расписание из Google Sheets, пропуская сеансы с незавершенными или
+    конфликтными изменениями в журнале PostgreSQL.
+    Возвращает множество ID пропущенных сеансов.
+    """
+    unsynced_ids = await get_unsynced_schedule_event_ids(session)
+    skipped_ids = set()
+
     for _event in schedule_events:
         dto_model = _event.to_dto()
+        event_id = dto_model.get('id')
+        if event_id in unsynced_ids:
+            skipped_ids.add(event_id)
+            continue
+
         # Прекращаем перезапись расчетных остатков свободных мест из Google Sheets
         dto_model.pop('qty_child_free_seat', None)
         dto_model.pop('qty_child_nonconfirm_seat', None)
         dto_model.pop('qty_adult_free_seat', None)
         dto_model.pop('qty_adult_nonconfirm_seat', None)
         await session.merge(ScheduleEvent(**dto_model))
+
     if auto_commit:
         await session.commit()
+    return skipped_ids
 
 
 async def get_email(session: AsyncSession, user_id):
@@ -579,31 +598,51 @@ async def create_schedule_event(
         schedule_event_id=None,
         base_ticket_ids: list[int] | None = None,
         place_id: int | None = None,
+        auto_commit: bool = True,
+        author_id: int | None = None,
+        author_name: str | None = None,
+        source: str = 'schedule_hl',
+        operation_key: str | None = None,
+        record_change: bool = True,
 ):
+    # Защита от повторного создания по стабильному ключу операции
+    if operation_key:
+        res = await session.execute(
+            select(ScheduleChange).where(ScheduleChange.operation_key == operation_key)
+        )
+        existing_change = res.scalars().first()
+        if existing_change:
+            existing_event = await session.get(ScheduleEvent, existing_change.schedule_event_id)
+            if existing_event:
+                return existing_event
+
     # Автоинициализация свободных мест, если не заданы явно
     if qty_child_free_seat is None:
         qty_child_free_seat = qty_child
     if qty_adult_free_seat is None:
         qty_adult_free_seat = qty_adult
 
-    schedule_event = ScheduleEvent(
-        id=schedule_event_id,
-        type_event_id=type_event_id,
-        theater_event_id=theater_event_id,
-        place_id=place_id,
-        flag_turn_in_bot=flag_turn_in_bot,
-        datetime_event=datetime_event,
-        qty_child=qty_child,
-        qty_child_free_seat=qty_child_free_seat,
-        qty_child_nonconfirm_seat=qty_child_nonconfirm_seat,
-        qty_adult=qty_adult,
-        qty_adult_free_seat=qty_adult_free_seat,
-        qty_adult_nonconfirm_seat=qty_adult_nonconfirm_seat,
-        flag_gift=flag_gift,
-        flag_christmas_tree=flag_christmas_tree,
-        flag_santa=flag_santa,
-        ticket_price_type=ticket_price_type,
-    )
+    se_kwargs = {
+        'type_event_id': type_event_id,
+        'theater_event_id': theater_event_id,
+        'place_id': place_id,
+        'flag_turn_in_bot': flag_turn_in_bot,
+        'datetime_event': datetime_event,
+        'qty_child': qty_child,
+        'qty_child_free_seat': qty_child_free_seat,
+        'qty_child_nonconfirm_seat': qty_child_nonconfirm_seat,
+        'qty_adult': qty_adult,
+        'qty_adult_free_seat': qty_adult_free_seat,
+        'qty_adult_nonconfirm_seat': qty_adult_nonconfirm_seat,
+        'flag_gift': flag_gift,
+        'flag_christmas_tree': flag_christmas_tree,
+        'flag_santa': flag_santa,
+        'ticket_price_type': ticket_price_type,
+    }
+    if schedule_event_id is not None:
+        se_kwargs['id'] = schedule_event_id
+
+    schedule_event = ScheduleEvent(**se_kwargs)
 
     # Привязка базовых билетов (Many-to-Many) при наличии
     if base_ticket_ids:
@@ -613,7 +652,28 @@ async def create_schedule_event(
         schedule_event.base_tickets = list(res.scalars().all())
 
     session.add(schedule_event)
-    await session.commit()
+    await session.flush()
+
+    if record_change:
+        snapshot_after = normalize_schedule_snapshot(schedule_event, base_ticket_ids=base_ticket_ids)
+        changed_fields, _ = compute_schedule_diff(None, snapshot_after)
+        change = ScheduleChange(
+            schedule_event_id=schedule_event.id,
+            author_id=author_id,
+            author_name=author_name,
+            source=source,
+            operation_key=operation_key,
+            operation_type='create',
+            snapshot_before=None,
+            snapshot_after=snapshot_after,
+            changed_fields=changed_fields,
+            report_status='pending',
+            sync_status='pending',
+        )
+        session.add(change)
+
+    if auto_commit:
+        await session.commit()
     return schedule_event
 
 
@@ -1349,10 +1409,27 @@ async def update_theater_event(
 
 async def update_schedule_event(
         session: AsyncSession,
-        schedule_event_id,
+        schedule_event_id: int,
+        auto_commit: bool = True,
+        author_id: int | None = None,
+        author_name: str | None = None,
+        source: str = 'schedule_hl',
+        operation_key: str | None = None,
+        record_change: bool = True,
         **kwargs
 ):
-    schedule_event = await session.get(ScheduleEvent, schedule_event_id)
+    stmt = (
+        select(ScheduleEvent)
+        .where(ScheduleEvent.id == schedule_event_id)
+        .with_for_update()
+        .options(selectinload(ScheduleEvent.base_tickets))
+    )
+    res = await session.execute(stmt)
+    schedule_event = res.scalar_one_or_none()
+    if not schedule_event:
+        return None
+
+    snapshot_before = normalize_schedule_snapshot(schedule_event) if record_change else None
 
     base_ticket_ids = kwargs.pop('base_ticket_ids', None)
     for key, value in kwargs.items():
@@ -1360,13 +1437,45 @@ async def update_schedule_event(
 
     if base_ticket_ids is not None:
         if base_ticket_ids:
-            res = await session.execute(select(BaseTicket).where(BaseTicket.base_ticket_id.in_(base_ticket_ids)))
-            schedule_event.base_tickets = list(res.scalars().all())
+            res_bt = await session.execute(
+                select(BaseTicket).where(BaseTicket.base_ticket_id.in_(base_ticket_ids))
+            )
+            schedule_event.base_tickets = list(res_bt.scalars().all())
         else:
             schedule_event.base_tickets = []
 
-    await session.commit()
-    await session.refresh(schedule_event)
+    await session.flush()
+
+    if record_change and snapshot_before is not None:
+        current_bt_ids = (
+            base_ticket_ids
+            if base_ticket_ids is not None
+            else [bt.base_ticket_id for bt in schedule_event.base_tickets]
+        )
+        snapshot_after = normalize_schedule_snapshot(
+            schedule_event,
+            base_ticket_ids=current_bt_ids
+        )
+        changed_fields, _ = compute_schedule_diff(snapshot_before, snapshot_after)
+        if changed_fields:
+            change = ScheduleChange(
+                schedule_event_id=schedule_event.id,
+                author_id=author_id,
+                author_name=author_name,
+                source=source,
+                operation_key=operation_key,
+                operation_type='update',
+                snapshot_before=snapshot_before,
+                snapshot_after=snapshot_after,
+                changed_fields=changed_fields,
+                report_status='pending',
+                sync_status='pending',
+            )
+            session.add(change)
+
+    if auto_commit:
+        await session.commit()
+        await session.refresh(schedule_event)
     return schedule_event
 
 
@@ -1767,3 +1876,186 @@ async def populate_schedule_events_seats(
             event.qty_child_nonconfirm_seat = s['nonconfirm_child']
             event.qty_adult_nonconfirm_seat = s['nonconfirm_adult']
     return schedule_events
+
+
+# ===== Helpers for Schedule Changes and Sync Runs =====
+async def get_schedule_change(
+        session: AsyncSession,
+        change_id: int
+) -> ScheduleChange | None:
+    return await session.get(ScheduleChange, change_id)
+
+
+async def get_pending_schedule_changes_for_report(
+        session: AsyncSession,
+        limit: int = 50
+) -> Sequence[ScheduleChange]:
+    stmt = (
+        select(ScheduleChange)
+        .where(ScheduleChange.report_status.in_(['pending', 'failed']))
+        .order_by(ScheduleChange.id.asc())
+        .limit(limit)
+    )
+    res = await session.execute(stmt)
+    return res.scalars().all()
+
+
+async def update_schedule_change_report_status(
+        session: AsyncSession,
+        change_id: int,
+        report_status: str,
+        telegram_message_id: int | None = None,
+        telegram_chat_id: int | None = None,
+        telegram_thread_id: int | None = None,
+        report_error: str | None = None,
+        auto_commit: bool = True
+) -> ScheduleChange | None:
+    change = await session.get(ScheduleChange, change_id)
+    if not change:
+        return None
+    change.report_status = report_status
+    if telegram_message_id is not None:
+        change.telegram_message_id = telegram_message_id
+    if telegram_chat_id is not None:
+        change.telegram_chat_id = telegram_chat_id
+    if telegram_thread_id is not None:
+        change.telegram_thread_id = telegram_thread_id
+    if report_error is not None:
+        change.report_error = report_error
+    if auto_commit:
+        await session.commit()
+    return change
+
+
+async def get_pending_schedule_changes_for_sync(
+        session: AsyncSession,
+        event_id: int | None = None
+) -> Sequence[ScheduleChange]:
+    conditions = [ScheduleChange.sync_status.in_(['pending', 'conflict', 'failed'])]
+    if event_id is not None:
+        conditions.append(ScheduleChange.schedule_event_id == event_id)
+
+    stmt = (
+        select(ScheduleChange)
+        .where(and_(*conditions))
+        .order_by(ScheduleChange.id.asc())
+    )
+    res = await session.execute(stmt)
+    return res.scalars().all()
+
+
+async def get_active_schedule_sync_run(
+        session: AsyncSession,
+        spreadsheet_id: str
+) -> ScheduleSyncRun | None:
+    stmt = (
+        select(ScheduleSyncRun)
+        .where(
+            ScheduleSyncRun.spreadsheet_id == spreadsheet_id,
+            ScheduleSyncRun.status.in_(['created', 'running'])
+        )
+        .order_by(ScheduleSyncRun.created_at.desc())
+    )
+    res = await session.execute(stmt)
+    return res.scalars().first()
+
+
+async def create_schedule_sync_run(
+        session: AsyncSession,
+        run_id: str,
+        initiator_id: int | None,
+        initiator_name: str | None,
+        spreadsheet_id: str,
+        change_ids: list[int],
+        payload: dict,
+        auto_commit: bool = True
+) -> ScheduleSyncRun:
+    sync_run = ScheduleSyncRun(
+        id=run_id,
+        initiator_id=initiator_id,
+        initiator_name=initiator_name,
+        spreadsheet_id=spreadsheet_id,
+        status='created',
+        change_ids=change_ids,
+        payload=payload,
+        report_status='pending',
+    )
+    session.add(sync_run)
+    if auto_commit:
+        await session.commit()
+    return sync_run
+
+
+async def get_schedule_sync_run(
+        session: AsyncSession,
+        run_id: str
+) -> ScheduleSyncRun | None:
+    return await session.get(ScheduleSyncRun, run_id)
+
+
+async def update_schedule_sync_run(
+        session: AsyncSession,
+        run_id: str,
+        status: str | None = None,
+        results: dict | None = None,
+        report_status: str | None = None,
+        telegram_message_id: int | None = None,
+        telegram_chat_id: int | None = None,
+        telegram_thread_id: int | None = None,
+        report_error: str | None = None,
+        auto_commit: bool = True
+) -> ScheduleSyncRun | None:
+    sync_run = await session.get(ScheduleSyncRun, run_id)
+    if not sync_run:
+        return None
+    if status is not None:
+        sync_run.status = status
+    if results is not None:
+        sync_run.results = results
+    if report_status is not None:
+        sync_run.report_status = report_status
+    if telegram_message_id is not None:
+        sync_run.telegram_message_id = telegram_message_id
+    if telegram_chat_id is not None:
+        sync_run.telegram_chat_id = telegram_chat_id
+    if telegram_thread_id is not None:
+        sync_run.telegram_thread_id = telegram_thread_id
+    if report_error is not None:
+        sync_run.report_error = report_error
+    if auto_commit:
+        await session.commit()
+    return sync_run
+
+
+async def update_schedule_changes_sync_status(
+        session: AsyncSession,
+        change_ids: list[int],
+        sync_status: str,
+        sync_run_id: str | None = None,
+        auto_commit: bool = True
+):
+    if not change_ids:
+        return
+    stmt = select(ScheduleChange).where(ScheduleChange.id.in_(change_ids))
+    res = await session.execute(stmt)
+    changes = res.scalars().all()
+    for ch in changes:
+        ch.sync_status = sync_status
+        if sync_run_id is not None:
+            ch.sync_run_id = sync_run_id
+    if auto_commit:
+        await session.commit()
+
+
+async def get_unsynced_schedule_event_ids(session: AsyncSession) -> set[int]:
+    """
+    Возвращает множество ID сеансов, у которых есть незавершенные, выполняющиеся,
+    конфликтные или ошибочные правки в журнале изменений.
+    """
+    stmt = (
+        select(ScheduleChange.schedule_event_id)
+        .where(ScheduleChange.sync_status.in_(['pending', 'in_progress', 'conflict', 'failed']))
+        .distinct()
+    )
+    res = await session.execute(stmt)
+    return set(res.scalars().all())

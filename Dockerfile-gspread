@@ -11,3 +11,4 @@ RUN --mount=type=bind,source=requirements-gspread.txt,target=requirements-gsprea
 COPY src/api ./api
 COPY src/db ./db
 COPY src/settings ./settings
+COPY src/utilities/utl_date.py ./utilities/utl_date.py

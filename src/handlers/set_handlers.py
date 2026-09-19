@@ -12,6 +12,12 @@ from handlers.hooks import (
     YookassaHookHandler,
     GspreadHookHandler,
     SalesHookHandler,
+    ScheduleSyncHookHandler,
+)
+from handlers.schedule_sync_hl import (
+    sync_schedule_command,
+    handle_sync_schedule_confirm,
+    handle_sync_schedule_cancel,
 )
 from handlers.error_hl import error_handler
 from handlers.timeweb_hl import get_balance
@@ -64,6 +70,8 @@ def set_handlers(application: Application, config):
         CallbackQueryHandler(main_hl.reject_birthday, '^reject-birthday'),
         CallbackQueryHandler(main_hl.approve_privilege, '^approve-privilege'),
         CallbackQueryHandler(main_hl.reject_privilege, '^reject-privilege'),
+        CallbackQueryHandler(handle_sync_schedule_confirm, r'^sch_sync_confirm_'),
+        CallbackQueryHandler(handle_sync_schedule_cancel, r'^sch_sync_cancel_'),
     ])
 
     conversation_handlers = [
@@ -126,6 +134,9 @@ def set_handlers(application: Application, config):
         CommandHandler('set_user_status',
                        main_hl.set_user_status,
                        filter_admin),
+        CommandHandler(COMMAND_DICT['SYNC_SCHEDULE'][0],
+                       sync_schedule_command,
+                       filter_admin),
         CommandHandler(COMMAND_DICT['CLOSE'][0],
                        main_hl.close_feedback_topic,
                        filter_admin),
@@ -153,6 +164,7 @@ def set_handlers(application: Application, config):
     application.add_handler(YookassaHookHandler)
     application.add_handler(GspreadHookHandler)
     application.add_handler(SalesHookHandler)
+    application.add_handler(ScheduleSyncHookHandler)
 
     application.add_error_handler(error_handler)
 

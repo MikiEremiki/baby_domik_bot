@@ -468,9 +468,11 @@ async def create_or_connect_topic(
             reply_to_message_id=update.effective_message.id,
             message_thread_id=update.effective_message.message_thread_id
         )
-    elif context.args[0] == 'create' and len(dict_topics_name) == 0:
+    elif context.args[0] == 'create':
         try:
             for name in LIST_TOPICS_NAME:
+                if name in dict_topics_name and dict_topics_name[name]:
+                    continue
                 topic = await update.effective_chat.create_forum_topic(
                     name=name
                 )
@@ -527,6 +529,10 @@ async def set_back_context(
         reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup,
         del_message_ids: List[int] = None
 ):
+    if 'reserve_user_data' not in context.user_data or not isinstance(context.user_data['reserve_user_data'], dict):
+        context.user_data['reserve_user_data'] = {'back': {}}
+    elif 'back' not in context.user_data['reserve_user_data']:
+        context.user_data['reserve_user_data']['back'] = {}
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
@@ -670,8 +676,10 @@ async def clean_replay_kb_and_send_typing_action(update):
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 
-def to_moscow_dt(dt: datetime.datetime) -> datetime.datetime:
+def to_moscow_dt(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
     """Приводит datetime к timezone-aware в часовом поясе Europe/Moscow (МСК)."""
+    if dt is None:
+        return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(MOSCOW_TZ)

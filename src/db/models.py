@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from typing import Optional, List
 
-from sqlalchemy import ForeignKey, BigInteger, Numeric, JSON, UniqueConstraint, Enum, String
+from sqlalchemy import ForeignKey, BigInteger, Integer, Numeric, JSON, UniqueConstraint, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import BaseModel, BaseModelTimed
@@ -299,7 +299,8 @@ class Place(BaseModelTimed):
 class ScheduleEvent(BaseModelTimed):
     __tablename__ = 'schedule_events'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, 'sqlite'), primary_key=True, autoincrement=True)
 
     type_event_id: Mapped[int] = mapped_column(ForeignKey('type_events.id'))
     theater_event_id: Mapped[int] = mapped_column(
@@ -335,6 +336,9 @@ class ScheduleEvent(BaseModelTimed):
     base_tickets: Mapped[List['BaseTicket']] = relationship(
         secondary='base_tickets_schedule_events',
         back_populates='schedule_events',
+        lazy='selectin')
+    changes: Mapped[List['ScheduleChange']] = relationship(
+        back_populates='schedule_event',
         lazy='selectin')
 
 
@@ -641,3 +645,51 @@ class Afisha(BaseModelTimed):
     __table_args__ = (
         UniqueConstraint('month', 'year', name='uq_afisha_month_year'),
     )
+
+
+class ScheduleSyncRun(BaseModelTimed):
+    __tablename__ = 'schedule_sync_runs'
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
+    initiator_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    initiator_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    spreadsheet_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), default='created')  # created, running, completed, failed, cancelled
+    change_ids: Mapped[list] = mapped_column(JSON, default=list)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    results: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    report_status: Mapped[str] = mapped_column(String(20), default='pending')  # pending, sent, failed
+    telegram_message_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    telegram_chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    telegram_thread_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    report_error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    changes: Mapped[List['ScheduleChange']] = relationship(back_populates='sync_run', lazy='selectin')
+
+
+class ScheduleChange(BaseModelTimed):
+    __tablename__ = 'schedule_changes'
+
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, 'sqlite'), primary_key=True, autoincrement=True)
+    schedule_event_id: Mapped[int] = mapped_column(
+        ForeignKey('schedule_events.id', ondelete='CASCADE'), index=True)
+    author_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    author_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    source: Mapped[str] = mapped_column(String(50), default='schedule_hl')
+    operation_key: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    operation_type: Mapped[str] = mapped_column(String(20))  # create, update
+    snapshot_before: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    snapshot_after: Mapped[dict] = mapped_column(JSON, nullable=False)
+    changed_fields: Mapped[list] = mapped_column(JSON, nullable=False)
+    report_status: Mapped[str] = mapped_column(String(20), default='pending')  # pending, sent, failed
+    telegram_message_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    telegram_chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    telegram_thread_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    report_error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(20), default='pending')  # pending, in_progress, synced, skipped, conflict, failed
+    sync_run_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey('schedule_sync_runs.id', ondelete='SET NULL'), nullable=True, index=True)
+
+    schedule_event: Mapped[Optional['ScheduleEvent']] = relationship(back_populates='changes', lazy='selectin')
+    sync_run: Mapped[Optional['ScheduleSyncRun']] = relationship(back_populates='changes', lazy='selectin')

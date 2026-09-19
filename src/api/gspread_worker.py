@@ -8,7 +8,8 @@ from nats.js.api import DeliverPolicy, ConsumerConfig
 
 from api.googlesheets import (
     update_ticket_in_gspread, update_cme_in_gspread,
-    write_data_reserve, write_client_reserve, write_client_list_waiting
+    write_data_reserve, write_client_reserve, write_client_list_waiting,
+    sync_schedule_events_to_gspread
 )
 from settings.settings import nats_url
 
@@ -101,6 +102,40 @@ async def handle_gspread_task(data: Dict[str, Any], logger: Logger):
                 await broker.publish(
                     message, subject='gspread_failed', stream='baby_domik')
                 logger.info(f'Published gspread task: {message}')
+
+        elif action == 'sync_schedule':
+            run_id = str(data['run_id'])
+            items = data['items']
+            try:
+                item_results = await sync_schedule_events_to_gspread(sheet_id, run_id, items)
+                res_msg = {
+                    'action': 'schedule_sync_result',
+                    'sheet_id': sheet_id,
+                    'run_id': run_id,
+                    'item_results': item_results,
+                }
+            except Exception as sync_err:
+                logger.exception(f'Error syncing schedule to gspread: {sync_err}')
+                res_msg = {
+                    'action': 'schedule_sync_result',
+                    'sheet_id': sheet_id,
+                    'run_id': run_id,
+                    'item_results': [
+                        {
+                            'item_id': it['item_id'],
+                            'event_id': it['event_id'],
+                            'change_ids': it['change_ids'],
+                            'status': 'failed',
+                            'details': {'error': str(sync_err)},
+                            'unsupported_fields': ['base_ticket_ids'] if 'base_ticket_ids' in it.get('fields', []) else []
+                        }
+                        for it in items
+                    ],
+                    'error': str(sync_err)
+                }
+            await broker.publish(
+                res_msg, subject='schedule_sync_result', stream='baby_domik')
+            log_text = f'{run_id=} {len(items)=}'
         else:
             logger.warning(f'Unknown gspread action: {action} | payload={data}')
 

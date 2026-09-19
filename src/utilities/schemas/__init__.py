@@ -6,6 +6,10 @@ from .theater_event import TheaterEventDTO, kv_name_attr_theater_event
 from .promotion import PromotionDTO, kv_name_attr_promotion
 from .ticket import BaseTicketDTO
 from .place import PlaceDTO, kv_name_attr_place
+from .schedule_sync import (
+    ScheduleSyncItem, ScheduleSyncTask,
+    ScheduleSyncItemResult, ScheduleSyncRunResult
+)
 
 __all__ = [
     'birthday_data',
@@ -20,4 +24,8 @@ __all__ = [
     'BaseTicketDTO',
     'PlaceDTO',
     'kv_name_attr_place',
+    'ScheduleSyncItem',
+    'ScheduleSyncTask',
+    'ScheduleSyncItemResult',
+    'ScheduleSyncRunResult',
 ]
