@@ -283,6 +283,19 @@ class BaseTicketTheaterEvent(BaseModelTimed):
         ForeignKey('theater_events.id'), primary_key=True)
 
 
+class Place(BaseModelTimed):
+    __tablename__ = 'places'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    address: Mapped[str]
+    link_on_yndx_maps: Mapped[Optional[str]]
+    link_about: Mapped[Optional[str]]
+
+    schedule_events: Mapped[List['ScheduleEvent']] = relationship(
+        back_populates='place', lazy='selectin')
+
+
 class ScheduleEvent(BaseModelTimed):
     __tablename__ = 'schedule_events'
 
@@ -291,12 +304,16 @@ class ScheduleEvent(BaseModelTimed):
     type_event_id: Mapped[int] = mapped_column(ForeignKey('type_events.id'))
     theater_event_id: Mapped[int] = mapped_column(
         ForeignKey('theater_events.id'))
+    place_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('places.id'), nullable=True, index=True)
     flag_turn_in_bot: Mapped[bool] = mapped_column(default=False)
     datetime_event: Mapped[datetime]
 
     type_event: Mapped['TypeEvent'] = relationship(
         back_populates='schedule_events', lazy='selectin')
     theater_event: Mapped['TheaterEvent'] = relationship(
+        back_populates='schedule_events', lazy='selectin')
+    place: Mapped[Optional['Place']] = relationship(
         back_populates='schedule_events', lazy='selectin')
 
     qty_child: Mapped[int]

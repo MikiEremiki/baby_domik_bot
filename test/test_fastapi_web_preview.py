@@ -1,15 +1,9 @@
-import sys
-from pathlib import Path
+import asyncio
+from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
-
-from datetime import datetime, timezone, timedelta
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+from yookassa import Payment
 
 from api.web.main import app
 from api.web.config import broker
@@ -17,7 +11,6 @@ from api.web.deps import get_session
 from api.web.routes import pages, booking, api as api_route
 from api.web.services import booking_service
 from db.enum import PromotionDiscountType, UserRole
-from yookassa import Payment
 
 
 def _create_mock_event(free_seats_child=10, free_seats_adult=5):
@@ -71,12 +64,17 @@ def _create_client(monkeypatch) -> TestClient:
     monkeypatch.setattr(booking_service, 'publish_update_ticket', AsyncMock(), raising=False)
     monkeypatch.setattr(booking, 'publish_update_ticket', AsyncMock(), raising=False)
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
+    default_place = MagicMock(id=1, name='Домик', address='ул. Пушкина, 1')
+    monkeypatch.setattr(pages, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+    monkeypatch.setattr(booking, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+    monkeypatch.setattr(booking_service, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
 
     # Переопределяем зависимость сессии
     mock_session = AsyncMock()
     mock_session.add = MagicMock()  # session.add — синхронный метод
     
     mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
     mock_result.scalars.return_value.first.return_value = None
     mock_result.scalars.return_value.all.return_value = []
     mock_session.execute = AsyncMock(return_value=mock_result)
@@ -479,8 +477,6 @@ def test_only_child_seats_determine_availability(monkeypatch):
 
 
 def test_check_promo_api(monkeypatch):
-    from db.enum import PromotionDiscountType
-
     mock_promo = MagicMock()
     mock_promo.id = 55
     mock_promo.code = "HELLO"
@@ -500,6 +496,7 @@ def test_check_promo_api(monkeypatch):
 
     with _create_client(monkeypatch) as client:
         monkeypatch.setattr(api_route, 'get_promotion_by_code', AsyncMock(return_value=mock_promo))
+        monkeypatch.setattr(api_route, 'check_promo_restrictions_web', AsyncMock(return_value=(True, "")))
         
         # 1. Успешная проверка
         resp = client.post('/api/check-promo', data={
@@ -752,7 +749,6 @@ def test_post_booking_yookassa_success(monkeypatch):
 
 
 def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
-    import asyncio
     def timeout_create(*args, **kwargs):
         raise asyncio.TimeoutError()
 
@@ -857,3 +853,23 @@ def test_payment_result_with_payment_find_one(monkeypatch):
 
     assert response.status_code == 200
     assert "Оплата прошла успешно" in response.text
+
+
+def test_fastapi_imports_without_telegram(monkeypatch):
+    import sys
+    import importlib
+    monkeypatch.setitem(sys.modules, 'telegram', None)
+    monkeypatch.setitem(sys.modules, 'telegram.error', None)
+    monkeypatch.setitem(sys.modules, 'telegram.ext', None)
+    
+    # Verify utl_text, booking and web modules can be imported without telegram
+    import utilities.utl_text
+    importlib.reload(utilities.utl_text)
+    from utilities.utl_text import format_receipt_description
+    assert callable(format_receipt_description)
+    
+    import api.web.routes.booking
+    importlib.reload(api.web.routes.booking)
+
+    import api.web.main
+    importlib.reload(api.web.main)

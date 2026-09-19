@@ -1,17 +1,10 @@
 import asyncio
-import sys
 from collections import defaultdict
-from pathlib import Path
 from types import MappingProxyType
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 from telegram.error import BadRequest
 from telegram.ext import Application
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
 
 from db.models import TicketStatus
 from handlers.hooks import yookassa_hl

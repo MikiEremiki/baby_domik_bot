@@ -7,7 +7,7 @@ from telegram.ext import (
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
 from handlers import main_hl, profile_hl
-from handlers.sub_hl import update_admin_info, update_cme_admin_info
+from handlers.sub_hl import update_admin_info, update_cme_admin_info, update_place_data
 from handlers.hooks import (
     YookassaHookHandler,
     GspreadHookHandler,
@@ -92,6 +92,7 @@ def set_handlers(application: Application, config):
         CommandHandler('clean_ud', clean_ud, filter_admin),
         CommandHandler('print_ud', print_ud, filter_admin),
         CommandHandler('clean_bd', clean_bd, filter_admin),
+        CommandHandler(COMMAND_DICT['UP_PLACE_DATA'][0], update_place_data, filter_admin),
         CommandHandler('update_config', update_config, filter_admin),
         CommandHandler('update_settings', update_settings, filter_admin),
         CommandHandler('send_approve_msg',

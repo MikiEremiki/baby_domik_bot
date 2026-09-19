@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from db.enum import PromotionDiscountType, GroupOfPeopleByDiscountType
 from handlers.support_hl import choice_db_settings
-from utilities.utl_func import set_back_context
+from utilities.utl_func import set_back_context, to_moscow_dt
 from utilities.utl_kbd import add_btn_back_and_cancel
 from db import db_postgres
 
@@ -1456,7 +1456,7 @@ async def open_restrict_schedule(update: Update, context: ContextTypes.DEFAULT_T
     await _render_multi_select(
         update, context, items, selected, page=0, per_page=10,
         prefix='prm_rse',
-        label_getter=lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {x.datetime_event.strftime('%d.%m %H:%M')}"
+        label_getter=lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {to_moscow_dt(x.datetime_event).strftime('%d.%m %H:%M')}"
     )
     state = PROM_RESTRICT_SCHEDULE
     await set_back_context(context, state, 'restrict_schedule', None)
@@ -1480,12 +1480,12 @@ async def handle_restrict_schedule_cb(update: Update, context: ContextTypes.DEFA
             selected.append(it_id)
         data['schedule_event_ids'] = selected
         items = await db_postgres.get_all_schedule_events_actual(context.session)
-        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rse', lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {x.datetime_event.strftime('%d.%m %H:%M')}")
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rse', lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {to_moscow_dt(x.datetime_event).strftime('%d.%m %H:%M')}")
         return PROM_RESTRICT_SCHEDULE
     elif query.data.startswith('prm_rse_p_'):
         page = int(parts[3])
         items = await db_postgres.get_all_schedule_events_actual(context.session)
-        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rse', lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {x.datetime_event.strftime('%d.%m %H:%M')}")
+        await _render_multi_select(update, context, items, selected, page, 10, 'prm_rse', lambda x: f"#{x.id} [{x.theater_event.name if x.theater_event else '?'}] {to_moscow_dt(x.datetime_event).strftime('%d.%m %H:%M')}")
         return PROM_RESTRICT_SCHEDULE
     else:
         return await ask_promotion_summary(update, context)

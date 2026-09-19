@@ -1,4 +1,5 @@
 ﻿import logging
+import html
 import pprint
 from datetime import datetime
 
@@ -39,6 +40,7 @@ from utilities.utl_func import (
     get_schedule_event_ids_studio,
     clean_context_on_end_handler,
 )
+from utilities.utl_place import effective_place
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_ticket import (
     cancel_tickets_db_and_gspread, create_tickets_and_people)
@@ -154,9 +156,18 @@ async def show_reservation_summary(update: Update,
     date_event, time_event = await get_formatted_date_and_time_of_event(
         schedule_event)
 
+    default_place = await db_postgres.get_default_place(context.session)
+    place_obj = effective_place(schedule_event, default_place)
+    place_name = place_obj.name if place_obj else 'Домик'
+    place_address = place_obj.address if (place_obj and place_obj.address) else ''
+
+    escaped_place_name = html.escape(place_name)
+    escaped_place_address = f" ({html.escape(place_address)})" if place_address else ""
+
     text = (
         f"<b>Подтверждение бронирования</b><br><br>"
         f"<b>Мероприятие:</b> {full_name_event}<br>"
+        f"<b>Локация:</b> {escaped_place_name} {escaped_place_address}<br>"
         f"<b>Дата и время:</b> {date_event} в {time_event}<br>"
     )
 

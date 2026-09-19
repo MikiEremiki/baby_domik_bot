@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
-from typing import Collection, List, Type, Sequence, Any
+from typing import Collection, List, Type, Sequence, Any, Dict
 
 from sqlalchemy import select, func, DATE, and_, delete, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,10 +8,101 @@ from sqlalchemy.orm import selectinload, Mapped
 from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
     ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
-    FeedbackTopic, FeedbackMessage, SpecialTicketPrice)
+    FeedbackTopic, FeedbackMessage, SpecialTicketPrice, Place)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
 from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, Afisha
+
+
+async def get_places(session: AsyncSession) -> Sequence[Place]:
+    result = await session.execute(select(Place).order_by(Place.id))
+    return result.scalars().all()
+
+
+async def get_place(session: AsyncSession, place_id: int) -> Place | None:
+    if place_id is None:
+        return None
+    return await session.get(Place, place_id)
+
+
+async def get_place_by_name(session: AsyncSession, name: str) -> Place | None:
+    result = await session.execute(
+        select(Place).where(func.lower(Place.name) == name.strip().lower())
+    )
+    return result.scalars().first()
+
+
+async def get_default_place(session: AsyncSession) -> Place | None:
+    # 1. Check BotSettings for 'DEFAULT_PLACE_ID'
+    stmt = select(BotSettings).where(BotSettings.key == 'DEFAULT_PLACE_ID')
+    res = await session.execute(stmt)
+    setting = res.scalar_one_or_none()
+    if setting and setting.value:
+        place_id = int(setting.value)
+        place = await session.get(Place, place_id)
+        if place:
+            return place
+
+    # 2. Check Place with name 'Домик'
+    place = await get_place_by_name(session, 'Домик')
+    if place:
+        return place
+
+    raise ValueError('Default place not found')
+
+
+async def create_place(
+        session: AsyncSession,
+        name: str,
+        address: str,
+        link_on_yndx_maps: str | None = None,
+        link_about: str | None = None,
+        place_id: int | None = None,
+        auto_commit: bool = True
+) -> Place:
+    place_kwargs: Dict[str, str | int | None] = {
+        'name': name.strip(),
+        'address': address.strip(),
+        'link_on_yndx_maps': link_on_yndx_maps.strip() if link_on_yndx_maps else None,
+        'link_about': link_about.strip() if link_about else None,
+    }
+    if place_id is not None:
+        place_kwargs['id'] = place_id
+    place = Place(**place_kwargs)
+    session.add(place)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(place)
+    return place
+
+
+async def update_place(
+        session: AsyncSession,
+        place_id: int,
+        auto_commit: bool = True,
+        **kwargs
+) -> Place | None:
+    place = await session.get(Place, place_id)
+    if not place:
+        return None
+    for key, value in kwargs.items():
+        setattr(place, key, value)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(place)
+    return place
+
+
+async def update_places_from_googlesheets(
+        session: AsyncSession,
+        places,
+        auto_commit: bool = True
+):
+    for _place in places:
+        dto_model = _place.to_dto()
+        await session.merge(Place(**dto_model))
+    if auto_commit:
+        await session.commit()
 
 
 async def attach_user_and_people_to_ticket(
@@ -60,7 +151,7 @@ async def update_custom_made_format_from_googlesheets(
 
 
 async def update_schedule_events_from_googlesheets(
-        session: AsyncSession, schedule_events):
+        session: AsyncSession, schedule_events, auto_commit: bool = True):
     for _event in schedule_events:
         dto_model = _event.to_dto()
         # Прекращаем перезапись расчетных остатков свободных мест из Google Sheets
@@ -69,7 +160,8 @@ async def update_schedule_events_from_googlesheets(
         dto_model.pop('qty_adult_free_seat', None)
         dto_model.pop('qty_adult_nonconfirm_seat', None)
         await session.merge(ScheduleEvent(**dto_model))
-    await session.commit()
+    if auto_commit:
+        await session.commit()
 
 
 async def get_email(session: AsyncSession, user_id):
@@ -486,6 +578,7 @@ async def create_schedule_event(
         ticket_price_type=TicketPriceType.NONE,
         schedule_event_id=None,
         base_ticket_ids: list[int] | None = None,
+        place_id: int | None = None,
 ):
     # Автоинициализация свободных мест, если не заданы явно
     if qty_child_free_seat is None:
@@ -497,6 +590,7 @@ async def create_schedule_event(
         id=schedule_event_id,
         type_event_id=type_event_id,
         theater_event_id=theater_event_id,
+        place_id=place_id,
         flag_turn_in_bot=flag_turn_in_bot,
         datetime_event=datetime_event,
         qty_child=qty_child,
@@ -623,9 +717,10 @@ async def get_theater_event(
 
 async def get_schedule_event(
         session: AsyncSession,
-        schedule_event_id: Mapped[int] | int
+        schedule_event_id: Mapped[int] | int,
+        actual_only: bool = False,
 ) -> ScheduleEvent | None:
-    result = await session.execute(
+    query = (
         select(ScheduleEvent)
         .where(ScheduleEvent.id == schedule_event_id)
         .options(
@@ -634,6 +729,12 @@ async def get_schedule_event(
             selectinload(ScheduleEvent.base_tickets)
         )
     )
+    if actual_only:
+        query = query.where(
+            ScheduleEvent.flag_turn_in_bot == True,
+            ScheduleEvent.datetime_event >= datetime.now()
+        )
+    result = await session.execute(query)
     event = result.scalar_one_or_none()
     if event:
         await populate_schedule_events_seats(session, [event])
@@ -681,10 +782,17 @@ async def get_theater_events_by_ids(session: AsyncSession,
 
 
 async def get_schedule_events_by_ids(session: AsyncSession,
-                                     schedule_event_ids: Collection[int]):
+                                     schedule_event_ids: Collection[int],
+                                     actual_only: bool = False):
     query = select(ScheduleEvent).where(
         ScheduleEvent.id.in_(schedule_event_ids)
-    ).order_by(ScheduleEvent.datetime_event)
+    )
+    if actual_only:
+        query = query.where(
+            ScheduleEvent.flag_turn_in_bot == True,
+            ScheduleEvent.datetime_event >= datetime.now()
+        )
+    query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
     if events:
@@ -1118,11 +1226,18 @@ async def get_schedule_events_by_ids_and_theater(
         session: AsyncSession,
         schedule_event_ids: List[int],
         theater_event_ids: List[int],
+        actual_only: bool = False,
 ):
     query = select(ScheduleEvent).where(
         ScheduleEvent.id.in_(schedule_event_ids),
         ScheduleEvent.theater_event_id.in_(theater_event_ids),
-    ).order_by(ScheduleEvent.datetime_event)
+    )
+    if actual_only:
+        query = query.where(
+            ScheduleEvent.flag_turn_in_bot == True,
+            ScheduleEvent.datetime_event >= datetime.now()
+        )
+    query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
     if events:
@@ -1141,9 +1256,14 @@ async def get_actual_schedule_events_by_date(
     return events
 
 
-async def get_schedule_theater_base_tickets(context, choice_event_id: int):
+async def get_schedule_theater_base_tickets(
+        context,
+        choice_event_id: int,
+        actual_only: bool = False
+):
     schedule_event = await get_schedule_event(context.session,
-                                              int(choice_event_id))
+                                              int(choice_event_id),
+                                              actual_only=actual_only)
     if not schedule_event:
         raise ValueError("Schedule event not found")
     theater_event = await get_theater_event(context.session,

@@ -1,4 +1,5 @@
 ﻿from collections import defaultdict
+import html
 import logging
 from datetime import datetime, date
 
@@ -22,14 +23,16 @@ from utilities.utl_check import (
     check_entered_command, check_topic,
 )
 from utilities.utl_func import (
-    set_back_context,
+    set_back_context, get_back_context,
     get_full_name_event, get_formatted_date_and_time_of_event,
     create_event_names_text, get_type_event_ids_by_command,
     filter_schedule_event_by_active, get_unique_months,
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
-    get_emoji,
-    extract_command
+    get_emoji, extract_command, to_moscow_dt,
+)
+from utilities.utl_place import (
+    effective_place, needs_place_choice, collect_places, format_place_footnote
 )
 from utilities.utl_kbd import (
     create_kbd_schedule, create_replay_markup, add_btn_back_and_cancel,
@@ -575,6 +578,136 @@ async def choice_show(
     return state
 
 
+async def _render_sessions_for_repertoire(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        query,
+        schedule_events,
+        theater_event,
+        number_of_month_str,
+        select_mode,
+        postfix_for_back='SHOW'
+):
+    default_place = await db_postgres.get_default_place(context.session)
+    schedule_events_sorted = sorted(schedule_events,
+                                    key=lambda s_e: s_e.datetime_event)
+    keyboard = []
+    unique_times = []
+    seen_times = set()
+    for s_ev in schedule_events_sorted:
+        date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
+        text_emoji = await get_emoji(s_ev)
+        p = effective_place(s_ev, default_place)
+        btn_text = f"{date_txt} {time_txt} ({p.name}){text_emoji}"
+        keyboard.append(
+            InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
+        # Копим список уникальных времен для текста
+        if time_txt not in seen_times:
+            seen_times.add(time_txt)
+            unique_times.append(time_txt)
+
+    if context.user_data.get('command', False) == 'list':
+        state = 'LIST'
+    else:
+        state = 'TIME'
+
+    reply_markup = await create_replay_markup(
+        keyboard,
+        intent_id=state,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=postfix_for_back,
+        size_row=2
+    )
+
+    full_name, _text = await get_text_for_reserve(schedule_events,
+                                                  theater_event,
+                                                  add_note=True)
+
+    text = (f'Вы выбрали мероприятие:\n'
+            f'<b>{full_name}</b>\n\n')
+    if unique_times:
+        text += '<b>Доступное время:</b> '
+        text += ', '.join(unique_times) + '\n\n'
+    text += f'<i>Выберите удобные дату и время</i>\n\n{_text}'
+
+    # Информация о свободных местах по каждому показу
+    if schedule_events_sorted:
+        text += '<b>Свободные места:</b>\n'
+        for s_ev in schedule_events_sorted:
+            date_txt, time_txt = await get_formatted_date_and_time_of_event(
+                s_ev)
+            p = effective_place(s_ev, default_place)
+            qty_child = max(int(s_ev.qty_child_free_seat), 0)
+            qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
+            text += f"{date_txt} {time_txt} ({html.escape(p.name)}) — {qty_child} дет | {qty_adult} взр\n"
+
+    # Адресные сноски
+    places = collect_places(schedule_events_sorted, default_place)
+    if places:
+        text += '\n' + '\n'.join(format_place_footnote(p) for p in places)
+
+    photo = False
+    if number_of_month_str is not None and select_mode == 'DATE':
+        try:
+            afisha_record = await db_postgres.get_afisha(
+                context.session, int(number_of_month_str), date.today().year
+            )
+            if afisha_record:
+                photo = afisha_record.file_id
+        except (TypeError, ValueError):
+            photo = False
+    if update.effective_chat.type == ChatType.PRIVATE and photo:
+        if update.effective_message.photo:
+            await query.edit_message_caption(
+                caption=text,
+                reply_markup=reply_markup,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
+        else:
+            if query:
+                await query.delete_message()
+            await update.effective_chat.send_photo(
+                photo=photo,
+                caption=text,
+                reply_markup=reply_markup,
+                message_thread_id=update.effective_message.message_thread_id,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
+    else:
+        if update.effective_message.photo:
+            if query:
+                await query.delete_message()
+            await update.effective_chat.send_message(
+                text=text,
+                reply_markup=reply_markup,
+                message_thread_id=update.effective_message.message_thread_id,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
+        else:
+            if query:
+                await query.edit_message_text(
+                    text=text,
+                    reply_markup=reply_markup,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
+                )
+            else:
+                await update.effective_chat.send_message(
+                    text=text,
+                    reply_markup=reply_markup,
+                    message_thread_id=update.effective_message.message_thread_id,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
+                )
+
+    # Переходим к следующему шагу (бронирование или список)
+    schedule_event_ids = [item.id for item in schedule_events]
+    state_data = context.user_data['reserve_user_data'][state] = {}
+    state_data['schedule_event_ids'] = schedule_event_ids
+
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
 async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Репертуарный путь: объединяем выбор даты и времени в один шаг.
@@ -597,119 +730,79 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     number_of_month_str = reserve_user_data.get('number_of_month_str')
 
     prev_state = context.user_data['STATE']
-    schedule_event_ids = reserve_user_data[prev_state]['schedule_event_ids']
+    schedule_event_ids = reserve_user_data.get(prev_state, {}).get('schedule_event_ids') or reserve_user_data.get('SHOW', {}).get('schedule_event_ids')
     theater_event = await db_postgres.get_theater_event(
         context.session, theater_event_id)
     schedule_events = await db_postgres.get_schedule_events_by_ids_and_theater(
-        context.session, schedule_event_ids, [theater_event_id])
+        context.session, schedule_event_ids, [theater_event_id], actual_only=True)
 
     # Режим выбора
     select_mode = context.user_data.get('select_mode')
+    default_place = await db_postgres.get_default_place(context.session)
 
     # Если репертуар и не лист ожидания — объединяем дату и время в один шаг
     if select_mode == 'REPERTOIRE' and context.user_data.get(
             'command') != 'list_wait':
-        # Кнопки: все показы выбранного спектакля (ДАТА ВРЕМЯ + флаги)
-        schedule_events_sorted = sorted(schedule_events,
-                                        key=lambda s_e: s_e.datetime_event)
-        keyboard = []
-        unique_times = []
-        seen_times = set()
-        for s_ev in schedule_events_sorted:
-            date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
-            text_emoji = await get_emoji(s_ev)
-            btn_text = f"{date_txt} {time_txt}{text_emoji}"
-            keyboard.append(
-                InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
-            # Копим список уникальных времен для текста
-            if time_txt not in seen_times:
-                seen_times.add(time_txt)
-                unique_times.append(time_txt)
+        # Проверяем, нужен ли шаг выбора локации
+        if needs_place_choice(schedule_events, default_place):
+            places = collect_places(schedule_events, default_place)
+            keyboard = []
+            for p in places:
+                keyboard.append(InlineKeyboardButton(text=f"📍 {p.name}", callback_data=str(p.id)))
 
-        if context.user_data.get('command', False) == 'list':
-            state = 'LIST'
-        else:
-            state = 'TIME'
+            state = 'PLACE'
+            reply_markup = await create_replay_markup(
+                keyboard,
+                intent_id=state,
+                postfix_for_cancel=context.user_data['postfix_for_cancel'],
+                postfix_for_back='SHOW',
+                size_row=1
+            )
 
-        reply_markup = await create_replay_markup(
-            keyboard,
-            intent_id=state,
-            postfix_for_cancel=context.user_data['postfix_for_cancel'],
-            postfix_for_back='SHOW',
-            size_row=2
-        )
+            footnotes = "\n".join(format_place_footnote(p) for p in places)
+            text = (
+                f"Вы выбрали спектакль:\n<b>{theater_event.name}</b>\n\n"
+                f"Показы проходят на нескольких площадках.\n<b>Выберите удобную локацию:</b>\n\n"
+                f"{footnotes}"
+            )
 
-        full_name, _text = await get_text_for_reserve(schedule_events,
-                                                      theater_event,
-                                                      add_note=True)
+            reserve_user_data['PLACE'] = {
+                'branch': 'REPERTOIRE',
+                'theater_event_id': theater_event_id,
+                'schedule_event_ids': [ev.id for ev in schedule_events],
+            }
 
-        text = (f'Вы выбрали мероприятие:\n'
-                f'<b>{full_name}</b>\n\n')
-        if unique_times:
-            text += '<b>Доступное время:</b> '
-            text += ', '.join(unique_times) + '\n\n'
-        text += f'<i>Выберите удобные дату и время</i>\n\n{_text}'
-
-        # Информация о свободных местах по каждому показу
-        if schedule_events_sorted:
-            text += '<b>Свободные места:</b>\n'
-            for s_ev in schedule_events_sorted:
-                date_txt, time_txt = await get_formatted_date_and_time_of_event(
-                    s_ev)
-                qty_child = max(int(s_ev.qty_child_free_seat), 0)
-                qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
-                text += f"{date_txt} {time_txt} — {qty_child} дет | {qty_adult} взр\n"
-
-        photo = False
-        if number_of_month_str is not None and select_mode == 'DATE':
-            try:
-                afisha_record = await db_postgres.get_afisha(
-                    context.session, int(number_of_month_str), date.today().year
-                )
-                if afisha_record:
-                    photo = afisha_record.file_id
-            except (TypeError, ValueError):
-                photo = False
-        if update.effective_chat.type == ChatType.PRIVATE and photo:
-            if update.effective_message.photo:
-                await query.edit_message_caption(
-                    caption=text,
-                    reply_markup=reply_markup,
-                    link_preview_options=LinkPreviewOptions(is_disabled=True),
-                )
+            if query:
+                if update.effective_message.photo:
+                    await query.delete_message()
+                    await update.effective_chat.send_message(
+                        text=text,
+                        reply_markup=reply_markup,
+                        message_thread_id=update.effective_message.message_thread_id,
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
+                else:
+                    await query.edit_message_text(
+                        text=text,
+                        reply_markup=reply_markup,
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
             else:
-                await query.delete_message()
-                await update.effective_chat.send_photo(
-                    photo=photo,
-                    caption=text,
-                    reply_markup=reply_markup,
-                    message_thread_id=update.effective_message.message_thread_id,
-                    link_preview_options=LinkPreviewOptions(is_disabled=True),
-                )
-        else:
-            if update.effective_message.photo:
-                await query.delete_message()
                 await update.effective_chat.send_message(
                     text=text,
                     reply_markup=reply_markup,
                     message_thread_id=update.effective_message.message_thread_id,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
                 )
-            else:
-                await query.edit_message_text(
-                    text=text,
-                    reply_markup=reply_markup,
-                    link_preview_options=LinkPreviewOptions(is_disabled=True),
-                )
 
-        # Переходим к следующему шагу (бронирование или список)
-        schedule_event_ids = [item.id for item in schedule_events]
-        state_data = context.user_data['reserve_user_data'][state] = {}
-        state_data['schedule_event_ids'] = schedule_event_ids
+            await set_back_context(context, state, text, reply_markup)
+            context.user_data['STATE'] = state
+            return state
 
-        await set_back_context(context, state, text, reply_markup)
-        context.user_data['STATE'] = state
-        return state
+        return await _render_sessions_for_repertoire(
+            update, context, query, schedule_events, theater_event,
+            number_of_month_str, select_mode, postfix_for_back='SHOW'
+        )
 
     # ---------- Прежнее поведение для остальных случаев ----------
     # Определяем конечный state экрана (DATE/LIST_WAIT)
@@ -845,7 +938,7 @@ async def unique_events_group_by_date(schedule_events):
             _, time_txt = await get_formatted_date_and_time_of_event(ev)
         except Exception as e:
             reserve_hl_logger.error(e)
-            time_txt = ev.datetime_event.strftime('%H:%M')
+            time_txt = to_moscow_dt(ev.datetime_event).strftime('%H:%M')
         if time_txt not in seen_times:
             seen_times.add(time_txt)
             unique_times.append(time_txt)
@@ -968,6 +1061,82 @@ async def get_text_for_reserve(schedule_events, theater_event, add_note=False):
     return full_name, _text
 
 
+async def _render_time_for_date(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        query,
+        schedule_events,
+        selected_date_dt,
+        check_command_studio,
+        postfix_for_back='DATE'
+):
+    default_place = await db_postgres.get_default_place(context.session)
+    theater_event_id_order = []
+    for ev in schedule_events:
+        if ev.theater_event_id not in theater_event_id_order:
+            theater_event_id_order.append(ev.theater_event_id)
+    theater_events = await db_postgres.get_theater_events_by_ids(
+        context.session, theater_event_id_order)
+    theater_events = sorted(
+        theater_events,
+        key=lambda t_e: theater_event_id_order.index(t_e.id)
+    )
+    enum_theater_events = tuple(enumerate(theater_events, start=1))
+
+    keyboard = await create_kbd_for_time_by_date(schedule_events,
+                                                 enum_theater_events,
+                                                 default_place=default_place)
+
+    if context.user_data.get('command', False) == 'list':
+        state = 'LIST'
+    else:
+        state = 'TIME'
+
+    reply_markup = await create_replay_markup(
+        keyboard,
+        intent_id=state,
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        postfix_for_back=postfix_for_back,
+        size_row=1
+    )
+
+    text = (
+        f"Вы выбрали дату:\n<b>{selected_date_dt.strftime('%d.%m')}</b>\n\n"
+        f"<b>Выберите спектакль и удобное время</b>\n\n"
+    )
+    text = await create_event_names_text(enum_theater_events, text, add_link=True)
+    text += ('<i>Вы также можете выбрать вариант с 0 кол-вом мест '
+             'для записи в лист ожидания на данное время</i>\n\n'
+             'Кол-во свободных мест:\n')
+
+    if check_command_studio:
+        text += '⬇️<i>Время</i> | <i>Детских</i>⬇️'
+    else:
+        text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
+
+    # Адресные сноски
+    places = collect_places(schedule_events, default_place)
+    if places:
+        text += '\n\n' + '\n'.join(format_place_footnote(p) for p in places)
+
+    if query:
+        await query.delete_message()
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+        message_thread_id=update.effective_message.message_thread_id,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+    schedule_event_ids = [item.id for item in schedule_events]
+    state_data = context.user_data['reserve_user_data'][state] = {}
+    state_data['schedule_event_ids'] = schedule_event_ids
+
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
 async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Обработка выбора даты/спектакля.
@@ -990,9 +1159,9 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     selected_date = callback_data
     reserve_user_data = context.user_data['reserve_user_data']
     state_prev = context.user_data['STATE']  # Должен быть 'DATE'
-    schedule_event_ids = reserve_user_data[state_prev]['schedule_event_ids']
+    schedule_event_ids = reserve_user_data.get(state_prev, {}).get('schedule_event_ids') or reserve_user_data.get('DATE', {}).get('schedule_event_ids')
     schedule_events_all = await db_postgres.get_schedule_events_by_ids(
-        context.session, schedule_event_ids)
+        context.session, schedule_event_ids, actual_only=True)
 
     # Фильтруем события выбранной даты
     try:
@@ -1004,63 +1173,150 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         ev.datetime_event.date() == selected_date_dt
     ]
 
-    # Список спектаклей и их порядок для легенды и эмодзи
-    theater_event_id_order = []
-    for ev in schedule_events:
-        if ev.theater_event_id not in theater_event_id_order:
-            theater_event_id_order.append(ev.theater_event_id)
-    theater_events = await db_postgres.get_theater_events_by_ids(
-        context.session, theater_event_id_order)
-    theater_events = sorted(
-        theater_events,
-        key=lambda t_e: theater_event_id_order.index(t_e.id)
-    )
-    enum_theater_events = tuple(enumerate(theater_events, start=1))
+    default_place = await db_postgres.get_default_place(context.session)
 
-    # Клавиатура: варианты (спектакль + время)
-    keyboard = await create_kbd_for_time_by_date(schedule_events,
-                                                 enum_theater_events)
+    # Проверяем, нужен ли шаг выбора локации
+    if needs_place_choice(schedule_events, default_place):
+        places = collect_places(schedule_events, default_place)
+        keyboard = []
+        for p in places:
+            keyboard.append(InlineKeyboardButton(text=f"📍 {p.name}", callback_data=str(p.id)))
 
-    # Определяем следующее состояние
-    if context.user_data.get('command', False) == 'list':
-        state = 'LIST'
-    else:
-        state = 'TIME'
+        state = 'PLACE'
+        reply_markup = await create_replay_markup(
+            keyboard,
+            intent_id=state,
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            postfix_for_back='DATE',
+            size_row=1
+        )
 
-    reply_markup = await create_replay_markup(
-        keyboard,
-        intent_id=state,
-        postfix_for_cancel=context.user_data['postfix_for_cancel'],
-        postfix_for_back='DATE',
-        size_row=1
-    )
+        footnotes = "\n".join(format_place_footnote(p) for p in places)
+        text = (
+            f"Вы выбрали дату:\n<b>{selected_date_dt.strftime('%d.%m')}</b>\n\n"
+            f"В этот день показы проходят на нескольких площадках.\n<b>Выберите удобную локацию:</b>\n\n"
+            f"{footnotes}"
+        )
 
-    # Текст с легендой по спектаклям
-    text = (
-        f"Вы выбрали дату:\n<b>{selected_date_dt.strftime('%d.%m')}</b>\n\n"
-        f"<b>Выберите спектакль и удобное время</b>\n\n"
-    )
-    text = await create_event_names_text(enum_theater_events, text, add_link=True)
-    text += ('<i>Вы также можете выбрать вариант с 0 кол-вом мест '
-             'для записи в лист ожидания на данное время</i>\n\n'
-             'Кол-во свободных мест:\n')
+        reserve_user_data['PLACE'] = {
+            'branch': 'DATE',
+            'selected_date': selected_date,
+            'schedule_event_ids': [ev.id for ev in schedule_events],
+        }
 
-    if check_command_studio:
-        text += '⬇️<i>Время</i> | <i>Детских</i>⬇️'
-    else:
-        text += '⬇️<i>Время</i> | <i>Детских</i> | <i>Взрослых</i>⬇️'
+        if query:
+            await query.delete_message()
+        await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+            message_thread_id=update.effective_message.message_thread_id,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
 
-    await query.delete_message()
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id,
-        link_preview_options=LinkPreviewOptions(is_disabled=True),
+        await set_back_context(context, state, text, reply_markup)
+        context.user_data['STATE'] = state
+        return state
+
+    return await _render_time_for_date(
+        update, context, query, schedule_events, selected_date_dt,
+        check_command_studio, postfix_for_back='DATE'
     )
 
-    await set_back_context(context, state, text, reply_markup)
-    context.user_data['STATE'] = state
-    return state
+
+async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+
+    _, callback_data = remove_intent_id(query.data)
+    try:
+        chosen_place_id = int(callback_data)
+    except (ValueError, TypeError):
+        chosen_place_id = None
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    place_ctx = reserve_user_data.get('PLACE', {})
+    branch = place_ctx.get('branch', 'DATE')
+    schedule_event_ids = place_ctx.get('schedule_event_ids', [])
+
+    schedule_events_all = await db_postgres.get_schedule_events_by_ids(
+        context.session, schedule_event_ids, actual_only=True)
+
+    default_place = await db_postgres.get_default_place(context.session)
+    chosen_place = await db_postgres.get_place(context.session, chosen_place_id) if chosen_place_id is not None else None
+
+    available_places = collect_places(schedule_events_all, default_place)
+    available_place_ids = {p.id for p in available_places}
+
+    if chosen_place is None or chosen_place.id not in available_place_ids:
+        text_info = (
+            'К сожалению, выбранная локация более недоступна.\n'
+            'Пожалуйста, выберите другую площадку или вернитесь назад.\n\n'
+        )
+        state = 'PLACE'
+        try:
+            text_back, reply_markup, _ = await get_back_context(context, state)
+            if query:
+                if update.effective_message.photo:
+                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                else:
+                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+            else:
+                await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
+        except KeyError:
+            if query:
+                await query.answer('Выбранная локация недоступна.', show_alert=True)
+        return state
+
+    filtered_events = [
+        ev for ev in schedule_events_all
+        if effective_place(ev, default_place).id == chosen_place.id
+    ]
+
+    if not filtered_events:
+        text_info = (
+            'К сожалению, на выбранной локации нет доступных сеансов.\n'
+            'Пожалуйста, выберите другую площадку или вернитесь назад.\n\n'
+        )
+        state = 'PLACE'
+        try:
+            text_back, reply_markup, _ = await get_back_context(context, state)
+            if query:
+                if update.effective_message.photo:
+                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                else:
+                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+            else:
+                await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
+        except KeyError:
+            if query:
+                await query.answer('На выбранной локации нет доступных сеансов.', show_alert=True)
+        return state
+
+    reserve_user_data['chosen_place_id'] = chosen_place.id
+
+    if branch == 'DATE':
+        selected_date = place_ctx['selected_date']
+        try:
+            selected_date_dt = datetime.fromisoformat(selected_date).date()
+        except ValueError:
+            selected_date_dt = datetime.strptime(selected_date, '%Y-%m-%d').date()
+        check_command_studio = check_entered_command(context, 'studio')
+        return await _render_time_for_date(
+            update, context, query, filtered_events, selected_date_dt,
+            check_command_studio, postfix_for_back='PLACE'
+        )
+    else:  # REPERTOIRE
+        theater_event_id = place_ctx['theater_event_id']
+        theater_event = await db_postgres.get_theater_event(context.session, theater_event_id)
+        number_of_month_str = reserve_user_data.get('number_of_month_str')
+        select_mode = context.user_data.get('select_mode')
+        return await _render_sessions_for_repertoire(
+            update, context, query, filtered_events, theater_event,
+            number_of_month_str, select_mode, postfix_for_back='PLACE'
+        )
 
 
 async def choice_option_of_reserve(
@@ -1087,17 +1343,78 @@ async def choice_option_of_reserve(
                                             message_thread_id=thread_id)
 
     _, callback_data = remove_intent_id(query.data)
-    choice_event_id = int(callback_data)
+    try:
+        choice_event_id = int(callback_data)
+    except (ValueError, TypeError):
+        choice_event_id = None
 
     reserve_user_data = context.user_data['reserve_user_data']
-    reserve_user_data['choose_schedule_event_id'] = choice_event_id
+    time_ctx = reserve_user_data.get('TIME', {})
+    valid_schedule_event_ids = time_ctx.get('schedule_event_ids')
+    chosen_place_id = reserve_user_data.get('chosen_place_id')
 
-    (
-        base_tickets,
-        schedule_event,
-        theater_event,
-        type_event
-    ) = await get_schedule_theater_base_tickets(context, choice_event_id)
+    is_valid = choice_event_id is not None
+    if is_valid and valid_schedule_event_ids is not None:
+        if choice_event_id not in valid_schedule_event_ids:
+            is_valid = False
+
+    schedule_event = None
+    theater_event = None
+    type_event = None
+    base_tickets = None
+
+    if is_valid:
+        try:
+            (
+                base_tickets,
+                schedule_event,
+                theater_event,
+                type_event
+            ) = await get_schedule_theater_base_tickets(context, choice_event_id, actual_only=True)
+        except Exception as e:
+            reserve_hl_logger.warning(f"Failed to get active schedule event {choice_event_id}: {e}")
+            is_valid = False
+
+    if is_valid and schedule_event:
+        if chosen_place_id is not None:
+            default_place = await db_postgres.get_default_place(context.session)
+            if effective_place(schedule_event, default_place).id != chosen_place_id:
+                is_valid = False
+
+    if not is_valid or not schedule_event:
+        try:
+            await message.delete()
+        except (BadRequest, Exception) as e:
+            reserve_hl_logger.error(e)
+
+        text_info = (
+            'К сожалению, данный сеанс более недоступен для бронирования.\n'
+            'Пожалуйста, выберите другое время или мероприятие.\n\n'
+        )
+        state = 'TIME'
+        try:
+            text_back, reply_markup, _ = await get_back_context(context, state)
+            if query:
+                if update.effective_message.photo:
+                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                else:
+                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+            else:
+                await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
+        except KeyError:
+            prev_state = context.user_data.get('STATE', 'DATE')
+            try:
+                text_back, reply_markup, _ = await get_back_context(context, prev_state)
+                if query:
+                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                state = prev_state
+            except KeyError:
+                if query:
+                    await query.answer('Данный сеанс более недоступен.', show_alert=True)
+        context.user_data['STATE'] = state
+        return state
+
+    reserve_user_data['choose_schedule_event_id'] = choice_event_id
 
     # Гарантируем наличие id выбранного спектакля для дальнейших шагов оплаты
     reserve_user_data['choose_theater_event_id'] = theater_event.id

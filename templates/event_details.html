@@ -4,7 +4,7 @@
 
 {% block content %}
 <section class="mb-8">
-    <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/">← Назад к афише</a>
+    <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/?{% if current_place_id %}place_id={{ current_place_id }}{% endif %}">← Назад к афише</a>
     <h1 class="mt-3 text-3xl font-bold tracking-tight">{{ event.title }}</h1>
     <p class="mt-2 max-w-3xl text-slate-600">{{ event.description }}</p>
 </section>
@@ -14,6 +14,7 @@
         <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50 text-left">
                 <tr>
+                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Локация</th>
                     <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Дата</th>
                     <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Время</th>
                     <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Свободно мест (Дети)</th>
@@ -24,6 +25,7 @@
             <tbody class="divide-y divide-slate-100 bg-white">
                 {% for session in sessions %}
                 <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-6 py-4 text-sm text-slate-900 font-medium">{{ session.place_name }}</td>
                     <td class="px-6 py-4 text-sm text-slate-900 font-medium">{{ session.date }}</td>
                     <td class="px-6 py-4 text-sm text-slate-600">{{ session.time }}</td>
                     <td class="px-6 py-4 text-sm text-slate-600">{{ session.free_seats_child }}</td>
@@ -42,7 +44,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                    <td colspan="6" class="px-6 py-12 text-center text-slate-500">
                         <p>На данный момент нет доступных сеансов для этого спектакля.</p>
                         <p class="mt-2 text-sm text-slate-400">Пожалуйста, загляните позже или выберите другую постановку.</p>
                     </td>
@@ -52,4 +54,29 @@
         </table>
     </div>
 </section>
+
+{% if places_footnotes %}
+<section class="mt-6 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+    <h3 class="text-sm font-semibold text-slate-700 mb-2">Адреса площадок:</h3>
+    <ul class="space-y-1.5 text-xs text-slate-600">
+        {% for pf in places_footnotes %}
+        <li>
+            📍 <b>{{ pf.name }}</b>: {{ pf.address }}
+            {% if pf.link_on_yndx_maps or pf.link_about %}
+            <span class="text-slate-400">·</span>
+            {% endif %}
+            {% if pf.link_on_yndx_maps %}
+            <a href="{{ pf.link_on_yndx_maps }}" target="_blank" rel="noopener noreferrer" class="text-domik-green-soft hover:underline">Яндекс Карты</a>
+            {% endif %}
+            {% if pf.link_on_yndx_maps and pf.link_about %}
+            <span class="text-slate-400">|</span>
+            {% endif %}
+            {% if pf.link_about %}
+            <a href="{{ pf.link_about }}" target="_blank" rel="noopener noreferrer" class="text-domik-green-soft hover:underline">Подробнее</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
 {% endblock %}

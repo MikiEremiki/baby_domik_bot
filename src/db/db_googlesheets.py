@@ -11,7 +11,8 @@ from api.gspread_pub import publish_write_data_reserve
 from db import db_postgres
 from settings import parse_settings
 from utilities.schemas import (
-    CustomMadeFormatDTO, ScheduleEventDTO, TheaterEventDTO, BaseTicketDTO
+    CustomMadeFormatDTO, ScheduleEventDTO, TheaterEventDTO, BaseTicketDTO,
+    PlaceDTO
 )
 from utilities.schemas.promotion import PromotionDTO
 
@@ -33,7 +34,7 @@ def _map_row_to_dict(
         try:
             row_dict[field] = row[column_map[field]]
         except KeyError as exc:
-            if exc.args and exc.args[0] != "date_show_tmp":
+            if exc.args and exc.args[0] not in ("date_show_tmp", "place_id"):
                 db_googlesheets_logger.error(
                     "Missing column mapping for field")
                 db_googlesheets_logger.error("row=%s", row)
@@ -143,6 +144,18 @@ async def load_entities_from_sheet(
         result.append(entity)
 
     return result
+
+
+async def load_places() -> List[PlaceDTO]:
+    name_sh = 'База мест_'
+    places = await load_entities_from_sheet(
+        PlaceDTO,
+        sheet_id=sheet_id_domik,
+        name_sh=name_sh,
+        value_render_option='FORMATTED_VALUE',
+    )
+    db_googlesheets_logger.info('Список локаций загружен')
+    return places
 
 
 async def load_base_tickets(only_active=True) -> List[BaseTicketDTO]:

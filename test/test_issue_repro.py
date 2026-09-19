@@ -1,14 +1,7 @@
-import sys
-from pathlib import Path
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from fastapi.testclient import TestClient
 from datetime import datetime, timezone
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+from unittest.mock import AsyncMock, MagicMock
+import pytest
+from fastapi.testclient import TestClient
 
 from api.web import main, deps
 from api.web.routes import booking, pages
@@ -114,6 +107,8 @@ def test_index_page_filters_turned_off_session(client, monkeypatch):
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
+    mock_place = MagicMock(id=1, name="Домик", address="ул. Ленина, 1")
+    monkeypatch.setattr(pages, 'get_default_place', AsyncMock(return_value=mock_place))
     
     # 1. Проверяем главную страницу
     response = client.get('/')

@@ -7,9 +7,11 @@ from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
 
 from db import db_postgres
 from db.enum import PriceType, TicketPriceType, PromotionDiscountType
-from handlers import init_conv_hl_dialog
+from handlers import init_conv_hl_dialog, place_hl
 from settings.settings import (
-    RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR)
+    RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR,
+    ADMIN_ID)
+from utilities.utl_func import to_moscow_dt
 from utilities.schemas import (
     kv_name_attr_schedule_event,
     kv_name_attr_theater_event,
@@ -27,8 +29,12 @@ def get_validated_data(string, option):
     query = string.split('\n')
     data = {}
     for kv in query:
-        key, value = kv.split('=')
-        validated_value = validate_value(value, option)
+        if not kv.strip() or '=' not in kv:
+            continue
+        key, value = kv.split('=', 1)
+        key = key.strip()
+        value = value.strip()
+        validated_value = validate_value(value, option, key=key)
         if option == 'theater':
             for k, v in kv_name_attr_theater_event.items():
                 if key == v:
@@ -37,49 +43,81 @@ def get_validated_data(string, option):
             for k, v in kv_name_attr_schedule_event.items():
                 if key == v:
                     data[k] = validated_value
+        if option == 'promotion':
+            for k, v in kv_name_attr_promotion.items():
+                if key == v:
+                    data[k] = validated_value
     return data
 
 
-def validate_value(value, option):
+def validate_value(value, option, key=None):
     if value == 'Да':
-        value = True
+        return True
     if value == 'Нет':
-        value = False
+        return False
     if option == 'theater':
         if value == 'По умолчанию':
-            value = PriceType.NONE
+            return PriceType.NONE
         if value == 'Базовая стоимость':
-            value = PriceType.BASE_PRICE
+            return PriceType.BASE_PRICE
         if value == 'Опции':
-            value = PriceType.OPTIONS
+            return PriceType.OPTIONS
         if value == 'Индивидуальная':
-            value = PriceType.INDIVIDUAL
+            return PriceType.INDIVIDUAL
     if option == 'schedule':
-        if value == 'По умолчанию':
-            value = TicketPriceType.NONE
-        if value == 'будни':
-            value = TicketPriceType.weekday
-        if value == 'выходные':
-            value = TicketPriceType.weekend
+        if key in (kv_name_attr_schedule_event['place_id'], 'place_id'):
+            if value in ('', 'По умолчанию', 'по умолчанию', 'Домик', 'домик', 'None', 'none', 'null', 'Null', '0', 0):
+                return None
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return value
+        if key in (kv_name_attr_schedule_event['ticket_price_type'], 'ticket_price_type'):
+            if value == 'По умолчанию':
+                return TicketPriceType.NONE
+            if value == 'будни':
+                return TicketPriceType.weekday
+            if value == 'выходные':
+                return TicketPriceType.weekend
+        if key in (
+            kv_name_attr_schedule_event['type_event_id'], 'type_event_id',
+            kv_name_attr_schedule_event['theater_event_id'], 'theater_event_id',
+            kv_name_attr_schedule_event['qty_child'], 'qty_child',
+            kv_name_attr_schedule_event['qty_adult'], 'qty_adult',
+        ):
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return value
+        if key is None:
+            if value == 'По умолчанию':
+                return TicketPriceType.NONE
+            if value == 'будни':
+                return TicketPriceType.weekday
+            if value == 'выходные':
+                return TicketPriceType.weekend
 
     return value
 
 
 async def start_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await init_conv_hl_dialog(update, context)
+    user_is_admin = update.effective_user.id in ADMIN_ID
+
     button_db = InlineKeyboardButton(text='База данных', callback_data='db')
-    button_updates = InlineKeyboardButton(text='Обновление данных',
-                                          callback_data='update_data')
-    button_user_status = InlineKeyboardButton(text='Статусы пользователей',
-                                              callback_data='user_status_help')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
-    keyboard = [
-        [button_db, ],
-        [button_updates, ],
-        [button_user_status, ],
-        [*button_cancel, ],
-    ]
+    keyboard = [[button_db, ]]
+    if user_is_admin:
+        button_updates = InlineKeyboardButton(text='Обновление данных',
+                                              callback_data='update_data')
+        button_user_status = InlineKeyboardButton(text='Статусы пользователей',
+                                                  callback_data='user_status_help')
+        keyboard.extend([
+            [button_updates, ],
+            [button_user_status, ],
+        ])
+    keyboard.append([*button_cancel, ])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -105,6 +143,8 @@ async def choice_db_settings(
     except BadRequest:
         pass
 
+    user_is_admin = update.effective_user.id in ADMIN_ID
+
     button_base_ticket = InlineKeyboardButton(text='Базовые билеты',
                                               callback_data='base_ticket')
     button_event_type = InlineKeyboardButton(text='Типы показов',
@@ -115,23 +155,27 @@ async def choice_db_settings(
                                            callback_data='schedule_event')
     button_promotion = InlineKeyboardButton(text='Промокоды/Акции',
                                             callback_data='promotion')
+    button_place = InlineKeyboardButton(text='Локации',
+                                        callback_data='place')
     button_back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         postfix_for_back='1')
-    keyboard = [
-        [
-            button_base_ticket,
-            button_event_type,
-        ],
-        [
-            button_event,
-            button_schedule,
-        ],
-        [
-            button_promotion,
-        ],
-        [*button_back_and_cancel, ],
-    ]
+    keyboard = [[button_schedule,]]
+    if user_is_admin:
+        keyboard.extend([
+            [
+                button_base_ticket,
+                button_event_type,
+            ],
+            [
+                button_event,
+                button_promotion,
+            ],
+            [
+                button_place,
+            ],
+        ])
+    keyboard.append([*button_back_and_cancel, ])
 
     # Добавляем intent-id только к функциональным кнопкам, но НЕ к ряду Назад/Отменить
     keyboard_intented = add_intent_id(keyboard[:-1], intent_id='db')
@@ -155,6 +199,17 @@ async def get_updates_option(update: Update,
     except BadRequest:
         pass
 
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался открыть меню обновления данных без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 1)
+
+    btn_update_place_data = InlineKeyboardButton(
+        COMMAND_DICT['UP_PLACE_DATA'][1],
+        callback_data=COMMAND_DICT['UP_PLACE_DATA'][0])
     btn_update_base_ticket_data = InlineKeyboardButton(
         COMMAND_DICT['UP_BT_DATA'][1],
         callback_data=COMMAND_DICT['UP_BT_DATA'][0])
@@ -176,6 +231,7 @@ async def get_updates_option(update: Update,
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             postfix_for_back='1')
     keyboard = [
+        [btn_update_place_data],
         [btn_update_base_ticket_data,
          btn_update_special_ticket_price],
         [btn_update_schedule_event_data,
@@ -189,6 +245,7 @@ async def get_updates_option(update: Update,
 
     text = 'Выберите что хотите настроить\n\n'
     text += (
+        f'{COMMAND_DICT['UP_PLACE_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_BT_DATA'][1]}\n'
         f'{COMMAND_DICT['UP_SPEC_PRICE'][1]}\n'
         f'{COMMAND_DICT['UP_SE_DATA'][1]}\n'
@@ -239,6 +296,14 @@ async def get_settings(
         pass
     _, callback_data = remove_intent_id(query.data)
 
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID and callback_data != 'schedule_event':
+        support_hl_logger.warning(
+            "Пользователь %s попытался открыть раздел %s без прав администратора",
+            user_id, callback_data
+        )
+        return context.user_data.get('STATE', 2)
+
     if callback_data == 'theater_event':
         return await theater_event_select(update, context)
     elif callback_data == 'schedule_event':
@@ -249,6 +314,8 @@ async def get_settings(
         return await base_ticket_select(update, context)
     elif callback_data == 'event_type':
         return await event_type_select(update, context)
+    elif callback_data == 'place':
+        return await place_hl.place_select(update, context)
 
     state = await send_settings_menu(update, context, callback_data)
 
@@ -399,6 +466,14 @@ async def theater_event_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть репертуар без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -577,7 +652,7 @@ async def schedule_event_select(
         theater_name = row.theater_event.name if row.theater_event else "???"
         if len(theater_name) > 30:
             theater_name = theater_name[:27] + "..."
-        dt_str = row.datetime_event.strftime("%d.%m %H:%M")
+        dt_str = to_moscow_dt(row.datetime_event).strftime("%d.%m %H:%M")
         
         # Статус вкл/выкл
         status_bot = '🤖' if row.flag_turn_in_bot else '🚫'
@@ -617,6 +692,14 @@ async def promotion_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть промокоды без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -669,6 +752,14 @@ async def base_ticket_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть базовые билеты без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -710,6 +801,14 @@ async def event_type_select(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        support_hl_logger.warning(
+            "Пользователь %s попытался просмотреть типы показов без прав администратора",
+            user_id
+        )
+        return context.user_data.get('STATE', 2)
+
     query = update.callback_query
     try:
         await query.answer()
@@ -806,6 +905,7 @@ async def schedule_event_preview(
 
     text = (f'{kv_name_attr_schedule_event['type_event_id']}=\n'
             f'{kv_name_attr_schedule_event['theater_event_id']}=\n'
+            f'{kv_name_attr_schedule_event['place_id']}=\n'
             f'{kv_name_attr_schedule_event['flag_turn_in_bot']}=Нет\n'
             f'{kv_name_attr_schedule_event['datetime_event']}=2024-01-01T00:00 +3\n'
             f'{kv_name_attr_schedule_event['qty_child']}=8\n'
@@ -860,16 +960,62 @@ async def schedule_event_check(
     except Exception:
         pass
 
+    text = update.effective_message.text
+    parsed_data = get_validated_data(text, 'schedule')
+
+    raw_place_id = parsed_data.get('place_id')
+    place_id = None
+    place_obj = None
+
+    if raw_place_id is not None:
+        if isinstance(raw_place_id, int):
+            place_id = raw_place_id
+            place_obj = await db_postgres.get_place(context.session, place_id)
+            if not place_obj:
+                await update.effective_chat.send_message(
+                    f"❌ Локация с ID {place_id} не найдена в базе данных.\n"
+                    "Укажите существующий ID локации или оставьте поле пустым / напишите «Домик» / «По умолчанию».\n\n"
+                    "Пожалуйста, исправьте текст и отправьте его еще раз."
+                )
+                return 42
+        else:
+            await update.effective_chat.send_message(
+                f"❌ Некорректное значение локации: «{raw_place_id}».\n"
+                "Укажите числовой ID существующей локации или оставьте поле пустым / напишите «Домик» / «По умолчанию».\n\n"
+                "Пожалуйста, исправьте текст и отправьте его еще раз."
+            )
+            return 42
+
+    default_place = await db_postgres.get_default_place(context.session)
+    effective_place_name = place_obj.name if place_obj else (default_place.name if default_place else 'Домик')
+
+    parsed_data['place_id'] = place_id
+    context.user_data['schedule_event'] = parsed_data
+
     await update.effective_chat.send_message(
         'Проверьте и отправьте текст еще раз или нажмите подтвердить')
 
-    reply_markup = create_kbd_confirm()
+    preview_lines = []
+    for k, v in kv_name_attr_schedule_event.items():
+        if k == 'place_id':
+            if place_id is not None:
+                preview_lines.append(f"{v}={effective_place_name} (ID: {place_id})")
+            else:
+                preview_lines.append(f"{v}={effective_place_name} (по умолчанию)")
+        elif k == 'ticket_price_type':
+            val = parsed_data.get(k)
+            val_name = val.name if hasattr(val, 'name') else str(val or 'По умолчанию')
+            preview_lines.append(f"{v}={val_name}")
+        elif k in ('flag_turn_in_bot', 'flag_gift', 'flag_christmas_tree', 'flag_santa'):
+            preview_lines.append(f"{v}={'Да' if parsed_data.get(k) else 'Нет'}")
+        else:
+            preview_lines.append(f"{v}={parsed_data.get(k, '')}")
+    preview_text = '\n'.join(preview_lines)
 
-    text = update.effective_message.text
-    message = await update.effective_chat.send_message(text, reply_markup=reply_markup)
+    reply_markup = create_kbd_confirm()
+    message = await update.effective_chat.send_message(preview_text, reply_markup=reply_markup)
     context.user_data['support_message_id'] = message.message_id
 
-    context.user_data['schedule_event'] = get_validated_data(text, 'schedule')
     return 42
 
 
@@ -998,7 +1144,8 @@ async def schedule_event_create(
         the = await db_postgres.get_theater_event(
             context.session,
             schedule_event['theater_event_id'])
-        await query.answer(f"{the.name} — успешно добавлено")
+        the_name = the.name if the else schedule_event.get('theater_event_id', '')
+        await query.answer(f"{the_name} — успешно добавлено")
         return await choice_db_settings(update, context)
     else:
         text = 'Попробуйте еще раз или обратитесь в тех поддержку'

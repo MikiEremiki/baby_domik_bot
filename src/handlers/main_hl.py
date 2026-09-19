@@ -22,7 +22,7 @@ from db.db_googlesheets import (
     increase_free_and_decrease_nonconfirm_seat, update_free_seat,
 )
 from settings.settings import (
-    COMMAND_DICT, FILE_ID_RULES
+    COMMAND_DICT, FILE_ID_RULES, CHAT_ID_KOCHETKOVA, CHAT_ID_ORESHKOVA
 )
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_check import is_user_blocked
@@ -1429,6 +1429,16 @@ async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
         help_text += "\n<b>Управление:</b>\n"
         help_text += format_cmds(admin_cmds)
+    elif update.effective_user and update.effective_user.id == CHAT_ID_KOCHETKOVA:
+        help_text += "<b>Основные команды:</b>\n"
+        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
+        help_text += "\n<b>Управление:</b>\n"
+        help_text += format_cmds(['LIST', 'LIST_WAIT', 'SETTINGS', 'SEND_MSG'])
+    elif update.effective_user and update.effective_user.id == CHAT_ID_ORESHKOVA:
+        help_text += "<b>Основные команды:</b>\n"
+        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
+        help_text += "\n<b>Управление:</b>\n"
+        help_text += format_cmds(['LIST', 'LIST_WAIT'])
     else:
         help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
         help_text += "\nЕсли у вас возникли вопросы, вы можете связаться с администратором."

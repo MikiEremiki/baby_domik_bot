@@ -1,6 +1,6 @@
 from telegram.ext import filters
 
-from settings.settings import ADMIN_ID, CHAT_ID_KOCHETKOVA, CHAT_ID_ORESHKOVA
+from settings.settings import ADMIN_ID, CHAT_ID_KOCHETKOVA, CHAT_ID_ORESHKOVA, CHAT_ID_MIKLERES
 
 filter_admin = filters.User(ADMIN_ID)
 filter_to_send_msg = filters.User(ADMIN_ID + [
@@ -9,4 +9,8 @@ filter_to_send_msg = filters.User(ADMIN_ID + [
 filter_list_cmd = filters.User(ADMIN_ID + [
     CHAT_ID_KOCHETKOVA,
     CHAT_ID_ORESHKOVA,
+])
+filter_settings = filters.User(ADMIN_ID + [
+    CHAT_ID_KOCHETKOVA,
+    CHAT_ID_MIKLERES
 ])
