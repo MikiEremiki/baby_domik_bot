@@ -1,6 +1,5 @@
 import logging
 
-from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from db import BaseTicket, ScheduleEvent, TheaterEvent, db_postgres
@@ -11,7 +10,7 @@ from utilities.utl_googlesheets import write_to_return_seats_for_sale
 utl_ticket_logger = logging.getLogger('bot.utl_ticket')
 
 
-async def get_spec_ticket_price(context: 'ContextTypes.DEFAULT_TYPE',
+async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
                                 ticket: BaseTicket,
                                 schedule_event: ScheduleEvent,
                                 theater_event: TheaterEvent):

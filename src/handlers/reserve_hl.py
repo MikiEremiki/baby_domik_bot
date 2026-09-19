@@ -8,6 +8,7 @@
     choice_month_rep_continue,
     get_text_for_reserve,
     choice_time,
+    choice_place,
     choice_option_of_reserve,
 )
 from handlers.reserve.input import (
@@ -56,6 +57,7 @@ __all__ = [
     'choice_month_rep_continue',
     'get_text_for_reserve',
     'choice_time',
+    'choice_place',
     'choice_option_of_reserve',
     'get_email',
     'get_adult',

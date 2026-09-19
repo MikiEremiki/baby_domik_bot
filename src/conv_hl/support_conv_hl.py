@@ -2,12 +2,13 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler,
 )
 
-from custom_filters import filter_admin
-from handlers import support_hl, promotion_hl, schedule_hl
+from custom_filters import filter_settings
+from handlers import support_hl, promotion_hl, schedule_hl, place_hl
 from handlers.sub_hl import (
     update_base_ticket_data, update_theater_event_data,
     update_special_ticket_price, update_schedule_event_data,
-    update_custom_made_format_data, update_promotion_data
+    update_custom_made_format_data, update_promotion_data,
+    update_place_data
 )
 from conv_hl import (
     F_text_and_no_command, cancel_callback_handler, back_callback_handler,
@@ -26,6 +27,7 @@ states = {
     'updates': [
         back_callback_handler,
         cancel_callback_handler,
+        CallbackQueryHandler(update_place_data, COMMAND_DICT['UP_PLACE_DATA'][0]),
         CallbackQueryHandler(update_base_ticket_data, COMMAND_DICT['UP_BT_DATA'][0]),
         CallbackQueryHandler(update_theater_event_data, COMMAND_DICT['UP_TE_DATA'][0]),
         CallbackQueryHandler(update_schedule_event_data, COMMAND_DICT['UP_SE_DATA'][0]),
@@ -69,6 +71,16 @@ states = {
                              r'^event_type_select(_p_.*)?$'),
         CallbackQueryHandler(support_hl.event_type_update_start,
                              r'^event_type_edit_(\d+)$'),
+        CallbackQueryHandler(place_hl.place_select,
+                             r'^place_select(_p_.*)?$'),
+        CallbackQueryHandler(place_hl.place_create_start,
+                             '^place_create$'),
+        CallbackQueryHandler(place_hl.place_update_start,
+                             r'^place_edit_(\d+)$'),
+        CallbackQueryHandler(place_hl.place_edit_field_start,
+                             r'^place_ch_(name|addr|yndx|about)_(\d+)$'),
+        CallbackQueryHandler(place_hl.place_set_default,
+                             r'^place_set_def_(\d+)$'),
         CallbackQueryHandler(promotion_hl.promotion_create_start,
                              '^promotion_create$'),
         CallbackQueryHandler(promotion_hl.promotion_update_start,
@@ -260,7 +272,42 @@ states = {
         CallbackQueryHandler(schedule_hl.edit_flags_start, r'^sch_edit_flags$'),
         CallbackQueryHandler(schedule_hl.edit_bt_start, r'^sch_edit_bt$'),
         CallbackQueryHandler(schedule_hl.edit_turn_start, r'^sch_edit_turn$'),
+        CallbackQueryHandler(schedule_hl.edit_place_start, r'^sch_edit_place$'),
         CallbackQueryHandler(schedule_hl.handle_confirm_save, r'^sch_accept$'),
+    ],
+    79: [  # SCH_PLACE
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(schedule_hl.handle_place_selected, r'^sch_plc_'),
+    ],
+    80: [  # PLACE_NAME
+        back_callback_handler,
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command, place_hl.place_get_name),
+    ],
+    81: [  # PLACE_ADDRESS
+        back_callback_handler,
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command, place_hl.place_get_address),
+    ],
+    82: [  # PLACE_YNDX
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(place_hl.place_get_yndx, '^place_skip_yndx$'),
+        MessageHandler(F_text_and_no_command, place_hl.place_get_yndx),
+    ],
+    83: [  # PLACE_ABOUT
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(place_hl.place_get_about, '^place_skip_about$'),
+        MessageHandler(F_text_and_no_command, place_hl.place_get_about),
+    ],
+    84: [  # PLACE_CONFIRM
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(place_hl.place_confirm_save, '^place_save_confirm$'),
+        CallbackQueryHandler(place_hl.place_edit_field_start, r'^place_ch_(name|addr|yndx|about)_(\d+)$'),
+        CallbackQueryHandler(place_hl.place_set_default, r'^place_set_def_(\d+)$'),
     ],
     62: [
         back_callback_handler,
@@ -293,7 +340,7 @@ support_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler('settings',
                        support_hl.start_settings,
-                       filter_admin),
+                       filter_settings),
     ],
     states=states,
     fallbacks=common_fallbacks,

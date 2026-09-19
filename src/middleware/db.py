@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, TypeHandler
 
 from yookassa.domain.notification import WebhookNotification
+from api.broker_nats import ScheduleSyncResultData, SalesReportData, GSpreadFailedData
 from db import create_sessionmaker_and_engine
 
 user_status_md_logger = logging.getLogger('bot.md.db')
@@ -48,5 +49,8 @@ def add_db_handlers_middleware(application, config):
 
     application.add_handlers([
         TypeHandler(Update, open_session_handler),
-        TypeHandler(WebhookNotification, open_session_handler)
+        TypeHandler(WebhookNotification, open_session_handler),
+        TypeHandler(ScheduleSyncResultData, open_session_handler),
+        TypeHandler(SalesReportData, open_session_handler),
+        TypeHandler(GSpreadFailedData, open_session_handler),
     ], group=-100)

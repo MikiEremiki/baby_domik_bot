@@ -1,6 +1,7 @@
+import html
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
@@ -9,7 +10,7 @@ from db import db_postgres
 from db.enum import TicketPriceType
 from handlers.support_hl import choice_db_settings
 from utilities.utl_kbd import add_btn_back_and_cancel
-from utilities.utl_func import set_back_context
+from utilities.utl_func import set_back_context, to_moscow_dt, MOSCOW_TZ
 
 logger = logging.getLogger('bot.schedule_hl')
 
@@ -24,7 +25,8 @@ logger = logging.getLogger('bot.schedule_hl')
     SCH_FLAGS,
     SCH_BT_SELECT,
     SCH_CONFIRM,
-) = range(70, 79)
+    SCH_PLACE,
+) = range(70, 80)
 
 
 def _fmt_type_event(te) -> str:
@@ -47,6 +49,7 @@ async def schedule_create_start(update: Update, context: ContextTypes.DEFAULT_TY
         'data': {
             'type_event_id': None,
             'theater_event_id': None,
+            'place_id': None,
             'flag_turn_in_bot': True,
             'datetime_event': None,
             'qty_child': 0,
@@ -70,7 +73,7 @@ async def schedule_create_start(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return 3
 
-    text = 'Шаг 1/8. Выберите тип события:\n\n'
+    text = 'Шаг 1/9. Выберите тип события:\n\n'
     keyboard = []
     type_buttons = []
     for t in types:
@@ -229,6 +232,7 @@ async def schedule_update_start(update: Update, context: ContextTypes.DEFAULT_TY
             'id': event.id,
             'type_event_id': event.type_event_id,
             'theater_event_id': event.theater_event_id,
+            'place_id': event.place_id,
             'flag_turn_in_bot': event.flag_turn_in_bot,
             'datetime_event': event.datetime_event,
             'qty_child': event.qty_child,
@@ -260,11 +264,16 @@ async def ask_schedule_summary(update: Update, context: ContextTypes.DEFAULT_TYP
     type_obj = await db_postgres.get_type_event(context.session, event_data['type_event_id'])
     theater_obj = await db_postgres.get_theater_event(context.session, event_data['theater_event_id'])
 
+    dt_str = to_moscow_dt(event_data['datetime_event']).strftime('%d.%m.%Y %H:%M') if event_data.get('datetime_event') else 'не задано'
+    place_id = event_data.get('place_id')
+    default_place = await db_postgres.get_default_place(context.session)
+    place_obj = await db_postgres.get_place(context.session, place_id) if place_id else default_place
+    place_name = place_obj.name if place_obj else 'Домик'
     text = (
         f"<b>{'Редактирование' if is_update else 'Подтверждение'} события расписания</b>\n\n"
         f"1. 🎭 <b>Тип:</b> {type_obj.name if type_obj else '???'}\n"
         f"2. 🎬 <b>Спектакль:</b> {theater_obj.name if theater_obj else '???'}\n"
-        f"3. 📅 <b>Дата/время:</b> {event_data['datetime_event'].strftime('%d.%m.%Y %H:%M')}\n"
+        f"3. 📅 <b>Дата/время (МСК):</b> {dt_str}\n"
         f"4. 👶 <b>Места (дет):</b> {event_data['qty_child']}\n"
         f"5. 👨 <b>Места (взр):</b> {event_data['qty_adult']}\n"
         f"6. 💰 <b>Тип цены:</b> {event_data['ticket_price_type'].value if event_data['ticket_price_type'].value else 'По умолчанию'}\n"
@@ -274,6 +283,7 @@ async def ask_schedule_summary(update: Update, context: ContextTypes.DEFAULT_TYP
         f"{'🎅' if event_data['flag_santa'] else ''}\n"
         f"8. 🎟 <b>Билеты:</b> {len(event_data['base_ticket_ids']) if event_data['base_ticket_ids'] else 'Наследуются'}\n"
         f"9. 🤖 <b>В боте:</b> {'Вкл' if event_data['flag_turn_in_bot'] else 'Выкл'}\n"
+        f"10. 📍 <b>Локация:</b> {place_name}\n"
     )
 
     keyboard = [
@@ -295,6 +305,7 @@ async def ask_schedule_summary(update: Update, context: ContextTypes.DEFAULT_TYP
         ],
         [
             InlineKeyboardButton("9. Вкл/Выкл в боте", callback_data='sch_edit_turn'),
+            InlineKeyboardButton("10. Локация", callback_data='sch_edit_place'),
         ],
         [InlineKeyboardButton("✅ Сохранить", callback_data='sch_accept')],
         add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='3')
@@ -373,7 +384,7 @@ async def _render_theater_list(update: Update, context: ContextTypes.DEFAULT_TYP
 
     current_filter = context.user_data['new_schedule_event']['service'].get('filter_theater', 'actual')
 
-    text = 'Шаг 2/8. Выберите спектакль из репертуара:\n\n'
+    text = 'Шаг 2/9. Выберите спектакль из репертуара:\n\n'
     item_buttons = []
     for t in subset:
         text += f"• {_fmt_theater_event(t)}\n"
@@ -442,7 +453,7 @@ async def handle_theater_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.user_data['new_schedule_event']['service'].get('jump_to_summary'):
             context.user_data['new_schedule_event']['service'].pop('jump_to_summary', None)
             return await ask_schedule_summary(update, context)
-        return await ask_datetime(update, context)
+        return await ask_place(update, context)
     elif query.data.startswith('sch_th_p_'):
         page = int(parts[3])
         current_filter = context.user_data['new_schedule_event']['service'].get('filter_theater', 'actual')
@@ -469,21 +480,33 @@ async def ask_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
 
     service = context.user_data['new_schedule_event']['service']
-    jump = service.get('jump_to_summary', False)
+    data = context.user_data['new_schedule_event']['data']
+    jump = service.get('jump_to_summary', False) or service.get('is_update', False)
 
-    now = datetime.now()
+    now = datetime.now(MOSCOW_TZ)
     today_str = now.strftime('%d.%m')
     tomorrow_str = (now + timedelta(days=1)).strftime('%d.%m')
 
+    current_val_text = ""
+    current_dt = data.get('datetime_event')
+    if current_dt:
+        moscow_dt = to_moscow_dt(current_dt)
+        if moscow_dt:
+            dt_formatted = moscow_dt.strftime('%d.%m.%Y %H:%M')
+            current_val_text = f"Текущее значение: <code>{dt_formatted}</code>\n\n"
+
+    header = "Редактирование: введите дату и время показа (по МСК).\n\n" if jump else "Шаг 4/9. Введите дату и время показа (по МСК).\n\n"
+
     text = (
-        'Шаг 3/8. Введите дату и время показа.\n\n'
-        'Форматы:\n'
-        '<code>ДД.ММ.ГГГГ ЧЧ:ММ</code>\n'
-        '<code>ДД.ММ ЧЧ:ММ</code> (текущий год)\n\n'
-        'Или выберите дату ниже и введите только время:'
+        f"{header}"
+        f"{current_val_text}"
+        "Форматы:\n"
+        "<code>ДД.ММ.ГГГГ ЧЧ:ММ</code>\n"
+        "<code>ДД.ММ ЧЧ:ММ</code> (текущий год)\n\n"
+        "Или выберите дату ниже и введите только время:"
     )
 
-    back_postfix = str(SCH_CONFIRM) if jump else '71'
+    back_postfix = str(SCH_CONFIRM) if jump else str(SCH_PLACE)
 
     keyboard = [
         [
@@ -520,7 +543,7 @@ async def handle_datetime_btn(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data['new_schedule_event']['service']['temp_date'] = date_str
 
     text = f'Выбрана дата {date_str}. Теперь введите время в формате ЧЧ:ММ (например, 11:00):'
-    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='72')]
+    keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=str(SCH_DATETIME))]
     await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
     return SCH_DATETIME
 
@@ -538,7 +561,7 @@ async def handle_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_input = update.effective_message.text.strip()
     temp_date = service.get('temp_date')
 
-    now = datetime.now()
+    now = datetime.now(MOSCOW_TZ)
     dt = None
 
     if temp_date:
@@ -546,11 +569,11 @@ async def handle_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             time_dt = datetime.strptime(text_input, '%H:%M')
             date_dt = datetime.strptime(temp_date, '%d.%m').replace(year=now.year)
-            dt = date_dt.replace(hour=time_dt.hour, minute=time_dt.minute)
+            dt = date_dt.replace(hour=time_dt.hour, minute=time_dt.minute, tzinfo=MOSCOW_TZ)
             service.pop('temp_date')
         except ValueError:
             text_err = f'Ошибка! Неверный формат времени для даты {temp_date}. Введите ЧЧ:ММ (например, 18:00):'
-            keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='72')]
+            keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=str(SCH_DATETIME))]
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=service['message_id'],
@@ -563,16 +586,17 @@ async def handle_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
         formats = ['%d.%m.%Y %H:%M', '%d.%m %H:%M']
         for fmt in formats:
             try:
-                dt = datetime.strptime(text_input, fmt)
+                parsed_dt = datetime.strptime(text_input, fmt)
                 if fmt == '%d.%m %H:%M':
-                    dt = dt.replace(year=now.year)
+                    parsed_dt = parsed_dt.replace(year=now.year)
+                dt = parsed_dt.replace(tzinfo=MOSCOW_TZ)
                 break
             except ValueError:
                 continue
 
     if not dt:
         text_err = 'Ошибка! Неверный формат. Повторите в виде ДД.ММ.ГГГГ ЧЧ:ММ или ДД.ММ ЧЧ:ММ'
-        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='71')]
+        keyboard = [add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=(str(SCH_CONFIRM) if service.get('jump_to_summary') else str(SCH_PLACE)))]
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=service['message_id'],
@@ -596,14 +620,14 @@ async def ask_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    text = 'Шаг 4/8. Введите количество детских мест (целое число):'
+    text = 'Шаг 5/9. Введите количество детских мест (целое число):'
     if jump:
         text = 'Редактирование: введите количество детских мест (целое число):'
 
     keyboard = [add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         add_back_btn=True,
-        postfix_for_back=str(SCH_CONFIRM) if jump else '72'
+        postfix_for_back=str(SCH_CONFIRM) if jump else str(SCH_DATETIME)
     )]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -642,7 +666,7 @@ async def handle_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel='settings',
             add_back_btn=True,
-            postfix_for_back=str(SCH_CONFIRM) if service.get('jump_to_summary') else '72'
+            postfix_for_back=str(SCH_CONFIRM) if service.get('jump_to_summary') else str(SCH_DATETIME)
         )]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await context.bot.edit_message_text(
@@ -668,14 +692,14 @@ async def ask_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    text = 'Шаг 5/8. Введите количество взрослых мест (целое число):'
+    text = 'Шаг 6/9. Введите количество взрослых мест (целое число):'
     if jump:
         text = 'Редактирование: введите количество взрослых мест (целое число):'
 
     keyboard = [add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         add_back_btn=True,
-        postfix_for_back=str(SCH_CONFIRM) if jump else '73'
+        postfix_for_back=str(SCH_CONFIRM) if jump else str(SCH_QTY_CHILD)
     )]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -714,7 +738,7 @@ async def handle_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel='settings',
             add_back_btn=True,
-            postfix_for_back=str(SCH_CONFIRM) if service.get('jump_to_summary') else '73'
+            postfix_for_back=str(SCH_CONFIRM) if service.get('jump_to_summary') else str(SCH_QTY_CHILD)
         )]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await context.bot.edit_message_text(
@@ -740,12 +764,12 @@ async def ask_price_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    text = 'Шаг 6/8. Выберите тип стоимости:'
+    text = 'Шаг 7/9. Выберите тип стоимости:'
     keyboard = [
         [InlineKeyboardButton('По умолчанию', callback_data='sch_pt_NONE')],
         [InlineKeyboardButton('Будни', callback_data='sch_pt_weekday')],
         [InlineKeyboardButton('Выходные', callback_data='sch_pt_weekend')],
-        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=(str(SCH_CONFIRM) if jump else '73'))
+        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=(str(SCH_CONFIRM) if jump else str(SCH_QTY_ADULT)))
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -790,7 +814,7 @@ async def ask_flags(update: Update, context: ContextTypes.DEFAULT_TYPE):
     jump = service.get('jump_to_summary') or service.get('is_update')
 
     text = (
-        'Шаг 7/8. Настройте флаги:\n\n'
+        'Шаг 8/9. Настройте новогодние опции:\n\n'
         f"Подарок: {'✅' if data.get('flag_gift') else '❌'}\n"
         f"Елка: {'✅' if data.get('flag_christmas_tree') else '❌'}\n"
         f"Дед Мороз: {'✅' if data.get('flag_santa') else '❌'}"
@@ -806,7 +830,7 @@ async def ask_flags(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton('Готово', callback_data='sch_flags_done')])
     else:
         keyboard.append([InlineKeyboardButton('Билеты ➡️', callback_data='sch_next_bt')])
-    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=(str(SCH_CONFIRM) if jump else '74')))
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=(str(SCH_CONFIRM) if jump else str(SCH_PRICE_TYPE))))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
@@ -860,7 +884,7 @@ async def _render_multi_select(update: Update,
                                per_page: int,
                                prefix: str,
                                label_getter,
-                               back_postfix: str = '75'):
+                               back_postfix: str = '76'):
     total = len(items)
     pages = max(1, (total + per_page - 1) // per_page)
     page = max(0, min(page, pages - 1))
@@ -868,7 +892,8 @@ async def _render_multi_select(update: Update,
     end = start + per_page
     subset = items[start:end]
 
-    text = 'Выберите элементы:\n\n'
+    is_jump = context.user_data.get('new_schedule_event', {}).get('service', {}).get('is_update') or context.user_data.get('new_schedule_event', {}).get('service', {}).get('jump_to_summary')
+    text = 'Выберите базовые билеты:\n\n' if is_jump else 'Шаг 9/9. Выберите базовые билеты:\n\n'
     item_buttons = []
     for it in subset:
         it_id = getattr(it, 'base_ticket_id', getattr(it, 'id', None))
@@ -921,7 +946,7 @@ async def ask_base_tickets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     selected = data.get('base_ticket_ids', []) or []
     items = await db_postgres.get_all_base_tickets(context.session)
 
-    back_postfix = str(SCH_CONFIRM) if (service.get('jump_to_summary') or service.get('is_update')) else '75'
+    back_postfix = str(SCH_CONFIRM) if (service.get('jump_to_summary') or service.get('is_update')) else str(SCH_FLAGS)
 
     await _render_multi_select(
         update, context, items, selected, page=0, per_page=10,
@@ -952,13 +977,13 @@ async def handle_base_tickets_cb(update: Update, context: ContextTypes.DEFAULT_T
             selected.append(it_id)
         data['base_ticket_ids'] = selected
         items = await db_postgres.get_all_base_tickets(context.session)
-        back_postfix = str(SCH_CONFIRM) if context.user_data['new_schedule_event']['service'].get('is_update') else '75'
+        back_postfix = str(SCH_CONFIRM) if context.user_data['new_schedule_event']['service'].get('is_update') else str(SCH_FLAGS)
         await _render_multi_select(update, context, items, selected, page, 10, 'sch_bt', lambda x: f"#{x.base_ticket_id} {x.name}", back_postfix=back_postfix)
         return SCH_BT_SELECT
     elif query.data.startswith('sch_bt_p_'):
         page = int(parts[3])
         items = await db_postgres.get_all_base_tickets(context.session)
-        back_postfix = str(SCH_CONFIRM) if context.user_data['new_schedule_event']['service'].get('is_update') else '75'
+        back_postfix = str(SCH_CONFIRM) if context.user_data['new_schedule_event']['service'].get('is_update') else str(SCH_FLAGS)
         await _render_multi_select(update, context, items, selected, page, 10, 'sch_bt', lambda x: f"#{x.base_ticket_id} {x.name}", back_postfix=back_postfix)
         return SCH_BT_SELECT
     elif query.data.startswith('sch_bt_skip'):
@@ -970,6 +995,81 @@ async def handle_base_tickets_cb(update: Update, context: ContextTypes.DEFAULT_T
         if context.user_data['new_schedule_event']['service'].get('is_update'):
             return await ask_schedule_summary(update, context)
         return await ask_summary(update, context)
+
+
+async def edit_place_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+    context.user_data['new_schedule_event']['service']['jump_to_summary'] = True
+    return await ask_place(update, context)
+
+
+async def ask_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    places = await db_postgres.get_places(context.session)
+    default_place = await db_postgres.get_default_place(context.session)
+
+    service = context.user_data['new_schedule_event']['service']
+    jump = service.get('jump_to_summary') or service.get('is_update')
+
+    if jump:
+        text = "<b>Выбор локации события:</b>\n\n"
+    else:
+        text = "Шаг 3/9. Выберите локацию события:\n\n"
+    keyboard = []
+
+    # Кнопка по умолчанию
+    default_name = default_place.name if default_place else "Основная"
+    keyboard.append([InlineKeyboardButton(f"⭐️ По умолчанию ({default_name})", callback_data="sch_plc_none")])
+
+    for p in places:
+        text += f"• ID {p.id}: <b>{html.escape(p.name)}</b> ({html.escape(p.address)})\n"
+        btn_label = f"ID {p.id}: {p.name}"
+        keyboard.append([InlineKeyboardButton(btn_label, callback_data=f"sch_plc_{p.id}")])
+
+    back_postfix = str(SCH_CONFIRM) if jump else str(SCH_THEATER)
+    keyboard.append(add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=back_postfix))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if query:
+        message = await query.edit_message_text(text, reply_markup=reply_markup)
+    else:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = query.message if query else update.effective_message
+
+    context.user_data['new_schedule_event']['service']['message_id'] = message.message_id
+    state = SCH_PLACE
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_place_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    cb_data = query.data
+
+    if cb_data == 'sch_plc_none':
+        context.user_data['new_schedule_event']['data']['place_id'] = None
+    elif cb_data.startswith('sch_plc_'):
+        place_id = int(cb_data.replace('sch_plc_', ''))
+        context.user_data['new_schedule_event']['data']['place_id'] = place_id
+
+    service = context.user_data['new_schedule_event']['service']
+    if service.get('jump_to_summary') or service.get('is_update'):
+        service.pop('jump_to_summary', None)
+        return await ask_schedule_summary(update, context)
+
+    return await ask_datetime(update, context)
 
 
 async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -984,11 +1084,18 @@ async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
+    dt_str = to_moscow_dt(data['datetime_event']).strftime('%d.%m.%Y %H:%M')
+    place_id = data.get('place_id')
+    default_place = await db_postgres.get_default_place(context.session)
+    place_obj = await db_postgres.get_place(context.session, place_id) if place_id else default_place
+    place_name = place_obj.name if place_obj else 'Домик'
+
     summary = (
         '<b>Проверьте данные события</b>\n\n'
         f"Тип: {(_fmt_type_event(type_obj) if type_obj else data.get('type_event_id'))}\n"
         f"Спектакль: {(_fmt_theater_event(theater_obj) if theater_obj else data.get('theater_event_id'))}\n"
-        f"Дата/время: {data['datetime_event'].strftime('%d.%m.%Y %H:%M')}\n"
+        f"Локация: {html.escape(place_name)}\n"
+        f"Дата/время (МСК): {dt_str}\n"
         f"Места: {data.get('qty_child', 0)} дет / {data.get('qty_adult', 0)} взр\n"
         f"Стоимость: {data.get('ticket_price_type').name}\n"
         f"Флаги: 🎁={'✅' if data.get('flag_gift') else '❌'}, 🎄={'✅' if data.get('flag_christmas_tree') else '❌'}, 🧑‍🎄={'✅' if data.get('flag_santa') else '❌'}\n"
@@ -997,7 +1104,7 @@ async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton('✅ Подтвердить и создать', callback_data='sch_accept')],
-        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='76')
+        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=str(SCH_BT_SELECT))
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -1018,16 +1125,44 @@ async def handle_confirm_save(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     payload = context.user_data['new_schedule_event']['data'].copy()
     base_ticket_ids = payload.pop('base_ticket_ids', [])
-    is_update = context.user_data['new_schedule_event']['service'].get('is_update', False)
+    service = context.user_data['new_schedule_event']['service']
+    is_update = service.get('is_update', False)
+
+    user = update.effective_user
+    author_id = user.id if user else None
+    author_name = (f"@{user.username}" if user and user.username else (user.full_name if user else None))
+    op_key = service.setdefault('operation_key', f"sch_hl_{user.id if user else 0}_{service.get('message_id')}_{int(datetime.now().timestamp())}")
 
     try:
         if is_update:
             sid = payload.pop('id')
-            await db_postgres.update_schedule_event(context.session, sid, **payload, base_ticket_ids=base_ticket_ids)
+            await db_postgres.update_schedule_event(
+                context.session, sid,
+                author_id=author_id,
+                author_name=author_name,
+                source='schedule_hl',
+                operation_key=op_key,
+                base_ticket_ids=base_ticket_ids,
+                **payload
+            )
             await query.answer('Событие обновлено')
         else:
-            await db_postgres.create_schedule_event(context.session, **payload, base_ticket_ids=base_ticket_ids)
+            await db_postgres.create_schedule_event(
+                context.session,
+                author_id=author_id,
+                author_name=author_name,
+                source='schedule_hl',
+                operation_key=op_key,
+                base_ticket_ids=base_ticket_ids,
+                **payload
+            )
             await query.answer('Событие создано')
+
+        try:
+            from handlers.schedule_sync_hl import send_pending_schedule_reports
+            await send_pending_schedule_reports(context)
+        except Exception as report_err:
+            logger.warning(f"Failed to send schedule report immediately: {report_err}")
     except Exception as e:
         logger.exception(f'Ошибка сохранения расписания: {e}')
         await query.answer(f'Ошибка: {e}', show_alert=True)

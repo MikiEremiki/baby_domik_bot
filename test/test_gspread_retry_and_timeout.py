@@ -1,15 +1,8 @@
 import asyncio
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import requests
 import gspread.exceptions
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
 
 from api.googlesheets import RetryingClientManager, _agcm
 from api.gspread_worker import handle_gspread_task

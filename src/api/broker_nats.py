@@ -17,6 +17,11 @@ class SalesReportData:
         self.data = data
 
 
+class ScheduleSyncResultData:
+    def __init__(self, data: dict):
+        self.data = data
+
+
 def connect_to_nats(app: Application,
                     webhook_notification_factory: WebhookNotificationFactory):
     broker = NatsBroker(nats_url)
@@ -67,5 +72,20 @@ def connect_to_nats(app: Application,
     ):
         logger.info(f'sales_report {data=}')
         await app.update_queue.put(SalesReportData(data))
+
+    @broker.subscriber(
+        subject='schedule_sync_result',
+        durable='schedule_sync_result',
+        config=ConsumerConfig(ack_wait=60),
+        deliver_policy=DeliverPolicy.NEW,
+        pull_sub=PullSub(),
+        stream=stream,
+    )
+    async def schedule_sync_result_handler(
+            data: dict,
+            logger: Logger,
+    ):
+        logger.info(f'schedule_sync_result {data=}')
+        await app.update_queue.put(ScheduleSyncResultData(data))
 
     return broker

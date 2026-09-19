@@ -3,9 +3,10 @@ import datetime
 import logging
 import os
 import re
-from datetime import time
+from datetime import time, timezone
 from pprint import pformat
 from typing import List, Sequence, Tuple, Optional
+from zoneinfo import ZoneInfo
 
 import pytz
 from telegram import (
@@ -467,9 +468,11 @@ async def create_or_connect_topic(
             reply_to_message_id=update.effective_message.id,
             message_thread_id=update.effective_message.message_thread_id
         )
-    elif context.args[0] == 'create' and len(dict_topics_name) == 0:
+    elif context.args[0] == 'create':
         try:
             for name in LIST_TOPICS_NAME:
+                if name in dict_topics_name and dict_topics_name[name]:
+                    continue
                 topic = await update.effective_chat.create_forum_topic(
                     name=name
                 )
@@ -526,6 +529,10 @@ async def set_back_context(
         reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup,
         del_message_ids: List[int] = None
 ):
+    if 'reserve_user_data' not in context.user_data or not isinstance(context.user_data['reserve_user_data'], dict):
+        context.user_data['reserve_user_data'] = {'back': {}}
+    elif 'back' not in context.user_data['reserve_user_data']:
+        context.user_data['reserve_user_data']['back'] = {}
     context.user_data['reserve_user_data']['back'][state] = {}
     dict_back = context.user_data['reserve_user_data']['back'][state]
     dict_back['text'] = text
@@ -666,12 +673,25 @@ async def clean_replay_kb_and_send_typing_action(update):
     return message
 
 
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+
+def to_moscow_dt(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
+    """Приводит datetime к timezone-aware в часовом поясе Europe/Moscow (МСК)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(MOSCOW_TZ)
+
+
 async def render_text_for_choice_time(theater_event, schedule_events):
     full_name = get_full_name_event(theater_event)
     event = schedule_events[0]
-    weekday = int(event.datetime_event.strftime('%w'))
-    date_event = (f'{event.datetime_event.strftime('%d.%m ')}'
-                  f'({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})')
+    dt_moscow = to_moscow_dt(event.datetime_event)
+    weekday = int(dt_moscow.strftime('%w'))
+    date_event = (f"{dt_moscow.strftime('%d.%m ')}"
+                  f"({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]})")
     text = (f'Вы выбрали:\n'
             f'<b>{full_name}\n'
             f'{date_event}</b>\n\n')
@@ -758,9 +778,14 @@ def get_full_name_event(event: TheaterEvent, add_note=False, add_link=False):
 
 
 async def get_time_with_timezone(event, tz_name='Europe/Moscow'):
-    text = event.datetime_event.astimezone(
-        pytz.timezone(tz_name)).strftime('%H:%M')
-    return text
+    if tz_name == 'Europe/Moscow':
+        dt_local = to_moscow_dt(event.datetime_event)
+    else:
+        dt = event.datetime_event
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_local = dt.astimezone(ZoneInfo(tz_name))
+    return dt_local.strftime('%H:%M')
 
 
 async def get_formatted_date_and_time_of_event(

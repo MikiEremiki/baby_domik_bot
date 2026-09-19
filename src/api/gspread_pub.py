@@ -114,3 +114,20 @@ async def publish_write_client_reserve(
         'ticket_status_value': ticket_status_value,
     }
     await _publish_message(message)
+
+
+async def publish_sync_schedule(
+        sheet_id: str,
+        run_id: str,
+        items: List[Dict[str, Any]]
+) -> None:
+    """
+    Публикует задачу выгрузки накопленных изменений расписания в Google Sheets в топик 'gspread'.
+    """
+    message: Dict[str, Any] = {
+        'action': 'sync_schedule',
+        'sheet_id': sheet_id,
+        'run_id': run_id,
+        'items': items,
+    }
+    await _publish_message(message)

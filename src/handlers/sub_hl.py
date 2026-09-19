@@ -27,23 +27,25 @@ from db.db_googlesheets import (
     load_base_tickets, load_special_ticket_price,
     load_schedule_events, load_theater_events, load_custom_made_format,
     decrease_free_and_increase_nonconfirm_seat,
-    load_promotions,
+    load_promotions, load_places,
 )
 from schedule.scheduler_jobs import schedule_notification_job
 from settings.settings import ADMIN_GROUP, FILE_ID_RULES, OFFER
 from utilities.utl_func import (
     get_formatted_date_and_time_of_event, get_schedule_event_ids_studio,
     create_approve_and_reject_replay, set_back_context,
-    clean_context_on_end_handler,
+    clean_context_on_end_handler, create_str_info_by_schedule_event_id,
 )
+from utilities.utl_place import effective_place
 from utilities.utl_retry import retry_on_timeout
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
 from utilities.utl_kbd import (
     create_email_confirm_btn, add_btn_back_and_cancel, create_adult_confirm_btn)
 from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
-    create_tickets_and_people, cancel_ticket_db_when_end_handler
+    create_tickets_and_people, cancel_ticket_db_when_end_handler,
 )
+from utilities.utl_text import format_receipt_description
 
 sub_hl_logger = logging.getLogger('bot.sub_hl')
 
@@ -214,32 +216,96 @@ async def update_theater_event_data(
     return 'updates'
 
 
+async def update_place_data(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    query = update.callback_query
+    if query:
+        try:
+            await query.answer(text='Начато обновление локаций')
+        except (TimedOut, BadRequest) as e:
+            sub_hl_logger.error(e)
+    try:
+        place_list = await load_places()
+        seen_ids = set()
+        for p in place_list:
+            if p.place_id in seen_ids:
+                raise ValueError(f"Дублирующийся ID локации в таблице мест: {p.place_id}")
+            seen_ids.add(p.place_id)
+        await db_postgres.update_places_from_googlesheets(
+            context.session, place_list, auto_commit=True)
+        text = 'Локации обновлены'
+        await update.effective_chat.send_message(text)
+        sub_hl_logger.info(text)
+    except Exception as e:
+        sub_hl_logger.error(f'Ошибка обновления локаций: {e}')
+        await context.session.rollback()
+        text = f"Ошибка при обновлении локаций: {e}"
+        await update.effective_chat.send_message(text)
+    return 'updates'
+
+
 async def update_schedule_event_data(update: Update,
                                      context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
-    text = 'Начато обновление расписания'
+    if query:
+        text = 'Начато обновление расписания'
+        try:
+            await query.answer(text=text)
+        except (TimedOut, BadRequest) as e:
+            sub_hl_logger.error(e)
+
     try:
-        await query.answer(text=text)
-    except (TimedOut, BadRequest) as e:
-        sub_hl_logger.error(e)
-    schedule_event_list = await load_schedule_events(False, True)
-    try:
-        await db_postgres.update_schedule_events_from_googlesheets(
-            context.session, schedule_event_list)
+        # 1. Загрузка и проверка справочника локаций
+        place_list = await load_places()
+        seen_place_ids = set()
+        for p in place_list:
+            if p.place_id in seen_place_ids:
+                raise ValueError(f"Дублирующийся ID локации в таблице мест: {p.place_id}")
+            seen_place_ids.add(p.place_id)
+
+        # 2. Загрузка расписания
+        schedule_event_list = await load_schedule_events(False, True)
+
+        # 3. Проверка корректности ссылок на place_id
+        existing_places = await db_postgres.get_places(context.session)
+        all_place_ids = seen_place_ids.union({p.id for p in existing_places})
+
+        for event in schedule_event_list:
+            if event.place_id is not None and event.place_id not in all_place_ids:
+                raise ValueError(
+                    f"Показ id={event.event_id} ссылается на неизвестный place_id={event.place_id}"
+                )
+
+        # 4. Согласованный upsert локаций и расписания в одной транзакции
+        await db_postgres.update_places_from_googlesheets(
+            context.session, place_list, auto_commit=False)
+        skipped_ids = await db_postgres.update_schedule_events_from_googlesheets(
+            context.session, schedule_event_list, auto_commit=False)
+        await context.session.commit()
+
+        # 5. Планирование уведомлений
+        for event in schedule_event_list:
+            if event.event_id not in skipped_ids:
+                await schedule_notification_job(context, event)
+
+        text = 'Расписание и локации обновлены'
+        if skipped_ids:
+            text += f"\n⚠️ Пропущены сеансы с несинхронизированными изменениями в боте: {', '.join(f'#{i}' for i in sorted(skipped_ids))}"
+        await update.effective_chat.send_message(text)
+        sub_hl_logger.info(text)
     except IntegrityError as e:
-        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        sub_hl_logger.error(f'Ошибка целостности при обновлении расписания: {e}')
         await context.session.rollback()
         text = "Сначала, выполните обновление репертуара"
         await update.effective_chat.send_message(text)
-        return 'updates'
+    except Exception as e:
+        sub_hl_logger.error(f'Ошибка обновления расписания: {e}')
+        await context.session.rollback()
+        text = f"Ошибка при обновлении расписания: {e}"
+        await update.effective_chat.send_message(text)
 
-    for event in schedule_event_list:
-        await schedule_notification_job(context, event)
-
-    text = 'Расписание обновлено'
-    await update.effective_chat.send_message(text)
-
-    sub_hl_logger.info(text)
     return 'updates'
 
 
@@ -362,13 +428,19 @@ async def create_and_send_payment(
     ticket_id = ticket_ids[0]
     ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
 
-    max_len_decs = 128
-    prefix = f"Билет №{ticket_id} на "
-    suffix = f" {date_event} в {time_event} ({ticket_name_for_desc})"
+    default_place = await db_postgres.get_default_place(context.session)
+    place_obj = effective_place(schedule_event, default_place)
+    place_name = place_obj.name if place_obj else 'Домик'
 
-    len_for_name = max_len_decs - len(prefix) - len(suffix)
-    name_for_desc = name[:len_for_name] if len_for_name > 0 else ""
-    description = f"{prefix}{name_for_desc}{suffix}"
+    description = format_receipt_description(
+        ticket_id=ticket_id,
+        event_name=name,
+        place_name=place_name,
+        date_str=date_event,
+        time_str=time_event,
+        ticket_format=ticket_name_for_desc,
+        max_len=128
+    )
 
     param = create_param_payment(
         price=price_to_pay,
@@ -1033,7 +1105,6 @@ async def get_booking_admin_text(
             user_data['common_data'] = {}
         
         try:
-            from utilities.utl_func import create_str_info_by_schedule_event_id
             text_select_event = await create_str_info_by_schedule_event_id(
                 context, ticket.schedule_event_id)
             chose_base_ticket = await db_postgres.get_base_ticket(

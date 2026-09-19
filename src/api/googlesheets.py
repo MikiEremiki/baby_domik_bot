@@ -18,13 +18,14 @@ from db.enum import TicketStatus
 from db.models import CustomMadeEvent
 from settings.config_loader import parse_settings
 from settings.settings import RANGE_NAME
+from utilities.utl_date import datetime_to_sheets_date_time
 
 config = parse_settings()
 
 creds_file = 'credentials.json'
 path = os.getenv('CONFIG_PATH')
 if path is not None:
-    creds_file = path + creds_file
+    creds_file = os.path.join(path, creds_file)
 else:
     creds_file = config.sheets.credentials_path
 googlesheets_logger = logging.getLogger('bot.googlesheets')
@@ -702,3 +703,308 @@ async def _execute_append_googlesheet(
         googlesheets_logger.error(
             f"Error in _execute_append_googlesheet: {err}", exc_info=True)
         raise
+
+
+async def sync_schedule_events_to_gspread(
+        spreadsheet_id: str,
+        run_id: str,
+        items: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Выполняет выгрузку элементов расписания в Google Таблицу с проверкой конфликтов.
+    """
+    name_sh = 'База спектаклей_'
+    dict_column_name, len_col = await _get_column_info(spreadsheet_id, name_sh)
+
+    required_headers = [
+        'event_id', 'event_type', 'theater_event_id',
+        'flag_turn_on_off', 'date_show', 'time_show',
+        'qty_child', 'qty_adult', 'flag_gift',
+        'flag_christmas_tree', 'flag_santa', 'ticket_price_type'
+    ]
+    missing_headers = [h for h in required_headers if h not in dict_column_name]
+    if missing_headers:
+        googlesheets_logger.error(f"Missing required columns in sheet {name_sh}: {missing_headers}")
+        return [
+            {
+                'item_id': it['item_id'],
+                'event_id': it['event_id'],
+                'change_ids': it['change_ids'],
+                'status': 'failed',
+                'details': {'error': f"Отсутствуют обязательные колонки: {missing_headers}"},
+                'unsupported_fields': ['base_ticket_ids'] if 'base_ticket_ids' in it.get('fields', []) else []
+            }
+            for it in items
+        ]
+
+    values = await _get_values(
+        spreadsheet_id,
+        f"{RANGE_NAME[name_sh]}A:AA",
+        value_render_option='UNFORMATTED_VALUE'
+    )
+    if not values:
+        values = []
+
+    existing_event_rows: Dict[int, int] = {}
+    duplicate_event_ids: set = set()
+
+    for idx, row in enumerate(values):
+        row_idx = idx + 1  # 1-based index
+        if row_idx < 3:
+            continue
+        event_id_col = dict_column_name['event_id']
+        if len(row) > event_id_col:
+            raw_eid = row[event_id_col]
+            if raw_eid != '' and raw_eid is not None:
+                try:
+                    eid = int(raw_eid)
+                    if eid in existing_event_rows:
+                        duplicate_event_ids.add(eid)
+                    else:
+                        existing_event_rows[eid] = row_idx
+                except (ValueError, TypeError):
+                    pass
+
+    def map_snapshot_to_sheet(snapshot: Any) -> Dict[str, Any]:
+        if not snapshot or not isinstance(snapshot, dict):
+            return {}
+        sheets_date, sheets_time = None, None
+        if snapshot.get('datetime_event'):
+            sheets_date, sheets_time = datetime_to_sheets_date_time(snapshot['datetime_event'])
+
+        mapped = {
+            'event_id': int(snapshot.get('id') or snapshot.get('event_id') or 0),
+            'event_type': int(snapshot.get('type_event_id', 0)),
+            'theater_event_id': int(snapshot.get('theater_event_id', 0)),
+            'flag_turn_on_off': bool(snapshot.get('flag_turn_in_bot', False)),
+            'date_show': sheets_date,
+            'time_show': sheets_time,
+            'qty_child': int(snapshot.get('qty_child', 0)),
+            'qty_adult': int(snapshot.get('qty_adult', 0)),
+            'flag_gift': bool(snapshot.get('flag_gift', False)),
+            'flag_christmas_tree': bool(snapshot.get('flag_christmas_tree', False)),
+            'flag_santa': bool(snapshot.get('flag_santa', False)),
+            'ticket_price_type': str(snapshot.get('ticket_price_type', '')),
+        }
+        if 'place_id' in dict_column_name:
+            p_id = snapshot.get('place_id')
+            mapped['place_id'] = int(p_id) if p_id is not None else None
+        return mapped
+
+    def compare_sheet_val(col_name: str, sheet_val: Any, target_val: Any) -> bool:
+        if target_val is None:
+            return sheet_val == '' or sheet_val is None
+        if col_name == 'time_show':
+            s_f = float(sheet_val) if sheet_val != '' and sheet_val is not None else 0.0
+            t_f = float(target_val) if target_val != '' and target_val is not None else 0.0
+            return abs(s_f - t_f) < 0.001
+        if col_name in ('flag_turn_on_off', 'flag_gift', 'flag_christmas_tree', 'flag_santa'):
+            return bool(sheet_val) == bool(target_val)
+        if col_name == 'place_id':
+            if sheet_val == '' or sheet_val is None:
+                return target_val is None
+            try:
+                return int(sheet_val) == int(target_val)
+            except (ValueError, TypeError):
+                return False
+        if col_name in ('event_id', 'event_type', 'theater_event_id', 'qty_child', 'qty_adult', 'date_show'):
+            s_i = int(sheet_val) if sheet_val != '' and sheet_val is not None else 0
+            t_i = int(target_val) if target_val != '' and target_val is not None else 0
+            return s_i == t_i
+        return str(sheet_val or '').strip() == str(target_val or '').strip()
+
+    field_to_columns = {
+        'type_event_id': ['event_type'],
+        'theater_event_id': ['theater_event_id'],
+        'place_id': ['place_id'] if 'place_id' in dict_column_name else [],
+        'flag_turn_in_bot': ['flag_turn_on_off'],
+        'datetime_event': ['date_show', 'time_show'],
+        'qty_child': ['qty_child'],
+        'qty_adult': ['qty_adult'],
+        'flag_gift': ['flag_gift'],
+        'flag_christmas_tree': ['flag_christmas_tree'],
+        'flag_santa': ['flag_santa'],
+        'ticket_price_type': ['ticket_price_type'],
+    }
+
+    results: List[Dict[str, Any]] = []
+    batch_updates: List[Dict[str, Any]] = []
+    appended_rows: List[List[Any]] = []
+
+    for item in items:
+        item_id = item['item_id']
+        event_id = int(item['event_id'])
+        change_ids = item['change_ids']
+        operation = item['operation']
+        fields = item.get('fields', [])
+        unsupported = ['base_ticket_ids'] if 'base_ticket_ids' in fields else []
+
+        if event_id in duplicate_event_ids:
+            results.append({
+                'item_id': item_id,
+                'event_id': event_id,
+                'change_ids': change_ids,
+                'status': 'failed',
+                'details': {'error': f"В таблице обнаружены дубликаты строк с event_id={event_id}"},
+                'unsupported_fields': unsupported,
+            })
+            continue
+
+        desired_mapped = map_snapshot_to_sheet(item.get('desired'))
+        expected_mapped = map_snapshot_to_sheet(item.get('expected'))
+
+        cols_to_check = []
+        for f in fields:
+            if f in field_to_columns:
+                cols_to_check.extend(field_to_columns[f])
+        cols_to_check = [c for c in cols_to_check if c in dict_column_name]
+        if not cols_to_check and operation == 'update':
+            results.append({
+                'item_id': item_id,
+                'event_id': event_id,
+                'change_ids': change_ids,
+                'status': 'already_equal',
+                'unsupported_fields': unsupported,
+            })
+            continue
+
+        if operation == 'create':
+            if event_id in existing_event_rows:
+                row_idx = existing_event_rows[event_id]
+                row_data = values[row_idx - 1]
+                all_match = True
+                diffs = {}
+                for col in required_headers:
+                    if col in dict_column_name:
+                        c_idx = dict_column_name[col]
+                        val_in_sheet = row_data[c_idx] if c_idx < len(row_data) else ''
+                        val_desired = desired_mapped.get(col)
+                        if not compare_sheet_val(col, val_in_sheet, val_desired):
+                            all_match = False
+                            diffs[col] = {
+                                'field': col,
+                                'expected': expected_mapped.get(col),
+                                'actual_in_sheet': val_in_sheet,
+                                'desired': val_desired
+                            }
+                if all_match:
+                    results.append({
+                        'item_id': item_id,
+                        'event_id': event_id,
+                        'change_ids': change_ids,
+                        'status': 'already_equal',
+                        'unsupported_fields': unsupported,
+                    })
+                else:
+                    results.append({
+                        'item_id': item_id,
+                        'event_id': event_id,
+                        'change_ids': change_ids,
+                        'status': 'conflict',
+                        'details': {'conflicts': diffs},
+                        'unsupported_fields': unsupported,
+                    })
+            else:
+                new_row = [''] * len_col
+                for col, val in desired_mapped.items():
+                    if col in dict_column_name:
+                        new_row[dict_column_name[col]] = val
+                appended_rows.append(new_row)
+                results.append({
+                    'item_id': item_id,
+                    'event_id': event_id,
+                    'change_ids': change_ids,
+                    'status': 'created',
+                    'unsupported_fields': unsupported,
+                })
+
+        elif operation == 'update':
+            if event_id not in existing_event_rows:
+                results.append({
+                    'item_id': item_id,
+                    'event_id': event_id,
+                    'change_ids': change_ids,
+                    'status': 'failed',
+                    'details': {'error': f"Строка с event_id={event_id} не найдена в Google Таблице"},
+                    'unsupported_fields': unsupported,
+                })
+                continue
+
+            row_idx = existing_event_rows[event_id]
+            row_data = values[row_idx - 1]
+
+            already_equal = True
+            conflict = False
+            conflict_details = {}
+            cells_to_update = []
+
+            for col in cols_to_check:
+                c_idx = dict_column_name[col]
+                sheet_val = row_data[c_idx] if c_idx < len(row_data) else ''
+                desired_val = desired_mapped.get(col)
+                expected_val = expected_mapped.get(col)
+
+                if compare_sheet_val(col, sheet_val, desired_val):
+                    continue
+
+                already_equal = False
+                if expected_val is not None and not compare_sheet_val(col, sheet_val, expected_val):
+                    conflict = True
+                    conflict_details[col] = {
+                        'field': col,
+                        'expected': expected_val,
+                        'actual_in_sheet': sheet_val,
+                        'desired': desired_val
+                    }
+                else:
+                    cells_to_update.append((col, c_idx, desired_val))
+
+            if already_equal:
+                results.append({
+                    'item_id': item_id,
+                    'event_id': event_id,
+                    'change_ids': change_ids,
+                    'status': 'already_equal',
+                    'unsupported_fields': unsupported,
+                })
+            elif conflict:
+                results.append({
+                    'item_id': item_id,
+                    'event_id': event_id,
+                    'change_ids': change_ids,
+                    'status': 'conflict',
+                    'details': {'conflicts': conflict_details},
+                    'unsupported_fields': unsupported,
+                })
+            else:
+                for col, c_idx, desired_val in cells_to_update:
+                    col_num = c_idx + 1
+                    cell_range = f"{RANGE_NAME[name_sh]}R{row_idx}C{col_num}"
+                    batch_updates.append({
+                        'range': cell_range,
+                        'majorDimension': 'ROWS',
+                        'values': [[desired_val]]
+                    })
+                results.append({
+                    'item_id': item_id,
+                    'event_id': event_id,
+                    'change_ids': change_ids,
+                    'status': 'updated',
+                    'unsupported_fields': unsupported,
+                })
+
+    if batch_updates:
+        await _write_data_to_batch_update(batch_updates, spreadsheet_id, value_input_option='USER_ENTERED')
+
+    if appended_rows:
+        append_body = {'values': appended_rows}
+        range_append = f"{RANGE_NAME[name_sh]}R1C1:R1C{len_col}"
+        await _execute_append_googlesheet(
+            spreadsheet_id,
+            range_append,
+            value_input_option='USER_ENTERED',
+            response_value_render_option='FORMATTED_VALUE',
+            value_range_body=append_body
+        )
+
+    return results

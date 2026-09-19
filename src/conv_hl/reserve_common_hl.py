@@ -28,8 +28,15 @@ handlers_event_selection = {
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
         CallbackQueryHandler(reserve_hl.choice_time, pattern='^DATE'),
     ],
+    'PLACE': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
+        CallbackQueryHandler(reserve_hl.choice_place, pattern='^PLACE'),
+    ],
     'TIME': [
         cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-PLACE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
         CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
         CallbackQueryHandler(reserve_hl.choice_option_of_reserve, pattern='^TIME'),
