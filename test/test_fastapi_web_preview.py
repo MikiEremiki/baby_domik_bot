@@ -64,12 +64,17 @@ def _create_client(monkeypatch) -> TestClient:
     monkeypatch.setattr(booking_service, 'publish_update_ticket', AsyncMock(), raising=False)
     monkeypatch.setattr(booking, 'publish_update_ticket', AsyncMock(), raising=False)
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
+    default_place = MagicMock(id=1, name='Домик', address='ул. Пушкина, 1')
+    monkeypatch.setattr(pages, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+    monkeypatch.setattr(booking, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+    monkeypatch.setattr(booking_service, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
 
     # Переопределяем зависимость сессии
     mock_session = AsyncMock()
     mock_session.add = MagicMock()  # session.add — синхронный метод
     
     mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
     mock_result.scalars.return_value.first.return_value = None
     mock_result.scalars.return_value.all.return_value = []
     mock_session.execute = AsyncMock(return_value=mock_result)
@@ -491,6 +496,7 @@ def test_check_promo_api(monkeypatch):
 
     with _create_client(monkeypatch) as client:
         monkeypatch.setattr(api_route, 'get_promotion_by_code', AsyncMock(return_value=mock_promo))
+        monkeypatch.setattr(api_route, 'check_promo_restrictions_web', AsyncMock(return_value=(True, "")))
         
         # 1. Успешная проверка
         resp = client.post('/api/check-promo', data={
