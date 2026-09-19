@@ -1,6 +1,6 @@
+import html
 import logging
 import re
-from typing import Optional
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
@@ -49,9 +49,9 @@ async def place_select(
 
     def place_formatter(row):
         is_def = " ⭐️ (по умолчанию)" if row.id == default_id else ""
-        maps = f"\n  🗺 {row.link_on_yndx_maps}" if row.link_on_yndx_maps else ""
-        about = f"\n  ℹ️ {row.link_about}" if row.link_about else ""
-        return f"• ID {row.id}: <b>{row.name}</b>{is_def}\n  📍 {row.address}{maps}{about}\n"
+        maps = f"\n  🗺 {html.escape(row.link_on_yndx_maps, quote=True)}" if row.link_on_yndx_maps else ""
+        about = f"\n  ℹ️ {html.escape(row.link_about, quote=True)}" if row.link_about else ""
+        return f"• ID {row.id}: <b>{html.escape(row.name)}</b>{is_def}\n  📍 {html.escape(row.address)}{maps}{about}\n"
 
     return await support_hl._paginated_select(
         update, context, places,
@@ -101,7 +101,7 @@ async def place_get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return PLACE_NAME
 
     context.user_data['place_form']['name'] = name
-    text = f"Название: <b>{name}</b>\n\nШаг 2/4. Введите фактический адрес локации:"
+    text = f"Название: <b>{html.escape(name)}</b>\n\nШаг 2/4. Введите фактический адрес локации:"
     keyboard = [
         add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=str(PLACE_NAME))
     ]
@@ -124,7 +124,7 @@ async def place_get_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['place_form']['address'] = address
     text = (
-        f"Адрес: <b>{address}</b>\n\n"
+        f"Адрес: <b>{html.escape(address)}</b>\n\n"
         "Шаг 3/4. Введите ссылку на Яндекс Карты (начинается с http:// или https://) "
         "или нажмите «Пропустить»:"
     )
@@ -203,10 +203,10 @@ async def place_show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     summary = (
         f"<b>{'Редактирование' if is_update else 'Проверка данных'} локации</b>\n\n"
-        f"1. 🏷 <b>Название:</b> {form['name']}\n"
-        f"2. 📍 <b>Адрес:</b> {form['address']}\n"
-        f"3. 🗺 <b>Яндекс Карты:</b> {form['link_on_yndx_maps'] or 'не указано'}\n"
-        f"4. ℹ️ <b>Подробнее:</b> {form['link_about'] or 'не указано'}\n"
+        f"1. 🏷 <b>Название:</b> {html.escape(form['name'])}\n"
+        f"2. 📍 <b>Адрес:</b> {html.escape(form['address'])}\n"
+        f"3. 🗺 <b>Яндекс Карты:</b> {html.escape(form['link_on_yndx_maps'], quote=True) if form['link_on_yndx_maps'] else 'не указано'}\n"
+        f"4. ℹ️ <b>Подробнее:</b> {html.escape(form['link_about'], quote=True) if form['link_about'] else 'не указано'}\n"
     )
 
     keyboard = [
@@ -284,10 +284,10 @@ async def place_update_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     text = (
         f"<b>Редактирование локации ID {place.id}</b>\n\n"
-        f"1. 🏷 <b>Название:</b> {place.name}\n"
-        f"2. 📍 <b>Адрес:</b> {place.address}\n"
-        f"3. 🗺 <b>Яндекс Карты:</b> {place.link_on_yndx_maps or 'не указано'}\n"
-        f"4. ℹ️ <b>Подробнее:</b> {place.link_about or 'не указано'}\n"
+        f"1. 🏷 <b>Название:</b> {html.escape(place.name)}\n"
+        f"2. 📍 <b>Адрес:</b> {html.escape(place.address)}\n"
+        f"3. 🗺 <b>Яндекс Карты:</b> {html.escape(place.link_on_yndx_maps, quote=True) if place.link_on_yndx_maps else 'не указано'}\n"
+        f"4. ℹ️ <b>Подробнее:</b> {html.escape(place.link_about, quote=True) if place.link_about else 'не указано'}\n"
         f"⭐️ <b>По умолчанию:</b> {'Да' if is_default else 'Нет'}\n"
     )
 
