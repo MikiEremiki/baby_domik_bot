@@ -29,7 +29,7 @@ from db.db_postgres import (
     get_phone,
     get_email,
     get_adult_name,
-    get_or_create_default_place,
+    get_default_place,
 )
 from api.gspread_pub import (
     publish_write_data_reserve,
@@ -83,7 +83,7 @@ async def _get_booking_form_context(request: Request, s: ScheduleEvent, session:
                 'email': email or user.email or '',
             }
 
-    default_place = await get_or_create_default_place(session)
+    default_place = await get_default_place(session)
     place_obj = effective_place(s, default_place)
 
     return {
@@ -336,7 +336,7 @@ async def post_booking_form(
     time_event_str = dt_event.strftime('%H:%M')
     name_event = t_e.name
 
-    default_place = await get_or_create_default_place(session)
+    default_place = await get_default_place(session)
     place_obj = effective_place(s, default_place)
     place_name = place_obj.name if place_obj else 'Домик'
 

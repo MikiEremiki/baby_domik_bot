@@ -6,7 +6,7 @@ from ..config import MOSCOW_TZ, templates
 from ..deps import get_session
 from ..logger import logger
 from ..services.metrics_service import metrics_service
-from db.db_postgres import get_all_theater_events_actual, get_theater_event, get_afishas, get_or_create_default_place
+from db.db_postgres import get_all_theater_events_actual, get_theater_event, get_afishas, get_default_place
 from utilities.utl_place import effective_place
 from settings.settings import (
     DICT_CONVERT_WEEKDAY_NUMBER_TO_STR,
@@ -31,7 +31,7 @@ async def show_index(
     if type_id is not None and type_id not in PUBLIC_TYPE_EVENT_IDS:
         type_id = None
 
-    default_place = await get_or_create_default_place(session)
+    default_place = await get_default_place(session)
 
     t_db0 = time.perf_counter()
     events_db = await get_all_theater_events_actual(session)
@@ -46,21 +46,34 @@ async def show_index(
     available_places_map = {}
 
     for e in events_db:
-        active_sessions_count = 0
-        free_seats_child_in_filtered_sessions = 0
-        free_seats_adult_in_filtered_sessions = 0
+        if age is not None and e.min_age_child < age:
+            continue
+
         # type_event_id живёт на ScheduleEvent, а не на TheaterEvent —
         # определяем тип по первому активному сеансу.
         te_type_id = None
         te_type_name = ''
-        min_session_dt = None
-
         for s in e.schedule_events:
             if not s.flag_turn_in_bot:
                 continue
             if te_type_id is None:
                 te_type_id = s.type_event_id
                 te_type_name = s.type_event.name if getattr(s, 'type_event', None) else ''
+                break
+
+        # Фильтр по публичным типам (аналог type_event_id.in_(PUBLIC_TYPE_EVENT_IDS))
+        if te_type_id is None or te_type_id not in PUBLIC_TYPE_EVENT_IDS:
+            continue
+
+        active_sessions_count = 0
+        free_seats_child_in_filtered_sessions = 0
+        free_seats_adult_in_filtered_sessions = 0
+        min_session_dt = None
+        has_matching_type = (type_id is None or te_type_id == type_id)
+
+        for s in e.schedule_events:
+            if not s.flag_turn_in_bot:
+                continue
 
             dt = s.datetime_event
             if dt.tzinfo is None:
@@ -76,7 +89,7 @@ async def show_index(
                 eff_place = effective_place(s, default_place)
                 match_place = (place_id is None) or (eff_place.id == place_id)
                 
-                if match_month and match_date:
+                if match_month and match_date and has_matching_type:
                     available_places_map.setdefault(eff_place.id, eff_place.name)
 
                 if match_month and match_date and match_place:
@@ -90,17 +103,10 @@ async def show_index(
                 available_months.add(m_key)
                 all_available_dates.add(d_key)
 
-        if age is not None and e.min_age_child < age:
-            continue
-
         if only_actual and active_sessions_count == 0:
             continue
             
         if (month or date or place_id is not None) and active_sessions_count == 0:
-            continue
-
-        # Фильтр по публичным типам (аналог type_event_id.in_(PUBLIC_TYPE_EVENT_IDS))
-        if te_type_id is None or te_type_id not in PUBLIC_TYPE_EVENT_IDS:
             continue
 
         # Собираем доступные типы по тем событиям, что прошли базовые проверки,
@@ -108,7 +114,7 @@ async def show_index(
         available_types_map.setdefault(te_type_id, te_type_name)
 
         # Фильтр по выбранному типу (применяется после сбора available_types)
-        if type_id is not None and te_type_id != type_id:
+        if not has_matching_type:
             continue
 
         events.append({
@@ -216,7 +222,7 @@ async def show_event_details(
         logger.warning(f"Event {event_id} not found")
         raise HTTPException(status_code=404, detail="Event not found")
 
-    default_place = await get_or_create_default_place(session)
+    default_place = await get_default_place(session)
 
     sessions = []
     now = datetime.now(timezone.utc)
