@@ -200,6 +200,7 @@ services:
       /bin/sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;"
 
   prometheus:
+    profiles: [ "all", "monitoring", "prometheus" ]
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
