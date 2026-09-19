@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence, List, Optional, Set, Tuple
 import datetime
+import html
 
 from db.models import ScheduleEvent, Place
 
@@ -63,17 +64,32 @@ def collect_places(events: Sequence[ScheduleEvent], default_place: Place) -> Lis
     return places
 
 
+def is_safe_url(url: Optional[str]) -> bool:
+    """
+    Проверяет, является ли URL безопасным для вставки в href (http:// или https://).
+    """
+    if not url or not isinstance(url, str):
+        return False
+    u = url.strip()
+    return u.startswith('http://') or u.startswith('https://')
+
+
 def format_place_footnote(place: Place) -> str:
     """
     Форматирует сноску с адресом локации для Telegram-бота:
     название, адрес, ссылка на Яндекс Карты; ссылка 'Подробнее', если link_about заполнена.
+    Экранирует HTML-символы в названии, адресе и ссылках, валидирует схемы URL.
     """
-    parts = [f"📍 <b>{place.name}</b>: {place.address}"]
+    name = html.escape(place.name) if place.name else ""
+    address = html.escape(place.address) if place.address else ""
+    parts = [f"📍 <b>{name}</b>: {address}"]
     links = []
-    if place.link_on_yndx_maps:
-        links.append(f'<a href="{place.link_on_yndx_maps}">Яндекс Карты</a>')
-    if place.link_about:
-        links.append(f'<a href="{place.link_about}">Подробнее</a>')
+    if is_safe_url(place.link_on_yndx_maps):
+        safe_url = html.escape(place.link_on_yndx_maps.strip(), quote=True)
+        links.append(f'<a href="{safe_url}">Яндекс Карты</a>')
+    if is_safe_url(place.link_about):
+        safe_url = html.escape(place.link_about.strip(), quote=True)
+        links.append(f'<a href="{safe_url}">Подробнее</a>')
     if links:
         parts.append(f"({' | '.join(links)})")
     return " ".join(parts)
