@@ -286,7 +286,7 @@ class BaseTicketTheaterEvent(BaseModelTimed):
 class Place(BaseModelTimed):
     __tablename__ = 'places'
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     address: Mapped[str]
     link_on_yndx_maps: Mapped[Optional[str]]
