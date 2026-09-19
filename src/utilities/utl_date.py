@@ -1,7 +1,19 @@
 import datetime
 from typing import Optional, Any
+from zoneinfo import ZoneInfo
 
 from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+
+def to_moscow_dt(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
+    """Приводит datetime к timezone-aware в часовом поясе Europe/Moscow (МСК)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(MOSCOW_TZ)
 
 
 def convert_sheets_datetime(

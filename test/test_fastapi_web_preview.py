@@ -862,12 +862,27 @@ def test_fastapi_imports_without_telegram(monkeypatch):
     monkeypatch.setitem(sys.modules, 'telegram.error', None)
     monkeypatch.setitem(sys.modules, 'telegram.ext', None)
     
-    # Verify utl_text, booking and web modules can be imported without telegram
+    # Verify utl_date, utl_text, utl_schedule_changes, db_postgres, booking and web modules can be imported without telegram
+    import utilities.utl_date
+    importlib.reload(utilities.utl_date)
+    from utilities.utl_date import to_moscow_dt, MOSCOW_TZ
+    assert MOSCOW_TZ is not None
+    assert callable(to_moscow_dt)
+
     import utilities.utl_text
     importlib.reload(utilities.utl_text)
     from utilities.utl_text import format_receipt_description
     assert callable(format_receipt_description)
     
+    import utilities.utl_schedule_changes
+    importlib.reload(utilities.utl_schedule_changes)
+
+    import db.db_postgres
+    importlib.reload(db.db_postgres)
+
+    import api.web.services.booking_service
+    importlib.reload(api.web.services.booking_service)
+
     import api.web.routes.booking
     importlib.reload(api.web.routes.booking)
 
