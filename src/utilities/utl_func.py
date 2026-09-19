@@ -24,6 +24,7 @@ from telegram.error import BadRequest
 from db import ScheduleEvent, db_postgres, TheaterEvent, Ticket, BaseTicket
 from db.enum import TicketStatus
 from settings import parse_settings
+from utilities.utl_date import MOSCOW_TZ, to_moscow_dt
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
@@ -671,18 +672,6 @@ async def clean_replay_kb_and_send_typing_action(update):
     await update.effective_chat.send_action(ChatAction.TYPING,
                                             message_thread_id=thread_id)
     return message
-
-
-MOSCOW_TZ = ZoneInfo("Europe/Moscow")
-
-
-def to_moscow_dt(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
-    """Приводит datetime к timezone-aware в часовом поясе Europe/Moscow (МСК)."""
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(MOSCOW_TZ)
 
 
 async def render_text_for_choice_time(theater_event, schedule_events):

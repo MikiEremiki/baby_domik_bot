@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from db.enum import TicketPriceType
 from db.models import ScheduleEvent, BaseTicket
-from utilities.utl_func import to_moscow_dt, MOSCOW_TZ
+from utilities.utl_date import to_moscow_dt, MOSCOW_TZ
 
 TRACKED_SCHEDULE_FIELDS = [
     'type_event_id',
