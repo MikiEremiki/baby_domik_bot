@@ -1,6 +1,7 @@
+import html
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
@@ -265,7 +266,7 @@ async def ask_schedule_summary(update: Update, context: ContextTypes.DEFAULT_TYP
 
     dt_str = to_moscow_dt(event_data['datetime_event']).strftime('%d.%m.%Y %H:%M')
     place_id = event_data.get('place_id')
-    default_place = await db_postgres.get_or_create_default_place(context.session)
+    default_place = await db_postgres.get_default_place(context.session)
     place_obj = await db_postgres.get_place(context.session, place_id) if place_id else default_place
     place_name = place_obj.name if place_obj else 'Домик'
     text = (
@@ -997,7 +998,7 @@ async def ask_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
 
     places = await db_postgres.get_places(context.session)
-    default_place = await db_postgres.get_or_create_default_place(context.session)
+    default_place = await db_postgres.get_default_place(context.session)
 
     text = "<b>Выбор локации события:</b>\n\n"
     keyboard = []
@@ -1006,7 +1007,7 @@ async def ask_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append([InlineKeyboardButton(f"⭐️ По умолчанию ({default_place.name})", callback_data="sch_plc_none")])
 
     for p in places:
-        text += f"• ID {p.id}: <b>{p.name}</b> ({p.address})\n"
+        text += f"• ID {p.id}: <b>{html.escape(p.name)}</b> ({html.escape(p.address)})\n"
         btn_label = f"ID {p.id}: {p.name}"
         keyboard.append([InlineKeyboardButton(btn_label, callback_data=f"sch_plc_{p.id}")])
 
@@ -1060,7 +1061,7 @@ async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     dt_str = to_moscow_dt(data['datetime_event']).strftime('%d.%m.%Y %H:%M')
     place_id = data.get('place_id')
-    default_place = await db_postgres.get_or_create_default_place(context.session)
+    default_place = await db_postgres.get_default_place(context.session)
     place_obj = await db_postgres.get_place(context.session, place_id) if place_id else default_place
     place_name = place_obj.name if place_obj else 'Домик'
 
@@ -1068,7 +1069,7 @@ async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '<b>Проверьте данные события</b>\n\n'
         f"Тип: {(_fmt_type_event(type_obj) if type_obj else data.get('type_event_id'))}\n"
         f"Спектакль: {(_fmt_theater_event(theater_obj) if theater_obj else data.get('theater_event_id'))}\n"
-        f"Локация: {place_name}\n"
+        f"Локация: {html.escape(place_name)}\n"
         f"Дата/время (МСК): {dt_str}\n"
         f"Места: {data.get('qty_child', 0)} дет / {data.get('qty_adult', 0)} взр\n"
         f"Стоимость: {data.get('ticket_price_type').name}\n"

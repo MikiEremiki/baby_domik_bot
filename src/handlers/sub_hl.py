@@ -425,7 +425,7 @@ async def create_and_send_payment(
     ticket_id = ticket_ids[0]
     ticket_name_for_desc = chose_base_ticket.name.split(' | ')[0]
 
-    default_place = await db_postgres.get_or_create_default_place(context.session)
+    default_place = await db_postgres.get_default_place(context.session)
     place_obj = effective_place(schedule_event, default_place)
     place_name = place_obj.name if place_obj else 'Домик'
 
