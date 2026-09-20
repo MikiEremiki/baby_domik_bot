@@ -591,6 +591,9 @@ async def _render_sessions_for_repertoire(
     default_place = await db_postgres.get_default_place(context.session)
     schedule_events_sorted = sorted(schedule_events,
                                     key=lambda s_e: s_e.datetime_event)
+    unique_places = {effective_place(s_ev, default_place).id for s_ev in schedule_events_sorted}
+    has_multiple_places = len(unique_places) > 1
+
     keyboard = []
     unique_times = []
     seen_times = set()
@@ -598,7 +601,8 @@ async def _render_sessions_for_repertoire(
         date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
         text_emoji = await get_emoji(s_ev)
         p = effective_place(s_ev, default_place)
-        btn_text = f"{date_txt} {time_txt} ({p.name}){text_emoji}"
+        place_suffix = f" ({p.name})" if has_multiple_places else ""
+        btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
         keyboard.append(
             InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
         # Копим список уникальных времен для текста
@@ -639,7 +643,8 @@ async def _render_sessions_for_repertoire(
             p = effective_place(s_ev, default_place)
             qty_child = max(int(s_ev.qty_child_free_seat), 0)
             qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
-            text += f"{date_txt} {time_txt} ({html.escape(p.name)}) — {qty_child} дет | {qty_adult} взр\n"
+            place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places else ""
+            text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
 
     # Адресные сноски
     places = collect_places(schedule_events_sorted, default_place)
@@ -817,6 +822,8 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     use_direct_time = (state != 'LIST_WAIT') and all(
         len(v) == 1 for v in by_date.values()) and len(by_date) > 0
 
+    has_multiple_places_dt = len({effective_place(ev, default_place).id for ev in schedule_events}) > 1
+
     if use_direct_time:
         # Прямые кнопки на TIME с текстом Дата + Время (+эмодзи опций)
         keyboard = []
@@ -824,7 +831,9 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             s_ev = ev_list[0]
             date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
             text_emoji = await get_emoji(s_ev)
-            btn_text = f"{date_txt} {time_txt}{text_emoji}"
+            p = effective_place(s_ev, default_place)
+            place_suffix = f" ({p.name})" if has_multiple_places_dt else ""
+            btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
             keyboard.append(
                 InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
         reply_markup = await create_replay_markup(
@@ -871,9 +880,11 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         for d, ev_list in sorted(by_date.items()):
             s_ev = ev_list[0]
             date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
+            p = effective_place(s_ev, default_place)
+            place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places_dt else ""
             qty_child = max(int(s_ev.qty_child_free_seat), 0)
             qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
-            text += f"{date_txt} {time_txt} — {qty_child} дет | {qty_adult} взр\n"
+            text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
     else:
         # Суммарно по датам (на выбранную дату времена покажем на следующем шаге)
         text += '\n<b>Свободные места по датам (суммарно):</b>\n'

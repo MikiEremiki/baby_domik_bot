@@ -223,6 +223,9 @@ async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum
     for i, theater_event in enum_theater_events:
         index_map[theater_event.id] = i
 
+    unique_places = {effective_place(ev, default_place).id for ev in schedule_events}
+    has_multiple_places = len(unique_places) > 1
+
     keyboard: List[InlineKeyboardButton] = []
     for event in schedule_events:
         # Эмодзи спектакля по индексу
@@ -235,7 +238,7 @@ async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum
         # Время + локация + кол-во мест
         time_txt = await get_time_with_timezone(event)
         place_str = ""
-        if default_place is not None or getattr(event, 'place', None) is not None:
+        if has_multiple_places:
             p = effective_place(event, default_place)
             if p:
                 place_str = f" ({p.name})"

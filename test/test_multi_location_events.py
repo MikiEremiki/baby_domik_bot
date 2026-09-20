@@ -7,7 +7,12 @@ from fastapi.testclient import TestClient
 
 from db import db_postgres
 from db.models import Place, ScheduleEvent, TheaterEvent, TypeEvent, BaseTicket, BotSettings, BaseModel
-from handlers.reserve.choice import choice_time, choice_place, choice_option_of_reserve
+from handlers.reserve.choice import (
+    choice_time, choice_place, choice_option_of_reserve,
+    _render_sessions_for_repertoire, choice_date
+)
+from telegram.constants import ChatType
+from utilities.utl_kbd import create_kbd_for_time_by_date
 from handlers import support_hl
 from db.enum import TicketPriceType
 from utilities.schemas import kv_name_attr_schedule_event
@@ -967,5 +972,296 @@ def test_schedule_event_check_scenarios():
             assert state == 42
             sent_err = mock_update.effective_chat.send_message.call_args[0][0]
             assert "Некорректное значение" in sent_err
+
+    asyncio.run(_test())
+
+
+# -------------------------------------------------------------
+# 10. Тесты условного отображения локации в расписании и кнопках
+# -------------------------------------------------------------
+
+def test_render_sessions_for_repertoire_single_place():
+    async def _test():
+        p1 = Place(id=1, name="Домик", address="ул. Ленина, 1")
+        te = TheaterEvent(id=10, name="Колобок", min_age_child=2, max_age_child=4)
+
+        ev1 = ScheduleEvent(
+            id=101,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 15, 8, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=8,
+            qty_adult_free_seat=4,
+            place=p1,
+            place_id=1
+        )
+        ev2 = ScheduleEvent(
+            id=102,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 16, 9, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=5,
+            qty_adult_free_seat=2,
+            place=p1,
+            place_id=1
+        )
+
+        mock_update = MagicMock()
+        mock_update.effective_chat.type = ChatType.PRIVATE
+        mock_update.effective_message.photo = False
+        mock_update.effective_message.message_thread_id = None
+        mock_update.effective_chat.send_message = AsyncMock()
+
+        mock_query = MagicMock()
+        mock_query.edit_message_text = AsyncMock()
+
+        mock_context = MagicMock()
+        mock_context.session = AsyncMock()
+        mock_context.user_data = {
+            'command': 'reserve',
+            'postfix_for_cancel': 'reserve|',
+            'reserve_user_data': {'back': {}}
+        }
+        mock_context.bot_data = {'texts': {'text_legend': ''}}
+
+        with patch.object(db_postgres, 'get_default_place', AsyncMock(return_value=p1)), \
+             patch.object(db_postgres, 'get_afisha', AsyncMock(return_value=None)):
+            state = await _render_sessions_for_repertoire(
+                mock_update, mock_context, mock_query,
+                [ev1, ev2], te, "10", "REPERTOIRE"
+            )
+            assert state == 'TIME'
+            mock_query.edit_message_text.assert_called_once()
+            call_kwargs = mock_query.edit_message_text.call_args[1]
+            sent_text = call_kwargs['text']
+            reply_markup = call_kwargs['reply_markup']
+
+            # Проверяем, что в тексте свободных мест локации нет (так как обе в Домике)
+            assert "(Домик)" not in sent_text
+            assert "15.10 (чт) 11:00 — 8 дет | 4 взр" in sent_text
+            assert "16.10 (пт) 12:00 — 5 дет | 2 взр" in sent_text
+
+            # Проверяем inline-кнопки
+            buttons = [btn for row in reply_markup.inline_keyboard for btn in row if '101' in btn.callback_data or '102' in btn.callback_data]
+            assert len(buttons) == 2
+            assert "(Домик)" not in buttons[0].text
+            assert "15.10 (чт) 11:00" in buttons[0].text
+            assert "(Домик)" not in buttons[1].text
+            assert "16.10 (пт) 12:00" in buttons[1].text
+
+    asyncio.run(_test())
+
+
+def test_render_sessions_for_repertoire_multiple_places():
+    async def _test():
+        p1 = Place(id=1, name="Домик", address="ул. Ленина, 1")
+        p2 = Place(id=2, name="Покровка", address="ул. Покровка, 10")
+        te = TheaterEvent(id=10, name="Колобок", min_age_child=2, max_age_child=4)
+
+        ev1 = ScheduleEvent(
+            id=101,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 15, 8, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=8,
+            qty_adult_free_seat=4,
+            place=p1,
+            place_id=1
+        )
+        ev2 = ScheduleEvent(
+            id=102,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 16, 9, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=5,
+            qty_adult_free_seat=2,
+            place=p2,
+            place_id=2
+        )
+
+        mock_update = MagicMock()
+        mock_update.effective_chat.type = ChatType.PRIVATE
+        mock_update.effective_message.photo = False
+        mock_update.effective_message.message_thread_id = None
+
+        mock_query = MagicMock()
+        mock_query.edit_message_text = AsyncMock()
+
+        mock_context = MagicMock()
+        mock_context.session = AsyncMock()
+        mock_context.user_data = {
+            'command': 'reserve',
+            'postfix_for_cancel': 'reserve|',
+            'reserve_user_data': {'back': {}}
+        }
+        mock_context.bot_data = {'texts': {'text_legend': ''}}
+
+        with patch.object(db_postgres, 'get_default_place', AsyncMock(return_value=p1)), \
+             patch.object(db_postgres, 'get_afisha', AsyncMock(return_value=None)):
+            state = await _render_sessions_for_repertoire(
+                mock_update, mock_context, mock_query,
+                [ev1, ev2], te, "10", "REPERTOIRE"
+            )
+            assert state == 'TIME'
+            mock_query.edit_message_text.assert_called_once()
+            call_kwargs = mock_query.edit_message_text.call_args[1]
+            sent_text = call_kwargs['text']
+            reply_markup = call_kwargs['reply_markup']
+
+            # Проверяем, что в тексте свободных мест локация присутствует
+            assert "15.10 (чт) 11:00 (Домик) — 8 дет | 4 взр" in sent_text
+            assert "16.10 (пт) 12:00 (Покровка) — 5 дет | 2 взр" in sent_text
+
+            # Проверяем inline-кнопки
+            buttons = [btn for row in reply_markup.inline_keyboard for btn in row if '101' in btn.callback_data or '102' in btn.callback_data]
+            assert len(buttons) == 2
+            assert "15.10 (чт) 11:00 (Домик)" in buttons[0].text
+            assert "16.10 (пт) 12:00 (Покровка)" in buttons[1].text
+
+    asyncio.run(_test())
+
+
+def test_create_kbd_for_time_by_date_place_display():
+    async def _test():
+        p1 = Place(id=1, name="Домик", address="ул. Ленина, 1")
+        p2 = Place(id=2, name="Покровка", address="ул. Покровка, 10")
+        te1 = TheaterEvent(id=10, name="Колобок")
+        te2 = TheaterEvent(id=20, name="Теремок")
+        enum_theater_events = [(1, te1), (2, te2)]
+
+        # Сценарий 1: Все события на дату на одной площадке (Домик)
+        ev1 = ScheduleEvent(
+            id=101,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 15, 8, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=8,
+            qty_adult_free_seat=4,
+            place=p1,
+            place_id=1
+        )
+        ev2 = ScheduleEvent(
+            id=102,
+            theater_event_id=20,
+            datetime_event=datetime(2026, 10, 15, 13, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=6,
+            qty_adult_free_seat=3,
+            place=p1,
+            place_id=1
+        )
+
+        kbd_single = await create_kbd_for_time_by_date([ev1, ev2], enum_theater_events, default_place=p1)
+        assert len(kbd_single) == 2
+        assert "(Домик)" not in kbd_single[0].text
+        assert "(Домик)" not in kbd_single[1].text
+        assert "11:00" in kbd_single[0].text
+        assert "16:00" in kbd_single[1].text
+
+        # Сценарий 2: События на дату на разных площадках (Домик и Покровка)
+        ev3 = ScheduleEvent(
+            id=103,
+            theater_event_id=20,
+            datetime_event=datetime(2026, 10, 15, 13, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=6,
+            qty_adult_free_seat=3,
+            place=p2,
+            place_id=2
+        )
+
+        kbd_multi = await create_kbd_for_time_by_date([ev1, ev3], enum_theater_events, default_place=p1)
+        assert len(kbd_multi) == 2
+        assert "(Домик)" in kbd_multi[0].text
+        assert "(Покровка)" in kbd_multi[1].text
+
+    asyncio.run(_test())
+
+
+def test_choice_date_direct_time_place_display():
+    async def _test():
+        p1 = Place(id=1, name="Домик", address="ул. Ленина, 1")
+        p2 = Place(id=2, name="Покровка", address="ул. Покровка, 10")
+        te = TheaterEvent(id=10, name="Колобок", min_age_child=2, max_age_child=4)
+
+        # 1. Direct time (по 1 показу в день) в одной локации
+        ev1 = ScheduleEvent(
+            id=101,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 15, 8, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=8,
+            qty_adult_free_seat=4,
+            place=p1,
+            place_id=1
+        )
+        ev2 = ScheduleEvent(
+            id=102,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 16, 9, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=5,
+            qty_adult_free_seat=2,
+            place=p1,
+            place_id=1
+        )
+
+        mock_update = MagicMock()
+        mock_update.callback_query.data = "SHOW|10"
+        mock_update.callback_query.answer = AsyncMock()
+        mock_update.callback_query.edit_message_text = AsyncMock()
+        mock_update.effective_chat.type = ChatType.PRIVATE
+        mock_update.effective_message.photo = False
+
+        mock_context = MagicMock()
+        mock_context.session = AsyncMock()
+        mock_context.user_data = {
+            'STATE': 'SHOW',
+            'command': 'reserve',
+            'postfix_for_cancel': 'reserve|',
+            'select_mode': 'DATE',
+            'reserve_user_data': {
+                'number_of_month_str': '10',
+                'SHOW': {'schedule_event_ids': [101, 102]}
+            }
+        }
+        mock_context.bot_data = {'texts': {'text_legend': ''}}
+
+        with patch.object(db_postgres, 'get_theater_event', AsyncMock(return_value=te)), \
+             patch.object(db_postgres, 'get_schedule_events_by_ids_and_theater', AsyncMock(return_value=[ev1, ev2])), \
+             patch.object(db_postgres, 'get_default_place', AsyncMock(return_value=p1)), \
+             patch.object(db_postgres, 'get_afisha', AsyncMock(return_value=None)):
+            state = await choice_date(mock_update, mock_context)
+            assert state == 'TIME'
+            mock_update.callback_query.edit_message_text.assert_called_once()
+            call_kwargs = mock_update.callback_query.edit_message_text.call_args[1]
+            sent_text = call_kwargs['text']
+            reply_markup = call_kwargs['reply_markup']
+
+            assert "(Домик)" not in sent_text
+            buttons = [btn for row in reply_markup.inline_keyboard for btn in row if '101' in btn.callback_data or '102' in btn.callback_data]
+            assert len(buttons) == 2
+            assert "(Домик)" not in buttons[0].text
+            assert "(Домик)" not in buttons[1].text
+
+        # 2. Direct time в разных локациях
+        ev3 = ScheduleEvent(
+            id=103,
+            theater_event_id=10,
+            datetime_event=datetime(2026, 10, 16, 9, 0, tzinfo=timezone.utc),
+            qty_child_free_seat=5,
+            qty_adult_free_seat=2,
+            place=p2,
+            place_id=2
+        )
+        mock_update.callback_query.edit_message_text.reset_mock()
+        with patch.object(db_postgres, 'get_theater_event', AsyncMock(return_value=te)), \
+             patch.object(db_postgres, 'get_schedule_events_by_ids_and_theater', AsyncMock(return_value=[ev1, ev3])), \
+             patch.object(db_postgres, 'get_default_place', AsyncMock(return_value=p1)), \
+             patch.object(db_postgres, 'get_afisha', AsyncMock(return_value=None)):
+            state = await choice_date(mock_update, mock_context)
+            assert state == 'TIME'
+            mock_update.callback_query.edit_message_text.assert_called_once()
+            call_kwargs = mock_update.callback_query.edit_message_text.call_args[1]
+            sent_text = call_kwargs['text']
+            reply_markup = call_kwargs['reply_markup']
+
+            assert "(Домик)" in sent_text
+            assert "(Покровка)" in sent_text
+            buttons = [btn for row in reply_markup.inline_keyboard for btn in row if '101' in btn.callback_data or '103' in btn.callback_data]
+            assert len(buttons) == 2
+            assert "(Домик)" in buttons[0].text
+            assert "(Покровка)" in buttons[1].text
 
     asyncio.run(_test())
