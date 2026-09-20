@@ -30,6 +30,7 @@ from utilities.utl_func import (
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
     get_emoji, extract_command, to_moscow_dt,
+    get_actual_from_by_command,
 )
 from utilities.utl_place import (
     effective_place, needs_place_choice, collect_places, format_place_footnote
@@ -160,8 +161,9 @@ async def choice_show_by_repertoire(update: Update,
         # Определяем, для каких групп есть актуальные расписания,
         # чтобы не показывать кнопки пустых групп.
         type_event_ids_cmd = await get_type_event_ids_by_command(command)
+        from_datetime = get_actual_from_by_command(command)
         schedule_events_for_groups = await db_postgres.get_schedule_events_by_type_actual(
-            context.session, type_event_ids_cmd)
+            context.session, type_event_ids_cmd, from_datetime=from_datetime)
         schedule_events_for_groups = await filter_schedule_event_by_active(
             schedule_events_for_groups)
         available_type_ids = {ev.type_event_id for ev in schedule_events_for_groups}
@@ -228,8 +230,9 @@ async def choice_show_by_repertoire(update: Update,
         group = payload
 
     type_event_ids = await get_type_event_ids_by_command(command)
+    from_datetime = get_actual_from_by_command(command)
     schedule_events = await db_postgres.get_schedule_events_by_type_actual(
-        context.session, type_event_ids)
+        context.session, type_event_ids, from_datetime=from_datetime)
     schedule_events = await filter_schedule_event_by_active(schedule_events)
 
     # Фильтрация по группе:
@@ -348,8 +351,9 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 context.user_data['select_mode'] = 'REPERTOIRE'
 
     type_event_ids = await get_type_event_ids_by_command(command)
+    from_datetime = get_actual_from_by_command(command)
     schedule_events = await db_postgres.get_schedule_events_by_type_actual(
-        context.session, type_event_ids)
+        context.session, type_event_ids, from_datetime=from_datetime)
     schedule_events = await filter_schedule_event_by_active(schedule_events)
     months = get_unique_months(schedule_events)
     message = await clean_replay_kb_and_send_typing_action(update)
@@ -738,8 +742,10 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     schedule_event_ids = reserve_user_data.get(prev_state, {}).get('schedule_event_ids') or reserve_user_data.get('SHOW', {}).get('schedule_event_ids')
     theater_event = await db_postgres.get_theater_event(
         context.session, theater_event_id)
+    from_datetime = get_actual_from_by_command(context.user_data.get('command'))
     schedule_events = await db_postgres.get_schedule_events_by_ids_and_theater(
-        context.session, schedule_event_ids, [theater_event_id], actual_only=True)
+        context.session, schedule_event_ids, [theater_event_id], actual_only=True,
+        from_datetime=from_datetime)
 
     # Режим выбора
     select_mode = context.user_data.get('select_mode')
@@ -1171,8 +1177,10 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     reserve_user_data = context.user_data['reserve_user_data']
     state_prev = context.user_data['STATE']  # Должен быть 'DATE'
     schedule_event_ids = reserve_user_data.get(state_prev, {}).get('schedule_event_ids') or reserve_user_data.get('DATE', {}).get('schedule_event_ids')
+    from_datetime = get_actual_from_by_command(context.user_data.get('command'))
     schedule_events_all = await db_postgres.get_schedule_events_by_ids(
-        context.session, schedule_event_ids, actual_only=True)
+        context.session, schedule_event_ids, actual_only=True,
+        from_datetime=from_datetime)
 
     # Фильтруем события выбранной даты
     try:
@@ -1252,8 +1260,10 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     branch = place_ctx.get('branch', 'DATE')
     schedule_event_ids = place_ctx.get('schedule_event_ids', [])
 
+    from_datetime = get_actual_from_by_command(context.user_data.get('command'))
     schedule_events_all = await db_postgres.get_schedule_events_by_ids(
-        context.session, schedule_event_ids, actual_only=True)
+        context.session, schedule_event_ids, actual_only=True,
+        from_datetime=from_datetime)
 
     default_place = await db_postgres.get_default_place(context.session)
     chosen_place = await db_postgres.get_place(context.session, chosen_place_id) if chosen_place_id is not None else None

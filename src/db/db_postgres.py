@@ -913,6 +913,7 @@ async def get_schedule_event(
         session: AsyncSession,
         schedule_event_id: Mapped[int] | int,
         actual_only: bool = False,
+        from_datetime: datetime | None = None,
 ) -> ScheduleEvent | None:
     query = (
         select(ScheduleEvent)
@@ -926,7 +927,7 @@ async def get_schedule_event(
     if actual_only:
         query = query.where(
             ScheduleEvent.flag_turn_in_bot == True,
-            ScheduleEvent.datetime_event >= datetime.now()
+            ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
         )
     result = await session.execute(query)
     event = result.scalar_one_or_none()
@@ -977,14 +978,15 @@ async def get_theater_events_by_ids(session: AsyncSession,
 
 async def get_schedule_events_by_ids(session: AsyncSession,
                                      schedule_event_ids: Collection[int],
-                                     actual_only: bool = False):
+                                     actual_only: bool = False,
+                                     from_datetime: datetime | None = None):
     query = select(ScheduleEvent).where(
         ScheduleEvent.id.in_(schedule_event_ids)
     )
     if actual_only:
         query = query.where(
             ScheduleEvent.flag_turn_in_bot == True,
-            ScheduleEvent.datetime_event >= datetime.now()
+            ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
         )
     query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
@@ -1384,10 +1386,13 @@ async def get_schedule_events_by_type(
 
 
 async def get_schedule_events_by_type_actual(
-        session: AsyncSession, type_event_id: List[int]):
+        session: AsyncSession,
+        type_event_id: List[int],
+        from_datetime: datetime | None = None,
+):
     query = select(ScheduleEvent).where(
         ScheduleEvent.type_event_id.in_(type_event_id),
-        ScheduleEvent.datetime_event >= datetime.now()
+        ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
@@ -1404,10 +1409,13 @@ async def get_last_schedule_update_time(session: AsyncSession) -> datetime:
 
 
 async def get_schedule_events_by_theater_ids_actual(
-        session: AsyncSession, theater_event_ids: List[int]):
+        session: AsyncSession,
+        theater_event_ids: List[int],
+        from_datetime: datetime | None = None,
+):
     query = select(ScheduleEvent).where(
         ScheduleEvent.theater_event_id.in_(theater_event_ids),
-        ScheduleEvent.datetime_event >= datetime.now()
+        ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
@@ -1421,6 +1429,7 @@ async def get_schedule_events_by_ids_and_theater(
         schedule_event_ids: List[int],
         theater_event_ids: List[int],
         actual_only: bool = False,
+        from_datetime: datetime | None = None,
 ):
     query = select(ScheduleEvent).where(
         ScheduleEvent.id.in_(schedule_event_ids),
@@ -1429,7 +1438,7 @@ async def get_schedule_events_by_ids_and_theater(
     if actual_only:
         query = query.where(
             ScheduleEvent.flag_turn_in_bot == True,
-            ScheduleEvent.datetime_event >= datetime.now()
+            ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
         )
     query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
