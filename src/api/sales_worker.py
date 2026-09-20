@@ -92,7 +92,7 @@ async def _send_to_chat(
 ) -> None:
     kind = campaign.message_kind
     extra = ''
-    if campaign.type == 'WAS_THIS_YEAR_ON_PLAY':
+    if campaign.type in ('WAS_THIS_YEAR_ON_PLAY', 'CHILDREN_AGE') and campaign.theater_event_id:
         extra += f"\n\n{full_name}" if full_name else ""
         extra += f"\n\n{availability_block}" if availability_block else ""
         extra += f"\n\n{reserve_text}"
@@ -186,7 +186,7 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
 
             full_name = ""
             availability_block = ""
-            if campaign.type == 'WAS_THIS_YEAR_ON_PLAY' and campaign.theater_event_id:
+            if campaign.type in ('WAS_THIS_YEAR_ON_PLAY', 'CHILDREN_AGE') and campaign.theater_event_id:
                 theater_event = await db_postgres.get_theater_event(
                     session, campaign.theater_event_id)
                 if theater_event:

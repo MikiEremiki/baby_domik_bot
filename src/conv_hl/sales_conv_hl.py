@@ -40,6 +40,21 @@ states = {
         back_callback_handler,
         CallbackQueryHandler(sales_hl.pick_audience_theater, pattern='^sales:aud_theater'),
     ],
+    sales_hl.PICK_CHILD_AGE_MIN: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_child_age_min, pattern='^sales:child_age_min'),
+    ],
+    sales_hl.PICK_CHILD_AGE_MAX: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_child_age_max, pattern='^sales:child_age_max'),
+    ],
+    sales_hl.PICK_ATTACH_THEATER: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_attach_theater, pattern='^sales:attach_theater'),
+    ],
     sales_hl.PICK_FILTERS: [
         cancel_callback_handler,
         back_callback_handler,

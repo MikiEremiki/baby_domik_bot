@@ -30,6 +30,7 @@ from utilities.utl_func import (
     clean_replay_kb_and_send_typing_action,
     create_str_info_by_schedule_event_id,
     get_emoji, extract_command, to_moscow_dt,
+    get_actual_from_by_command,
 )
 from utilities.utl_place import (
     effective_place, needs_place_choice, collect_places, format_place_footnote
@@ -160,8 +161,9 @@ async def choice_show_by_repertoire(update: Update,
         # Определяем, для каких групп есть актуальные расписания,
         # чтобы не показывать кнопки пустых групп.
         type_event_ids_cmd = await get_type_event_ids_by_command(command)
+        from_datetime = get_actual_from_by_command(command)
         schedule_events_for_groups = await db_postgres.get_schedule_events_by_type_actual(
-            context.session, type_event_ids_cmd)
+            context.session, type_event_ids_cmd, from_datetime=from_datetime)
         schedule_events_for_groups = await filter_schedule_event_by_active(
             schedule_events_for_groups)
         available_type_ids = {ev.type_event_id for ev in schedule_events_for_groups}
@@ -228,8 +230,9 @@ async def choice_show_by_repertoire(update: Update,
         group = payload
 
     type_event_ids = await get_type_event_ids_by_command(command)
+    from_datetime = get_actual_from_by_command(command)
     schedule_events = await db_postgres.get_schedule_events_by_type_actual(
-        context.session, type_event_ids)
+        context.session, type_event_ids, from_datetime=from_datetime)
     schedule_events = await filter_schedule_event_by_active(schedule_events)
 
     # Фильтрация по группе:
@@ -348,8 +351,9 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 context.user_data['select_mode'] = 'REPERTOIRE'
 
     type_event_ids = await get_type_event_ids_by_command(command)
+    from_datetime = get_actual_from_by_command(command)
     schedule_events = await db_postgres.get_schedule_events_by_type_actual(
-        context.session, type_event_ids)
+        context.session, type_event_ids, from_datetime=from_datetime)
     schedule_events = await filter_schedule_event_by_active(schedule_events)
     months = get_unique_months(schedule_events)
     message = await clean_replay_kb_and_send_typing_action(update)
@@ -591,6 +595,9 @@ async def _render_sessions_for_repertoire(
     default_place = await db_postgres.get_default_place(context.session)
     schedule_events_sorted = sorted(schedule_events,
                                     key=lambda s_e: s_e.datetime_event)
+    unique_places = {effective_place(s_ev, default_place).id for s_ev in schedule_events_sorted}
+    has_multiple_places = len(unique_places) > 1
+
     keyboard = []
     unique_times = []
     seen_times = set()
@@ -598,7 +605,8 @@ async def _render_sessions_for_repertoire(
         date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
         text_emoji = await get_emoji(s_ev)
         p = effective_place(s_ev, default_place)
-        btn_text = f"{date_txt} {time_txt} ({p.name}){text_emoji}"
+        place_suffix = f" ({p.name})" if has_multiple_places else ""
+        btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
         keyboard.append(
             InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
         # Копим список уникальных времен для текста
@@ -639,7 +647,8 @@ async def _render_sessions_for_repertoire(
             p = effective_place(s_ev, default_place)
             qty_child = max(int(s_ev.qty_child_free_seat), 0)
             qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
-            text += f"{date_txt} {time_txt} ({html.escape(p.name)}) — {qty_child} дет | {qty_adult} взр\n"
+            place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places else ""
+            text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
 
     # Адресные сноски
     places = collect_places(schedule_events_sorted, default_place)
@@ -733,8 +742,10 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     schedule_event_ids = reserve_user_data.get(prev_state, {}).get('schedule_event_ids') or reserve_user_data.get('SHOW', {}).get('schedule_event_ids')
     theater_event = await db_postgres.get_theater_event(
         context.session, theater_event_id)
+    from_datetime = get_actual_from_by_command(context.user_data.get('command'))
     schedule_events = await db_postgres.get_schedule_events_by_ids_and_theater(
-        context.session, schedule_event_ids, [theater_event_id], actual_only=True)
+        context.session, schedule_event_ids, [theater_event_id], actual_only=True,
+        from_datetime=from_datetime)
 
     # Режим выбора
     select_mode = context.user_data.get('select_mode')
@@ -817,6 +828,8 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     use_direct_time = (state != 'LIST_WAIT') and all(
         len(v) == 1 for v in by_date.values()) and len(by_date) > 0
 
+    has_multiple_places_dt = len({effective_place(ev, default_place).id for ev in schedule_events}) > 1
+
     if use_direct_time:
         # Прямые кнопки на TIME с текстом Дата + Время (+эмодзи опций)
         keyboard = []
@@ -824,7 +837,9 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             s_ev = ev_list[0]
             date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
             text_emoji = await get_emoji(s_ev)
-            btn_text = f"{date_txt} {time_txt}{text_emoji}"
+            p = effective_place(s_ev, default_place)
+            place_suffix = f" ({p.name})" if has_multiple_places_dt else ""
+            btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
             keyboard.append(
                 InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
         reply_markup = await create_replay_markup(
@@ -871,9 +886,11 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         for d, ev_list in sorted(by_date.items()):
             s_ev = ev_list[0]
             date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
+            p = effective_place(s_ev, default_place)
+            place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places_dt else ""
             qty_child = max(int(s_ev.qty_child_free_seat), 0)
             qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
-            text += f"{date_txt} {time_txt} — {qty_child} дет | {qty_adult} взр\n"
+            text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
     else:
         # Суммарно по датам (на выбранную дату времена покажем на следующем шаге)
         text += '\n<b>Свободные места по датам (суммарно):</b>\n'
@@ -1160,8 +1177,10 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     reserve_user_data = context.user_data['reserve_user_data']
     state_prev = context.user_data['STATE']  # Должен быть 'DATE'
     schedule_event_ids = reserve_user_data.get(state_prev, {}).get('schedule_event_ids') or reserve_user_data.get('DATE', {}).get('schedule_event_ids')
+    from_datetime = get_actual_from_by_command(context.user_data.get('command'))
     schedule_events_all = await db_postgres.get_schedule_events_by_ids(
-        context.session, schedule_event_ids, actual_only=True)
+        context.session, schedule_event_ids, actual_only=True,
+        from_datetime=from_datetime)
 
     # Фильтруем события выбранной даты
     try:
@@ -1241,8 +1260,10 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     branch = place_ctx.get('branch', 'DATE')
     schedule_event_ids = place_ctx.get('schedule_event_ids', [])
 
+    from_datetime = get_actual_from_by_command(context.user_data.get('command'))
     schedule_events_all = await db_postgres.get_schedule_events_by_ids(
-        context.session, schedule_event_ids, actual_only=True)
+        context.session, schedule_event_ids, actual_only=True,
+        from_datetime=from_datetime)
 
     default_place = await db_postgres.get_default_place(context.session)
     chosen_place = await db_postgres.get_place(context.session, chosen_place_id) if chosen_place_id is not None else None

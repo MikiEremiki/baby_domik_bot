@@ -176,6 +176,32 @@ async def start_forma_info(
                                             message_thread_id=thread_id)
 
     _, callback_data = remove_intent_id(query.data)
+    if callback_data == 'CUSTOM':
+        text = ('<b>Индивидуальный расчет билета</b><br><br>'
+                'Введите через пробел: <code>кол-во детей</code> <code>кол-во взрослых</code> <code>стоимость</code><br>'
+                'Например: <code>8 1 15000</code>')
+        keyboard = [
+            add_btn_back_and_cancel(
+                postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+                postfix_for_back='TICKET',
+                add_back_btn=True
+            )
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        res_text = transform_html(text)
+        message = await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup
+        )
+        reserve_user_data = context.user_data['reserve_user_data']
+        reserve_user_data['message_id'] = message.message_id
+        state = 'CUSTOM_TICKET_PARAMS'
+        context.user_data['STATE'] = state
+        await set_back_context(context, state, res_text.text, reply_markup)
+        return state
+
     base_ticket_id = int(callback_data)
 
     chose_base_ticket, chose_price = await get_ticket_and_price(
@@ -333,5 +359,83 @@ async def start_forma_info(
         state = 'FORMA'
         await set_back_context(context, state, res_text.text, reply_markup)
 
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_custom_ticket_params(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    text_input = update.effective_message.text.strip()
+    parts = text_input.split()
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        text_error = ('<b>Неверный формат!</b><br><br>'
+                      'Введите три числа через пробел: '
+                      '<code>кол-во детей</code> <code>кол-во взрослых</code> <code>стоимость</code><br>'
+                      'Например: <code>8 1 15000</code>')
+        keyboard = [
+            add_btn_back_and_cancel(
+                postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+                postfix_for_back='TICKET',
+                add_back_btn=True
+            )
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        res_text = transform_html(text_error)
+        await update.effective_chat.send_message(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup
+        )
+        return 'CUSTOM_TICKET_PARAMS'
+
+    qty_child = int(parts[0])
+    qty_adult = int(parts[1])
+    cost = int(parts[2])
+
+    custom_ticket = await db_postgres.get_or_create_custom_base_ticket(
+        context.session,
+        quality_of_children=qty_child,
+        quality_of_adult=qty_adult,
+        cost=cost
+    )
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    reserve_user_data['chose_price'] = cost
+    reserve_user_data['chose_base_ticket_id'] = custom_ticket.base_ticket_id
+    reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
+
+    text = '<b>Напишите фамилию и имя (взрослого)</b><br><br>'
+    adult_name = await db_postgres.get_adult_name(context.session,
+                                                  update.effective_user.id)
+    adult_confirm_btn, text = await create_adult_confirm_btn(
+        text, adult_name)
+
+    back_and_cancel = add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+        add_back_btn=False
+    )
+
+    if adult_confirm_btn:
+        keyboard = [adult_confirm_btn, back_and_cancel]
+        reserve_user_data['client_data']['name_adult'] = adult_name
+    else:
+        keyboard = [back_and_cancel]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    res_text = transform_html(text)
+    message = await update.effective_chat.send_message(
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
+    )
+
+    reserve_user_data['message_id'] = message.message_id
+    state = 'FORMA'
+    await set_back_context(context, state, res_text.text, reply_markup)
     context.user_data['STATE'] = state
     return state

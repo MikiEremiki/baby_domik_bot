@@ -36,7 +36,7 @@ class User(BaseModelTimed):
 class Person(BaseModelTimed):
     __tablename__ = 'people'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[Optional[str]]
     age_type: Mapped[AgeType] = mapped_column(Enum(AgeType, name='age_type'))
 
@@ -67,7 +67,7 @@ class Person(BaseModelTimed):
 class Child(BaseModel):
     __tablename__ = 'children'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     age: Mapped[Optional[float]]
     birthdate: Mapped[Optional[date]]
 
@@ -78,7 +78,7 @@ class Child(BaseModel):
 class Adult(BaseModel):
     __tablename__ = 'adults'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     phone: Mapped[Optional[str]]
 
     person_id: Mapped[int] = mapped_column(

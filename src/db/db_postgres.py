@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Collection, List, Type, Sequence, Any, Dict
 
-from sqlalchemy import select, func, DATE, and_, delete, or_, case
+from sqlalchemy import select, func, DATE, and_, delete, or_, case, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, Mapped
 
@@ -130,10 +130,31 @@ async def attach_user_and_people_to_ticket(
     await session.commit()
 
 
+async def sync_table_sequence(session: AsyncSession, table_name: str, pk_col: str = 'id') -> None:
+    """
+    Синхронизирует значение автоинкрементной последовательности (sequence) PostgreSQL
+    с текущим максимальным значением первичного ключа в таблице.
+    """
+    try:
+        bind = session.bind
+        if bind is None and hasattr(session, 'get_bind'):
+            bind = session.get_bind()
+        dialect_name = getattr(getattr(bind, 'dialect', None), 'name', '')
+        if dialect_name == 'postgresql':
+            stmt = text(
+                f"SELECT setval(pg_get_serial_sequence('{table_name}', '{pk_col}'), "
+                f"COALESCE(max({pk_col}), 1), max({pk_col}) IS NOT NULL) FROM {table_name}"
+            )
+            await session.execute(stmt)
+    except Exception:
+        pass
+
+
 async def update_base_tickets_from_googlesheets(session: AsyncSession, tickets):
     for _ticket in tickets:
         dto_model = _ticket.to_dto()
         await session.merge(BaseTicket(**dto_model))
+    await sync_table_sequence(session, 'base_tickets', 'base_ticket_id')
     await session.commit()
 
 
@@ -142,6 +163,7 @@ async def update_theater_events_from_googlesheets(
     for _event in theater_events:
         dto_model = _event.to_dto()
         await session.merge(TheaterEvent(**dto_model))
+    await sync_table_sequence(session, 'theater_events', 'id')
     await session.commit()
 
 
@@ -177,6 +199,8 @@ async def update_schedule_events_from_googlesheets(
         dto_model.pop('qty_adult_free_seat', None)
         dto_model.pop('qty_adult_nonconfirm_seat', None)
         await session.merge(ScheduleEvent(**dto_model))
+
+    await sync_table_sequence(session, 'schedule_events', 'id')
 
     if auto_commit:
         await session.commit()
@@ -274,20 +298,72 @@ async def get_children(session: AsyncSession, user_id):
 
 async def get_children_by_phone(session: AsyncSession, phone: str):
     """
-    Возвращает всех детей, привязанных к родителю с указанным телефоном.
+    Возвращает всех детей, привязанных к родителю с указанным телефоном
+    (через parent_id взрослого или user_id пользователя с этим телефоном).
     """
+    adult_res = await session.execute(
+        select(Adult.person_id, Person.user_id)
+        .join(Person, Adult.person_id == Person.id)
+        .where(Adult.phone == phone)
+    )
+    adult_rows = adult_res.all()
+    if not adult_rows:
+        return []
+
+    adult_person_ids = {row[0] for row in adult_rows if row[0] is not None}
+    user_ids = {row[1] for row in adult_rows if row[1] is not None}
+
+    conditions = []
+    if adult_person_ids:
+        conditions.append(Person.parent_id.in_(adult_person_ids))
+    if user_ids:
+        conditions.append(Person.user_id.in_(user_ids))
+
+    if not conditions:
+        return []
+
     result = await session.execute(
         select(Person.name, Child.age, Person.id)
         .join(Child, Person.id == Child.person_id)
-        .join(Adult, Person.parent_id == Adult.person_id)
         .where(
-            Adult.phone == phone,
-            Person.age_type == AgeType.child
+            Person.age_type == AgeType.child,
+            Person.name.is_not(None),
+            or_(*conditions)
         )
+        .distinct()
         .order_by(Person.name)
     )
     children = result.all()
     return children
+
+
+async def search_children(
+    session: AsyncSession,
+    name_query: str | None = None,
+    age_query: float | int | None = None,
+    limit: int = 50,
+):
+    """
+    Поиск детей по подстроке имени (ilike) или возрасту.
+    """
+    query = (
+        select(Person.name, Child.age, Person.id)
+        .join(Child, Person.id == Child.person_id)
+        .where(
+            Person.age_type == AgeType.child,
+            Person.name.is_not(None),
+        )
+    )
+    if name_query:
+        query = query.where(Person.name.ilike(f"%{name_query.strip()}%"))
+    if age_query is not None:
+        try:
+            query = query.where(Child.age == float(age_query))
+        except (ValueError, TypeError):
+            pass
+    query = query.distinct().order_by(Person.name).limit(limit)
+    result = await session.execute(query)
+    return result.all()
 
 
 async def get_adult_person_id_by_phone(session: AsyncSession, phone: str):
@@ -347,9 +423,8 @@ async def create_people(
         adult = person.adult
         adult.phone = phone
     else:
-        person = Person(name=name_adult, age_type=AgeType.adult)
+        person = Person(name=name_adult, age_type=AgeType.adult, user_id=user_id)
         session.add(person)
-        user.people.append(person)
         adult = Adult(phone=phone)
         session.add(adult)
         person.adult = adult
@@ -357,6 +432,10 @@ async def create_people(
     people_ids.append(adult.person_id)
 
     parent_id = adult.person_id
+
+    if client_data.get('flag_stub_children'):
+        await session.commit()
+        return people_ids
 
     for item in data_children:
         name_child = item[0]
@@ -381,10 +460,10 @@ async def create_people(
             person = Person(
                 name=name_child,
                 age_type=AgeType.child,
+                user_id=user_id,
                 parent_id=parent_id
             )
             session.add(person)
-            user.people.append(person)
             child = Child(age=age)
             session.add(child)
             person.child = child
@@ -558,6 +637,9 @@ async def create_theater_event(
         theater_event_id=None,
         note=None,
 ):
+    if theater_event_id is None:
+        await sync_table_sequence(session, 'theater_events', 'id')
+
     theater_event = TheaterEvent(
         id=theater_event_id,
         name=name,
@@ -621,6 +703,9 @@ async def create_schedule_event(
         qty_child_free_seat = qty_child
     if qty_adult_free_seat is None:
         qty_adult_free_seat = qty_adult
+
+    if schedule_event_id is None:
+        await sync_table_sequence(session, 'schedule_events', 'id')
 
     se_kwargs = {
         'type_event_id': type_event_id,
@@ -735,6 +820,55 @@ async def get_base_ticket(session: AsyncSession,
     return await session.get(BaseTicket, base_ticket_id)
 
 
+async def get_or_create_custom_base_ticket(
+    session: AsyncSession,
+    quality_of_children: int,
+    quality_of_adult: int,
+    cost: int | float,
+) -> BaseTicket:
+    """
+    Находит или создает индивидуальный базовый билет с base_ticket_id >= 1000.
+    """
+    cost_int = int(cost)
+    query = select(BaseTicket).where(
+        BaseTicket.flag_individual.is_(True),
+        BaseTicket.quality_of_children == quality_of_children,
+        BaseTicket.quality_of_adult == quality_of_adult,
+        BaseTicket.cost_main == cost_int,
+        BaseTicket.base_ticket_id >= 1000,
+    )
+    res = await session.execute(query)
+    existing = res.scalars().first()
+    if existing:
+        return existing
+
+    max_id_query = select(func.max(BaseTicket.base_ticket_id)).where(
+        BaseTicket.base_ticket_id >= 1000
+    )
+    max_id_res = await session.execute(max_id_query)
+    max_id = max_id_res.scalar()
+    new_base_ticket_id = (max_id + 1) if max_id is not None else 1000
+
+    name = f"Индивидуальный ({quality_of_children} дет. + {quality_of_adult} взр.)"
+    new_ticket = BaseTicket(
+        base_ticket_id=new_base_ticket_id,
+        flag_active=True,
+        flag_individual=True,
+        name=name,
+        cost_main=cost_int,
+        cost_privilege=cost_int,
+        cost_main_in_period=cost_int,
+        cost_privilege_in_period=cost_int,
+        quality_of_children=quality_of_children,
+        quality_of_adult=quality_of_adult,
+        quality_of_add_adult=0,
+        quality_visits=1,
+    )
+    session.add(new_ticket)
+    await session.commit()
+    return new_ticket
+
+
 async def get_ticket(session: AsyncSession,
                      ticket_id: int):
     result = await session.execute(
@@ -779,6 +913,7 @@ async def get_schedule_event(
         session: AsyncSession,
         schedule_event_id: Mapped[int] | int,
         actual_only: bool = False,
+        from_datetime: datetime | None = None,
 ) -> ScheduleEvent | None:
     query = (
         select(ScheduleEvent)
@@ -792,7 +927,7 @@ async def get_schedule_event(
     if actual_only:
         query = query.where(
             ScheduleEvent.flag_turn_in_bot == True,
-            ScheduleEvent.datetime_event >= datetime.now()
+            ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
         )
     result = await session.execute(query)
     event = result.scalar_one_or_none()
@@ -843,14 +978,15 @@ async def get_theater_events_by_ids(session: AsyncSession,
 
 async def get_schedule_events_by_ids(session: AsyncSession,
                                      schedule_event_ids: Collection[int],
-                                     actual_only: bool = False):
+                                     actual_only: bool = False,
+                                     from_datetime: datetime | None = None):
     query = select(ScheduleEvent).where(
         ScheduleEvent.id.in_(schedule_event_ids)
     )
     if actual_only:
         query = query.where(
             ScheduleEvent.flag_turn_in_bot == True,
-            ScheduleEvent.datetime_event >= datetime.now()
+            ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
         )
     query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
@@ -1250,10 +1386,13 @@ async def get_schedule_events_by_type(
 
 
 async def get_schedule_events_by_type_actual(
-        session: AsyncSession, type_event_id: List[int]):
+        session: AsyncSession,
+        type_event_id: List[int],
+        from_datetime: datetime | None = None,
+):
     query = select(ScheduleEvent).where(
         ScheduleEvent.type_event_id.in_(type_event_id),
-        ScheduleEvent.datetime_event >= datetime.now()
+        ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
@@ -1270,10 +1409,13 @@ async def get_last_schedule_update_time(session: AsyncSession) -> datetime:
 
 
 async def get_schedule_events_by_theater_ids_actual(
-        session: AsyncSession, theater_event_ids: List[int]):
+        session: AsyncSession,
+        theater_event_ids: List[int],
+        from_datetime: datetime | None = None,
+):
     query = select(ScheduleEvent).where(
         ScheduleEvent.theater_event_id.in_(theater_event_ids),
-        ScheduleEvent.datetime_event >= datetime.now()
+        ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
     ).order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
@@ -1287,6 +1429,7 @@ async def get_schedule_events_by_ids_and_theater(
         schedule_event_ids: List[int],
         theater_event_ids: List[int],
         actual_only: bool = False,
+        from_datetime: datetime | None = None,
 ):
     query = select(ScheduleEvent).where(
         ScheduleEvent.id.in_(schedule_event_ids),
@@ -1295,7 +1438,7 @@ async def get_schedule_events_by_ids_and_theater(
     if actual_only:
         query = query.where(
             ScheduleEvent.flag_turn_in_bot == True,
-            ScheduleEvent.datetime_event >= datetime.now()
+            ScheduleEvent.datetime_event >= (from_datetime or datetime.now())
         )
     query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
@@ -1745,7 +1888,7 @@ async def get_schedule_events_with_seats(
 
     # Активные билеты, удерживающие места
     active_ticket_filter = or_(
-        Ticket.status.in_([TicketStatus.PAID, TicketStatus.APPROVED]),
+        Ticket.status.in_([TicketStatus.PAID, TicketStatus.APPROVED, TicketStatus.RESERVED]),
         and_(
             Ticket.status == TicketStatus.CREATED,
             Ticket.created_at >= cutoff_time

@@ -29,10 +29,17 @@ states = {
         CallbackQueryHandler(reserve_admin_hl.start_forma_info,
                              pattern='^TICKET'),
     ],
+    'CUSTOM_TICKET_PARAMS': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-TICKET'),
+        MessageHandler(F_text_and_no_command,
+                       reserve_admin_hl.handle_custom_ticket_params),
+    ],
     'CONFIRM_RESERVATION': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-CHILDREN'),
         CallbackQueryHandler(reserve_hl.confirm_go_pay, pattern='^PAY$'),
+        CallbackQueryHandler(reserve_hl.confirm_admin_reserved, pattern='^RESERVE_WITHOUT_PAY$'),
         CallbackQueryHandler(reserve_hl.confirm_admin_without_payment, pattern='^CONFIRM_WITHOUT_PAY$'),
         CallbackQueryHandler(reserve_hl.reset_promo, pattern='^RESET_PROMO$'),
         CallbackQueryHandler(reserve_hl.ask_promo_code, pattern='^PROMO$'),

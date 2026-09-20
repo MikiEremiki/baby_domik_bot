@@ -415,7 +415,7 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                         await increase_free_and_decrease_nonconfirm_seat(
                             context, schedule_event_id)
 
-                if ticket.status == TicketStatus.APPROVED:
+                if ticket.status in (TicketStatus.APPROVED, TicketStatus.RESERVED):
                     if (
                             new_ticket_status == TicketStatus.REJECTED or
                             new_ticket_status == TicketStatus.REFUNDED or

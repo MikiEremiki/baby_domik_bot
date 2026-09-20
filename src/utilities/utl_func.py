@@ -914,6 +914,15 @@ async def get_type_event_ids_by_command(command):
     return type_event_ids
 
 
+def get_actual_from_by_command(command: str | None) -> datetime.datetime:
+    if command == 'list':
+        return datetime.datetime.combine(
+            datetime.date.today() - datetime.timedelta(days=1),
+            datetime.time.min
+        )
+    return datetime.datetime.now()
+
+
 async def get_emoji(schedule_event: ScheduleEvent):
     text_emoji = ''
     if schedule_event.flag_gift:

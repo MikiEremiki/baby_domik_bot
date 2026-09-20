@@ -594,10 +594,13 @@ async def processing_successful_payment(
     #  и достать все данные из бд по нему
     ticket_ids = reserve_user_data['ticket_ids']
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
-    if ticket.status == TicketStatus.CREATED:
+    admin_ticket_status = reserve_user_data.get('admin_ticket_status')
+    if ticket.status in (TicketStatus.CREATED, TicketStatus.RESERVED):
         user = context.user_data.get('user') or update.effective_user
 
-        if '_admin' in command:
+        if admin_ticket_status:
+            new_ticket_status = admin_ticket_status
+        elif '_admin' in command:
             new_ticket_status = TicketStatus.APPROVED
         else:
             new_ticket_status = TicketStatus.PAID
@@ -607,8 +610,12 @@ async def processing_successful_payment(
                                                ticket_id,
                                                status=new_ticket_status)
 
-        text = f'#Бронирование\n'
-        text += f'Платеж успешно обработан\n'
+        if new_ticket_status == TicketStatus.RESERVED:
+            text = f'#Резерв\n'
+            text += f'Места успешно зарезервированы (оплата позже)\n'
+        else:
+            text = f'#Бронирование\n'
+            text += f'Платеж успешно обработан\n'
 
         booking_details = await get_booking_admin_text(
             context, ticket_ids, user, context.user_data

@@ -27,6 +27,7 @@ logger = logging.getLogger('bot.schedule_hl')
     SCH_CONFIRM,
     SCH_PLACE,
 ) = range(70, 80)
+SCH_TURN_IN_BOT = 86
 
 
 def _fmt_type_event(te) -> str:
@@ -73,7 +74,7 @@ async def schedule_create_start(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return 3
 
-    text = 'Шаг 1/9. Выберите тип события:\n\n'
+    text = 'Шаг 1/10. Выберите тип события:\n\n'
     keyboard = []
     type_buttons = []
     for t in types:
@@ -384,7 +385,7 @@ async def _render_theater_list(update: Update, context: ContextTypes.DEFAULT_TYP
 
     current_filter = context.user_data['new_schedule_event']['service'].get('filter_theater', 'actual')
 
-    text = 'Шаг 2/9. Выберите спектакль из репертуара:\n\n'
+    text = 'Шаг 2/10. Выберите спектакль из репертуара:\n\n'
     item_buttons = []
     for t in subset:
         text += f"• {_fmt_theater_event(t)}\n"
@@ -495,7 +496,7 @@ async def ask_datetime(update: Update, context: ContextTypes.DEFAULT_TYPE):
             dt_formatted = moscow_dt.strftime('%d.%m.%Y %H:%M')
             current_val_text = f"Текущее значение: <code>{dt_formatted}</code>\n\n"
 
-    header = "Редактирование: введите дату и время показа (по МСК).\n\n" if jump else "Шаг 4/9. Введите дату и время показа (по МСК).\n\n"
+    header = "Редактирование: введите дату и время показа (по МСК).\n\n" if jump else "Шаг 4/10. Введите дату и время показа (по МСК).\n\n"
 
     text = (
         f"{header}"
@@ -620,7 +621,7 @@ async def ask_qty_child(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    text = 'Шаг 5/9. Введите количество детских мест (целое число):'
+    text = 'Шаг 5/10. Введите количество детских мест (целое число):'
     if jump:
         text = 'Редактирование: введите количество детских мест (целое число):'
 
@@ -692,7 +693,7 @@ async def ask_qty_adult(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    text = 'Шаг 6/9. Введите количество взрослых мест (целое число):'
+    text = 'Шаг 6/10. Введите количество взрослых мест (целое число):'
     if jump:
         text = 'Редактирование: введите количество взрослых мест (целое число):'
 
@@ -764,7 +765,7 @@ async def ask_price_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     service = context.user_data['new_schedule_event']['service']
     jump = service.get('jump_to_summary', False)
 
-    text = 'Шаг 7/9. Выберите тип стоимости:'
+    text = 'Шаг 7/10. Выберите тип стоимости:'
     keyboard = [
         [InlineKeyboardButton('По умолчанию', callback_data='sch_pt_NONE')],
         [InlineKeyboardButton('Будни', callback_data='sch_pt_weekday')],
@@ -814,7 +815,7 @@ async def ask_flags(update: Update, context: ContextTypes.DEFAULT_TYPE):
     jump = service.get('jump_to_summary') or service.get('is_update')
 
     text = (
-        'Шаг 8/9. Настройте новогодние опции:\n\n'
+        'Шаг 8/10. Настройте новогодние опции:\n\n'
         f"Подарок: {'✅' if data.get('flag_gift') else '❌'}\n"
         f"Елка: {'✅' if data.get('flag_christmas_tree') else '❌'}\n"
         f"Дед Мороз: {'✅' if data.get('flag_santa') else '❌'}"
@@ -893,7 +894,7 @@ async def _render_multi_select(update: Update,
     subset = items[start:end]
 
     is_jump = context.user_data.get('new_schedule_event', {}).get('service', {}).get('is_update') or context.user_data.get('new_schedule_event', {}).get('service', {}).get('jump_to_summary')
-    text = 'Выберите базовые билеты:\n\n' if is_jump else 'Шаг 9/9. Выберите базовые билеты:\n\n'
+    text = 'Выберите базовые билеты:\n\n' if is_jump else 'Шаг 9/10. Выберите базовые билеты:\n\n'
     item_buttons = []
     for it in subset:
         it_id = getattr(it, 'base_ticket_id', getattr(it, 'id', None))
@@ -990,11 +991,87 @@ async def handle_base_tickets_cb(update: Update, context: ContextTypes.DEFAULT_T
         data['base_ticket_ids'] = []
         if context.user_data['new_schedule_event']['service'].get('is_update'):
             return await ask_schedule_summary(update, context)
-        return await ask_summary(update, context)
+        if context.user_data['new_schedule_event']['service'].get('jump_to_summary'):
+            context.user_data['new_schedule_event']['service'].pop('jump_to_summary', None)
+            return await ask_summary(update, context)
+        return await ask_turn_in_bot(update, context)
     else:  # done
         if context.user_data['new_schedule_event']['service'].get('is_update'):
             return await ask_schedule_summary(update, context)
-        return await ask_summary(update, context)
+        if context.user_data['new_schedule_event']['service'].get('jump_to_summary'):
+            context.user_data['new_schedule_event']['service'].pop('jump_to_summary', None)
+            return await ask_summary(update, context)
+        return await ask_turn_in_bot(update, context)
+
+
+async def ask_turn_in_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    data = context.user_data['new_schedule_event']['data']
+    service = context.user_data['new_schedule_event']['service']
+    is_jump = service.get('jump_to_summary') or service.get('is_update')
+
+    text = (
+        'Показ события в боте:\n\n'
+        if is_jump else
+        'Шаг 10/10. Показ события в боте:\n\n'
+    )
+    text += 'Выберите, будет ли событие отображаться для бронирования в боте:\n\n'
+    current_val = data.get('flag_turn_in_bot')
+    if current_val is not None:
+        text += f"Текущее значение: {'<b>✅ Включен</b>' if current_val else '<b>🚫 Выключен</b>'}"
+
+    back_postfix = str(SCH_CONFIRM) if is_jump else str(SCH_BT_SELECT)
+
+    keyboard = [
+        [
+            InlineKeyboardButton('✅ Включен (показывать в боте)', callback_data='sch_turn_on'),
+        ],
+        [
+            InlineKeyboardButton('🚫 Выключен (скрыть из бота)', callback_data='sch_turn_off'),
+        ],
+        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=back_postfix)
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if query:
+        message = await query.edit_message_text(text, reply_markup=reply_markup)
+    else:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=service['message_id'],
+            text=text,
+            reply_markup=reply_markup
+        )
+        message = update.effective_message
+
+    if message:
+        context.user_data['new_schedule_event']['service']['message_id'] = message.message_id
+    state = SCH_TURN_IN_BOT
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
+async def handle_turn_in_bot_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    cb_data = query.data
+    data = context.user_data['new_schedule_event']['data']
+    if cb_data == 'sch_turn_on':
+        data['flag_turn_in_bot'] = True
+    elif cb_data == 'sch_turn_off':
+        data['flag_turn_in_bot'] = False
+
+    service = context.user_data['new_schedule_event']['service']
+    if service.get('is_update'):
+        return await ask_schedule_summary(update, context)
+    if service.get('jump_to_summary'):
+        service.pop('jump_to_summary', None)
+    return await ask_summary(update, context)
 
 
 async def edit_place_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1019,7 +1096,7 @@ async def ask_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if jump:
         text = "<b>Выбор локации события:</b>\n\n"
     else:
-        text = "Шаг 3/9. Выберите локацию события:\n\n"
+        text = "Шаг 3/10. Выберите локацию события:\n\n"
     keyboard = []
 
     # Кнопка по умолчанию
@@ -1099,12 +1176,13 @@ async def ask_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Места: {data.get('qty_child', 0)} дет / {data.get('qty_adult', 0)} взр\n"
         f"Стоимость: {data.get('ticket_price_type').name}\n"
         f"Флаги: 🎁={'✅' if data.get('flag_gift') else '❌'}, 🎄={'✅' if data.get('flag_christmas_tree') else '❌'}, 🧑‍🎄={'✅' if data.get('flag_santa') else '❌'}\n"
-        f"Билеты: {'наследовать' if not data.get('base_ticket_ids') else str(len(data['base_ticket_ids'])) + ' шт.'}"
+        f"Билеты: {'наследовать' if not data.get('base_ticket_ids') else str(len(data['base_ticket_ids'])) + ' шт.'}\n"
+        f"Показ в боте: {'🤖 Включен' if data.get('flag_turn_in_bot') else '🚫 Выключен'}"
     )
 
     keyboard = [
         [InlineKeyboardButton('✅ Подтвердить и создать', callback_data='sch_accept')],
-        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=str(SCH_BT_SELECT))
+        add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back=str(SCH_TURN_IN_BOT))
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
