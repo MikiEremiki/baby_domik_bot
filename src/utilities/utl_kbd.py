@@ -147,6 +147,15 @@ async def create_kbd_and_text_tickets_for_choice(
             callback_data=str(ticket_id)
         )
         keyboard.append(button_tmp)
+
+    if '_admin' in context.user_data.get('command', ''):
+        text += "__________<br>🏷 <b>Индивидуальный расчет</b> (нестандартное кол-во мест/цена)<br>"
+        button_tmp = InlineKeyboardButton(
+            text='🏷 Индивидуальный билет',
+            callback_data='CUSTOM'
+        )
+        keyboard.append(button_tmp)
+
     return keyboard, text
 
 
@@ -429,17 +438,33 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1, 
 
     keyboard = []
 
-    # Кнопки фильтрации
-    if show_filters or len(children) >= 10 or is_admin:
-        btn_filter_phone = InlineKeyboardButton(
-            ("✅ " if current_filter == 'PHONE' else "") + "📍 Дети по тел.",
-            callback_data="CHLD_FLTR|PHONE"
+    # 1. Первая кнопка: ➕ Добавить ребенка
+    keyboard.append([InlineKeyboardButton(
+        "➕ Добавить ребенка",
+        callback_data="CHLD_ADD")])
+
+    # 2. Кнопки фильтрации
+    if is_admin or show_filters:
+        btn_search_name = InlineKeyboardButton(
+            ("✅ " if current_filter == 'SEARCH_NAME' else "") + "🔍 По имени",
+            callback_data="CHLD_SEARCH_NAME"
         )
-        btn_filter_my = InlineKeyboardButton(
-            ("✅ " if current_filter == 'MY' else "") + "👥 Все дети",
-            callback_data="CHLD_FLTR|MY"
+        btn_search_age = InlineKeyboardButton(
+            ("✅ " if current_filter == 'SEARCH_AGE' else "") + "🎂 По возрасту",
+            callback_data="CHLD_SEARCH_AGE"
         )
-        keyboard.append([btn_filter_phone, btn_filter_my])
+        btn_reset = InlineKeyboardButton(
+            "❌ Сбросить",
+            callback_data="CHLD_RESET_FLTR"
+        )
+        keyboard.append([btn_search_name, btn_search_age, btn_reset])
+
+    # 3. Кнопка пропуска ввода детей (заглушки)
+    if is_admin:
+        keyboard.append([InlineKeyboardButton(
+            "⏭ Пропустить ввод детей (заглушки)",
+            callback_data="CHLD_SKIP"
+        )])
 
     items_per_page = 10
     start = page * items_per_page
@@ -486,11 +511,6 @@ def create_kbd_edit_children(children, page=0, selected_children=None, limit=1, 
 
     if pagination_row:
         keyboard.append(pagination_row)
-
-    # Кнопки действия
-    keyboard.append([InlineKeyboardButton(
-        "➕ Добавить ребенка",
-        callback_data="CHLD_ADD")])
 
     # Кнопка подтверждения
     if len(selected_children) == limit and limit >= 2:

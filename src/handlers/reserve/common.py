@@ -65,7 +65,13 @@ async def get_child_text_and_reply(
         text += '<b>📝 изм.</b> - изменить данные по ребенку.\n\n'
 
         mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-        if (
+        if mode == 'SEARCH_NAME':
+            name_q = reserve_user_data.get('child_search_name', '')
+            text += f'<i>Результаты поиска по имени:</i> <code>"{name_q}"</code>\n\n'
+        elif mode == 'SEARCH_AGE':
+            age_q = reserve_user_data.get('child_search_age', '')
+            text += f'<i>Результаты фильтра по возрасту:</i> <code>{age_q}</code>\n\n'
+        elif (
                 mode == 'PHONE' and
                 reserve_user_data.get('client_data', {}).get('phone')
         ):
@@ -118,31 +124,7 @@ async def send_msg_get_child(
         base_ticket_id,
     )
 
-    command = context.user_data.get('command', '')
-    if 'child_filter_mode' not in reserve_user_data:
-        if (
-                '_admin' in command or
-                reserve_user_data.get('client_data', {}).get('phone')
-        ):
-            reserve_user_data['child_filter_mode'] = 'PHONE'
-        else:
-            reserve_user_data['child_filter_mode'] = 'MY'
-
-    mode = reserve_user_data['child_filter_mode']
-    if (
-            mode == 'PHONE' and
-            reserve_user_data.get('client_data', {}).get('phone')
-    ):
-        phone = reserve_user_data['client_data']['phone']
-        children = await db_postgres.get_children_by_phone(
-            context.session, phone)
-        if not children:
-            reserve_user_data['child_filter_mode'] = 'MY'
-            children = await db_postgres.get_children(
-                context.session, update.effective_user.id)
-    else:
-        children = await db_postgres.get_children(
-            context.session, update.effective_user.id)
+    children = await _update_children(update, context)
 
     reserve_user_data['children'] = children
     text, reply_markup = await get_child_text_and_reply(
@@ -250,3 +232,34 @@ async def request_discount_verification(
     await update.effective_chat.send_message(VERIFICATION_REQUEST_TEXT)
     context.user_data['STATE'] = 'WAIT_DOCUMENT'
     return 'WAIT_DOCUMENT'
+
+
+async def _update_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reserve_user_data = context.user_data.get('reserve_user_data', {})
+    mode = reserve_user_data.get('child_filter_mode', 'PHONE')
+    command = context.user_data.get('command', '')
+    is_admin = '_admin' in command
+
+    if mode == 'SEARCH_NAME':
+        name_q = reserve_user_data.get('child_search_name', '')
+        children = await db_postgres.search_children(
+            context.session, name_query=name_q)
+    elif mode == 'SEARCH_AGE':
+        age_q = reserve_user_data.get('child_search_age')
+        children = await db_postgres.search_children(
+            context.session, age_query=age_q)
+    elif (
+            mode == 'PHONE' and
+            reserve_user_data.get('client_data', {}).get('phone')
+    ):
+        phone = reserve_user_data['client_data']['phone']
+        children = await db_postgres.get_children_by_phone(
+            context.session, phone)
+        if not children and not is_admin:
+            reserve_user_data['child_filter_mode'] = 'MY'
+            children = await db_postgres.get_children(
+                context.session, update.effective_user.id)
+    else:
+        children = await db_postgres.get_children(
+            context.session, update.effective_user.id)
+    return children

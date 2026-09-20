@@ -274,20 +274,72 @@ async def get_children(session: AsyncSession, user_id):
 
 async def get_children_by_phone(session: AsyncSession, phone: str):
     """
-    Возвращает всех детей, привязанных к родителю с указанным телефоном.
+    Возвращает всех детей, привязанных к родителю с указанным телефоном
+    (через parent_id взрослого или user_id пользователя с этим телефоном).
     """
+    adult_res = await session.execute(
+        select(Adult.person_id, Person.user_id)
+        .join(Person, Adult.person_id == Person.id)
+        .where(Adult.phone == phone)
+    )
+    adult_rows = adult_res.all()
+    if not adult_rows:
+        return []
+
+    adult_person_ids = {row[0] for row in adult_rows if row[0] is not None}
+    user_ids = {row[1] for row in adult_rows if row[1] is not None}
+
+    conditions = []
+    if adult_person_ids:
+        conditions.append(Person.parent_id.in_(adult_person_ids))
+    if user_ids:
+        conditions.append(Person.user_id.in_(user_ids))
+
+    if not conditions:
+        return []
+
     result = await session.execute(
         select(Person.name, Child.age, Person.id)
         .join(Child, Person.id == Child.person_id)
-        .join(Adult, Person.parent_id == Adult.person_id)
         .where(
-            Adult.phone == phone,
-            Person.age_type == AgeType.child
+            Person.age_type == AgeType.child,
+            Person.name.is_not(None),
+            or_(*conditions)
         )
+        .distinct()
         .order_by(Person.name)
     )
     children = result.all()
     return children
+
+
+async def search_children(
+    session: AsyncSession,
+    name_query: str | None = None,
+    age_query: float | int | None = None,
+    limit: int = 50,
+):
+    """
+    Поиск детей по подстроке имени (ilike) или возрасту.
+    """
+    query = (
+        select(Person.name, Child.age, Person.id)
+        .join(Child, Person.id == Child.person_id)
+        .where(
+            Person.age_type == AgeType.child,
+            Person.name.is_not(None),
+        )
+    )
+    if name_query:
+        query = query.where(Person.name.ilike(f"%{name_query.strip()}%"))
+    if age_query is not None:
+        try:
+            query = query.where(Child.age == float(age_query))
+        except (ValueError, TypeError):
+            pass
+    query = query.distinct().order_by(Person.name).limit(limit)
+    result = await session.execute(query)
+    return result.all()
 
 
 async def get_adult_person_id_by_phone(session: AsyncSession, phone: str):
@@ -347,9 +399,8 @@ async def create_people(
         adult = person.adult
         adult.phone = phone
     else:
-        person = Person(name=name_adult, age_type=AgeType.adult)
+        person = Person(name=name_adult, age_type=AgeType.adult, user_id=user_id)
         session.add(person)
-        user.people.append(person)
         adult = Adult(phone=phone)
         session.add(adult)
         person.adult = adult
@@ -357,6 +408,10 @@ async def create_people(
     people_ids.append(adult.person_id)
 
     parent_id = adult.person_id
+
+    if client_data.get('flag_stub_children'):
+        await session.commit()
+        return people_ids
 
     for item in data_children:
         name_child = item[0]
@@ -381,10 +436,10 @@ async def create_people(
             person = Person(
                 name=name_child,
                 age_type=AgeType.child,
+                user_id=user_id,
                 parent_id=parent_id
             )
             session.add(person)
-            user.people.append(person)
             child = Child(age=age)
             session.add(child)
             person.child = child
@@ -733,6 +788,55 @@ async def get_person(session: AsyncSession,
 async def get_base_ticket(session: AsyncSession,
                           base_ticket_id: int):
     return await session.get(BaseTicket, base_ticket_id)
+
+
+async def get_or_create_custom_base_ticket(
+    session: AsyncSession,
+    quality_of_children: int,
+    quality_of_adult: int,
+    cost: int | float,
+) -> BaseTicket:
+    """
+    Находит или создает индивидуальный базовый билет с base_ticket_id >= 1000.
+    """
+    cost_int = int(cost)
+    query = select(BaseTicket).where(
+        BaseTicket.flag_individual.is_(True),
+        BaseTicket.quality_of_children == quality_of_children,
+        BaseTicket.quality_of_adult == quality_of_adult,
+        BaseTicket.cost_main == cost_int,
+        BaseTicket.base_ticket_id >= 1000,
+    )
+    res = await session.execute(query)
+    existing = res.scalars().first()
+    if existing:
+        return existing
+
+    max_id_query = select(func.max(BaseTicket.base_ticket_id)).where(
+        BaseTicket.base_ticket_id >= 1000
+    )
+    max_id_res = await session.execute(max_id_query)
+    max_id = max_id_res.scalar()
+    new_base_ticket_id = (max_id + 1) if max_id is not None else 1000
+
+    name = f"Индивидуальный ({quality_of_children} дет. + {quality_of_adult} взр.)"
+    new_ticket = BaseTicket(
+        base_ticket_id=new_base_ticket_id,
+        flag_active=True,
+        flag_individual=True,
+        name=name,
+        cost_main=cost_int,
+        cost_privilege=cost_int,
+        cost_main_in_period=cost_int,
+        cost_privilege_in_period=cost_int,
+        quality_of_children=quality_of_children,
+        quality_of_adult=quality_of_adult,
+        quality_of_add_adult=0,
+        quality_visits=1,
+    )
+    session.add(new_ticket)
+    await session.commit()
+    return new_ticket
 
 
 async def get_ticket(session: AsyncSession,
@@ -1745,7 +1849,7 @@ async def get_schedule_events_with_seats(
 
     # Активные билеты, удерживающие места
     active_ticket_filter = or_(
-        Ticket.status.in_([TicketStatus.PAID, TicketStatus.APPROVED]),
+        Ticket.status.in_([TicketStatus.PAID, TicketStatus.APPROVED, TicketStatus.RESERVED]),
         and_(
             Ticket.status == TicketStatus.CREATED,
             Ticket.created_at >= cutoff_time

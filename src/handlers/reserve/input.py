@@ -16,8 +16,8 @@ from db import db_postgres
 from handlers.common_hl import validate_phone_or_request
 from handlers.reserve.common import (
     get_child_text_and_reply,
-    send_msg_get_child,
-    send_msg_get_phone,
+    send_msg_get_child, send_msg_get_phone,
+    _update_children,
 )
 from handlers.email_hl import check_email_and_update_user
 from handlers.reserve.payment import show_reservation_summary
@@ -336,22 +336,6 @@ async def _handle_chld_edit_callback(
     return 'CHILDREN'
 
 
-async def _update_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reserve_user_data = context.user_data
-    mode = reserve_user_data.get('child_filter_mode', 'PHONE')
-    if (
-            mode == 'PHONE' and
-            reserve_user_data.get('client_data', {}).get('phone')
-    ):
-        phone = reserve_user_data['client_data']['phone']
-        children = await db_postgres.get_children_by_phone(
-            context.session, phone)
-    else:
-        children = await db_postgres.get_children(
-            context.session, update.effective_user.id)
-    return children
-
-
 async def _handle_chld_selection_callback(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE,
@@ -362,7 +346,69 @@ async def _handle_chld_selection_callback(
     reserve_user_data = context.user_data['reserve_user_data']
     children = reserve_user_data.get('children', [])
 
-    if data.startswith('CHLD_SEL|'):
+    if data == 'CHLD_SKIP':
+        # Пропуск ввода детей (заглушки)
+        qty = chose_base_ticket.quality_of_children
+        if qty <= 0:
+            processed_data_on_children = [['0', '0']]
+        else:
+            processed_data_on_children = [
+                [f"Ребенок {i}", "0"] for i in range(1, qty + 1)
+            ]
+        reserve_user_data.setdefault('client_data', {})['flag_stub_children'] = True
+        await query.edit_message_reply_markup()
+        return await _finish_get_children(
+            update,
+            context,
+            processed_data_on_children,
+            "Пропуск ввода детей (заглушки)"
+        )
+    elif data == 'CHLD_SEARCH_NAME':
+        reserve_user_data['waiting_for_child_search_name'] = True
+        reserve_user_data.pop('waiting_for_child_search_age', None)
+        text = ('<b>Поиск де��ей по имени</b>\n\n'
+                'Введите имя или часть имени ребенка:\n'
+                'Например: <code>Аня</code>')
+        keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        res_text = transform_html(text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup
+        )
+        return 'CHILDREN'
+    elif data == 'CHLD_SEARCH_AGE':
+        reserve_user_data['waiting_for_child_search_age'] = True
+        reserve_user_data.pop('waiting_for_child_search_name', None)
+        text = ('<b>Фильтр детей по возрасту</b>\n\n'
+                'Введите возраст ребенка (число):\n'
+                'Например: <code>3</code> или <code>5</code>')
+        keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        res_text = transform_html(text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
+            reply_markup=reply_markup
+        )
+        return 'CHILDREN'
+    elif data == 'CHLD_RESET_FLTR':
+        reserve_user_data.pop('waiting_for_child_search_name', None)
+        reserve_user_data.pop('waiting_for_child_search_age', None)
+        reserve_user_data.pop('child_search_name', None)
+        reserve_user_data.pop('child_search_age', None)
+        reserve_user_data['child_filter_mode'] = 'PHONE'
+        reserve_user_data['children_page'] = 0
+        children = await _update_children(update, context)
+        reserve_user_data['children'] = children
+        available_ids = {c[2] for c in children}
+        reserve_user_data['selected_children'] = [
+            pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
+        ]
+    elif data.startswith('CHLD_SEL|'):
         try:
             person_id = int(data.split('|')[1])
         except (IndexError, ValueError):
@@ -482,6 +528,54 @@ async def get_children(
     except BadRequest as e:
         reserve_hl_logger.error(e)
     await update.effective_chat.send_action(ChatAction.TYPING)
+
+    if reserve_user_data.get('waiting_for_child_search_name'):
+        reserve_user_data['waiting_for_child_search_name'] = False
+        search_query = update.effective_message.text.strip()
+        reserve_user_data['child_search_name'] = search_query
+        reserve_user_data['child_filter_mode'] = 'SEARCH_NAME'
+        reserve_user_data['children_page'] = 0
+        children = await _update_children(update, context)
+        reserve_user_data['children'] = children
+        available_ids = {c[2] for c in children}
+        reserve_user_data['selected_children'] = [
+            pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
+        ]
+        text, reply_markup = await get_child_text_and_reply(
+            update, chose_base_ticket, children, context)
+        message = await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        reserve_user_data['message_id'] = message.message_id
+        await set_back_context(context, 'CHILDREN', text, reply_markup)
+        return 'CHILDREN'
+
+    if reserve_user_data.get('waiting_for_child_search_age'):
+        reserve_user_data['waiting_for_child_search_age'] = False
+        raw_age = update.effective_message.text.strip().replace(',', '.')
+        try:
+            age_val = float(raw_age)
+        except ValueError:
+            age_val = None
+        reserve_user_data['child_search_age'] = age_val
+        reserve_user_data['child_filter_mode'] = 'SEARCH_AGE'
+        reserve_user_data['children_page'] = 0
+        children = await _update_children(update, context)
+        reserve_user_data['children'] = children
+        available_ids = {c[2] for c in children}
+        reserve_user_data['selected_children'] = [
+            pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
+        ]
+        text, reply_markup = await get_child_text_and_reply(
+            update, chose_base_ticket, children, context)
+        message = await update.effective_chat.send_message(
+            text=text,
+            reply_markup=reply_markup,
+        )
+        reserve_user_data['message_id'] = message.message_id
+        await set_back_context(context, 'CHILDREN', text, reply_markup)
+        return 'CHILDREN'
 
     if (
             reserve_user_data.get('is_adding_child', False) or
