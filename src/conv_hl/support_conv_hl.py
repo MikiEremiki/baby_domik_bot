@@ -280,6 +280,11 @@ states = {
         cancel_callback_handler,
         CallbackQueryHandler(schedule_hl.handle_place_selected, r'^sch_plc_'),
     ],
+    86: [  # SCH_TURN_IN_BOT
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(schedule_hl.handle_turn_in_bot_cb, r'^sch_turn_.*$'),
+    ],
     80: [  # PLACE_NAME
         back_callback_handler,
         cancel_callback_handler,

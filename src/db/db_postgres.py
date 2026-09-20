@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Collection, List, Type, Sequence, Any, Dict
 
-from sqlalchemy import select, func, DATE, and_, delete, or_, case
+from sqlalchemy import select, func, DATE, and_, delete, or_, case, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, Mapped
 
@@ -130,10 +130,31 @@ async def attach_user_and_people_to_ticket(
     await session.commit()
 
 
+async def sync_table_sequence(session: AsyncSession, table_name: str, pk_col: str = 'id') -> None:
+    """
+    Синхронизирует значение автоинкрементной последовательности (sequence) PostgreSQL
+    с текущим максимальным значением первичного ключа в таблице.
+    """
+    try:
+        bind = session.bind
+        if bind is None and hasattr(session, 'get_bind'):
+            bind = session.get_bind()
+        dialect_name = getattr(getattr(bind, 'dialect', None), 'name', '')
+        if dialect_name == 'postgresql':
+            stmt = text(
+                f"SELECT setval(pg_get_serial_sequence('{table_name}', '{pk_col}'), "
+                f"COALESCE(max({pk_col}), 1), max({pk_col}) IS NOT NULL) FROM {table_name}"
+            )
+            await session.execute(stmt)
+    except Exception:
+        pass
+
+
 async def update_base_tickets_from_googlesheets(session: AsyncSession, tickets):
     for _ticket in tickets:
         dto_model = _ticket.to_dto()
         await session.merge(BaseTicket(**dto_model))
+    await sync_table_sequence(session, 'base_tickets', 'base_ticket_id')
     await session.commit()
 
 
@@ -142,6 +163,7 @@ async def update_theater_events_from_googlesheets(
     for _event in theater_events:
         dto_model = _event.to_dto()
         await session.merge(TheaterEvent(**dto_model))
+    await sync_table_sequence(session, 'theater_events', 'id')
     await session.commit()
 
 
@@ -177,6 +199,8 @@ async def update_schedule_events_from_googlesheets(
         dto_model.pop('qty_adult_free_seat', None)
         dto_model.pop('qty_adult_nonconfirm_seat', None)
         await session.merge(ScheduleEvent(**dto_model))
+
+    await sync_table_sequence(session, 'schedule_events', 'id')
 
     if auto_commit:
         await session.commit()
@@ -613,6 +637,9 @@ async def create_theater_event(
         theater_event_id=None,
         note=None,
 ):
+    if theater_event_id is None:
+        await sync_table_sequence(session, 'theater_events', 'id')
+
     theater_event = TheaterEvent(
         id=theater_event_id,
         name=name,
@@ -676,6 +703,9 @@ async def create_schedule_event(
         qty_child_free_seat = qty_child
     if qty_adult_free_seat is None:
         qty_adult_free_seat = qty_adult
+
+    if schedule_event_id is None:
+        await sync_table_sequence(session, 'schedule_events', 'id')
 
     se_kwargs = {
         'type_event_id': type_event_id,
