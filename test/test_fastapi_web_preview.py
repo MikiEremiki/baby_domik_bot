@@ -103,6 +103,26 @@ def test_index_page_is_rendered(monkeypatch):
     assert 'w-auto' in response.text
 
 
+def test_index_page_afisha_rendered_compact_with_modal(monkeypatch):
+    mock_event = _create_mock_event()
+    mock_afisha = MagicMock()
+    mock_afisha.month = 5
+    mock_afisha.year = 2030
+    mock_afisha.file_path = "static/afisha/may_2030.jpg"
+
+    with _create_client(monkeypatch) as client:
+        monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
+        monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[mock_afisha]))
+        response = client.get('/')
+
+    assert response.status_code == 200
+    assert 'afisha-card' in response.text
+    assert 'zoom-hint' in response.text
+    assert 'afisha-modal' in response.text
+    assert 'openAfishaModal' in response.text
+    assert '/static/afisha/may_2030.jpg' in response.text
+
+
 def test_event_details_page_is_rendered(monkeypatch):
     mock_event = _create_mock_event()
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
