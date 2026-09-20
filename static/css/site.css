@@ -52,6 +52,54 @@
     vertical-align: middle;
 }
 
+/* Превью афиш */
+.afisha-card {
+    width: 130px;
+    height: 182px;
+    flex-shrink: 0;
+    position: relative;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    background-color: #f8fafc;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+@media (min-width: 640px) {
+    .afisha-card {
+        width: 170px;
+        height: 238px;
+    }
+}
+
+@media (min-width: 768px) {
+    .afisha-card {
+        width: 190px;
+        height: 266px;
+    }
+}
+
+.afisha-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+.afisha-card .zoom-hint {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.afisha-card:hover .zoom-hint,
+.afisha-card:active .zoom-hint {
+    opacity: 1;
+}
+
+.afisha-modal {
+    z-index: 9999;
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
