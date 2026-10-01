@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BabyDomik — Бронирование{% endblock %}</title>
+    {% set _title %}{% block og_title %}{{ self.title() }}{% endblock %}{% endset %}
+    {% set _desc %}{% block meta_description %}Бэби-театр «Домик» — интерактивные спектакли, праздники и театральная студия для самых маленьких.{% endblock %}{% endset %}
+    <meta name="description" content="{{ _desc|trim }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ _title|trim }}">
+    <meta property="og:description" content="{{ _desc|trim }}">
+    <meta property="og:image" content="{% block og_image %}{{ request.base_url }}static/img/banner.jpg{% endblock %}">
+    <meta property="og:url" content="{{ request.url }}">
     <link rel="icon" type="image/jpeg" href="/static/img/logo.jpg">
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
     <link rel="stylesheet" href="/static/css/site.css">
@@ -20,10 +28,25 @@
                     <span class="text-domik-green">Домик</span>
                 </span>
             </a>
+            {% set p = request.url.path %}
+            {% set nav = [('/', 'Главная', p == '/'),
+                          ('/afisha', 'Спектакли', p == '/afisha' or p.startswith('/event/') or p.startswith('/booking/')),
+                          ('/custom-events', 'Заказные мероприятия', p == '/custom-events'),
+                          ('/studio', 'Студия', p == '/studio')] %}
             <div class="flex items-center gap-6">
-                <nav class="flex items-center gap-3 text-sm font-medium">
-                    <a class="rounded-lg px-3 py-2 text-slate-700 transition hover:bg-slate-100 hover:text-domik-green-soft" href="/">Афиша</a>
+                <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
+                    {% for href, label, active in nav %}
+                    <a class="nav-link rounded-lg px-3 py-2 transition {% if active %}nav-link--active{% else %}text-slate-700 hover:bg-slate-100 hover:text-domik-green-soft{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+                    {% endfor %}
                 </nav>
+                <details class="nav-mobile md:hidden">
+                    <summary class="cursor-pointer rounded-lg px-3 py-2 text-xl" aria-label="Меню">☰</summary>
+                    <nav class="nav-mobile__panel z-20 flex flex-col rounded-lg border border-slate-200 bg-white p-2 text-sm font-medium shadow-lg">
+                        {% for href, label, active in nav %}
+                        <a class="nav-link rounded-lg px-3 py-2 {% if active %}nav-link--active{% else %}text-slate-700 hover:bg-slate-100{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+                        {% endfor %}
+                    </nav>
+                </details>
 
                 <div class="flex items-center">
                     {% if request.session.user %}

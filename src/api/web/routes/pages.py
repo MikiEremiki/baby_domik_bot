@@ -16,8 +16,31 @@ from settings.settings import (
 
 router = APIRouter()
 
+def _render_static_page(request: Request, name: str):
+    t_render0 = time.perf_counter()
+    response = templates.TemplateResponse(request=request, name=name)
+    if hasattr(request.state, 'timings'):
+        request.state.timings['render'] = round((time.perf_counter() - t_render0) * 1000, 1)
+    return response
+
+
 @router.get('/')
-async def show_index(
+async def show_home(request: Request):
+    return _render_static_page(request, 'home.html')
+
+
+@router.get('/custom-events')
+async def show_custom_events(request: Request):
+    return _render_static_page(request, 'custom_events.html')
+
+
+@router.get('/studio')
+async def show_studio(request: Request):
+    return _render_static_page(request, 'studio.html')
+
+
+@router.get('/afisha')
+async def show_afisha(
     request: Request,
     age: int | None = None,
     only_actual: bool = True,
@@ -183,7 +206,7 @@ async def show_index(
     t_render0 = time.perf_counter()
     response = templates.TemplateResponse(
         request=request,
-        name='index.html',
+        name='afisha.html',
         context={
             'events': events,
             'current_age': age,

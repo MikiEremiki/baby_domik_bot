@@ -4,7 +4,7 @@
 
 {% block content %}
 <section class="mb-8">
-    <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/?{% if current_place_id %}place_id={{ current_place_id }}{% endif %}">← Назад к афише</a>
+    <a class="text-sm text-domik-green-soft hover:opacity-80 font-medium" href="/afisha{% if current_place_id %}?place_id={{ current_place_id }}{% endif %}">← Назад к афише</a>
     <h1 class="mt-3 text-3xl font-bold tracking-tight">{{ event.title }}</h1>
     <p class="mt-2 max-w-3xl text-slate-600">{{ event.description }}</p>
 </section>

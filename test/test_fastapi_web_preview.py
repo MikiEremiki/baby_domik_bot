@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 from yookassa import Payment
 
@@ -92,7 +93,7 @@ def test_index_page_is_rendered(monkeypatch):
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
     with _create_client(monkeypatch) as client:
-        response = client.get('/')
+        response = client.get('/afisha')
 
     assert response.status_code == 200
     assert 'Афиша спектаклей' in response.text
@@ -113,7 +114,7 @@ def test_index_page_afisha_rendered_compact_with_modal(monkeypatch):
     with _create_client(monkeypatch) as client:
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
         monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[mock_afisha]))
-        response = client.get('/')
+        response = client.get('/afisha')
 
     assert response.status_code == 200
     assert 'afisha-card' in response.text
@@ -272,7 +273,7 @@ def test_negative_free_seats_shown_as_zero(monkeypatch):
         monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[]))
 
         # Проверяем главную страницу
-        response_index = client.get('/')
+        response_index = client.get('/afisha')
         assert response_index.status_code == 200
         assert 'мест нет' in response_index.text
 
@@ -336,12 +337,12 @@ def test_index_filtering_and_button_states(monkeypatch):
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event1, event2]))
 
         # 1. Проверка без фильтра (only_actual=True по умолчанию)
-        resp = client.get('/')
+        resp = client.get('/afisha')
         assert "Future Show" in resp.text
         assert "Old Show" not in resp.text
 
         # 2. Фильтр only_actual=false (должны быть оба, но у одного кнопка неактивна)
-        resp_all = client.get('/?only_actual=false')
+        resp_all = client.get('/afisha?only_actual=false')
         assert "Future Show" in resp_all.text
         assert "Old Show" in resp_all.text
         assert 'href="/event/1"' in resp_all.text
@@ -349,22 +350,22 @@ def test_index_filtering_and_button_states(monkeypatch):
         assert 'Нет доступных сеансов' in resp_all.text
 
         # 3. Фильтр only_actual=true (должен остаться только Future Show)
-        resp_actual = client.get('/?only_actual=true')
+        resp_actual = client.get('/afisha?only_actual=true')
         assert "Future Show" in resp_actual.text
         assert "Old Show" not in resp_actual.text
 
         # 4. Фильтр age=5 (должен остаться только Old Show, если only_actual=false)
-        resp_age5 = client.get('/?age=5&only_actual=false')
+        resp_age5 = client.get('/afisha?age=5&only_actual=false')
         assert "Future Show" not in resp_age5.text
         assert "Old Show" in resp_age5.text
 
         # 5. Комбинированный фильтр: age=3, only_actual=true (только Future Show)
-        resp_comb = client.get('/?age=3&only_actual=true')
+        resp_comb = client.get('/afisha?age=3&only_actual=true')
         assert "Future Show" in resp_comb.text
         assert "Old Show" not in resp_comb.text
 
         # 5. Комбинированный фильтр: age=5, only_actual=true (никто, так как Old Show не актуален)
-        resp_comb2 = client.get('/?age=5&only_actual=true')
+        resp_comb2 = client.get('/afisha?age=5&only_actual=true')
         assert "Future Show" not in resp_comb2.text
         assert "Old Show" not in resp_comb2.text
         assert "По заданным критериям спектаклей не найдено" in resp_comb2.text
@@ -381,7 +382,7 @@ def test_index_date_filtering(monkeypatch):
         # Мокаем БД для возврата нашего события
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event]))
         
-        response = client.get(f'/?date={target_date}')
+        response = client.get(f'/afisha?date={target_date}')
         
     assert response.status_code == 200
     assert 'Test Event' in response.text
@@ -428,19 +429,19 @@ def test_index_month_filtering(monkeypatch):
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event1, event2]))
 
         # 1. Без фильтра (оба спектакля и оба месяца в фильтре)
-        resp = client.get('/')
+        resp = client.get('/afisha')
         assert "January Show" in resp.text
         assert "February Show" in resp.text
         assert "Янв 30" in resp.text
         assert "Фев 30" in resp.text
 
         # 2. Фильтр по Январю 2030
-        resp_jan = client.get('/?month=2030-01')
+        resp_jan = client.get('/afisha?month=2030-01')
         assert "January Show" in resp_jan.text
         assert "February Show" not in resp_jan.text
 
         # 3. Фильтр по Февралю 2030
-        resp_feb = client.get('/?month=2030-02')
+        resp_feb = client.get('/afisha?month=2030-02')
         assert "January Show" not in resp_feb.text
         assert "February Show" in resp_feb.text
 
@@ -475,7 +476,7 @@ def test_only_child_seats_determine_availability(monkeypatch):
         event_only_adult = _create_mock_event(free_seats_child=0, free_seats_adult=10)
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event_only_adult]))
         
-        resp_index = client.get('/')
+        resp_index = client.get('/afisha')
         assert "Test Event" in resp_index.text
         assert "мест нет" in resp_index.text
         assert "cursor-not-allowed" in resp_index.text
@@ -490,7 +491,7 @@ def test_only_child_seats_determine_availability(monkeypatch):
         event_only_child = _create_mock_event(free_seats_child=1, free_seats_adult=0)
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event_only_child]))
         
-        resp_index_2 = client.get('/')
+        resp_index_2 = client.get('/afisha')
         assert "Test Event" in resp_index_2.text
         assert "мест нет" not in resp_index_2.text
         assert "bg-domik-green-soft" in resp_index_2.text
@@ -682,7 +683,7 @@ def test_server_timing_and_request_id_headers(monkeypatch):
     mock_event = _create_mock_event()
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
     with _create_client(monkeypatch) as client:
-        response = client.get('/', headers={'X-Request-ID': 'custom-req-123'})
+        response = client.get('/afisha', headers={'X-Request-ID': 'custom-req-123'})
 
     assert response.status_code == 200
     assert response.headers.get('X-Request-ID') == 'custom-req-123'
@@ -908,3 +909,126 @@ def test_fastapi_imports_without_telegram(monkeypatch):
 
     import api.web.main
     importlib.reload(api.web.main)
+
+
+def _nav_active_hrefs(html: str) -> set[str]:
+    import re
+    return set(re.findall(r'<a class="[^"]*" href="([^"]+)" aria-current="page"', html))
+
+
+def test_afisha_filter_links_point_to_afisha(monkeypatch):
+    mock_event = _create_mock_event()
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
+    with _create_client(monkeypatch) as client:
+        response = client.get('/afisha')
+
+    assert response.status_code == 200
+    assert 'href="/?' not in response.text
+    assert 'href="/afisha?age=3' in response.text
+
+
+def test_event_details_back_link_to_afisha(monkeypatch):
+    mock_event = _create_mock_event()
+    monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
+    with _create_client(monkeypatch) as client:
+        plain = client.get('/event/1')
+        with_place = client.get('/event/1?place_id=2')
+
+    assert 'href="/afisha"' in plain.text
+    assert 'href="/afisha?place_id=2"' in with_place.text
+
+
+def test_home_page_rendered_with_three_products(monkeypatch):
+    from api.web.site_content import PRODUCTS
+    with _create_client(monkeypatch) as client:
+        response = client.get('/')
+
+    assert response.status_code == 200
+    for product in PRODUCTS:
+        assert f'href="{product["url"]}"' in response.text
+        assert product['title'] in response.text
+        assert product['teaser'] in response.text
+
+
+def test_home_page_does_not_query_db(monkeypatch):
+    events_mock = AsyncMock(return_value=[])
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', events_mock)
+    with _create_client(monkeypatch) as client:
+        response = client.get('/?age=3')
+
+    assert response.status_code == 200
+    assert 'Почему выбирают Домик' in response.text
+    events_mock.assert_not_called()
+
+
+def test_custom_events_page_rendered(monkeypatch):
+    from api.web.site_content import CUSTOM_EVENTS
+    with _create_client(monkeypatch) as client:
+        response = client.get('/custom-events')
+
+    assert response.status_code == 200
+    for age in ('1–2 года', '2–4 года', '3–6 лет', '5–7 лет'):
+        assert age in response.text
+    assert CUSTOM_EVENTS['pricing_note'] in response.text
+    assert 'tel:+79308011103' in response.text
+    assert 'https://t.me/BabyDomikBot' in response.text
+    assert 'https://vk.com/baby_theater_domik' in response.text
+
+
+def test_custom_events_page_has_no_prices(monkeypatch):
+    with _create_client(monkeypatch) as client:
+        pages_html = [client.get('/custom-events').text, client.get('/').text]
+
+    for html in pages_html:
+        assert '₽' not in html
+        assert '23 000' not in html
+        assert 'Сказочное чаепитие' not in html
+
+
+def test_studio_page_rendered(monkeypatch):
+    with _create_client(monkeypatch) as client:
+        response = client.get('/studio')
+
+    assert response.status_code == 200
+    for text in ('3–4 года', '4–6 лет', 'Нелли Тюрихина', 'Дарья Орешкова', 'Вторник', 'Четверг',
+                 'https://vk.com/baby_theater_domik'):
+        assert text in response.text
+    assert 'https://t.me/BabyDomikBot' not in response.text
+    assert 'Записаться через бота' not in response.text
+    assert response.text.count('tel:+79308011103') == 2
+    assert response.text.index('tel:+79308011103') < response.text.index('Бережный подход к развитию')
+    assert 'Связаться с педагогом' not in response.text
+
+
+@pytest.mark.parametrize('path,active', [
+    ('/', '/'),
+    ('/afisha', '/afisha'),
+    ('/event/1', '/afisha'),
+    ('/custom-events', '/custom-events'),
+    ('/studio', '/studio'),
+])
+def test_navigation_active_item(monkeypatch, path, active):
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[_create_mock_event()]))
+    monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=_create_mock_event()))
+    with _create_client(monkeypatch) as client:
+        response = client.get(path)
+
+    assert response.status_code == 200
+    for href in ('/', '/afisha', '/custom-events', '/studio'):
+        assert f'href="{href}"' in response.text
+    assert _nav_active_hrefs(response.text) == {active}
+
+
+@pytest.mark.parametrize('path', ['/', '/afisha', '/custom-events', '/studio'])
+def test_pages_have_seo_meta(monkeypatch, path):
+    import re
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[]))
+    with _create_client(monkeypatch) as client:
+        response = client.get(path)
+
+    html = response.text
+    title = re.search(r'<title>(.*?)</title>', html, re.S).group(1).strip()
+    assert f'<meta property="og:title" content="{title}">' in html
+    assert '<meta name="description"' in html
+    assert 'property="og:image"' in html
+    assert 'property="og:url"' in html

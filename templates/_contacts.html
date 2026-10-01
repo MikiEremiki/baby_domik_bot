@@ -1,0 +1,7 @@
+<div class="flex flex-wrap gap-3">
+    {% if show_bot %}
+    <a class="rounded-lg bg-domik-green px-4 py-2 font-semibold text-white" href="{{ c.bot_url }}" target="_blank" rel="noopener noreferrer">Написать боту</a>
+    {% endif %}
+    <a class="rounded-lg bg-domik-orange px-4 py-2 font-semibold text-white" href="tel:{{ c.organizer.phone_tel }}">{{ c.organizer.name }}: {{ c.organizer.phone_display }}</a>
+    <a class="rounded-lg bg-domik-pink px-4 py-2 font-semibold text-white" href="{{ c.vk_url }}" target="_blank" rel="noopener noreferrer">ВКонтакте</a>
+</div>
