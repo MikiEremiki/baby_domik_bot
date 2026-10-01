@@ -3,7 +3,7 @@ psycopg
 psycopg-binary
 python-telegram-bot[ext]
 PyYAML
-sqlalchemy
+sqlalchemy[asyncio]
 faststream[cli]
 nats-py
 pytz

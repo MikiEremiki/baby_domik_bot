@@ -13,7 +13,7 @@ python-telegram-bot[ext]
 pytz
 PyYAML
 requests
-sqlalchemy
+sqlalchemy[asyncio]
 typing_extensions
 yookassa
 uvicorn
