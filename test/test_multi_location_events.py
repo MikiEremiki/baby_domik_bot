@@ -365,14 +365,14 @@ def test_index_page_places_filter_and_event_details(monkeypatch):
 
     with _create_web_client(monkeypatch) as client:
         # 1. Главная страница афиши: есть фильтр по локациям
-        resp = client.get('/')
+        resp = client.get('/afisha')
         assert resp.status_code == 200
         assert "Локация:" in resp.text
         assert "Основная сцена" in resp.text
         assert "Камерная сцена" in resp.text
 
         # 2. Фильтрация по place_id=2
-        resp_p2 = client.get('/?place_id=2')
+        resp_p2 = client.get('/afisha?place_id=2')
         assert resp_p2.status_code == 200
         assert "Гуси-Лебеди" in resp_p2.text
         assert "place_id=2" in resp_p2.text
@@ -465,35 +465,35 @@ def test_index_page_places_filter_respects_all_other_filters(monkeypatch):
 
     with _create_web_client(monkeypatch) as client:
         # 1. Без фильтров — все 3 площадки присутствуют
-        resp_all = client.get('/')
+        resp_all = client.get('/afisha')
         assert resp_all.status_code == 200
         assert "Основная сцена" in resp_all.text
         assert "Камерная сцена" in resp_all.text
         assert "Летняя сцена" in resp_all.text
 
         # 2. Фильтр type_id=1 (Репертуарный) — только Основная (Event 1) и Летняя (Event 3), Камерной (только Type 2) быть не должно
-        resp_type1 = client.get('/?type_id=1')
+        resp_type1 = client.get('/afisha?type_id=1')
         assert resp_type1.status_code == 200
         assert "Основная сцена" in resp_type1.text
         assert "Летняя сцена" in resp_type1.text
         assert "Камерная сцена" not in resp_type1.text
 
         # 3. Фильтр type_id=2 (Новогодний) — только Камерная сцена (Event 2)
-        resp_type2 = client.get('/?type_id=2')
+        resp_type2 = client.get('/afisha?type_id=2')
         assert resp_type2.status_code == 200
         assert "Камерная сцена" in resp_type2.text
         assert "Основная сцена" not in resp_type2.text
         assert "Летняя сцена" not in resp_type2.text
 
         # 4. Фильтр age=4 — проходит только Event 2 (min_age_child=5), т.е. только Камерная сцена
-        resp_age = client.get('/?age=4')
+        resp_age = client.get('/afisha?age=4')
         assert resp_age.status_code == 200
         assert "Камерная сцена" in resp_age.text
         assert "Основная сцена" not in resp_age.text
         assert "Летняя сцена" not in resp_age.text
 
         # 5. Фильтр month=2030-05 — проходят Event 1 (Май) и Event 2 (Май), но не Event 3 (Июнь)
-        resp_month = client.get('/?month=2030-05')
+        resp_month = client.get('/afisha?month=2030-05')
         assert resp_month.status_code == 200
         assert "Основная сцена" in resp_month.text
         assert "Камерная сцена" in resp_month.text
@@ -501,7 +501,7 @@ def test_index_page_places_filter_respects_all_other_filters(monkeypatch):
 
         # 6. Фильтр type_id=1 и place_id=1:
         # Свитчер мест по-прежнему предлагает Основную и Летнюю (обе имеют тип 1), но не Камерную
-        resp_t1_p1 = client.get('/?type_id=1&place_id=1')
+        resp_t1_p1 = client.get('/afisha?type_id=1&place_id=1')
         assert resp_t1_p1.status_code == 200
         assert "Основная сцена" in resp_t1_p1.text
         assert "Летняя сцена" in resp_t1_p1.text

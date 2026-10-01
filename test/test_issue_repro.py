@@ -111,7 +111,7 @@ def test_index_page_filters_turned_off_session(client, monkeypatch):
     monkeypatch.setattr(pages, 'get_default_place', AsyncMock(return_value=mock_place))
     
     # 1. Проверяем главную страницу
-    response = client.get('/')
+    response = client.get('/afisha')
     assert response.status_code == 200
     # На главной есть ссылка на эвент
     assert '/event/1' in response.text

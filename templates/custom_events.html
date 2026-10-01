@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block title %}Заказные мероприятия — праздники в бэби-театре «Домик»{% endblock %}
+{% block meta_description %}Дни рождения и закрытые показы в бэби-театре «Домик»: состав праздника подбирается индивидуально.{% endblock %}
+
+{% set ce = site.custom_events %}
+{% set c = site.contacts %}
+
+{% block content %}
+<section class="mb-8">
+    {% set show_bot = true %}{% include "_contacts.html" %}
+</section>
+
+<section class="mb-10">
+    <h1 class="text-3xl font-bold tracking-tight">{{ ce.intro_title }}</h1>
+    <p class="mt-3 text-slate-600">{{ ce.intro }}</p>
+    <ul class="mt-4 list-disc pl-5 text-slate-700">
+        {% for f in ce.formats %}<li>{{ f }}</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="mb-10">
+    <h2 class="mb-4 text-2xl font-bold">Какой выбрать спектакль?</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {% for a in ce.age_recommendations %}
+        <div class="rounded-xl border-2 border-domik-orange bg-white p-4">
+            <div class="font-bold text-domik-orange">{{ a.age }}</div>
+            <p class="mt-1 text-sm text-slate-600">{{ a.text }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="mb-10">
+    <h2 class="mb-4 text-2xl font-bold">Что может входить в праздник</h2>
+    <ul class="list-disc pl-5 text-slate-700">
+        {% for item in ce.may_include %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="mb-10">
+    <h2 class="mb-4 text-2xl font-bold">Дополнительные услуги</h2>
+    <ul class="list-disc pl-5 text-slate-700">
+        {% for item in ce.extras %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="mb-10 rounded-xl bg-white p-6 shadow-sm">
+    <h2 class="mb-2 text-2xl font-bold">Стоимость и варианты</h2>
+    <p class="text-slate-700">{{ ce.pricing_note }}</p>
+    <a class="mt-4 inline-block rounded-lg bg-domik-pink px-4 py-2 font-semibold text-white" href="tel:{{ c.organizer.phone_tel }}">Уточнить у администратора</a>
+</section>
+
+<section>
+    <h2 class="mb-4 text-2xl font-bold">Как забронировать</h2>
+    {% set show_bot = true %}{% include "_contacts.html" %}
+</section>
+{% endblock %}

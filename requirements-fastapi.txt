@@ -6,7 +6,7 @@ pydantic
 pydantic-settings
 jinja2
 itsdangerous
-sqlalchemy
+sqlalchemy[asyncio]
 psycopg
 psycopg-binary
 pyyaml

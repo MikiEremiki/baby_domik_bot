@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}Театральная студия — бэби-театр «Домик»{% endblock %}
+{% block meta_description %}Театрально-развивающие занятия для детей 3–6 лет: бережный подход, развитие речи и эмоционального интеллекта.{% endblock %}
+
+{% set st = site.studio %}
+{% set c = site.contacts %}
+
+{% block content %}
+<section class="mb-8">
+    {% set show_bot = false %}{% include "_contacts.html" %}
+</section>
+
+<section class="mb-10">
+    <h1 class="text-3xl font-bold tracking-tight">Бережный подход к развитию</h1>
+    <ul class="mt-4 list-disc pl-5 text-slate-700">
+        {% for item in st.approach %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="mb-10">
+    <h2 class="mb-4 text-2xl font-bold">Что получит ваш ребёнок?</h2>
+    <ul class="list-disc pl-5 text-slate-700">
+        {% for item in st.results %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="mb-10">
+    <h2 class="mb-4 text-2xl font-bold">Группы и расписание</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {% for g in st.groups %}
+        <div class="rounded-xl border-2 border-domik-green bg-white p-5">
+            <div class="text-lg font-bold text-domik-green">{{ g.age }}</div>
+            <div class="mt-1 text-slate-700">{{ g.weekday|capitalize }}</div>
+            <div class="text-sm text-slate-600">Педагог: {{ g.teacher }}</div>
+            {% if g.teacher_url %}
+            <a class="mt-3 inline-block text-sm font-semibold text-domik-pink" href="{{ g.teacher_url }}" target="_blank" rel="noopener noreferrer">Связаться с педагогом</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <h2 class="mb-4 text-2xl font-bold">Запись на пробное занятие</h2>
+    {% set show_bot = false %}{% include "_contacts.html" %}
+</section>
+{% endblock %}

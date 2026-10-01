@@ -4,9 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BabyDomik — Бронирование{% endblock %}</title>
+    {% set _title %}{% block og_title %}{{ self.title() }}{% endblock %}{% endset %}
+    {% set _desc %}{% block meta_description %}Бэби-театр «Домик» — интерактивные спектакли, праздники и театральная студия для самых маленьких.{% endblock %}{% endset %}
+    <meta name="description" content="{{ _desc|trim }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ _title|trim }}">
+    <meta property="og:description" content="{{ _desc|trim }}">
+    <meta property="og:image" content="{% block og_image %}{{ request.base_url }}static/img/banner.jpg{% endblock %}">
+    <meta property="og:url" content="{{ request.url }}">
     <link rel="icon" type="image/jpeg" href="/static/img/logo.jpg">
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
-    <link rel="stylesheet" href="/static/css/site.css">
+    <link rel="stylesheet" href="/static/css/site.css?v=4">
     <script src="/static/js/htmx.min.js"></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
@@ -20,10 +28,32 @@
                     <span class="text-domik-green">Домик</span>
                 </span>
             </a>
+            {% set p = request.url.path %}
+            {% set nav = [('/', 'Главная', p == '/'),
+                          ('/afisha', 'Спектакли', p == '/afisha' or p.startswith('/event/') or p.startswith('/booking/')),
+                          ('/custom-events', 'Заказные мероприятия', p == '/custom-events'),
+                          ('/studio', 'Студия', p == '/studio')] %}
             <div class="flex items-center gap-6">
-                <nav class="flex items-center gap-3 text-sm font-medium">
-                    <a class="rounded-lg px-3 py-2 text-slate-700 transition hover:bg-slate-100 hover:text-domik-green-soft" href="/">Афиша</a>
+                <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
+                    {% for href, label, active in nav %}
+                    <a class="nav-link rounded-lg px-3 py-2 transition {% if active %}nav-link--active{% else %}text-slate-700 hover:bg-slate-100 hover:text-domik-green-soft{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+                    {% endfor %}
                 </nav>
+                <details class="nav-mobile md:hidden">
+                    <summary class="cursor-pointer rounded-lg bg-domik-green-soft px-3 py-1.5 text-xl text-white select-none shadow-sm transition hover:opacity-90" aria-label="Меню">☰</summary>
+                    <div class="nav-mobile__backdrop" onclick="this.closest('details').removeAttribute('open')"></div>
+                    <div class="nav-mobile__modal rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+                        <div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
+                            <span class="font-bold text-slate-800 text-base">Меню</span>
+                            <button type="button" class="text-slate-400 hover:text-slate-600 text-lg font-bold px-2 py-1" onclick="this.closest('details').removeAttribute('open')" aria-label="Закрыть">✕</button>
+                        </div>
+                        <nav class="flex flex-col gap-1 text-base font-medium">
+                            {% for href, label, active in nav %}
+                            <a class="nav-link rounded-lg px-3 py-2.5 transition {% if active %}nav-link--active{% else %}text-slate-700 hover:bg-slate-100{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+                            {% endfor %}
+                        </nav>
+                    </div>
+                </details>
 
                 <div class="flex items-center">
                     {% if request.session.user %}
@@ -83,7 +113,7 @@
             <div class="flex flex-col items-center gap-2 text-sm text-slate-600 md:items-end">
                 <div class="font-semibold text-slate-900 uppercase tracking-wider text-xs">Контакты администратора</div>
                 <a href="https://t.me/Theater_Domik_admin" target="_blank" rel="noopener noreferrer" class="hover:text-domik-green-soft transition-colors font-medium">@Theater_Domik_admin</a>
-                <a href="tel:+79991400114" class="hover:text-domik-pink transition-colors font-medium">+7 (999) 140-01-14</a>
+                <a href="tel:+79159383529" class="hover:text-domik-pink transition-colors font-medium">+7 (915) 938-35-29</a>
             </div>
         </div>
 
