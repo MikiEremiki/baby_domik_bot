@@ -144,4 +144,23 @@
     .product-card:hover .product-card__details,
     .product-card:focus-within .product-card__details { max-height: 12rem; opacity: 1; }
 }
-.nav-mobile__panel { position: fixed; left: 1rem; right: 1rem; top: 4.5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
+.nav-mobile__backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 23, 42, 0.4);
+    z-index: 998;
+}
+.nav-mobile__modal {
+    position: fixed;
+    top: 4.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100vw - 2rem);
+    max-width: 22rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+    z-index: 999;
+}

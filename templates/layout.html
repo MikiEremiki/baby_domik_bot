@@ -14,7 +14,7 @@
     <meta property="og:url" content="{{ request.url }}">
     <link rel="icon" type="image/jpeg" href="/static/img/logo.jpg">
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
-    <link rel="stylesheet" href="/static/css/site.css">
+    <link rel="stylesheet" href="/static/css/site.css?v=4">
     <script src="/static/js/htmx.min.js"></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
@@ -40,12 +40,19 @@
                     {% endfor %}
                 </nav>
                 <details class="nav-mobile md:hidden">
-                    <summary class="cursor-pointer rounded-lg px-3 py-2 text-xl" aria-label="Меню">☰</summary>
-                    <nav class="nav-mobile__panel z-20 flex flex-col rounded-lg border border-slate-200 bg-white p-2 text-sm font-medium shadow-lg">
-                        {% for href, label, active in nav %}
-                        <a class="nav-link rounded-lg px-3 py-2 {% if active %}nav-link--active{% else %}text-slate-700 hover:bg-slate-100{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
-                        {% endfor %}
-                    </nav>
+                    <summary class="cursor-pointer rounded-lg bg-domik-green-soft px-3 py-1.5 text-xl text-white select-none shadow-sm transition hover:opacity-90" aria-label="Меню">☰</summary>
+                    <div class="nav-mobile__backdrop" onclick="this.closest('details').removeAttribute('open')"></div>
+                    <div class="nav-mobile__modal rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+                        <div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
+                            <span class="font-bold text-slate-800 text-base">Меню</span>
+                            <button type="button" class="text-slate-400 hover:text-slate-600 text-lg font-bold px-2 py-1" onclick="this.closest('details').removeAttribute('open')" aria-label="Закрыть">✕</button>
+                        </div>
+                        <nav class="flex flex-col gap-1 text-base font-medium">
+                            {% for href, label, active in nav %}
+                            <a class="nav-link rounded-lg px-3 py-2.5 transition {% if active %}nav-link--active{% else %}text-slate-700 hover:bg-slate-100{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+                            {% endfor %}
+                        </nav>
+                    </div>
                 </details>
 
                 <div class="flex items-center">
@@ -106,7 +113,7 @@
             <div class="flex flex-col items-center gap-2 text-sm text-slate-600 md:items-end">
                 <div class="font-semibold text-slate-900 uppercase tracking-wider text-xs">Контакты администратора</div>
                 <a href="https://t.me/Theater_Domik_admin" target="_blank" rel="noopener noreferrer" class="hover:text-domik-green-soft transition-colors font-medium">@Theater_Domik_admin</a>
-                <a href="tel:+79991400114" class="hover:text-domik-pink transition-colors font-medium">+7 (999) 140-01-14</a>
+                <a href="tel:+79159383529" class="hover:text-domik-pink transition-colors font-medium">+7 (915) 938-35-29</a>
             </div>
         </div>
 

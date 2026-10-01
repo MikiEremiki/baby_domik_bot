@@ -133,6 +133,11 @@ def test_event_details_page_is_rendered(monkeypatch):
     assert response.status_code == 200
     assert 'Свободно мест (Дети)' in response.text
     assert 'Свободно мест (Взрослые)' in response.text
+    assert 'Чтобы узнать стоимость, нажмите «Выбрать» на нужной дате и времени.' in response.text
+    assert '/booking/101' in response.text
+    assert 'Выбрать' in response.text
+    assert 'tel:+79159383529' in response.text
+    assert 'tel:+79991400114' not in response.text
 
 
 def test_event_details_returns_404_for_unknown_event(monkeypatch):
