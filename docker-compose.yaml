@@ -178,9 +178,7 @@ services:
       - "443:443"
       - "80:80"
     volumes:
-      - ./config/nginx.conf:/etc/nginx/nginx.conf
-      - ./config/server.crt:/etc/nginx/server.crt
-      - ./config/server.key:/etc/nginx/server.key
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./static:/etc/nginx/static:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro

@@ -55,16 +55,23 @@ timeweb в качестве хостинга
   всё равно, что первые два варианта)
 
 ---
-### Управление SSL-сертификатами (Certbot)
+### Управление SSL-сертификатами (Certbot) и Nginx
 
-Для получения нового сертификата (первичный запуск):
-`docker compose -f docker-compose-dev.yaml run --rm certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN`
+Конфигурация Nginx находится в шаблоне `config.template/nginx.conf.template` и использует пути Let's Encrypt:
+- Сертификат: `/etc/letsencrypt/live/baby-theater-domik.ru/fullchain.pem`
+- Ключ: `/etc/letsencrypt/live/baby-theater-domik.ru/privkey.pem`
+
+Для получения нового сертификата (первичный запуск на сервере):
+`docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d baby-theater-domik.ru -d www.baby-theater-domik.ru`
 
 Для ручного обновления всех сертификатов:
-`docker compose -f docker-compose-dev.yaml run --rm certbot renew`
+`docker compose run --rm certbot renew`
 
 После ручного обновления необходимо перезагрузить Nginx для применения изменений:
 `docker compose exec nginx nginx -s reload`
 
 Для проверки процесса обновления (dry-run):
-`docker compose -f docker-compose-dev.yaml run --rm certbot renew --dry-run`
+`docker compose run --rm certbot renew --dry-run`
+
+Проверка цепочки сертификатов и OCSP Stapling:
+`openssl s_client -connect baby-theater-domik.ru:443 -servername baby-theater-domik.ru -status -tlsextdebug < /dev/null`
