@@ -1,19 +1,19 @@
 {% extends "layout.html" %}
 
 {% block title %}Бэби-театр «Домик» — спектакли, праздники и студия{% endblock %}
-{% block meta_description %}Добрый интерактивный театр для самых маленьких и всей семьи: спектакли, заказные мероприятия и театральная студия.{% endblock %}
+{% block meta_description %}Добрый интерактивный театр для самых маленьких: спектакли, заказные мероприятия и театральная студия.{% endblock %}
 
 {% block content %}
 <section class="mb-10 text-center">
     <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">Бэби-театр «Домик»</h1>
-    <p class="mt-3 text-lg text-slate-600">Добрый интерактивный театр для самых маленьких и всей семьи</p>
+    <p class="mt-3 text-lg text-slate-600">Добрый интерактивный театр для самых маленьких</p>
 </section>
 
 <section class="grid grid-cols-1 gap-6 md:grid-cols-3">
     {% for product in site.products %}
     <a class="product-card product-card--{{ product.accent }} group" href="{{ product.url }}">
-        <span class="product-card__badge">{{ product.badge }}</span>
-        <h2 class="mt-3 text-xl font-bold">{{ product.title }}</h2>
+        <h2 class="mt-3 text-2xl font-bold">{{ product.badge }}</h2>
+        <span class="product-card__badge">{{ product.title }}</span>
         <p class="mt-2 text-sm text-slate-600">{{ product.teaser }}</p>
         <ul class="product-card__details mt-3 list-disc pl-5 text-sm text-slate-700">
             {% for bullet in product.bullets %}
@@ -27,12 +27,9 @@
 
 <section class="mt-12">
     <h2 class="mb-6 text-center text-2xl font-bold">Почему выбирают Домик</h2>
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <div class="flex flex-wrap justify-center gap-6">
         {% for adv in site.advantages %}
-        <div class="rounded-xl bg-white p-5 text-center shadow-sm">
-            <div class="text-lg font-bold text-domik-green">{{ adv.title }}</div>
-            <p class="mt-1 text-sm text-slate-600">{{ adv.text }}</p>
-        </div>
+        <span class="text-2xl font-bold text-domik-green">{{ adv.title }}</span>
         {% endfor %}
     </div>
 </section>
