@@ -34,15 +34,6 @@ BATCH_SIZE = 30
 RATE_DELAY = 0.1  # seconds, ~10 msg/sec
 TZ = pytz.timezone('Europe/Moscow')
 
-_bot: Bot | None = None
-
-
-def _get_bot() -> Bot:
-    global _bot
-    if _bot is None:
-        _bot = Bot(token=_settings.bot.token.get_secret_value())
-    return _bot
-
 
 async def _availability_block(session: AsyncSession, campaign_id: int) -> str:
     rows = (await session.execute(
@@ -102,6 +93,7 @@ async def _send_to_chat(
         await bot.send_message(
             chat_id=chat_id,
             text=text,
+            parse_mode='HTML',
             disable_web_page_preview=True
         )
     elif kind == 'photo' and campaign.photo_file_id:
@@ -110,6 +102,7 @@ async def _send_to_chat(
             chat_id=chat_id,
             photo=campaign.photo_file_id,
             caption=caption,
+            parse_mode='HTML',
             disable_notification=False
         )
     elif kind == 'video' and campaign.video_file_id:
@@ -118,6 +111,7 @@ async def _send_to_chat(
             chat_id=chat_id,
             video=campaign.video_file_id,
             caption=caption,
+            parse_mode='HTML',
             disable_notification=False
         )
     elif kind == 'animation' and campaign.animation_file_id:
@@ -126,6 +120,7 @@ async def _send_to_chat(
             chat_id=chat_id,
             animation=campaign.animation_file_id,
             caption=caption,
+            parse_mode='HTML',
             disable_notification=False,
         )
     else:
@@ -134,6 +129,7 @@ async def _send_to_chat(
         await bot.send_message(
             chat_id=chat_id,
             text=text,
+            parse_mode='HTML',
             disable_web_page_preview=True,
         )
 
@@ -170,7 +166,8 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
             logger.warning(f'Campaign not found: id={campaign_id}')
             return
 
-        bot = _get_bot()
+        bot = Bot(token=_settings.bot.token.get_secret_value())
+
         reserve_text = (f"👉 /reserve команда для покупки билетов\n"
                         f"Выбирайте подходящий спектакль и следуйте инструкциям")
 

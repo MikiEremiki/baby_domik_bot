@@ -1,48 +1,124 @@
 {% extends "layout.html" %}
 
 {% block title %}Театральная студия — бэби-театр «Домик»{% endblock %}
-{% block meta_description %}Театрально-развивающие занятия для детей 3–6 лет: бережный подход, развитие речи и эмоционального интеллекта.{% endblock %}
-
-{% set st = site.studio %}
-{% set c = site.contacts %}
+{% block meta_description %}Театрально-развивающие студии: музыкальный театр, сказочные занятия, творчество.{% endblock %}
 
 {% block content %}
-<section class="mb-8">
-    {% set show_bot = false %}{% include "_contacts.html" %}
+<section class="mb-6">
+    <h1 class="text-3xl font-bold tracking-tight">Театральная студия</h1>
+    <p class="mt-2 text-slate-600">Выберите направление и запишитесь на пробное занятие.</p>
 </section>
 
-<section class="mb-10">
-    <h1 class="text-3xl font-bold tracking-tight">Бережный подход к развитию</h1>
-    <ul class="mt-4 list-disc pl-5 text-slate-700">
-        {% for item in st.approach %}<li>{{ item }}</li>{% endfor %}
-    </ul>
-</section>
+<section class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    {% for group in site.studio_groups %}
+    <div class="studio-card rounded-xl border-2 border-domik-green bg-white shadow-sm overflow-hidden cursor-pointer"
+         data-target="studio-details-{{ loop.index }}">
+        <!-- Превью картинка — клик открывает полноэкранный просмотр -->
+        {% if group.image_url %}
+        <div class="studio-card__image flex justify-center overflow-hidden">
+            <img src="{{ group.image_url }}" alt="{{ group.name }}" class="max-h-48 w-auto object-contain"
+                 onclick="event.stopPropagation(); openStudioModal('{{ group.image_url }}')"
+                 style="cursor:zoom-in;">
+        </div>
+        {% endif %}
+        <!-- Заголовок карточки -->
+        <div class="p-4">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <h2 class="text-xl font-bold text-domik-green">{{ group.name }}</h2>
+                    <p class="mt-1 text-sm text-slate-600">Возраст: {{ group.age }}</p>
+                    <p class="mt-1 text-sm text-slate-600">Педагог: {{ group.teacher }}</p>
+                </div>
+                <!-- Кнопка развернуть/свернуть -->
+                <span class="studio-toggle flex-shrink-0 rounded-lg bg-domik-green/10 px-3 py-1.5 text-sm font-semibold text-domik-green">
+                    Подробнее
+                </span>
+            </div>
 
-<section class="mb-10">
-    <h2 class="mb-4 text-2xl font-bold">Что получит ваш ребёнок?</h2>
-    <ul class="list-disc pl-5 text-slate-700">
-        {% for item in st.results %}<li>{{ item }}</li>{% endfor %}
-    </ul>
-</section>
+            <!-- Быстрые действия -->
+            <div class="mt-3 flex flex-wrap gap-2">
+                <a class="inline-block rounded-lg bg-domik-orange px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+                   href="tel:{{ group.phone_tel }}"
+                   onclick="event.stopPropagation()">
+                    Запись: {{ group.phone_display }}
+                </a>
+                <a class="inline-block rounded-lg bg-domik-pink px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+                   href="{{ group.vk_url }}" target="_blank" rel="noopener noreferrer"
+                   onclick="event.stopPropagation()">
+                    Подробнее в ВК
+                </a>
+            </div>
+        </div>
 
-<section class="mb-10">
-    <h2 class="mb-4 text-2xl font-bold">Группы и расписание</h2>
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {% for g in st.groups %}
-        <div class="rounded-xl border-2 border-domik-green bg-white p-5">
-            <div class="text-lg font-bold text-domik-green">{{ g.age }}</div>
-            <div class="mt-1 text-slate-700">{{ g.weekday|capitalize }}</div>
-            <div class="text-sm text-slate-600">Педагог: {{ g.teacher }}</div>
-            {% if g.teacher_url %}
-            <a class="mt-3 inline-block text-sm font-semibold text-domik-pink" href="{{ g.teacher_url }}" target="_blank" rel="noopener noreferrer">Связаться с педагогом</a>
+        <!-- Раскрывающаяся часть -->
+        <div id="studio-details-{{ loop.index }}" class="studio-details hidden border-t border-domik-green/20 bg-domik-green/5 p-4">
+            <p class="text-slate-700">{{ group.description }}</p>
+            {% if group.details %}
+            <ul class="mt-2 list-disc pl-5 text-slate-700 space-y-0.5">
+                {% for detail in group.details %}
+                <li>{{ detail }}</li>
+                {% endfor %}
+            </ul>
             {% endif %}
         </div>
-        {% endfor %}
     </div>
+    {% endfor %}
 </section>
 
-<section>
-    <h2 class="mb-4 text-2xl font-bold">Запись на пробное занятие</h2>
-    {% set show_bot = false %}{% include "_contacts.html" %}
-</section>
+<!-- Модальное окно для просмотра картинки -->
+<div id="studioModal" class="fixed inset-0 z-[9999] hidden bg-black/90 p-4 sm:p-8 flex items-center justify-center opacity-0 transition-opacity duration-300 backdrop-blur-sm" onclick="closeStudioModal()">
+    <button type="button" class="absolute top-4 right-4 sm:top-8 sm:right-8 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full p-2 transition-all cursor-pointer" onclick="closeStudioModal()" title="Закрыть">
+        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    </button>
+    <img id="studioModalImage" src="" alt="Фото группы" class="max-h-full max-w-full object-contain rounded-lg shadow-2xl scale-95 transition-transform duration-300" onclick="event.stopPropagation()">
+</div>
+
+<script>
+    // Разворачивание/сворачивание описания по клику на карточку
+    document.querySelectorAll('.studio-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+            var target = document.getElementById(this.dataset.target);
+            if (!target) return;
+            var toggleLabel = this.querySelector('.studio-toggle');
+            var isHidden = target.classList.contains('hidden');
+            target.classList.toggle('hidden');
+            if (toggleLabel) {
+                toggleLabel.textContent = isHidden ? 'Свернуть' : 'Подробнее';
+            }
+        });
+    });
+
+    // Модальное окно для просмотра картинки
+    function openStudioModal(imageUrl) {
+        var modal = document.getElementById('studioModal');
+        var modalImage = document.getElementById('studioModalImage');
+        modalImage.src = imageUrl;
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.classList.remove('opacity-0');
+        modalImage.classList.remove('scale-95');
+        modalImage.classList.add('scale-100');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeStudioModal() {
+        var modal = document.getElementById('studioModal');
+        var modalImage = document.getElementById('studioModalImage');
+        if (modal.classList.contains('hidden')) return;
+        modal.classList.add('opacity-0');
+        modalImage.classList.remove('scale-100');
+        modalImage.classList.add('scale-95');
+        setTimeout(function() {
+            modal.classList.add('hidden');
+            modalImage.src = '';
+            document.body.style.overflow = '';
+        }, 300);
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeStudioModal();
+        }
+    });
+</script>
 {% endblock %}

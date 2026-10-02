@@ -1,58 +1,82 @@
 {% extends "layout.html" %}
 
 {% block title %}Заказные мероприятия — праздники в бэби-театре «Домик»{% endblock %}
-{% block meta_description %}Дни рождения и закрытые показы в бэби-театре «Домик»: состав праздника подбирается индивидуально.{% endblock %}
+{% block meta_description %}Заказные мероприятия и дни рождения в бэби-театре «Домик»: сказочное чаепитие и закрытые показы.{% endblock %}
 
 {% set ce = site.custom_events %}
 {% set c = site.contacts %}
 
 {% block content %}
-<section class="mb-8">
+<section class="mb-5">
     {% set show_bot = true %}{% include "_contacts.html" %}
 </section>
 
-<section class="mb-10">
+<section class="mb-6">
     <h1 class="text-3xl font-bold tracking-tight">{{ ce.intro_title }}</h1>
-    <p class="mt-3 text-slate-600">{{ ce.intro }}</p>
-    <ul class="mt-4 list-disc pl-5 text-slate-700">
-        {% for f in ce.formats %}<li>{{ f }}</li>{% endfor %}
+    <p class="mt-2 text-slate-600">{{ ce.intro }}</p>
+    <span class="mt-1 inline-flex items-center rounded-full bg-domik-green/10 px-3 py-1 text-sm font-medium text-domik-green">
+        {{ ce.age_badge }}
+    </span>
+</section>
+
+<section class="mb-6 rounded-xl border-2 border-domik-orange bg-white p-4 shadow-sm">
+    <h2 class="text-lg font-bold text-domik-orange">🔵 {{ ce.program.title }} — {{ ce.program.price }}</h2>
+    <ul class="mt-2 list-disc pl-5 text-slate-700">
+        {% for item in ce.program['items'] %}
+        <li>{{ item }}</li>
+        {% endfor %}
     </ul>
 </section>
 
-<section class="mb-10">
-    <h2 class="mb-4 text-2xl font-bold">Какой выбрать спектакль?</h2>
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {% for a in ce.age_recommendations %}
-        <div class="rounded-xl border-2 border-domik-orange bg-white p-4">
-            <div class="font-bold text-domik-orange">{{ a.age }}</div>
-            <p class="mt-1 text-sm text-slate-600">{{ a.text }}</p>
-        </div>
-        {% endfor %}
+<section class="mb-6 rounded-xl bg-white p-4 shadow-sm">
+    <p class="text-slate-700">🎁 {{ ce.gift }}</p>
+    <p class="mt-1 text-sm text-slate-500">{{ ce.note }}</p>
+</section>
+
+<section class="mb-6">
+    <h2 class="mb-2 text-2xl font-bold">{{ ce.how_it_works_title }}</h2>
+    <div class="rounded-xl border-2 border-domik-pink bg-domik-pink/5 p-4">
+        <ul class="space-y-0.5">
+            {% for step in ce.how_it_works %}
+            <li class="flex items-start gap-3">
+                <span class="mt-0.5 flex-shrink-0 text-lg">🔹</span>
+                <span class="text-slate-700">{{ step }}</span>
+            </li>
+            {% endfor %}
+        </ul>
     </div>
 </section>
 
-<section class="mb-10">
-    <h2 class="mb-4 text-2xl font-bold">Что может входить в праздник</h2>
-    <ul class="list-disc pl-5 text-slate-700">
-        {% for item in ce.may_include %}<li>{{ item }}</li>{% endfor %}
-    </ul>
+<section class="mb-6 rounded-xl bg-white p-4 shadow-sm">
+    <p class="text-slate-700">⏰ {{ ce.duration }}</p>
+    <p class="mt-1 text-sm text-slate-500">{{ ce.gathering }}</p>
 </section>
 
-<section class="mb-10">
-    <h2 class="mb-4 text-2xl font-bold">Дополнительные услуги</h2>
-    <ul class="list-disc pl-5 text-slate-700">
-        {% for item in ce.extras %}<li>{{ item }}</li>{% endfor %}
-    </ul>
+<section class="mb-6 rounded-xl bg-white p-4 shadow-sm">
+    <h2 class="mb-2 text-xl font-bold">{{ ce.pricing_title }}</h2>
+    <p class="text-base font-semibold text-slate-900">{{ ce.pricing_base }}</p>
+    <div class="mt-2 rounded-xl border-2 border-domik-green bg-domik-green/5 p-4">
+        <ul class="space-y-1">
+            <li class="flex items-start gap-2 text-sm text-slate-600">
+                <span class="mt-0.5 text-domik-green">✅</span>
+                <span>Состав праздника и спектакль подбираются индивидуально</span>
+            </li>
+            <li class="flex items-start gap-2 text-sm text-slate-600">
+                <span class="mt-0.5 text-domik-green">✅</span>
+                <span>Мы подберем для вас оптимальный вариант в соответствии с возрастом</span>
+            </li>
+        </ul>
+    </div>
 </section>
 
-<section class="mb-10 rounded-xl bg-white p-6 shadow-sm">
-    <h2 class="mb-2 text-2xl font-bold">Стоимость и варианты</h2>
-    <p class="text-slate-700">{{ ce.pricing_note }}</p>
-    <a class="mt-4 inline-block rounded-lg bg-domik-pink px-4 py-2 font-semibold text-white" href="tel:{{ c.organizer.phone_tel }}">Уточнить у администратора</a>
+<section class="mb-6">
+    <a class="inline-block rounded-lg bg-domik-pink px-6 py-2 font-semibold text-white hover:opacity-90 transition-colors" href="tel:{{ c.organizer.phone_tel }}">
+        Уточнить у организатора
+    </a>
 </section>
 
 <section>
-    <h2 class="mb-4 text-2xl font-bold">Как забронировать</h2>
+    <h2 class="mb-3 text-xl font-bold">Как забронировать</h2>
     {% set show_bot = true %}{% include "_contacts.html" %}
 </section>
 {% endblock %}
