@@ -36,6 +36,7 @@
 
 .bg-domik-orange { background-color: var(--domik-orange); }
 .text-domik-orange { color: var(--domik-orange); }
+.border-domik-orange { border-color: var(--domik-orange); }
 
 .domik-gradient {
     background: linear-gradient(135deg, #f7ea14 0%, #25b018 50%, #f14b7e 100%);
