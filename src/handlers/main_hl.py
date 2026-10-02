@@ -1386,11 +1386,18 @@ async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     client_cmds = [
         'START', 'HELP', 'RESET', 'RESERVE', 'STUDIO', 'BD_ORDER', 'BD_PAID', 'REFUNDED_MIGRATED'
     ]
-    admin_cmds = [
-        'RESERVE_ADMIN', 'STUDIO_ADMIN', 'MIGRATION_ADMIN', 'LIST', 'LIST_WAIT',
-        'AFISHA', 'ADM_INFO', 'ADM_CME_INFO', 'SALES', 'SETTINGS',
-        'SEND_APPROVE_MSG', 'UPDATE_TICKET', 'SEND_MSG', 'CANCEL_OLD_TICKETS', 'SET_USER_STATUS',
+    # Команды доступные только через filter_admin (ADMIN_ID)
+    admin_only_cmds = [
+        'RESERVE_ADMIN', 'STUDIO_ADMIN', 'MIGRATION_ADMIN', 'AFISHA',
+        'ADM_INFO', 'ADM_CME_INFO', 'SALES', 'SEND_APPROVE_MSG', 'UPDATE_TICKET',
+        'CANCEL_OLD_TICKETS', 'SET_USER_STATUS', 'SYNC_SCHEDULE',
     ]
+    # Команды доступные через filter_list_cmd (ADMIN_ID + KOCHETKOVA + ORESHKOVA)
+    list_cmds = ['LIST', 'LIST_WAIT']
+    # Команды доступные через filter_settings (ADMIN_ID + KOCHETKOVA)
+    settings_cmds = ['SETTINGS']
+    # Команды доступные через filter_to_send_msg (ADMIN_ID + KOCHETKOVA)
+    send_msg_cmds = ['SEND_MSG']
     update_data_cmds = [
         'UP_BT_DATA', 'UP_TE_DATA', 'UP_SE_DATA', 'UP_SPEC_PRICE',
         'UP_CMF_DATA', 'UP_PROM_DATA'
@@ -1419,7 +1426,7 @@ async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         help_text += "<b>Клиентские команды:</b>\n"
         help_text += format_cmds(client_cmds)
         help_text += "\n<b>Админские команды:</b>\n"
-        help_text += format_cmds(admin_cmds)
+        help_text += format_cmds(admin_only_cmds + list_cmds + settings_cmds + send_msg_cmds)
         help_text += "\n<b>Обновление данных:</b>\n"
         help_text += format_cmds(update_data_cmds)
         help_text += "\n<b>Технические команды:</b>\n"
@@ -1428,17 +1435,17 @@ async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         help_text += "<b>Основные команды:</b>\n"
         help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
         help_text += "\n<b>Управление:</b>\n"
-        help_text += format_cmds(admin_cmds)
+        help_text += format_cmds(admin_only_cmds + list_cmds + settings_cmds + send_msg_cmds)
     elif update.effective_user and update.effective_user.id == CHAT_ID_KOCHETKOVA:
         help_text += "<b>Основные команды:</b>\n"
         help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
         help_text += "\n<b>Управление:</b>\n"
-        help_text += format_cmds(['LIST', 'LIST_WAIT', 'SETTINGS', 'SEND_MSG'])
+        help_text += format_cmds(list_cmds + settings_cmds + send_msg_cmds)
     elif update.effective_user and update.effective_user.id == CHAT_ID_ORESHKOVA:
         help_text += "<b>Основные команды:</b>\n"
         help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
         help_text += "\n<b>Управление:</b>\n"
-        help_text += format_cmds(['LIST', 'LIST_WAIT'])
+        help_text += format_cmds(list_cmds)
     else:
         help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
         help_text += "\nЕсли у вас возникли вопросы, вы можете связаться с администратором."
