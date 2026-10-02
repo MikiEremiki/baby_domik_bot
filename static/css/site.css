@@ -172,3 +172,13 @@
     overflow-y: auto;
     z-index: 999;
 }
+
+/* Карточки студии */
+.studio-card {
+    position: relative;
+}
+.studio-card__image {
+    overflow: hidden;
+    position: relative;
+    z-index: 0;
+}
