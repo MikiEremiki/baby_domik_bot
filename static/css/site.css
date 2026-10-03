@@ -53,6 +53,10 @@
     vertical-align: middle;
 }
 
+.spinner.hidden {
+    display: none !important;
+}
+
 /* Превью афиш */
 .afisha-card {
     width: 130px;
@@ -172,6 +176,11 @@
     overflow-y: auto;
     z-index: 999;
 }
+
+
+/* Кнопка Telegram */
+.bg-telegram { background-color: #24A1DE; }
+.hover-bg-telegram-dark:hover { background-color: #1e8fc2; }
 
 /* Карточки студии */
 .studio-card {

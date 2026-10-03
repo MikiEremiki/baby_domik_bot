@@ -14,7 +14,7 @@
     <meta property="og:url" content="{{ request.url }}">
     <link rel="icon" type="image/jpeg" href="/static/img/logo.jpg">
     <link rel="stylesheet" href="/static/css/tailwind.min.css">
-    <link rel="stylesheet" href="/static/css/site.css?v=4">
+    <link rel="stylesheet" href="/static/css/site.css?v=7">
     <script src="/static/js/htmx.min.js"></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
@@ -74,11 +74,25 @@
                         </div>
                     {% else %}
                         <div class="border-l border-slate-200 pl-6">
-                             <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                                    data-telegram-login="{{ bot_username }}" 
-                                    data-size="medium" 
-                                    data-auth-url="/auth/telegram/callback" 
-                                    data-request-access="write"></script>
+                            <a href="#" id="tg-login-btn" class="inline-flex items-center gap-2 rounded-full bg-telegram hover-bg-telegram-dark px-5 py-2 text-sm font-semibold text-white shadow-sm transition">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0Zm5.562 8.16-2.13 10.073c-.161.712-.572.889-1.146.553l-3.276-2.405-1.578 1.522c-.172.172-.318.318-.649.318l.233-3.313 6.04-5.485c.262-.235-.058-.366-.405-.131l-7.463 4.707-3.242-1.012c-.706-.219-.723-.706.149-1.046l12.58-4.834c.585-.211 1.103.133.913 1.053Z"/></svg>
+                                Войти через Telegram
+                            </a>
+                            <div id="tg-widget-container" style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
+                                <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                                        data-telegram-login="{{ bot_username }}" 
+                                        data-size="medium" 
+                                        data-auth-url="/auth/telegram/callback" 
+                                        data-request-access="write"
+                                        data-color="#24A1DE"></script>
+                            </div>
+                            <script>
+                                document.getElementById('tg-login-btn').addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    var widget = document.querySelector('.telegram-widget iframe');
+                                    if (widget) widget.click();
+                                });
+                            </script>
                         </div>
                     {% endif %}
                 </div>
