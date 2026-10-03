@@ -17,7 +17,7 @@
         {% if group.image_url %}
         <div class="studio-card__image flex justify-center overflow-hidden">
             <img src="{{ group.image_url }}" alt="{{ group.name }}" class="max-h-48 w-auto object-contain"
-                 onclick="event.stopPropagation(); openStudioModal('{{ group.image_url }}')"
+                 onclick="openStudioModal('{{ group.image_url }}')"
                  style="cursor:zoom-in;">
         </div>
         {% endif %}
