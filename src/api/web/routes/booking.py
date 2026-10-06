@@ -58,6 +58,8 @@ async def _get_booking_form_context(request: Request, s: ScheduleEvent, session:
     
     tickets_data = []
     for bt in base_tickets:
+        if not bt.flag_active:
+            continue
         price = await get_ticket_price_for_web(session, bt, s, t_e)
         tickets_data.append({
             'id': bt.base_ticket_id,
