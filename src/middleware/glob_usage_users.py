@@ -20,7 +20,7 @@ def add_glob_on_off_middleware(application, config):
                 'Вы можете написать свой вопрос мне и я перешлю его '
                 'администратору или вы можете связаться с ним '
                 'самостоятельно:<br>'
-                f'{context.bot_data['admin']['contacts']}<br><br>'
+                f'{context.bot_data['admin']['contacts_html']}<br><br>'
                 'или через группы:<br>'
                 '<ul>'
                 '<li><a href="https://t.me/theater_domik">Телеграм</a></li>'
