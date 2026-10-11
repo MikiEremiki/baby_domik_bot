@@ -2,7 +2,7 @@ alembic
 black
 psycopg
 psycopg-binary
-sqlalchemy
+sqlalchemy[asyncio]
 python-telegram-bot[ext]
 pydantic_core
 pydantic-settings
