@@ -8,8 +8,6 @@ Create Date: 2026-10-07 00:00:00.000000
 from alembic import op
 import sqlalchemy as sa
 
-from db import BaseModel
-
 
 # revision identifiers, used by Alembic.
 revision = "c3d4e5f6a7b8"
@@ -17,23 +15,24 @@ down_revision = "b2c3d4e5f6a7"
 branch_labels = None
 depends_on = None
 
-AutoSendingTriggerEnum = sa.Enum(
-    "EVENT",
-    "PAYMENT",
-    name="auto_sending_trigger",
-    metadata=BaseModel.metadata
-)
-
 
 def upgrade() -> None:
-    AutoSendingTriggerEnum.create(op.get_bind(), checkfirst=True)
+    # Create ENUM type via raw SQL — safe against duplicates.
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'auto_sending_trigger') THEN
+                CREATE TYPE auto_sending_trigger AS ENUM ('EVENT', 'PAYMENT');
+            END IF;
+        END $$;
+    """)
 
     # auto_sendings
     op.create_table(
         "auto_sendings",
         sa.Column("id", sa.BigInteger(), nullable=False, autoincrement=True),
         sa.Column("name", sa.String(), nullable=False),
-        sa.Column("trigger", AutoSendingTriggerEnum, nullable=False),
+        sa.Column("trigger", sa.Enum("EVENT", "PAYMENT", name="auto_sending_trigger", create_type=False), nullable=False),
         sa.Column("offset_minutes", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("window_start", sa.TIME(), nullable=True),
         sa.Column("window_end", sa.TIME(), nullable=True),
@@ -154,4 +153,4 @@ https://vk.com/baby_theater_domik',
 def downgrade() -> None:
     op.drop_table("auto_sending_deliveries")
     op.drop_table("auto_sendings")
-    AutoSendingTriggerEnum.drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS auto_sending_trigger")
