@@ -18,13 +18,27 @@
     </div>
     {% endif %}
 
+    {% if sanitized_sendings %}
+    {% for sending, sanitized_text in sanitized_sendings %}
+    <details class="mt-6 text-left rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary class="cursor-pointer px-6 py-4 font-semibold text-slate-900 hover:bg-slate-50 rounded-xl select-none">
+            📎 Материалы к спектаклю
+        </summary>
+        <div class="px-6 pb-5 pt-2 prose prose-sm max-w-none text-slate-700">
+            {{ sanitized_text | safe }}
+        </div>
+    </details>
+    {% endfor %}
+    {% endif %}
+
     <div class="mt-8 border-t border-slate-100 pt-8">
         <h2 class="text-lg font-semibold text-slate-900 mb-4">Правила нашего театра</h2>
         <img src="/static/img/rules.jpg" alt="Правила театра" class="mx-auto rounded-xl shadow-md max-w-full h-auto border border-slate-100">
     </div>
     
     <div class="mt-8 flex flex-wrap justify-center gap-3">
-        <a class="rounded-lg bg-domik-green-soft px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors" href="/">Вернуться к афише</a>
+        <a
+                class="rounded-lg bg-domik-green-soft px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors" href="/afisha">Вернуться к афише</a>
     </div>
     {% else %}
     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-2xl">⚠️</div>
