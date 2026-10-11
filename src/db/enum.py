@@ -57,3 +57,8 @@ class UserRole(enum.Enum):
     ADMIN = 'Администратор'
     DEVELOPER = 'Разработчик'
     SUPERUSER = 'Суперпользователь'
+
+
+class AutoSendingTrigger(enum.Enum):
+    EVENT = 'EVENT'
+    PAYMENT = 'PAYMENT'

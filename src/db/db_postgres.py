@@ -9,9 +9,10 @@ from db import (
     User, Person, Adult, TheaterEvent, Ticket, Child,
     ScheduleEvent, BaseTicket, Promotion, TypeEvent, BotSettings, UserStatus,
     FeedbackTopic, FeedbackMessage, SpecialTicketPrice, Place,
-    ScheduleSyncRun, ScheduleChange)
+    ScheduleSyncRun, ScheduleChange, AutoSending, AutoSendingDelivery)
 from db.enum import (
-    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole)
+    PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole,
+    AutoSendingTrigger)
 from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, Afisha
 from utilities.utl_schedule_changes import (
     normalize_schedule_snapshot, compute_schedule_diff)
@@ -2202,3 +2203,196 @@ async def get_unsynced_schedule_event_ids(session: AsyncSession) -> set[int]:
     )
     res = await session.execute(stmt)
     return set(res.scalars().all())
+
+
+# ─── AutoSending CRUD ─────────────────────────────────────────────────────────
+
+async def get_auto_sending_by_name_event(
+        session: AsyncSession,
+        name: str,
+        trigger: AutoSendingTrigger,
+        theater_event_id: int | None = None
+) -> AutoSending | None:
+    """
+    Возвращает рассылку по имени и триггеру.
+    Сначала ищем запись для конкретного спектакля, затем общую (theater_event_id IS NULL).
+    """
+    stmt = (
+        select(AutoSending)
+        .where(
+            AutoSending.name == name,
+            AutoSending.trigger == trigger,
+            AutoSending.theater_event_id == theater_event_id
+        )
+        .order_by(AutoSending.theater_event_id.desc())
+    )
+    res = await session.execute(stmt)
+    return res.scalars().first()
+
+
+async def get_all_auto_sendings(
+        session: AsyncSession,
+) -> Sequence[AutoSending]:
+    """Return all auto-sendings, regardless of active status."""
+    stmt = select(AutoSending).order_by(AutoSending.id)
+    res = await session.execute(stmt)
+    return res.scalars().all()
+
+
+async def get_all_active_auto_sendings(
+        session: AsyncSession,
+        trigger: AutoSendingTrigger | None = None
+) -> Sequence[AutoSending]:
+    stmt = select(AutoSending).where(AutoSending.is_active == True)
+    if trigger is not None:
+        stmt = stmt.where(AutoSending.trigger == trigger)
+    stmt = stmt.order_by(AutoSending.id)
+    res = await session.execute(stmt)
+    return res.scalars().all()
+
+
+async def get_auto_sending_by_id(
+        session: AsyncSession,
+        sending_id: int,
+) -> AutoSending | None:
+    """Get a single AutoSending by ID."""
+    return await session.get(AutoSending, sending_id)
+
+
+async def create_auto_sending(
+        session: AsyncSession,
+        name: str,
+        trigger: AutoSendingTrigger,
+        text: str,
+        offset_minutes: int = 0,
+        window_start: Any | None = None,
+        window_end: Any | None = None,
+        precise: bool = False,
+        conditions: dict | None = None,
+        theater_event_id: int | None = None,
+        send_via_bot: bool = True,
+        send_via_website: bool = False,
+        is_active: bool = True,
+        auto_commit: bool = True
+) -> AutoSending:
+    sending = AutoSending(
+        name=name,
+        trigger=trigger,
+        text=text,
+        offset_minutes=offset_minutes,
+        window_start=window_start,
+        window_end=window_end,
+        precise=precise,
+        conditions=conditions,
+        theater_event_id=theater_event_id,
+        send_via_bot=send_via_bot,
+        send_via_website=send_via_website,
+        is_active=is_active,
+    )
+    session.add(sending)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(sending)
+    return sending
+
+
+async def update_auto_sending(
+        session: AsyncSession,
+        sending_id: int,
+        auto_commit: bool = True,
+        **kwargs
+) -> AutoSending | None:
+    sending = await session.get(AutoSending, sending_id)
+    if not sending:
+        return None
+    for key, value in kwargs.items():
+        setattr(sending, key, value)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(sending)
+    return sending
+
+
+async def delete_auto_sending(
+        session: AsyncSession,
+        sending_id: int,
+        auto_commit: bool = True
+) -> bool:
+    sending = await session.get(AutoSending, sending_id)
+    if not sending:
+        return False
+    await session.delete(sending)
+    if auto_commit:
+        await session.commit()
+    return True
+
+
+# ─── AutoSendingDelivery CRUD ─────────────────────────────────────────────────
+
+async def get_delivery(
+        session: AsyncSession,
+        auto_sending_id: int,
+        user_id: int,
+        dedup_key: str
+) -> AutoSendingDelivery | None:
+    stmt = (
+        select(AutoSendingDelivery)
+        .where(
+            AutoSendingDelivery.auto_sending_id == auto_sending_id,
+            AutoSendingDelivery.user_id == user_id,
+            AutoSendingDelivery.dedup_key == dedup_key
+        )
+    )
+    res = await session.execute(stmt)
+    return res.scalars().first()
+
+
+async def create_delivery(
+        session: AsyncSession,
+        auto_sending_id: int,
+        user_id: int,
+        dedup_key: str,
+        sent_at: datetime,
+        schedule_event_id: int | None = None,
+        auto_commit: bool = True
+) -> AutoSendingDelivery:
+    delivery = AutoSendingDelivery(
+        auto_sending_id=auto_sending_id,
+        user_id=user_id,
+        dedup_key=dedup_key,
+        sent_at=sent_at,
+        schedule_event_id=schedule_event_id,
+    )
+    session.add(delivery)
+    if auto_commit:
+        await session.commit()
+        await session.refresh(delivery)
+    return delivery
+
+
+async def update_delivery(
+        session: AsyncSession,
+        auto_sending_id: int,
+        user_id: int,
+        dedup_key: str,
+        sent_at: datetime,
+        auto_commit: bool = True
+) -> AutoSendingDelivery | None:
+    """Update sent_at of an existing delivery record (for force resend)."""
+    stmt = (
+        select(AutoSendingDelivery)
+        .where(
+            AutoSendingDelivery.auto_sending_id == auto_sending_id,
+            AutoSendingDelivery.user_id == user_id,
+            AutoSendingDelivery.dedup_key == dedup_key
+        )
+    )
+    res = await session.execute(stmt)
+    delivery = res.scalars().first()
+    if not delivery:
+        return None
+    delivery.sent_at = sent_at
+    if auto_commit:
+        await session.commit()
+        await session.refresh(delivery)
+    return delivery

@@ -35,12 +35,15 @@ services:
       - db:/var/lib/postgresql/data
     env_file:
       - config/.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-baby_domik}
     ports:
       - "5432:5432"
     networks:
       - network
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "$POSTGRES_USER", "-d", "$POSTGRES_DB" ]
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}", "-d", "${POSTGRES_DB:-baby_domik}" ]
       interval: 10s
       timeout: 5s
       retries: 5

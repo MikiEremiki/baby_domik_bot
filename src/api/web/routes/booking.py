@@ -1,4 +1,5 @@
 import asyncio
+import bleach
 import time
 import uuid
 from datetime import timezone
@@ -17,7 +18,7 @@ from ..services.booking_service import (
     compute_discounted_price_web,
 )
 from db.models import ScheduleEvent, Adult, Child, Person, Ticket, PersonTicket, UserTicket
-from db.enum import AgeType, TicketStatus, UserRole
+from db.enum import AgeType, AutoSendingTrigger, TicketStatus, UserRole
 from db.db_postgres import (
     get_schedule_event,
     get_schedule_event_available_seats,
@@ -30,6 +31,7 @@ from db.db_postgres import (
     get_email,
     get_adult_name,
     get_default_place,
+    get_all_active_auto_sendings,
 )
 from api.gspread_pub import (
     publish_write_data_reserve,
@@ -58,6 +60,8 @@ async def _get_booking_form_context(request: Request, s: ScheduleEvent, session:
     
     tickets_data = []
     for bt in base_tickets:
+        if not bt.flag_active:
+            continue
         price = await get_ticket_price_for_web(session, bt, s, t_e)
         tickets_data.append({
             'id': bt.base_ticket_id,
@@ -497,6 +501,38 @@ async def show_payment_result(
     else:
         is_success = (status.lower() == 'success')
 
+    # Load PAYMENT auto-sendings for website display
+    payment_sendings = []
+    if is_success and schedule_id:
+        try:
+            sendings = await get_all_active_auto_sendings(
+                session, trigger=AutoSendingTrigger.PAYMENT)
+            # Filter: send_via_website=True and matching theater event
+            schedule_event = await get_schedule_event(session, schedule_id)
+            if schedule_event:
+                theater_event_id = schedule_event.theater_event_id
+                # Prefer theater-specific, then general (theater_event_id IS NULL)
+                specific = [s for s in sendings
+                            if s.theater_event_id == theater_event_id
+                            and s.send_via_website]
+                if specific:
+                    payment_sendings = specific
+                else:
+                    general = [s for s in sendings
+                               if s.theater_event_id is None
+                               and s.send_via_website]
+                    payment_sendings = general
+        except Exception as e:
+            logger.error(f"Failed to load payment auto-sendings: {e}")
+
+    # Sanitize sending text for safe HTML rendering (XSS protection)
+    # Build a clean copy to avoid mutating ORM objects
+    ALLOWED_HTML_TAGS = {'b', 'i', 'strong', 'em', 'br', 'p', 'ul', 'ol', 'li', 'a'}
+    sanitized_sendings = []
+    for sending in payment_sendings:
+        sanitized_text = bleach.clean(sending.text, tags=ALLOWED_HTML_TAGS, strip=True)
+        sanitized_sendings.append((sending, sanitized_text))
+
     return templates.TemplateResponse(
         request=request,
         name='payment_result.html',
@@ -505,5 +541,7 @@ async def show_payment_result(
             'ticket_id': ticket_id,
             'schedule_id': schedule_id,
             'confirmation_url': confirmation_url,
+            'payment_sendings': payment_sendings,
+            'sanitized_sendings': sanitized_sendings,
         },
     )

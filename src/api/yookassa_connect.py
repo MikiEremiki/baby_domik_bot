@@ -1,7 +1,30 @@
+import asyncio
 from typing import Optional, Union
 
+from yookassa import Receipt
 from yookassa.domain import models
 from settings.settings import URL_BOT
+
+
+OFD_URL_TEMPLATE = 'https://lk.platformaofd.ru/web/noauth/cheque?fn={fn}&fp={fp}&i={i}'
+
+
+def build_ofd_url(fn: str, fp: str, i: str) -> str:
+    """Build public OFD receipt URL from fiscal data."""
+    return OFD_URL_TEMPLATE.format(fn=fn, fp=fp, i=i)
+
+
+async def fetch_payment_receipts(payment_id: str, timeout: float = 10.0) -> list:
+    """Fetch receipts for a payment via YooKassa SDK Receipt.list.
+
+    Returns the list of receipt items, or an empty list on error.
+    TimeoutError and SDK errors are propagated to the caller.
+    """
+    result = await asyncio.wait_for(
+        asyncio.to_thread(Receipt.list, {'payment_id': payment_id}),
+        timeout=timeout,
+    )
+    return result.items or []
 
 
 def create_param_payment(

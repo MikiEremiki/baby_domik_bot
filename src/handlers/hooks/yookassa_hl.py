@@ -9,7 +9,7 @@ from api.googlesheets import update_ticket_in_gspread
 from api.gspread_pub import publish_update_ticket
 from db import db_postgres
 from db.db_googlesheets import decrease_nonconfirm_seat
-from db.enum import TicketStatus
+from db.enum import AutoSendingTrigger, TicketStatus
 from handlers.main_hl import send_approve_message
 from handlers.sub_hl import (
     send_approve_reject_message_to_admin_in_webhook,
@@ -266,6 +266,15 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
                 text = f'Не удалось отправить уведомление админу о платеже админ-брони: {e}'
                 webhook_hl_logger.exception(text)
         else:
+            # Dispatch PAYMENT auto-sendings for non-admin bookings.
+            # Isolated from critical path: dispatcher failure must not break the webhook.
+            try:
+                await _dispatch_payment_auto_sendings(
+                    context, ticket_ids, choose_schedule_event_ids)
+            except Exception as e:
+                webhook_hl_logger.exception(
+                    f'Auto-sending PAYMENT dispatch failed (non-fatal): {e}')
+
             if int_chat_id != 0:
                 text += (
                     'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
@@ -370,6 +379,70 @@ async def processing_cme_prepaid(update, context):
         except (TimedOut, NetworkError) as fallback_err:
             webhook_hl_logger.error(
                 f'Не удалось отправить fallback-сообщение: {fallback_err}')
+
+
+async def _dispatch_payment_auto_sendings(
+    context: 'ContextTypes.DEFAULT_TYPE',
+    ticket_ids: list[int],
+    schedule_event_ids: list[str],
+) -> None:
+    """Dispatch PAYMENT auto-sendings for just-paid tickets.
+
+    Delegates recipient selection to ``schedule.auto_sending``, which builds
+    context with all standard placeholders (event_name, date, time, place,
+    ticket_ids, refund_info) and groups by (user_id, schedule_event_id).
+    """
+    from schedule.auto_sending import (
+        dispatch_auto_sending,
+        resolve_auto_sending,
+        select_payment_recipients,
+    )
+
+    session = context.session
+
+    # Resolve active PAYMENT auto-sendings using all schedule events from the payment
+    # Collect unique theater_event_ids from the paid tickets
+    theater_event_ids: set[int | None] = set()
+    for tid in ticket_ids:
+        t = await db_postgres.get_ticket(session, tid)
+        if t is not None:
+            se = await db_postgres.get_schedule_event(session, t.schedule_event_id)
+            if se is not None:
+                tid_val = se.theater_event_id
+                if tid_val is not None:
+                    theater_event_ids.add(tid_val)
+
+    # Collect all PAYMENT sendings for any of the theater events
+    all_sendings: list = []
+    for te_id in theater_event_ids:
+        sendings = await resolve_auto_sending(
+            session, AutoSendingTrigger.PAYMENT, te_id)
+        all_sendings.extend(sendings)
+    # Also check for general sendings (theater_event_id IS NULL)
+    general_sendings = await resolve_auto_sending(
+        session, AutoSendingTrigger.PAYMENT, None)
+    all_sendings.extend(general_sendings)
+
+    # Deduplicate by sending ID
+    seen: set[int] = set()
+    unique_sendings: list = []
+    for s in all_sendings:
+        if s.id not in seen:
+            seen.add(s.id)
+            unique_sendings.append(s)
+    sendings = unique_sendings
+
+    if not sendings:
+        return
+
+    # Build recipients using the shared selector
+    recipients = await select_payment_recipients(session, ticket_ids)
+    if not recipients:
+        return
+
+    # Dispatch each auto-sending
+    for auto_sending in sendings:
+        await dispatch_auto_sending(context, session, auto_sending, recipients)
 
 
 YookassaHookHandler = TypeHandler(WebhookNotification, yookassa_hook_update)

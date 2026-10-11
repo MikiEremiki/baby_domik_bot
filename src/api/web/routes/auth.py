@@ -14,6 +14,22 @@ from db.enum import UserRole
 
 router = APIRouter()
 
+
+def sanitize_next_url(next_value: str | None) -> str:
+    """Validate and sanitize the ``next`` redirect target.
+
+    Returns the value as-is if it is a safe relative path starting with ``/``.
+    Rejects ``//`` (protocol-relative) and ``://`` (absolute URL) patterns
+    to prevent open-redirect attacks.
+    """
+    if not next_value:
+        return "/"
+    if next_value.startswith("//") or "://" in next_value:
+        return "/"
+    if not next_value.startswith("/"):
+        return "/"
+    return next_value
+
 def validate_telegram_data(data: dict, bot_token: str) -> bool:
     received_hash = data.get('hash')
     if not received_hash:
@@ -55,6 +71,7 @@ async def telegram_auth_callback(
     photo_url: str | None = Query(None),
     auth_date: int = Query(...),
     hash: str = Query(...),
+    next: str | None = Query(None),
     session: AsyncSession = Depends(get_session)
 ):
     # Telegram передает id как число, но для хеша нам нужны строки
@@ -106,10 +123,12 @@ async def telegram_auth_callback(
         'photo_url': photo_url
     }
 
-    # Редирект обратно на главную
-    return RedirectResponse(url='/')
+    # Редирект на исходную страницу или на главную
+    redirect_url = sanitize_next_url(next)
+    return RedirectResponse(url=redirect_url)
 
 @router.get('/logout')
-async def logout(request: Request):
+async def logout(request: Request, next: str | None = Query(None)):
     request.session.clear()
-    return RedirectResponse(url='/')
+    redirect_url = sanitize_next_url(next)
+    return RedirectResponse(url=redirect_url)

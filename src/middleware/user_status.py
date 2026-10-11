@@ -34,7 +34,7 @@ def add_user_status_middleware(application: Application, config):
 
             if status.is_blocked_by_admin:
                 user_status_md_logger.info(f'{user_id=} is blocked by admin. Stop handling.')
-                admin_contacts = context.bot_data.get('admin', {}).get('contacts', '')
+                admin_contacts = context.bot_data.get('admin', {}).get('contacts_html', '')
                 text = (
                     'Бот не может обработать от вас запросы.<br><br>'
                     'Для решения свяжитесь с Администратором:<br>'

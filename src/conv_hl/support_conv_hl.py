@@ -3,7 +3,7 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_settings
-from handlers import support_hl, promotion_hl, schedule_hl, place_hl
+from handlers import support_hl, promotion_hl, schedule_hl, place_hl, auto_sending_hl
 from handlers.sub_hl import (
     update_base_ticket_data, update_theater_event_data,
     update_special_ticket_price, update_schedule_event_data,
@@ -15,6 +15,20 @@ from conv_hl import (
     common_fallbacks
 )
 from settings.settings import COMMAND_DICT
+
+# Auto-sending wizard states
+AS_NAME = auto_sending_hl.AUTO_SENDING_NAME
+AS_TRIGGER = auto_sending_hl.AUTO_SENDING_TRIGGER
+AS_THEATER = auto_sending_hl.AUTO_SENDING_THEATER
+AS_OFFSET = auto_sending_hl.AUTO_SENDING_OFFSET
+AS_WINDOW = auto_sending_hl.AUTO_SENDING_WINDOW
+AS_PRECISE = auto_sending_hl.AUTO_SENDING_PRECISE
+AS_CHANNELS = auto_sending_hl.AUTO_SENDING_CHANNELS
+AS_TEXT = auto_sending_hl.AUTO_SENDING_TEXT
+AS_CONFIRM = auto_sending_hl.AUTO_SENDING_CONFIRM
+AS_EDIT_FIELD = auto_sending_hl.AUTO_SENDING_EDIT_FIELD
+AS_MANUAL_MODE = auto_sending_hl.AUTO_SENDING_MANUAL_MODE
+AS_MANUAL_ID = auto_sending_hl.AUTO_SENDING_MANUAL_ID
 
 states = {
     1: [
@@ -94,6 +108,109 @@ states = {
         CallbackQueryHandler(promotion_hl.confirm_promotion_delete,
                              r'^confirm_del_prom_(\d+)$'),
         CallbackQueryHandler(promotion_hl.ask_promotion_summary, '^skip_to_confirm$'),
+        # Auto-sending list and actions
+        CallbackQueryHandler(auto_sending_hl.auto_sending_select,
+                             r'^auto_sending_select(_p_.*)?$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_create_start,
+                             '^auto_sending_create$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_edit_start,
+                             r'^auto_sending_edit_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_toggle_active,
+                             r'^as_toggle_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_delete_start,
+                             r'^as_delete_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_confirm_delete,
+                             r'^as_confirm_del_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_manual_send_start,
+                             r'^as_manual_(\d+)$'),
+    ],
+    # Auto-sending wizard: Name
+    AS_NAME: [
+        back_callback_handler,
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command, auto_sending_hl.auto_sending_handle_name),
+    ],
+    # Auto-sending wizard: Trigger
+    AS_TRIGGER: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_trigger, r'^as_trig_(event|payment)$'),
+    ],
+    # Auto-sending wizard: Theater
+    AS_THEATER: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_theater, r'^as_theater_(all|specific)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_theater_id, r'^as_theater_(\d+)$'),
+    ],
+    # Auto-sending wizard: Offset
+    AS_OFFSET: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        MessageHandler(F_text_and_no_command, auto_sending_hl.auto_sending_handle_offset),
+    ],
+    # Auto-sending wizard: Window
+    AS_WINDOW: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_window_skip, '^as_window_skip$'),
+        MessageHandler(F_text_and_no_command, auto_sending_hl.auto_sending_handle_window),
+    ],
+    # Auto-sending wizard: Precise
+    AS_PRECISE: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_precise, r'^as_precise_(yes|no)$'),
+    ],
+    # Auto-sending wizard: Channels
+    AS_CHANNELS: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_channels, r'^as_ch_(bot|web|both)$'),
+    ],
+    # Auto-sending wizard: Text
+    AS_TEXT: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        MessageHandler(F_text_and_no_command, auto_sending_hl.auto_sending_handle_text),
+    ],
+    # Auto-sending wizard: Confirm
+    AS_CONFIRM: [
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_confirm_create, '^as_accept$'),
+    ],
+    # Auto-sending edit field menu
+    AS_EDIT_FIELD: [
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_from_edit, '^Назад'),
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_edit_field, r'^as_edit_(name|trigger|theater|offset|window|precise|channels|text)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_save_edit, '^as_edit_save$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_toggle_active, r'^as_toggle_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_delete_start, r'^as_delete_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_confirm_delete, r'^as_confirm_del_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_manual_send_start, r'^as_manual_(\d+)$'),
+    ],
+    # Auto-sending manual send: mode
+    AS_MANUAL_MODE: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_handle_manual_mode, r'^as_manual_by_(ticket|session)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_send_preview_to_self, r'^as_preview_(\d+)$'),
+        CallbackQueryHandler(auto_sending_hl.auto_sending_toggle_force_resend, '^as_manual_force$'),
+    ],
+    # Auto-sending manual send: ID
+    AS_MANUAL_ID: [
+        back_callback_handler,
+        cancel_callback_handler,
+        MessageHandler(F_text_and_no_command, auto_sending_hl.auto_sending_handle_manual_id),
     ],
     41: [
         cancel_callback_handler,

@@ -1037,3 +1037,88 @@ def test_pages_have_seo_meta(monkeypatch, path):
     assert '<meta name="description"' in html
     assert 'property="og:image"' in html
     assert 'property="og:url"' in html
+
+
+# ── Return after Telegram login / logout ──────────────────────────────
+
+from api.web.routes.auth import sanitize_next_url
+
+
+def test_sanitize_next_url_valid():
+    assert sanitize_next_url("/afisha") == "/afisha"
+    assert sanitize_next_url("/booking/101") == "/booking/101"
+    assert sanitize_next_url("/") == "/"
+
+
+def test_sanitize_next_url_open_redirect():
+    assert sanitize_next_url("//evil.com") == "/"
+    assert sanitize_next_url("https://evil.com") == "/"
+
+
+def test_sanitize_next_url_none():
+    assert sanitize_next_url(None) == "/"
+    assert sanitize_next_url("") == "/"
+
+
+def test_auth_callback_redirects_to_next(monkeypatch):
+    monkeypatch.setattr(
+        "api.web.routes.auth.validate_telegram_data",
+        lambda data, token: True,
+    )
+    with _create_client(monkeypatch) as client:
+        resp = client.get(
+            "/auth/telegram/callback",
+            params={
+                "id": "123",
+                "first_name": "Test",
+                "auth_date": str(int(__import__("time").time()) + 3600),
+                "hash": "abc",
+                "next": "/afisha",
+            },
+            follow_redirects=False,
+        )
+    assert resp.status_code in (307, 303, 302)
+    assert resp.headers["location"].endswith("/afisha")
+
+
+def test_auth_callback_blocks_open_redirect(monkeypatch):
+    monkeypatch.setattr(
+        "api.web.routes.auth.validate_telegram_data",
+        lambda data, token: True,
+    )
+    with _create_client(monkeypatch) as client:
+        resp = client.get(
+            "/auth/telegram/callback",
+            params={
+                "id": "123",
+                "first_name": "Test",
+                "auth_date": str(int(__import__("time").time()) + 3600),
+                "hash": "abc",
+                "next": "//evil.com",
+            },
+            follow_redirects=False,
+        )
+    assert resp.status_code in (307, 303, 302)
+    assert resp.headers["location"].endswith("/")
+
+
+def test_logout_redirects_to_next(monkeypatch):
+    with _create_client(monkeypatch) as client:
+        resp = client.get("/logout?next=/afisha", follow_redirects=False)
+    assert resp.status_code in (307, 303, 302)
+    assert resp.headers["location"].endswith("/afisha")
+
+
+def test_logout_blocks_open_redirect(monkeypatch):
+    with _create_client(monkeypatch) as client:
+        resp = client.get("/logout?next=//evil.com", follow_redirects=False)
+    assert resp.status_code in (307, 303, 302)
+    assert resp.headers["location"].endswith("/")
+
+
+def test_layout_auth_url_contains_next(monkeypatch):
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[]))
+    with _create_client(monkeypatch) as client:
+        response = client.get("/")
+    assert response.status_code == 200
+    assert "next=/" in response.text

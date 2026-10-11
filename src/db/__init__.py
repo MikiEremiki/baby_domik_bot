@@ -5,4 +5,5 @@ from .models import (User, Person, Child, Ticket, TypeEvent, TheaterEvent,
                      SalesCampaign, SalesCampaignSchedule, SalesRecipient,
                      TelegramUpdate, BotSettings, UserStatus, FeedbackTopic,
                      FeedbackMessage, SpecialTicketPrice, Place, Afisha,
-                     ScheduleSyncRun, ScheduleChange)
+                     ScheduleSyncRun, ScheduleChange, AutoSending,
+                     AutoSendingDelivery)

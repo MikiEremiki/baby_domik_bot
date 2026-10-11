@@ -23,37 +23,6 @@ class TGUpdateLoggingMiddleware:
                 "full_update": update_dict,
             }
 
-            fields = [
-                "message",
-                "edited_message",
-                "channel_post",
-                "edited_channel_post",
-                "inline_query",
-                "chosen_inline_result",
-                "callback_query",
-                "shipping_query",
-                "pre_checkout_query",
-                "poll",
-                "poll_answer",
-                "my_chat_member",
-                "chat_member",
-                "chat_join_request",
-                "chat_boost",
-                "removed_chat_boost",
-                "message_reaction",
-                "message_reaction_count",
-                "business_connection",
-                "business_message",
-                "edited_business_message",
-                "deleted_business_messages",
-                "purchased_paid_media",
-            ]
-
-            for field in fields:
-                val = update_dict.get(field)
-                if val is not None:
-                    data[field] = val
-
             if update.effective_user:
                 data["user_id"] = update.effective_user.id
             if update.effective_chat:
@@ -61,11 +30,7 @@ class TGUpdateLoggingMiddleware:
 
             message = update.effective_message
             if message:
-                data["message_id"] = message.message_id
                 data["text"] = message.text or message.caption
-                data["message_thread_id"] = message.message_thread_id
-                if message.reply_to_message:
-                    data["reply_to_message_id"] = message.reply_to_message.message_id
 
             async with self.sessionmaker() as session:
                 stmt = pg_insert(TelegramUpdate).values(**data).on_conflict_do_nothing(

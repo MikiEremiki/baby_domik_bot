@@ -8,7 +8,7 @@ from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
     GroupOfPeopleByDiscountType, CustomMadeStatus,
-    UserRole, PromotionDiscountType)
+    UserRole, PromotionDiscountType, AutoSendingTrigger)
 
 
 class User(BaseModelTimed):
@@ -540,38 +540,11 @@ class TelegramUpdate(BaseModelTimed):
     id: Mapped[int] = mapped_column(primary_key=True)
     update_id: Mapped[int] = mapped_column(BigInteger, unique=True)
 
-    message: Mapped[Optional[dict]] = mapped_column(JSON)
-    edited_message: Mapped[Optional[dict]] = mapped_column(JSON)
-    channel_post: Mapped[Optional[dict]] = mapped_column(JSON)
-    edited_channel_post: Mapped[Optional[dict]] = mapped_column(JSON)
-    inline_query: Mapped[Optional[dict]] = mapped_column(JSON)
-    chosen_inline_result: Mapped[Optional[dict]] = mapped_column(JSON)
-    callback_query: Mapped[Optional[dict]] = mapped_column(JSON)
-    shipping_query: Mapped[Optional[dict]] = mapped_column(JSON)
-    pre_checkout_query: Mapped[Optional[dict]] = mapped_column(JSON)
-    poll: Mapped[Optional[dict]] = mapped_column(JSON)
-    poll_answer: Mapped[Optional[dict]] = mapped_column(JSON)
-    my_chat_member: Mapped[Optional[dict]] = mapped_column(JSON)
-    chat_member: Mapped[Optional[dict]] = mapped_column(JSON)
-    chat_join_request: Mapped[Optional[dict]] = mapped_column(JSON)
-    chat_boost: Mapped[Optional[dict]] = mapped_column(JSON)
-    removed_chat_boost: Mapped[Optional[dict]] = mapped_column(JSON)
-    message_reaction: Mapped[Optional[dict]] = mapped_column(JSON)
-    message_reaction_count: Mapped[Optional[dict]] = mapped_column(JSON)
-    business_connection: Mapped[Optional[dict]] = mapped_column(JSON)
-    business_message: Mapped[Optional[dict]] = mapped_column(JSON)
-    edited_business_message: Mapped[Optional[dict]] = mapped_column(JSON)
-    deleted_business_messages: Mapped[Optional[dict]] = mapped_column(JSON)
-    purchased_paid_media: Mapped[Optional[dict]] = mapped_column(JSON)
-
     full_update: Mapped[dict] = mapped_column(JSON)
 
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     chat_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     text: Mapped[Optional[str]]
-    message_id: Mapped[Optional[int]] = mapped_column(BigInteger)
-    reply_to_message_id: Mapped[Optional[int]] = mapped_column(BigInteger)
-    message_thread_id: Mapped[Optional[int]] = mapped_column(BigInteger)
 
 
 class BotSettings(BaseModelTimed):
@@ -693,3 +666,42 @@ class ScheduleChange(BaseModelTimed):
 
     schedule_event: Mapped[Optional['ScheduleEvent']] = relationship(back_populates='changes', lazy='selectin')
     sync_run: Mapped[Optional['ScheduleSyncRun']] = relationship(back_populates='changes', lazy='selectin')
+
+
+class AutoSending(BaseModelTimed):
+    __tablename__ = 'auto_sendings'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    trigger: Mapped[AutoSendingTrigger] = mapped_column(
+        Enum(AutoSendingTrigger, name='auto_sending_trigger'))
+    offset_minutes: Mapped[int] = mapped_column(default=0)
+    window_start: Mapped[Optional[time]]
+    window_end: Mapped[Optional[time]]
+    precise: Mapped[bool] = mapped_column(default=False)
+    conditions: Mapped[Optional[dict]] = mapped_column(JSON)
+    theater_event_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('theater_events.id', ondelete='CASCADE'))
+    text: Mapped[str]
+    send_via_bot: Mapped[bool] = mapped_column(default=True)
+    send_via_website: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class AutoSendingDelivery(BaseModelTimed):
+    __tablename__ = 'auto_sending_deliveries'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    auto_sending_id: Mapped[int] = mapped_column(
+        ForeignKey('auto_sendings.id', ondelete='CASCADE'))
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey('users.user_id'))
+    dedup_key: Mapped[str]
+    schedule_event_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('schedule_events.id'))
+    sent_at: Mapped[datetime]
+
+    __table_args__ = (
+        UniqueConstraint('auto_sending_id', 'user_id', 'dedup_key',
+                         name='uq__auto_sending_deliveries__auto_sending_id_user_id_dedup_key'),
+    )

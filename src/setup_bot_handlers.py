@@ -6,7 +6,7 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
-from handlers import main_hl, profile_hl
+from handlers import main_hl, profile_hl, receipt_hl
 from handlers.sub_hl import update_admin_info, update_cme_admin_info, update_place_data
 from handlers.hooks import (
     YookassaHookHandler,
@@ -47,20 +47,42 @@ from utilities.utl_func import (
 )
 from settings.settings import COMMAND_DICT
 
-set_handlers_logger = logging.getLogger('bot.set_handlers')
+setup_bot_handlers_logger = logging.getLogger('bot.setup_bot_handlers')
 
 
-def set_handlers(application: Application, config):
+def setup_handlers(application: Application, config):
+    """Главная функция — точка входа из bot.py."""
+    _add_middlewares(application, config)
+    _add_chat_member_handler(application)
+    _add_callback_handlers(application)
+    _add_conversation_handlers(application)
+    _add_public_commands(application)
+    _add_admin_commands(application)
+    _add_message_handlers(application)
+    _add_hook_handlers(application)
+    _add_error_handler(application)
+    setup_bot_handlers_logger.info('Всё готово к поллингу')
+
+
+def _add_middlewares(application: Application, config):
+    """Регистрация мидлварей (5 штук)."""
     add_tg_update_logging_middleware(application, config)
     add_db_handlers_middleware(application, config)
-    application.add_handler(
-        ChatMemberHandler(main_hl.on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER),
-        group=-80
-    )
     add_user_status_middleware(application, config)
     add_glob_on_off_middleware(application, config)
     add_reserve_check_middleware(application, config)
 
+
+def _add_chat_member_handler(application: Application):
+    """ChatMemberHandler для on_my_chat_member_update."""
+    application.add_handler(
+        ChatMemberHandler(main_hl.on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER),
+        group=-80
+    )
+
+
+def _add_callback_handlers(application: Application):
+    """Все CallbackQueryHandler (12 штук)."""
     application.add_handlers([
         CallbackQueryHandler(main_hl.confirm_reserve, '^confirm-reserve'),
         CallbackQueryHandler(main_hl.reject_reserve, '^reject-reserve'),
@@ -72,8 +94,13 @@ def set_handlers(application: Application, config):
         CallbackQueryHandler(main_hl.reject_privilege, '^reject-privilege'),
         CallbackQueryHandler(handle_sync_schedule_confirm, r'^sch_sync_confirm_'),
         CallbackQueryHandler(handle_sync_schedule_cancel, r'^sch_sync_cancel_'),
+        CallbackQueryHandler(receipt_hl.receipt_callback, '^receipt\|'),
+        CallbackQueryHandler(receipt_hl.receipt_send_callback, '^receipt_send\|'),
     ])
 
+
+def _add_conversation_handlers(application: Application):
+    """Все conversation handlers (9 штук)."""
     conversation_handlers = [
         reserve_conv_hl,
         reserve_admin_conv_hl,
@@ -87,6 +114,9 @@ def set_handlers(application: Application, config):
     ]
     application.add_handlers(conversation_handlers)
 
+
+def _add_public_commands(application: Application):
+    """Публичные CommandHandler (start, help, reset, echo, tickets)."""
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
         CommandHandler('help', main_hl.help_cmd),
@@ -96,6 +126,8 @@ def set_handlers(application: Application, config):
     ])
 
 
+def _add_admin_commands(application: Application):
+    """Админские CommandHandler (~20 команд с filter_admin)."""
     application.add_handlers([
         CommandHandler('clean_ud', clean_ud, filter_admin),
         CommandHandler('print_ud', print_ud, filter_admin),
@@ -103,45 +135,27 @@ def set_handlers(application: Application, config):
         CommandHandler(COMMAND_DICT['UP_PLACE_DATA'][0], update_place_data, filter_admin),
         CommandHandler('update_config', update_config, filter_admin),
         CommandHandler('update_settings', update_settings, filter_admin),
-        CommandHandler('send_approve_msg',
-                       main_hl.send_approve_msg,
-                       filter_admin),
-        CommandHandler('update_ticket',
-                       main_hl.update_ticket,
-                       filter_admin),
-        CommandHandler('send_msg',
-                       main_hl.send_msg,
-                       filter_to_send_msg),
+        CommandHandler('send_approve_msg', main_hl.send_approve_msg, filter_admin),
+        CommandHandler('update_ticket', main_hl.update_ticket, filter_admin),
+        CommandHandler('send_msg', main_hl.send_msg, filter_to_send_msg),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
         CommandHandler('postgres_log', send_postgres_log, filter_admin),
         CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
         CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
-        CommandHandler(COMMAND_DICT['TOPIC'][0],
-                       create_or_connect_topic,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0],
-                       main_hl.global_on_off,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['ADM_INFO'][0],
-                       update_admin_info,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['ADM_CME_INFO'][0],
-                       update_cme_admin_info,
-                       filter_admin),
-        CommandHandler('cancel_old_created_tickets',
-                       main_hl.manual_cancel_old_created_tickets,
-                       filter_admin),
-        CommandHandler('set_user_status',
-                       main_hl.set_user_status,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['SYNC_SCHEDULE'][0],
-                       sync_schedule_command,
-                       filter_admin),
-        CommandHandler(COMMAND_DICT['CLOSE'][0],
-                       main_hl.close_feedback_topic,
-                       filter_admin),
+        CommandHandler(COMMAND_DICT['TOPIC'][0], create_or_connect_topic, filter_admin),
+        CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0], main_hl.global_on_off, filter_admin),
+        CommandHandler(COMMAND_DICT['ADM_INFO'][0], update_admin_info, filter_admin),
+        CommandHandler(COMMAND_DICT['ADM_CME_INFO'][0], update_cme_admin_info, filter_admin),
+        CommandHandler('cancel_old_created_tickets', main_hl.manual_cancel_old_created_tickets, filter_admin),
+        CommandHandler('set_user_status', main_hl.set_user_status, filter_admin),
+        CommandHandler(COMMAND_DICT['SYNC_SCHEDULE'][0], sync_schedule_command, filter_admin),
+        CommandHandler(COMMAND_DICT['CLOSE'][0], main_hl.close_feedback_topic, filter_admin),
+        CommandHandler('receipt', receipt_hl.receipt_cmd, filter_admin),
     ])
 
+
+def _add_message_handlers(application: Application):
+    """MessageHandler для contact, location, feedback."""
     application.add_handler(
         CommandHandler('rcl', request_contact_location))
     application.add_handler(MessageHandler(filters.LOCATION, get_location))
@@ -161,11 +175,15 @@ def set_handlers(application: Application, config):
         REPLY_IN_TOPIC_FROM_BOT,
         main_hl.feedback_reply_msg))
 
+
+def _add_hook_handlers(application: Application):
+    """Hook handlers: Yookassa, Gspread, Sales, ScheduleSync."""
     application.add_handler(YookassaHookHandler)
     application.add_handler(GspreadHookHandler)
     application.add_handler(SalesHookHandler)
     application.add_handler(ScheduleSyncHookHandler)
 
-    application.add_error_handler(error_handler)
 
-    set_handlers_logger.info('Всё готово к поллингу')
+def _add_error_handler(application: Application):
+    """Регистрация error_handler."""
+    application.add_error_handler(error_handler)
