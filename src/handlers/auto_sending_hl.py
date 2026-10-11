@@ -548,9 +548,11 @@ async def auto_sending_ask_text(update: Update, context):
 
 async def auto_sending_handle_text(update: Update, context):
     """Handle text input with HTML validation and length check."""
-    # Use raw text, not text_html: the user sends an HTML template,
-    # and text_html would escape literal HTML tags like &lt;b&gt;.
-    text = update.effective_message.text or ""
+    msg = update.effective_message
+
+    # text_html already converts all Telegram entities (links, bold, italic, etc.)
+    # into proper HTML tags — no manual entity parsing needed.
+    text = msg.text_html or ""
 
     # Convert newlines to <br> for HTML storage
     # Telegram sends \n for line breaks, but we need <br> for HTML format
@@ -870,7 +872,6 @@ def _has_changes(editing: dict) -> bool:
         if key in original:
             orig_val = original[key]
             new_val = data[key]
-            # Handle time objects comparison
             if orig_val != new_val:
                 return True
     return False
@@ -891,8 +892,6 @@ async def auto_sending_edit_start_from_data(update: Update, context):
     is_active = editing['data'].get('is_active', sending.is_active)
     toggle_label = '🔴 Выкл' if is_active else '🟢 Вкл'
     keyboard = [
-        [InlineKeyboardButton('💾 Сохранить', callback_data='as_edit_save'),
-         InlineKeyboardButton(toggle_label, callback_data=f'as_toggle_{sending_id}')],
         [InlineKeyboardButton('Название', callback_data='as_edit_name'),
          InlineKeyboardButton('Триггер', callback_data='as_edit_trigger')],
         [InlineKeyboardButton('Спектакль', callback_data='as_edit_theater'),
@@ -901,10 +900,17 @@ async def auto_sending_edit_start_from_data(update: Update, context):
          InlineKeyboardButton('Точность', callback_data='as_edit_precise')],
         [InlineKeyboardButton('Каналы', callback_data='as_edit_channels'),
          InlineKeyboardButton('Текст', callback_data='as_edit_text')],
+    ]
+    if has_changes:
+        keyboard.append([
+            InlineKeyboardButton('💾 Сохранить', callback_data='as_edit_save'),
+            InlineKeyboardButton(toggle_label, callback_data=f'as_toggle_{sending_id}')
+        ])
+    keyboard.extend([
         [InlineKeyboardButton('✉️ Ручная отправка', callback_data=f'as_manual_{sending_id}'),
          InlineKeyboardButton('🗑 Удалить', callback_data=f'as_delete_{sending_id}')],
         add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='3'),
-    ]
+    ])
     reply_markup = InlineKeyboardMarkup(keyboard)
     result = transform_html(text)
     query = update.callback_query
