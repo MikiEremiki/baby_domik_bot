@@ -1,6 +1,5 @@
 import logging
 import re
-from datetime import datetime, time as dt_time
 
 from sulguk import transform_html
 
@@ -11,6 +10,7 @@ from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
 from db import db_postgres
 from db.enum import PriceType, TicketPriceType, PromotionDiscountType
 from handlers import init_conv_hl_dialog, place_hl
+from handlers.auto_sending_hl import auto_sending_select
 from settings.settings import (
     RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR,
     ADMIN_ID)
