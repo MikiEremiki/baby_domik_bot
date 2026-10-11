@@ -36,6 +36,7 @@ from utilities.utl_func import (
     create_approve_and_reject_replay, set_back_context,
     clean_context_on_end_handler, create_str_info_by_schedule_event_id,
 )
+from handlers.receipt_hl import build_receipt_button_row
 from utilities.utl_place import effective_place
 from utilities.utl_retry import retry_on_timeout
 from utilities.utl_googlesheets import update_ticket_db_and_gspread
@@ -940,7 +941,7 @@ async def send_message_about_list_waiting(update: Update, context):
 async def send_info_about_individual_ticket(update, context):
     query = update.callback_query
     text = ('Для оформления данного варианта обратитесь к Администратору:<br>'
-            f'{context.bot_data['admin']['contacts']}')
+            f'{context.bot_data['admin']['contacts_html']}')
 
     res_text = transform_html(text)
     await query.edit_message_text(
@@ -1010,7 +1011,8 @@ async def send_approve_reject_message_to_admin_in_webhook(
 
     reply_markup = create_approve_and_reject_replay(
         callback_name,
-        f'{chat_id} {message_id}'
+        f'{chat_id} {message_id}',
+        extra_rows=build_receipt_button_row(ticket_ids[0]).inline_keyboard,
     )
 
     # Проверяем в БД, не было ли уже уведомления

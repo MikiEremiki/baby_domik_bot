@@ -1,5 +1,8 @@
 import logging
 import re
+from datetime import datetime, time as dt_time
+
+from sulguk import transform_html
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
@@ -157,6 +160,8 @@ async def choice_db_settings(
                                             callback_data='promotion')
     button_place = InlineKeyboardButton(text='Локации',
                                         callback_data='place')
+    button_auto_sending = InlineKeyboardButton(text='Рассылки',
+                                               callback_data='auto_sending')
     button_back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         postfix_for_back='1')
@@ -173,6 +178,7 @@ async def choice_db_settings(
             ],
             [
                 button_place,
+                button_auto_sending,
             ],
         ])
     keyboard.append([*button_back_and_cancel, ])
@@ -316,6 +322,8 @@ async def get_settings(
         return await event_type_select(update, context)
     elif callback_data == 'place':
         return await place_hl.place_select(update, context)
+    elif callback_data == 'auto_sending':
+        return await auto_sending_select(update, context)
 
     state = await send_settings_menu(update, context, callback_data)
 
@@ -344,7 +352,7 @@ async def _paginated_select(
     end = start + limit
     subset = items[start:end]
 
-    text = f'<b>{title}</b>\n\n'
+    text = f'<b>{title}</b><br><br>'
     item_buttons = []
     crud_name = prefix.replace('_select', '')
     if subset:
@@ -358,7 +366,7 @@ async def _paginated_select(
         text += 'Список пуст.'
 
     # Инфо о страницах в самом конце отделено пустой строкой
-    text += f'\nСтраница {page + 1} из {pages}'
+    text += f'<br>Страница {page + 1} из {pages}'
 
     keyboard = []
     # Ряд кнопок элементов (по 3 в ряд)
@@ -441,11 +449,12 @@ async def _paginated_select(
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    res = transform_html(text)
     try:
         if query:
-            await query.edit_message_text(text, reply_markup=reply_markup)
+            await query.edit_message_text(res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
         else:
-            await update.effective_chat.send_message(text, reply_markup=reply_markup)
+            await update.effective_chat.send_message(res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             raise e
@@ -559,7 +568,7 @@ async def schedule_event_select(
     # Проверка на вызов меню фильтрации (2-шаговый выбор)
     if '_f_menu_type' in data:
         types = await db_postgres.get_all_type_events(context.session)
-        text = "<b>Выберите тип события для фильтрации:</b>\n\n"
+        text = "<b>Выберите тип события для фильтрации:</b><br><br>"
         keyboard = []
         # Кнопка "Все типы"
         keyboard.append([InlineKeyboardButton(("✅ " if type_f == 'all' else "") + "Все типы", callback_data='schedule_event_select_f_type_all')])
@@ -568,7 +577,7 @@ async def schedule_event_select(
         for t in types:
             short_name = t.name_alias or t.name
 
-            text += f"• ID {t.id}: {t.name} ({short_name})\n"
+            text += f"• ID {t.id}: {t.name} ({short_name})<br>"
             
             is_active = type_f == str(t.id)
             btn_label = ("✅ " if is_active else "") + f"ID {t.id} ({short_name})"
@@ -579,7 +588,8 @@ async def schedule_event_select(
             keyboard.append(type_buttons[i:i + 2])
         
         keyboard.append(add_btn_back_and_cancel(add_cancel_btn=False, add_back_btn=True, postfix_for_back='3'))
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        res = transform_html(text)
+        await query.edit_message_text(res.text, entities=res.entities, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         return 3
 
     if '_f_menu_month' in data:
@@ -592,7 +602,7 @@ async def schedule_event_select(
         )
         available_months = sorted(list(set(event.datetime_event.month for event in temp_res)))
         
-        text = "<b>Выберите месяц для фильтрации:</b>\n\n"
+        text = "<b>Выберите месяц для фильтрации:</b><br><br>"
         keyboard = []
         # Кнопка "Все месяцы"
         keyboard.append([InlineKeyboardButton(("✅ " if month_f == 'all' else "") + "Все месяцы", callback_data='schedule_event_select_f_month_all')])
@@ -607,7 +617,8 @@ async def schedule_event_select(
             keyboard.append(month_buttons[i:i + 3])
             
         keyboard.append(add_btn_back_and_cancel(add_cancel_btn=False, add_back_btn=True, postfix_for_back='3'))
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        res = transform_html(text)
+        await query.edit_message_text(res.text, entities=res.entities, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         return 3
 
     # Обычный показ списка
@@ -657,7 +668,7 @@ async def schedule_event_select(
         # Статус вкл/выкл
         status_bot = '🤖' if row.flag_turn_in_bot else '🚫'
         
-        return f'• ID {row.id}: {status_bot} [{type_name}] {theater_name} ({dt_str})\n'
+        return f'• ID {row.id}: {status_bot} [{type_name}] {theater_name} ({dt_str})<br>'
 
     # Мы не можем легко добавить кастомные ряды в _paginated_select без его изменения.
     # Изменим _paginated_select, чтобы он поддерживал доп. ряды (extra_rows)
@@ -671,8 +682,8 @@ async def schedule_event_select(
 
     # Сноска с пояснениями
     text_explanation = (
-        '\n\nПояснения:\n'
-        '🤖/🚫 - в боте/скрыт\n'
+        '<br><br>Пояснения:<br>'
+        '🤖/🚫 - в боте/скрыт<br>'
         '[Р/НГ/...] - тип события (Репертуарный/Новогодний/...)'
     )
 
@@ -729,17 +740,17 @@ async def promotion_select(
     def promo_formatter(row):
         active = '✅' if row.flag_active else '❌'
         visible = '👁' if row.is_visible_as_option else '👻'
-        return f'• ID {row.id}: <code>{row.code}</code> ({row.discount}{"%" if row.discount_type == PromotionDiscountType.percentage else "р"}) {active}{visible}\n'
+        return f'• ID {row.id}: <code>{row.code}</code> ({row.discount}{"%" if row.discount_type == PromotionDiscountType.percentage else "р"}) {active}{visible}<br>'
 
     text_explanation = (
-        'Пояснение:\n'
-        '✅/❌ - активен/неактивен\n'
+        'Пояснение:<br>'
+        '✅/❌ - активен/неактивен<br>'
         '👁/👻 - виден/скрыт как опция'
     )
 
     return await _paginated_select(
         update, context, res,
-        f'Список Промокодов\n{text_explanation}',
+        f'Список Промокодов<br>{text_explanation}',
         promo_formatter,
         'promotion_select',
         page,
@@ -789,7 +800,7 @@ async def base_ticket_select(
     return await _paginated_select(
         update, context, res,
         'Список базовых билетов',
-        lambda row: f'• ID {row.base_ticket_id}: {row.name}\n',
+        lambda row: f'• ID {row.base_ticket_id}: {row.name}<br>',
         'base_ticket_select',
         page,
         filters=filters,
@@ -826,7 +837,7 @@ async def event_type_select(
     return await _paginated_select(
         update, context, res,
         'Список типов показов',
-        lambda row: f'• ID {row.id}: {row.name}\n',
+        lambda row: f'• ID {row.id}: {row.name}<br>',
         'event_type_select',
         page
     )
@@ -1193,6 +1204,3 @@ async def conversation_timeout(
         ]
     ))
     return ConversationHandler.END
-
-
-TIMEOUT_HANDLER = TypeHandler(Update, conversation_timeout)

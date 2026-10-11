@@ -36,7 +36,9 @@ from utilities.utl_func import (
 from utilities.utl_ticket import (
     cancel_tickets_db_and_gspread, check_and_set_privilege
 )
+from utilities.utl_place import effective_place, format_place_footnote
 from schedule.worker_jobs import cancel_old_created_tickets
+from handlers.receipt_hl import build_receipt_button_row
 
 main_handlers_logger = logging.getLogger('bot.main_handlers')
 
@@ -342,6 +344,7 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f'Билет: {base_ticket.name}<br>'
             f'Стоимость: {ticket.price}<br>'
             f'Статус: {ticket.status.value}<br>'
+            f'Payment ID: <code>{ticket.payment_id}</code><br>'
             f'{people_str}'
             f'Примечание: {ticket.notes}<br>'
         )
@@ -603,10 +606,13 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     ticket_ids = [int(update.effective_message.text.split('#ticket_id ')[1])]
     event_ids_to_decrease = set()
+
+    tickets_needing_confirmation = set()
     for ticket_id in ticket_ids:
         ticket = await db_postgres.get_ticket(context.session, ticket_id)
         ticket_status = TicketStatus.APPROVED
         if ticket.status != TicketStatus.APPROVED:
+            tickets_needing_confirmation.add(ticket_id)
             event_ids_to_decrease.add(ticket.schedule_event_id)
 
             text = f'{message.text}\nСписаны неподтвержденные места...'
@@ -665,10 +671,10 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                         f"user is not a Telegram user (chat_id=0)"
                     )
         
-        if int(chat_id) != 0 and ticket.status != TicketStatus.APPROVED:
+        if int(chat_id) != 0 and ticket_id in tickets_needing_confirmation:
             await send_approve_message(chat_id, context, [ticket_id])
 
-        if ticket.status != TicketStatus.APPROVED:
+        if ticket_id in tickets_needing_confirmation:
             text = f'{message.text}\nОтправлено сообщение о подтверждении бронирования...'
             try:
                 await message.edit_text(text)
@@ -685,7 +691,10 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     for ticket_id in ticket_ids:
         text += f'Билет {ticket_id}\n'
     try:
-        await message.edit_text(text)
+        await message.edit_text(
+            text,
+            reply_markup=build_receipt_button_row(ticket_ids[0]),
+        )
     except TimedOut as e:
         main_handlers_logger.error(e)
         main_handlers_logger.info(text)
@@ -732,9 +741,32 @@ async def send_approve_message(chat_id, context, ticket_ids: List[int]):
     if await is_user_blocked(context, chat_id, 'sending approve message'):
         return
 
-    description = context.bot_data['texts']['description']
-    address = context.bot_data['texts']['address']
-    ask_question = context.bot_data['texts']['ask_question']
+    # Получаем локацию по умолчанию
+    default_place = await db_postgres.get_default_place(context.session)
+
+    # Собираем уникальные локации для всех билетов
+    places = []
+    seen_place_ids: set[int] = set()
+    for ticket_id in ticket_ids:
+        ticket = await db_postgres.get_ticket(context.session, ticket_id)
+        if ticket:
+            schedule_event = await db_postgres.get_schedule_event(
+                context.session, ticket.schedule_event_id
+            )
+            place = effective_place(schedule_event, default_place)
+            if place and place.id not in seen_place_ids:
+                seen_place_ids.add(place.id)
+                places.append(place)
+
+    # Формируем адресную часть
+    if places:
+        address_parts = [format_place_footnote(p) for p in places]
+        address_text = '<br>'.join(address_parts) + '<br><br>'
+    else:
+        address_text = context.bot_data['texts']['address_html']
+
+    description = context.bot_data['texts']['description_html']
+    ask_question = context.bot_data['texts']['ask_question_html']
     command = (
         'Для продолжения работы используйте команды:<br>'
         f'/{COMMAND_DICT['RESERVE'][0]} - выбрать и оплатить билет на спектакль<br>'
@@ -746,7 +778,7 @@ async def send_approve_message(chat_id, context, ticket_ids: List[int]):
                     f'{text}'
                     f'подтверждена, ждем вас на мероприятии.</b><br><br>')
     refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
-    text = f'{approve_text}{address}{refund}<br><br>{description}{ask_question}{command}'
+    text = f'{approve_text}{address_text}{refund}{description}{ask_question}{command}'
 
     res_text = transform_html(text)
     await context.bot.send_message(
@@ -765,7 +797,7 @@ async def send_reject_message(chat_id, context):
         'Ваша бронь отклонена.<br><br>'
         'Если это произошло по ошибке, пожалуйста, '
         'напишите в ЛС или позвоните Администратору:<br>'
-        f'{context.bot_data['admin']['contacts']}'
+        f'{context.bot_data['admin']['contacts_html']}'
     )
     res_text = transform_html(text)
     await context.bot.send_message(
@@ -858,7 +890,10 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     for ticket_id in ticket_ids:
         text += f'Билет {ticket_id}\n'
     try:
-        await message.edit_text(text)
+        await message.edit_text(
+            text,
+            reply_markup=build_receipt_button_row(ticket_ids[0]),
+        )
     except TimedOut as e:
         main_handlers_logger.error(e)
         main_handlers_logger.info(text)
