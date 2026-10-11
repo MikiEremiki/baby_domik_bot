@@ -121,6 +121,7 @@
 | **Аудиты** | [`.junie/audit/`](audit/README.md) | 13 чек-листов, отчёты, статистика. |
 | **Документация** | [`docs/`](../docs/) | GLOSSARY.md, ADR.md, ARCHITECTURE.md, DOMAIN.md. |
 | **Планы** | [`.junie/plans/`](plans/) | Планы и задачи в разработке. |
+| **Авторассылки (core)** | [`.junie/plans/auto-sendings-core.md`](plans/auto-sendings-core.md) | Единая система: модель, диспетчер, тик, меню, миграция. Feature-планы: [материалы](plans/auto-sending-after-booking.md), [отзыв](plans/post-event-feedback-notification.md). |
 | **История** | [`.junie/history/`](history/) | Завершённые планы и технические отчёты. |
 | **Память** | [`.junie/memory/`](memory/) | Ошибки, фидбэк, долгосрочные задачи. |
 | **Временные артефакты** | [`.scratch/`](../.scratch/) | SPEC.md, тикеты, PLAN.md. Игнорируется в Git. |
