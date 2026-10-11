@@ -92,6 +92,10 @@ async def clean_context_on_end_handler(logger, context):
         context.user_data.pop('reserve_user_data')
     if context.user_data.get('reserve_admin_data', False):
         context.user_data.pop('reserve_admin_data')
+    if context.user_data.get('editing_auto_sending', False):
+        context.user_data.pop('editing_auto_sending')
+    if context.user_data.get('new_auto_sending', False):
+        context.user_data.pop('new_auto_sending')
 
 
 async def set_menu(bot: ExtBot) -> None:
@@ -632,9 +636,19 @@ async def update_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 def create_approve_and_reject_replay(
         callback_name,
-        data: str
+        data: str,
+        extra_rows: list | None = None,
 ):
-    keyboard = []
+    """Create inline keyboard with Approve/Reject buttons and optional extra rows.
+
+    Args:
+        callback_name: Prefix for callback data (e.g. 'reserve').
+        data: Data payload appended to callback data.
+        extra_rows: Additional keyboard rows to append after the
+            Approve/Reject row. Each element should be a list of
+            InlineKeyboardButton instances.
+    """
+    keyboard: list[list[InlineKeyboardButton]] = []
 
     button_approve = InlineKeyboardButton(
         "Подтвердить",
@@ -646,6 +660,10 @@ def create_approve_and_reject_replay(
         callback_data=f'reject-{callback_name}|{data}'
     )
     keyboard.append([button_approve, button_cancel])
+
+    if extra_rows:
+        keyboard.extend(extra_rows)
+
     return InlineKeyboardMarkup(keyboard)
 
 
