@@ -38,7 +38,7 @@
 | Термин | Описание |
 |--------|----------|
 | **ConversationHandler** | Механизм `python-telegram-bot` для управления состоянием диалога с пользователем. Состояния определяются в `src\conv_hl\`, бизнес-логика — в `src\handlers\`. |
-| **Handler (Обработчик)** | Функция, реагирующая на команду, callback или текст пользователя. Регистрация централизована в `src\handlers\set_handlers.py`. |
+| **Handler (Обработчик)** | Функция, реагирующая на команду, callback или текст пользователя. Регистрация централизована в `src\setup_bot_handlers.py`. |
 | **Inline Keyboard** | Клавиатура с кнопками под сообщением бота. Создаётся через `src\utilities\utl_kbd.py`. |
 | **Middleware** | Промежуточный обработчик, выполняющийся до/после handler'а. Стартовые middleware: `add_db_handlers_middleware`, `add_glob_on_off_middleware`, `add_user_status_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`. |
 | **Custom Filter** | Пользовательский фильтр для маршрутизации обновлений (например, `filter_admin` для админских команд). |

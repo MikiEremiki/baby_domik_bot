@@ -42,7 +42,6 @@ baby_domik_bot/
 │   │   L-- migrations/         # Миграции Alembic
 │   │
 │   +-- handlers/               # ОБРАБОТЧИКИ TELEGRAM
-│   │   +-- set_handlers.py     # Регистрация всех обработчиков
 │   │   +-- main_hl.py          # Стартовые команды (/start, /help)
 │   │   +-- common_hl.py        # Общие обработчики
 │   │   +-- afisha_hl.py        # Афиша спектаклей
@@ -105,7 +104,9 @@ baby_domik_bot/
 │   +-- log/                    # ЛОГИРОВАНИЕ
 │   │   L-- logging_conf.py     # Конфигурация именованных логгеров
 │   │
-│   L-- schedule/               # РАСПИСАНИЕ И АВТОРАССЫЛКИ
+│   +-- setup_bot_handlers.py   # Регистрация всех хендлеров, мидлварей и хуков
+│
+│   +-- schedule/               # РАСПИСАНИЕ И АВТОРАССЫЛКИ
 │       +-- scheduler_jobs.py   # Фоновые задачи (очистка просроченных броней и др.)
 │       L-- auto_sending.py     # Ядро авторассылок: тик, рендер текста, селекторы получателей
 │
@@ -264,9 +265,9 @@ YooKassa → POST /yookassa (FastAPI)
 - `create_approve_and_replay` (`src\utilities\utl_func.py`) поддерживает `extra_rows` для добавления дополнительных строк клавиатуры (например, кнопки чека).
 
 #### 6.7. Handlers и команды
-- Регистрация всех обработчиков централизована в `src\handlers\set_handlers.set_handlers`.
+- Регистрация всех обработчиков централизована в `src\setup_bot_handlers.py` (функция `setup_handlers`).
 - Только для админов (через `custom_filters.filter_admin`): `/update_config`, `/send_approve_msg`, `/update_ticket`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`, `/receipt`.
-- Команды синхронизации данных из Google Sheets: `/update_base_ticket_data`, `/update_theater_event_data`, `/update_schedule_event_data`, `/update_spec_price`, `/update_cmf_data`, `/update_promotions`.
+- Команды синхронизации данных из Google Sheets: `/update_places` (остальные команды `/update_*` из COMMAND_DICT больше не зарегистрированы, см. `reports/2026-10-11_command-dict-audit.md`).
 - `COMMAND_DICT` маппит имена команд на telegram-команды и подписи; при изменении — обновлять консистентно.
 - Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания».
 - Команда выгрузки расписания: `/sync_schedule [event_id]` (только админы). Фиксирует срез накопленных правок, запрашивает подтверждение и публикует задачу в NATS `gspread`.
