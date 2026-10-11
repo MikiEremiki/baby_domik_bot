@@ -32,7 +32,8 @@ baby_domik_bot/
 │   │   +-- sales_pub.py        # Издатель задач рассылки через NATS
 │   │   +-- sales_worker.py     # Воркер рассылки сообщений
 │   │   +-- timeweb.py          # Интеграция с API Timeweb (баланс)
-│   │   L-- yookassa_connect.py # Формирование параметров платежей YooKassa
+│   │   +-- yookassa_connect.py # Формирование параметров платежей YooKassa, чеки OFD
+│   │   L-- receipt_service.py  # Сервис фискальных чеков (статус, данные, маппинг)
 │   │
 │   +-- db/                     # БАЗА ДАННЫХ
 │   │   +-- models.py           # SQLAlchemy модели (User, Ticket, ScheduleEvent и др.)
@@ -42,8 +43,40 @@ baby_domik_bot/
 │   │
 │   +-- handlers/               # ОБРАБОТЧИКИ TELEGRAM
 │   │   +-- set_handlers.py     # Регистрация всех обработчиков
-│   │   +-- reserve_hl.py       # Бронирование билетов (основной хендлер)
-│   │   +-- birthday_hl.py      # Заявки на дни рождения
+│   │   +-- main_hl.py          # Стартовые команды (/start, /help)
+│   │   +-- common_hl.py        # Общие обработчики
+│   │   +-- afisha_hl.py        # Афиша спектаклей
+│   │   +-- profile_hl.py       # Профиль пользователя (/tickets)
+│   │   +-- support_hl.py       # Админская панель: CRUD спектаклей, билетов, промо
+│   │   +-- auto_sending_hl.py  # CRUD авторассылок (выделено из support_hl)
+│   │   +-- schedule_hl.py      # CRUD сеансов расписания
+│   │   +-- place_hl.py         # CRUD мест (площадки)
+│   │   +-- promotion_hl.py     # CRUD промокодов
+│   │   +-- sub_hl.py           # Подхендлеры обновления данных из Google Sheets
+│   │   +-- reserve_hl.py       # Бронирование билетов (входные точки)
+│   │   +-- reserve_admin_hl.py # Админские действия с бронями
+│   │   +-- birthday_hl.py      # Заявки на дни рождения (входные точки)
+│   │   +-- sales_hl.py         # Массовые рассылки
+│   │   +-- ticket_hl.py        # Работа с билетами
+│   │   +-- timeweb_hl.py       # Баланс Timeweb
+│   │   +-- email_hl.py         # Email-рассылки
+│   │   +-- offer_hl.py         # Офферы
+│   │   +-- list_wait_hl.py     # Лист ожидания
+│   │   +-- migration_admin_hl.py # Админские миграции
+│   │   +-- error_hl.py         # Обработка ошибок
+│   │   +-- receipt_hl.py       # Админская команда /receipt, отправка чека клиенту
+│   │   +-- schedule_sync_hl.py # Результаты выгрузки расписания (бот)
+│   │   +-- birthday/           # Дни рождения: диалог выбора даты, места, формата
+│   │   │   +-- choice.py       # Выбор параметров (дата, адрес, шоу, возраст)
+│   │   │   +-- details.py      # Детали (имя, телефон, заметка)
+│   │   │   L-- finalize.py     # Подтверждение, оплата, фото
+│   │   │
+│   │   +-- reserve/            # Бронирование: диалог выбора сеанса, билетов, оплаты
+│   │   │   +-- choice.py       # Выбор сеанса, билетов, мест
+│   │   │   +-- input.py        # Ввод данных пользователя
+│   │   │   +-- payment.py      # Оплата через YooKassa
+│   │   │   L-- common.py       # Общие утилиты бронирования
+│   │   │
 │   │   L-- hooks/              # Обработчики событий из NATS
 │   │       +-- yookassa_hl.py  # Обработка платежей YooKassa
 │   │       +-- gspred_hl.py    # Уведомления об ошибках Google Sheets
@@ -72,8 +105,9 @@ baby_domik_bot/
 │   +-- log/                    # ЛОГИРОВАНИЕ
 │   │   L-- logging_conf.py     # Конфигурация именованных логгеров
 │   │
-│   L-- schedule/               # РАСПИСАНИЕ
-│       L-- scheduler_jobs.py   # Фоновые задачи (очистка просроченных броней и др.)
+│   L-- schedule/               # РАСПИСАНИЕ И АВТОРАССЫЛКИ
+│       +-- scheduler_jobs.py   # Фоновые задачи (очистка просроченных броней и др.)
+│       L-- auto_sending.py     # Ядро авторассылок: тик, рендер текста, селекторы получателей
 │
 +-- templates/                  # WEB-ШАБЛОНЫ (JINJA2)
 │   +-- home.html               # Главная страница
@@ -213,14 +247,25 @@ YooKassa → POST /yookassa (FastAPI)
 
 #### 6.6. YooKassa
 - `create_param_payment(...)` (`src\api\yookassa_connect.py`) формирует запрос платежа; `payment_method_type` по умолчанию — `sbp`, тип подтверждения — `redirect` с `return_url=URL_BOT`.
+- `fetch_payment_receipts(payment_id, timeout)` (`src\api\yookassa_connect.py`) — асинхронная обёртка `Receipt.list` через `asyncio.to_thread` + `wait_for(10s)`.
+- `build_ofd_url(fn, fp, i)` (`src\api\yookassa_connect.py`) — формирует публичную ссылку OFD по фискальным данным.
 - Обработка вебхука (`src\handlers\hooks\yookassa_hl.py`):
   - status `succeeded`: обновляет билеты в Google Sheets и PostgreSQL, удаляет inline-кнопки оплаты, уведомляет пользователя и постит в админский топик в зависимости от `metadata.command` (`reserve` или `studio`).
   - Предоплаченные счета определяются по `metadata.dashboardInvoiceOriginalNumber` и маршрутизируются в топик «Выездные мероприятия».
   - Используемые поля `metadata`: `message_id`, `chat_id`, `ticket_ids` (через `|`), `choose_schedule_event_ids` (через `|`), `command`.
 
+#### 6.11. Фискальные чеки
+- `get_ticket_receipt(session, ticket_id)` (`src\api\receipt_service.py`) — получает статус и данные чека по билету: маппинг статусов платежа (succeeded→READY, pending→PENDING, canceled→CANCELED) и обработка ошибок (NO_PAYMENT, NOT_FOUND, API_ERROR).
+- `ReceiptStatus` (StrEnum): READY, PENDING, CANCELED, NO_PAYMENT, NOT_FOUND, API_ERROR.
+- `ReceiptInfo` (dataclass): статус, фискальные данные (FN, FP, номер, дата, сумма), ссылка OFD, `client_chat_id`.
+- Команда `/receipt` (`src\handlers\receipt_hl.py`) — админская, отправляет карточку чека с фискальными данными и кнопкой OFD.
+- Кнопка «🧾 Чек» добавлена в уведомление о платеже (webhook) и сохраняется после confirm/reject.
+- Кнопка «📤 Отправить клиенту» — отправляет ссылку на чек клиенту с обработкой `Forbidden`.
+- `create_approve_and_replay` (`src\utilities\utl_func.py`) поддерживает `extra_rows` для добавления дополнительных строк клавиатуры (например, кнопки чека).
+
 #### 6.7. Handlers и команды
 - Регистрация всех обработчиков централизована в `src\handlers\set_handlers.set_handlers`.
-- Только для админов (через `custom_filters.filter_admin`): `/update_config`, `/send_approve_msg`, `/update_ticket`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`.
+- Только для админов (через `custom_filters.filter_admin`): `/update_config`, `/send_approve_msg`, `/update_ticket`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`, `/receipt`.
 - Команды синхронизации данных из Google Sheets: `/update_base_ticket_data`, `/update_theater_event_data`, `/update_schedule_event_data`, `/update_spec_price`, `/update_cmf_data`, `/update_promotions`.
 - `COMMAND_DICT` маппит имена команд на telegram-команды и подписи; при изменении — обновлять консистентно.
 - Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания».
