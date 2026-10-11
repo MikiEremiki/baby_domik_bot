@@ -47,5 +47,10 @@ Thumbs.db
 
 # --- Legacy & Specific ---
 docker-compose-*
-/.junie/
+# --- Junie AI agent config (ignore transient data) ---
+/.junie/.temp/
+/.junie/plans/
+/.junie/history/
+/.scratch/
 /.claude/
+/.junie/audit/reports/
