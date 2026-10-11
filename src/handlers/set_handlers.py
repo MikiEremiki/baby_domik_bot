@@ -6,7 +6,7 @@ from telegram.ext import (
 )
 
 from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
-from handlers import main_hl, profile_hl
+from handlers import main_hl, profile_hl, receipt_hl
 from handlers.sub_hl import update_admin_info, update_cme_admin_info, update_place_data
 from handlers.hooks import (
     YookassaHookHandler,
@@ -72,6 +72,8 @@ def set_handlers(application: Application, config):
         CallbackQueryHandler(main_hl.reject_privilege, '^reject-privilege'),
         CallbackQueryHandler(handle_sync_schedule_confirm, r'^sch_sync_confirm_'),
         CallbackQueryHandler(handle_sync_schedule_cancel, r'^sch_sync_cancel_'),
+        CallbackQueryHandler(receipt_hl.receipt_callback, '^receipt\|'),
+        CallbackQueryHandler(receipt_hl.receipt_send_callback, '^receipt_send\|'),
     ])
 
     conversation_handlers = [
@@ -139,6 +141,9 @@ def set_handlers(application: Application, config):
                        filter_admin),
         CommandHandler(COMMAND_DICT['CLOSE'][0],
                        main_hl.close_feedback_topic,
+                       filter_admin),
+        CommandHandler('receipt',
+                       receipt_hl.receipt_cmd,
                        filter_admin),
     ])
 
