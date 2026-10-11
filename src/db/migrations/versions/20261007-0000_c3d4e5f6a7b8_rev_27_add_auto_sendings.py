@@ -7,8 +7,7 @@ Create Date: 2026-10-07 00:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
-
-from db import BaseModel
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -17,16 +16,20 @@ down_revision = "b2c3d4e5f6a7"
 branch_labels = None
 depends_on = None
 
-AutoSendingTriggerEnum = sa.Enum(
+# Use postgresql.ENUM with create_type=False to avoid DuplicateObject error.
+# Alembic creates ENUM types automatically from target_metadata (BaseModel.metadata)
+# before running upgrade(), so explicit creation causes a conflict.
+AutoSendingTriggerEnum = postgresql.ENUM(
     "EVENT",
     "PAYMENT",
     name="auto_sending_trigger",
-    metadata=BaseModel.metadata
+    create_type=False
 )
 
 
 def upgrade() -> None:
-    AutoSendingTriggerEnum.create(op.get_bind(), checkfirst=True)
+    # ENUM is created automatically by Alembic via target_metadata.
+    # Do NOT create it here — doing so causes DuplicateObject error.
 
     # auto_sendings
     op.create_table(
@@ -154,4 +157,6 @@ https://vk.com/baby_theater_domik',
 def downgrade() -> None:
     op.drop_table("auto_sending_deliveries")
     op.drop_table("auto_sendings")
-    AutoSendingTriggerEnum.drop(op.get_bind(), checkfirst=True)
+    # ENUM is managed by Alembic via target_metadata (BaseModel.metadata).
+    # It will be dropped automatically when the model is removed from metadata.
+    # Do NOT drop it here — doing so may cause issues if other tables use it.
