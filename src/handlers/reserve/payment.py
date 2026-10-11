@@ -346,7 +346,8 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
             res_text = transform_html(text)
             await query.edit_message_text(text=res_text.text,
                                           entities=res_text.entities,
-                                          reply_markup=reply_markup)
+                                          reply_markup=reply_markup,
+                                          parse_mode=None)
             context.user_data['STATE'] = state
             return state
 
@@ -748,7 +749,7 @@ async def conversation_timeout(
             'выполните оформление повторно и приложите данный чек<br>'
             f'/{COMMAND_DICT['RESERVE'][0]}<br><br>'
             'Если свободных мест не будет свяжитесь с Администратором:<br>'
-            f'{context.bot_data['admin']['contacts']}'
+            f'{context.bot_data['admin']['contacts_html']}'
         )
         res_text = transform_html(text)
         await update.effective_chat.send_message(

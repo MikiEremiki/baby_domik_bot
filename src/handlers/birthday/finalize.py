@@ -105,7 +105,7 @@ async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             'отмена и повторите в другое удобное для вас время<br><br>'
             '__________<br>'
             'В случае переноса или отмены свяжитесь с Администратором:<br>'
-            f'{context.bot_data['cme_admin']['contacts']}')
+            f'{context.bot_data['cme_admin']['contacts_html']}')
 
     res_text = transform_html(text)
     message = await update.effective_chat.send_message(
