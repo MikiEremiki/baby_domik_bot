@@ -125,9 +125,9 @@ async def get_ticket_receipt(session, ticket_id: int) -> ReceiptInfo:
         )
 
     status = getattr(receipt, 'status', None)
-    fn = getattr(receipt, 'fn', None)
-    fp = getattr(receipt, 'fp', None)
-    i = getattr(receipt, 'i', None)
+    fn = getattr(receipt, 'fiscal_storage_number', None)
+    fp = getattr(receipt, 'fiscal_attribute', None)
+    i = getattr(receipt, 'fiscal_document_number', None)
     registered_at = getattr(receipt, 'registered_at', None)
 
     # Parse registered_at if it's a string
