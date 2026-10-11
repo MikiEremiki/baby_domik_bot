@@ -128,6 +128,7 @@ states = {
     AS_NAME: [
         back_callback_handler,
         cancel_callback_handler,
+        CallbackQueryHandler(auto_sending_hl.auto_sending_back_to_edit, '^as_back_to_edit$'),
         MessageHandler(F_text_and_no_command, auto_sending_hl.auto_sending_handle_name),
     ],
     # Auto-sending wizard: Trigger

@@ -94,8 +94,8 @@ def _add_callback_handlers(application: Application):
         CallbackQueryHandler(main_hl.reject_privilege, '^reject-privilege'),
         CallbackQueryHandler(handle_sync_schedule_confirm, r'^sch_sync_confirm_'),
         CallbackQueryHandler(handle_sync_schedule_cancel, r'^sch_sync_cancel_'),
-        CallbackQueryHandler(receipt_hl.receipt_callback, '^receipt\|'),
-        CallbackQueryHandler(receipt_hl.receipt_send_callback, '^receipt_send\|'),
+        CallbackQueryHandler(receipt_hl.receipt_callback, '^receipt'),
+        CallbackQueryHandler(receipt_hl.receipt_send_callback, '^receipt_send'),
     ])
 
 
