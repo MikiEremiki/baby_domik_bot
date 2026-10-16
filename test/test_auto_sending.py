@@ -7,6 +7,7 @@ from schedule.auto_sending import (
     build_recipient_ctx,
     compute_send_time,
     group_tickets_by_user,
+    new_recipient_ctx,
     render_text,
     Recipient,
     RECIPIENT_SELECTORS,
@@ -503,3 +504,336 @@ class TestBuildRecipientCtx:
         se = self._make_schedule_event(place_id=None)
         ctx = build_recipient_ctx(se, "1")
         assert ctx["place"] == ""
+
+
+# ─── new_recipient_ctx factory ────────────────────────────────────────────────
+
+class TestNewRecipientCtx:
+    """Tests for new_recipient_ctx: factory for the standard context dict."""
+
+    def test_defaults_to_empty_strings(self):
+        """All fields default to empty strings."""
+        ctx = new_recipient_ctx()
+        assert ctx == {
+            "event_name": "",
+            "date": "",
+            "time": "",
+            "place": "",
+            "ticket_ids": "",
+            "refund_info": "",
+        }
+
+    def test_sets_all_fields(self):
+        """All fields can be set via keyword arguments."""
+        ctx = new_recipient_ctx(
+            event_name="Hamlet",
+            date="15.05.2026",
+            time="18:00",
+            place="Main Hall",
+            ticket_ids="1, 2, 3",
+            refund_info="Refund to card",
+        )
+        assert ctx["event_name"] == "Hamlet"
+        assert ctx["date"] == "15.05.2026"
+        assert ctx["time"] == "18:00"
+        assert ctx["place"] == "Main Hall"
+        assert ctx["ticket_ids"] == "1, 2, 3"
+        assert ctx["refund_info"] == "Refund to card"
+
+    def test_partial_fields(self):
+        """Only some fields set, rest default to empty."""
+        ctx = new_recipient_ctx(event_name="Othello", ticket_ids="42")
+        assert ctx["event_name"] == "Othello"
+        assert ctx["ticket_ids"] == "42"
+        assert ctx["date"] == ""
+        assert ctx["time"] == ""
+        assert ctx["place"] == ""
+        assert ctx["refund_info"] == ""
+
+    def test_returns_correct_keys(self):
+        """Dict contains exactly the 6 expected keys."""
+        ctx = new_recipient_ctx()
+        assert set(ctx.keys()) == {
+            "event_name", "date", "time", "place", "ticket_ids", "refund_info"
+        }
+
+
+# ─── _format_send_stats (handler report) ──────────────────────────────────────
+
+class TestFormatSendStats:
+    """Tests for _format_send_stats: dispatch stats → human-readable message."""
+
+    def _import_format_func(self):
+        from handlers.auto_sending_hl import _format_send_stats
+        return _format_send_stats
+
+    def test_basic_sent_only(self):
+        """Only sent count, no skips."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 5,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert "Отправлено: 5 получателей" in result
+
+    def test_no_user_skipped_displayed(self):
+        """no_user_skipped shows count and ticket IDs."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 3,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+            "no_user_skipped": [10, 20, 30],
+        }
+        result = fmt(stats)
+        assert "Пропущено (билет без пользователя): 3" in result
+        assert "IDs: 10, 20, 30" in result
+
+    def test_no_user_skipped_empty_list(self):
+        """Empty no_user_skipped list does not add a line."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+            "no_user_skipped": [],
+        }
+        result = fmt(stats)
+        assert "билет без пользователя" not in result
+
+    def test_no_user_skipped_missing_key(self):
+        """Missing no_user_skipped key does not cause error."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert "билет без пользователя" not in result
+
+    def test_all_skipped_warning(self):
+        """When sent=0 and skips>0, shows warning message."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 0,
+            "dedup_skipped": 2,
+            "no_chat_skipped": 1,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+            "no_user_skipped": [5],
+        }
+        result = fmt(stats)
+        assert "Рассылка не была отправлена" in result
+
+    def test_dedup_skipped_displayed(self):
+        """dedup_skipped count is shown."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 2,
+            "dedup_skipped": 3,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert "Пропущено (уже отправлено): 3" in result
+
+    def test_blocked_skipped_displayed(self):
+        """blocked_skipped count is shown."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 2,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert "Пропущено (заблокирован): 2" in result
+
+    def test_no_chat_skipped_displayed(self):
+        """no_chat_skipped count is shown."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 1,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert "Пропущено (без привязки Telegram): 1" in result
+
+    def test_not_sent_via_bot_displayed(self):
+        """not_sent_via_bot_skipped count is shown."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 1,
+        }
+        result = fmt(stats)
+        assert "Пропущено (отправка через бот выключена): 1" in result
+
+    def test_no_trailing_br(self):
+        """Result does not end with <br>."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert not result.endswith("<br>")
+
+
+# ─── _manual_send_by_ticket guard clauses ─────────────────────────────────────
+
+class TestManualSendByTicket:
+    """Tests for _manual_send_by_ticket: guard clauses for missing user."""
+
+    def _make_context(self, session=None):
+        context = MagicMock()
+        context.session = session or AsyncMock()
+        return context
+
+    def test_ticket_not_found(self):
+        """Returns error when ticket does not exist."""
+        from handlers.auto_sending_hl import _manual_send_by_ticket
+        from db import db_postgres
+
+        context = self._make_context()
+        with patch.object(db_postgres, 'get_ticket', new=AsyncMock(return_value=None)):
+            recipients, error, no_user_ids = asyncio.run(_manual_send_by_ticket(context, 999))
+        assert recipients is None
+        assert "не найден" in error
+        assert no_user_ids == []
+
+    def test_ticket_user_none(self):
+        """Returns error when ticket has no user (guard clause)."""
+        from handlers.auto_sending_hl import _manual_send_by_ticket
+        from db import db_postgres
+
+        context = self._make_context()
+        ticket = MagicMock()
+        ticket.user = None
+        with patch.object(db_postgres, 'get_ticket', new=AsyncMock(return_value=ticket)):
+            recipients, error, no_user_ids = asyncio.run(_manual_send_by_ticket(context, 42))
+        assert recipients is None
+        assert "без привязки пользователя" in error
+        assert no_user_ids == []
+
+    def test_user_chat_id_zero(self):
+        """Returns error when user has chat_id=0 (website order)."""
+        from handlers.auto_sending_hl import _manual_send_by_ticket
+        from db import db_postgres
+
+        context = self._make_context()
+        user = MagicMock()
+        user.chat_id = 0
+        ticket = MagicMock()
+        ticket.user = user
+        ticket.schedule_event_id = None
+        with patch.object(db_postgres, 'get_ticket', new=AsyncMock(return_value=ticket)):
+            recipients, error, no_user_ids = asyncio.run(_manual_send_by_ticket(context, 42))
+        assert recipients is None
+        assert "без привязки Telegram" in error
+        assert no_user_ids == []
+
+    def test_successful_recipient(self):
+        """Returns recipient list when everything is valid."""
+        from handlers.auto_sending_hl import _manual_send_by_ticket
+        from db import db_postgres
+
+        context = self._make_context()
+        user = MagicMock()
+        user.chat_id = 12345
+        user.status = None
+        ticket = MagicMock()
+        ticket.id = 42
+        ticket.user = user
+        ticket.schedule_event_id = None
+        with patch.object(db_postgres, 'get_ticket', new=AsyncMock(return_value=ticket)):
+            recipients, error, no_user_ids = asyncio.run(_manual_send_by_ticket(context, 42))
+        assert recipients is not None
+        assert error is None
+        assert no_user_ids == []
+        assert len(recipients) == 1
+        assert recipients[0].user == user
+
+
+# ─── _manual_send_by_session edge cases ───────────────────────────────────────
+
+class TestManualSendBySession:
+    """Tests for _manual_send_by_session: edge cases with no-user tickets."""
+
+    def _make_context(self, session=None):
+        context = MagicMock()
+        context.session = session or AsyncMock()
+        return context
+
+    def test_session_not_found(self):
+        """Returns error when session does not exist."""
+        from handlers.auto_sending_hl import _manual_send_by_session
+        from db import db_postgres
+
+        context = self._make_context()
+        with patch.object(db_postgres, 'get_schedule_event', new=AsyncMock(return_value=None)):
+            recipients, error, no_user_ids = asyncio.run(_manual_send_by_session(context, 999))
+        assert recipients is None
+        assert "не найден" in error
+        assert no_user_ids == []
+
+    def test_all_tickets_no_user(self):
+        """When all tickets have no user, returns empty recipients with skipped IDs."""
+        from handlers.auto_sending_hl import _manual_send_by_session
+        from db import db_postgres
+        from schedule.auto_sending import group_tickets_by_user
+
+        schedule_event = MagicMock()
+        schedule_event.id = 1
+
+        # Tickets with no user — use simple objects to avoid MagicMock quirks
+        class FakeTicket:
+            def __init__(self, tid):
+                self.id = tid
+                self.user = None
+
+        t1 = FakeTicket(10)
+        t2 = FakeTicket(11)
+
+        # Verify group_tickets_by_user works correctly with our fake tickets
+        user_tickets, skipped = group_tickets_by_user([t1, t2])
+        assert skipped == [10, 11], f"group_tickets_by_user skipped: {skipped}"
+        assert user_tickets == {}
+
+        # Mock the session execute to return our fake tickets
+        # Note: .scalars() returns a ScalarResult; .all() returns the list
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[t1, t2]))))
+        )
+
+        context = MagicMock()
+        context.session = mock_session
+
+        with patch.object(db_postgres, 'get_schedule_event', new=AsyncMock(return_value=schedule_event)):
+            recipients, error, no_user_ids = asyncio.run(_manual_send_by_session(context, 1))
+        assert recipients == []
+        assert error is None
+        assert no_user_ids == [10, 11]

@@ -1204,14 +1204,14 @@ async def _manual_send_by_ticket(context, target_id: int):
 
     ticket = await db_postgres.get_ticket(context.session, target_id)
     if not ticket:
-        return None, f"Билет {target_id} не найден."
+        return None, f"Билет {target_id} не найден.", []
 
     if ticket.user is None:
-        return None, "⚠️ Билет куплен без привязки пользователя, отправка невозможна."
+        return None, "⚠️ Билет куплен без привязки пользователя, отправка невозможна.", []
 
     user = ticket.user
     if user.chat_id == 0:
-        return None, "⚠️ Пользователь без привязки Telegram, отправка пропущена."
+        return None, "⚠️ Пользователь без привязки Telegram, отправка пропущена.", []
 
     se = ticket.schedule_event_id
     schedule_event = None
@@ -1233,7 +1233,7 @@ async def _manual_send_by_session(context, target_id: int):
 
     schedule_event = await db_postgres.get_schedule_event(context.session, target_id)
     if not schedule_event:
-        return None, f"Сеанс {target_id} не найден."
+        return None, f"Сеанс {target_id} не найден.", []
 
     stmt = (
         sa_select(TicketModel)
