@@ -195,6 +195,78 @@ async def resolve_auto_sending(
     return general
 
 
+# ─── Shared helpers ───────────────────────────────────────────────────────────
+
+def group_tickets_by_user(tickets: list[Ticket]) -> tuple[dict[int, list[Ticket]], list[int]]:
+    """Group tickets by user_id, skipping tickets without a user.
+
+    Returns (user_tickets dict, skipped_ticket_ids list).
+    """
+    user_tickets: dict[int, list[Ticket]] = {}
+    skipped: list[int] = []
+    for t in tickets:
+        if t.user is None:
+            auto_sending_logger.warning(
+                f"Ticket {t.id} has no user (user_id is NULL), skipping")
+            skipped.append(t.id)
+            continue
+        user_tickets.setdefault(t.user.user_id, []).append(t)
+    return user_tickets, skipped
+
+
+# ─── Context factory (shared seam) ────────────────────────────────────────────
+
+RECIPIENT_CTX_KEYS = ("event_name", "date", "time", "place", "ticket_ids", "refund_info")
+
+
+def new_recipient_ctx(
+    event_name: str = "",
+    date: str = "",
+    time: str = "",
+    place: str = "",
+    ticket_ids: str = "",
+    refund_info: str = "",
+) -> dict:
+    """Factory for the standard recipient context dict.
+
+    Centralizes the 6-key structure so that adding a new key requires
+    changing only this function and its callers.
+    """
+    return {
+        "event_name": event_name,
+        "date": date,
+        "time": time,
+        "place": place,
+        "ticket_ids": ticket_ids,
+        "refund_info": refund_info,
+    }
+
+
+def build_recipient_ctx(
+    schedule_event: ScheduleEvent,
+    ticket_ids_str: str,
+    refund_info: str = "",
+) -> dict:
+    """Build the standard recipient context dict from a schedule event.
+
+    Returns a dict with keys: event_name, date, time, place, ticket_ids, refund_info.
+    `date` and `time` are empty strings — the caller fills them via
+    `await get_formatted_date_and_time_of_event()`.
+    """
+    theater_event = schedule_event.theater_event
+    event_name = get_full_name_event(theater_event)
+    place_str = format_place_footnote(schedule_event.place) if schedule_event.place else ""
+    if not schedule_event.place:
+        auto_sending_logger.warning(
+            f"Schedule event {schedule_event.id} has no place (place_id is NULL)")
+    return new_recipient_ctx(
+        event_name=event_name,
+        ticket_ids=ticket_ids_str,
+        place=place_str,
+        refund_info=refund_info,
+    )
+
+
 # ─── Recipient selectors ──────────────────────────────────────────────────────
 
 async def _selector_event(
@@ -247,35 +319,16 @@ async def _selector_event(
         tickets = (await session.execute(stmt)).scalars().all()
 
         # Group by user.
-        user_tickets: dict[int, list[Ticket]] = {}
-        for t in tickets:
-            if t.user is None:
-                auto_sending_logger.warning(
-                    f"Ticket {t.id} has no user (user_id is NULL), skipping")
-                continue
-            user_tickets.setdefault(t.user.user_id, []).append(t)
+        user_tickets, _ = group_tickets_by_user(tickets)
 
         # Build context and recipients.
         date_event, time_event = await get_formatted_date_and_time_of_event(se)
-        theater_event = se.theater_event
-        full_name = get_full_name_event(theater_event)
-        refund_info = ""  # Will be filled by caller if needed.
-
-        place_str = format_place_footnote(se.place) if se.place else ""
-        if not se.place:
-            auto_sending_logger.warning(
-                f"Schedule event {se.id} has no place (place_id is NULL)")
 
         for user_id, user_tix in user_tickets.items():
             ticket_ids = ", ".join(str(t.id) for t in user_tix)
-            ctx = {
-                "event_name": full_name,
-                "date": date_event,
-                "time": time_event,
-                "place": place_str,
-                "ticket_ids": ticket_ids,
-                "refund_info": refund_info,
-            }
+            ctx = build_recipient_ctx(se, ticket_ids)
+            ctx["date"] = date_event
+            ctx["time"] = time_event
             recipients.append(Recipient(
                 user=user_tix[0].user,
                 ctx=ctx,
@@ -325,15 +378,19 @@ async def select_payment_recipients(
     if not tickets:
         return []
 
-    # Group tickets by (user_id, schedule_event_id)
-    grouped: dict[tuple[int, int], list] = {}
-    for t in tickets:
-        if t.user is None:
-            auto_sending_logger.warning(
-                f"Ticket {t.id} has no user (user_id is NULL), skipping")
-            continue
-        key = (t.user.user_id, t.schedule_event_id)
-        grouped.setdefault(key, []).append(t)
+    # Group tickets by user_id first, then regroup by (user_id, schedule_event_id)
+    user_tickets_map, _ = group_tickets_by_user(tickets)
+    if not user_tickets_map:
+        return []
+
+    # Regroup by (user_id, schedule_event_id)
+    grouped: dict[tuple[int, int], list[Ticket]] = {}
+    for uid, tix_list in user_tickets_map.items():
+        by_se: dict[int, list[Ticket]] = {}
+        for t in tix_list:
+            by_se.setdefault(t.schedule_event_id, []).append(t)
+        for se_id, se_tix in by_se.items():
+            grouped.setdefault((uid, se_id), []).extend(se_tix)
 
     if not grouped:
         return []
@@ -347,23 +404,11 @@ async def select_payment_recipients(
 
         date_str, time_str = await get_formatted_date_and_time_of_event(
             schedule_event)
-        theater_event = schedule_event.theater_event
-        event_name = get_full_name_event(theater_event)
         ticket_id_str = ", ".join(str(t.id) for t in user_tix)
 
-        place_str = format_place_footnote(schedule_event.place) if schedule_event.place else ""
-        if not schedule_event.place:
-            auto_sending_logger.warning(
-                f"Schedule event {se_id} has no place (place_id is NULL)")
-
-        ctx = {
-            "event_name": event_name,
-            "date": date_str,
-            "time": time_str,
-            "place": place_str,
-            "ticket_ids": ticket_id_str,
-            "refund_info": "",
-        }
+        ctx = build_recipient_ctx(schedule_event, ticket_id_str)
+        ctx["date"] = date_str
+        ctx["time"] = time_str
 
         user = user_tix[0].user
         recipients.append(Recipient(

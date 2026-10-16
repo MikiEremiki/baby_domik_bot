@@ -180,9 +180,8 @@ async def show_afisha(
         for pid, pname in sorted(available_places_map.items(), key=lambda x: x[0])
     ]
 
-    year_for_afisha = int(month.split('-')[0]) if month else now.year
     t_af0 = time.perf_counter()
-    afishas_db = await get_afishas(session, year_for_afisha)
+    afishas_db = await get_afishas(session)
     dur_af = (time.perf_counter() - t_af0) * 1000
     metrics_service.record_db_query(dur_af / 1000.0)
     dur_db += dur_af
@@ -198,7 +197,6 @@ async def show_afisha(
         path = '/' + a.file_path if not a.file_path.startswith('/') else a.file_path
         afishas.append({
             'month': a.month,
-            'year': a.year,
             'image_url': path
         })
     afishas.sort(key=lambda x: x['month'])
@@ -265,6 +263,7 @@ async def show_event_details(
         dt_moscow = dt.astimezone(MOSCOW_TZ)
         sessions.append({
             'id': s.id,
+            'datetime_sort': dt,
             'place_id': eff_place.id,
             'place_name': eff_place.name,
             'place_address': eff_place.address,
@@ -276,6 +275,10 @@ async def show_event_details(
             'free_seats_child': max(s.qty_child_free_seat or 0, 0),
             'free_seats_adult': max(s.qty_adult_free_seat or 0, 0),
         })
+
+    sessions.sort(key=lambda x: x['datetime_sort'])
+    for sess in sessions:
+        del sess['datetime_sort']
 
     # Сноски по отображаемым сеансам
     seen_place_ids = set()

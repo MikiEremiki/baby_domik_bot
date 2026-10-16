@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 from typing import List
 
 from sulguk import transform_html, RenderResult
@@ -15,7 +14,6 @@ from telegram.error import BadRequest, TimedOut, Forbidden
 from api.gspread_pub import publish_update_ticket, publish_update_cme
 from db import db_postgres
 from db.enum import TicketStatus, CustomMadeStatus, UserRole
-from handlers import check_user_db
 from db.db_googlesheets import (
     decrease_nonconfirm_seat,
     increase_free_seat,
@@ -44,7 +42,6 @@ main_handlers_logger = logging.getLogger('bot.main_handlers')
 
 
 async def start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    await check_user_db(update, context)
     await cancel_tickets_db_and_gspread(update, context)
     await clean_context(context)
     await clean_context_on_end_handler(main_handlers_logger, context)
@@ -132,7 +129,6 @@ async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT
 
     # Обработка личных чатов (блокировка/разблокировка)
     if chat.type == ChatType.PRIVATE:
-        await check_user_db(update, context)
         if was_member and not is_member:
             main_handlers_logger.info(f'{cause_name} заблокировал бота')
             await db_postgres.update_user_status(
@@ -1208,8 +1204,7 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             photo = None
             if number_of_month_str is not None:
                 month_afisha = int(number_of_month_str)
-                year_afisha = date.today().year
-                afisha_record = await db_postgres.get_afisha(context.session, month_afisha, year_afisha)
+                afisha_record = await db_postgres.get_afisha(context.session, month_afisha)
                 if afisha_record:
                     photo = afisha_record.file_id
             if (

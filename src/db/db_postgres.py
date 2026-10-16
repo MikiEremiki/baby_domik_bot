@@ -1835,24 +1835,22 @@ async def get_expired_tickets(session: AsyncSession, minutes: int = 10):
     return result.scalars().all()
 
 
-async def get_afisha(session: AsyncSession, month: int, year: int) -> Afisha | None:
-    query = select(Afisha).where(Afisha.month == month, Afisha.year == year)
+async def get_afisha(session: AsyncSession, month: int) -> Afisha | None:
+    query = select(Afisha).where(Afisha.month == month)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 
-async def get_afishas(session: AsyncSession, year: int) -> Sequence[Afisha]:
+async def get_afishas(session: AsyncSession) -> Sequence[Afisha]:
     query = select(Afisha)
-    if year:
-        query = select(Afisha).where(Afisha.year == year)
     result = await session.execute(query)
     return result.scalars().all()
 
 
 async def create_or_update_afisha(
-    session: AsyncSession, month: int, year: int, file_id: str, file_path: str, zones: dict = None
+    session: AsyncSession, month: int, file_id: str, file_path: str, zones: dict = None
 ) -> Afisha:
-    afisha = await get_afisha(session, month, year)
+    afisha = await get_afisha(session, month)
     if afisha:
         afisha.file_id = file_id
         afisha.file_path = file_path
@@ -1860,15 +1858,15 @@ async def create_or_update_afisha(
             afisha.zones = zones
     else:
         afisha = Afisha(
-            month=month, year=year, file_id=file_id, file_path=file_path, zones=zones
+            month=month, file_id=file_id, file_path=file_path, zones=zones
         )
         session.add(afisha)
     await session.commit()
     return afisha
 
 
-async def delete_afisha(session: AsyncSession, month: int, year: int):
-    query = delete(Afisha).where(Afisha.month == month, Afisha.year == year)
+async def delete_afisha(session: AsyncSession, month: int):
+    query = delete(Afisha).where(Afisha.month == month)
     await session.execute(query)
     await session.commit()
 

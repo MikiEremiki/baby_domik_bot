@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import date
 
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
@@ -24,8 +23,7 @@ async def load_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     state = 'START'
     context.user_data['STATE'] = state
 
-    year = date.today().year
-    afishas = await db_postgres.get_afishas(context.session, year)
+    afishas = await db_postgres.get_afishas(context.session)
     existing_months = [a.month for a in afishas]
 
     keyboard = []
@@ -54,15 +52,14 @@ async def load_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 async def set_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     month = int(query.data)
-    year = date.today().year
 
     afisha_hl_logger.info(f'Пользователь выбрал месяц: {month}')
     context.user_data['month_afisha'] = month
 
-    afisha = await db_postgres.get_afisha(context.session, month, year)
+    afisha = await db_postgres.get_afisha(context.session, month)
 
     if afisha:
-        text = f'Афиша для {month} месяца {year} года уже существует. Выберите действие:'
+        text = f'Афиша для {month} месяца уже существует. Выберите действие:'
         keyboard = [
             [InlineKeyboardButton(text='Посмотреть', callback_data='view_afisha')],
             [InlineKeyboardButton(text='Обновить', callback_data='update_afisha')],
@@ -71,7 +68,7 @@ async def set_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         ]
         state = 2
     else:
-        text = f'Афиши для {month} месяца {year} года нет. Отправьте картинку для загрузки афиши:'
+        text = f'Афиши для {month} месяца нет. Отправьте картинку для загрузки афиши:'
         keyboard = [
             add_btn_back_and_cancel(postfix_for_cancel='afisha', add_back_btn=False)
         ]
@@ -88,9 +85,8 @@ async def set_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 async def view_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     month = context.user_data['month_afisha']
-    year = date.today().year
 
-    afisha = await db_postgres.get_afisha(context.session, month, year)
+    afisha = await db_postgres.get_afisha(context.session, month)
     if afisha:
         try:
             await query.delete_message()
@@ -106,7 +102,7 @@ async def view_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
         await update.effective_chat.send_photo(
             photo=afisha.file_id,
-            caption=f'Афиша для {month} месяца {year} года. Выберите действие:',
+            caption=f'Афиша для {month} месяца. Выберите действие:',
             reply_markup=reply_markup
         )
     await query.answer()
@@ -139,15 +135,14 @@ async def request_update_afisha(update: Update, context: 'ContextTypes.DEFAULT_T
 async def delete_afisha_action(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     month = context.user_data['month_afisha']
-    year = date.today().year
 
-    afisha = await db_postgres.get_afisha(context.session, month, year)
+    afisha = await db_postgres.get_afisha(context.session, month)
     if afisha:
-        file_name = f'{year}_{month:02d}.jpg'
+        file_name = f'{month:02d}.jpg'
         file_path = STATIC_AFISHA_DIR / file_name
         if file_path.exists():
             os.remove(file_path)
-        await db_postgres.delete_afisha(context.session, month, year)
+        await db_postgres.delete_afisha(context.session, month)
         text_message = f'Афиша на {month} месяц удалена.'
     else:
         text_message = 'Афиша не найдена.'
@@ -171,7 +166,6 @@ async def delete_afisha_action(update: Update, context: 'ContextTypes.DEFAULT_TY
 
 async def upload_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     month = context.user_data['month_afisha']
-    year = date.today().year
 
     # Get largest photo
     photo = update.effective_message.photo[-1]
@@ -181,20 +175,20 @@ async def upload_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     # Download file
     new_file = await context.bot.get_file(file_id)
-    file_name = f'{year}_{month:02d}.jpg'
+    file_name = f'{month:02d}.jpg'
     file_path = STATIC_AFISHA_DIR / file_name
     await new_file.download_to_drive(custom_path=str(file_path))
 
     stored_path = f'static/img/afisha/{file_name}'
 
     await db_postgres.create_or_update_afisha(
-        context.session, month=month, year=year, file_id=file_id, file_path=stored_path
+        context.session, month=month, file_id=file_id, file_path=stored_path
     )
 
     context.user_data.pop('month_afisha', None)
 
     await update.effective_chat.send_message(
-        text=f'Афиша на {month}.{year} успешно загружена и сохранена.',
+        text=f'Афиша на {month} месяц успешно загружена и сохранена.',
         reply_markup=None
     )
 

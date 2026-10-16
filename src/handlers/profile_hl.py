@@ -357,7 +357,7 @@ async def _get_dt(t, session):
 async def show_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """Show list of user's purchased tickets with pagination (PAID or APPROVED)."""
     command = context.user_data.get('command', None)
-    if not command:
+    if not command and update.effective_message:
         command = extract_command(update.effective_message.text)
     if command == 'tickets':
         await init_conv_hl_dialog(update, context)

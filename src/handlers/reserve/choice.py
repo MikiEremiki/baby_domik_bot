@@ -52,6 +52,40 @@ from settings.settings import (
 reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 
 
+async def _guard_reserve_user_data(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        func_name: str
+):
+    """Проверяет наличие reserve_user_data, возвращает None если OK, иначе отправляет сообщение и возвращает END."""
+    if 'reserve_user_data' not in context.user_data:
+        reserve_hl_logger.info(
+            f'in {func_name}: reserve_user_data missing, returning END'
+        )
+        await update.effective_chat.send_message(
+            'Сессия истекла, начните заново.'
+        )
+        return ConversationHandler.END
+    return None
+
+
+async def _guard_effective_message(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        func_name: str
+):
+    """Проверяет наличие effective_message, возвращает None если OK, иначе отправляет сообщение и возвращает END."""
+    if update.effective_message is None:
+        reserve_hl_logger.info(
+            f'in {func_name}: effective_message is None, returning END'
+        )
+        await update.effective_chat.send_message(
+            'Сессия истекла, начните заново.'
+        )
+        return ConversationHandler.END
+    return None
+
+
 async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Начальный шаг выбора способа подбора мероприятий: по дате или по репертуару.
@@ -59,8 +93,15 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     query = update.callback_query
     if query:
-        await query.answer()
+        try:
+            await query.answer()
+        except TimedOut as e:
+            reserve_hl_logger.error(e)
         await query.delete_message()
+
+    if await _guard_effective_message(update, context, 'choice_mode'):
+        return
+
     command = extract_command(update.effective_message.text)
     save_command = context.user_data.get('command', False)
     if not save_command or save_command != command:
@@ -120,13 +161,17 @@ async def choice_show_by_repertoire(update: Update,
     Возвращает состояние REP_GROUP или SHOW.
     """
     query = update.callback_query
-    # Устанавливаем режим выбора: репертуар
-    context.user_data['select_mode'] = 'REPERTOIRE'
     if query:
         try:
             await query.answer()
         except TimedOut as e:
             reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_show_by_repertoire'):
+        return
+
+    # Устанавливаем режим выбора: репертуар
+    context.user_data['select_mode'] = 'REPERTOIRE'
 
     command = context.user_data['command']
     postfix_for_cancel = context.user_data.get('postfix_for_cancel', command)
@@ -320,6 +365,10 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await query.delete_message()
         except BadRequest as e:
             reserve_hl_logger.error(e)
+
+    if await _guard_effective_message(update, context, 'choice_month'):
+        return
+
     command = extract_command(update.effective_message.text)
     if command == 'list_wait':
         await init_conv_hl_dialog(update, context)
@@ -405,6 +454,10 @@ async def choice_show(
         await query.answer()
     except TimedOut as e:
         reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_show'):
+        return
+
     reserve_user_data = context.user_data['reserve_user_data']
 
     intent_id, callback_data = remove_intent_id(query.data)
@@ -515,7 +568,7 @@ async def choice_show(
     if number_of_month_str is not None:
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -659,7 +712,7 @@ async def _render_sessions_for_repertoire(
     if number_of_month_str is not None and select_mode == 'DATE':
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -732,6 +785,9 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await query.answer()
     except TimedOut as e:
         reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_date'):
+        return
 
     _, callback_data = remove_intent_id(query.data)
     theater_event_id = int(callback_data)
@@ -904,7 +960,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if number_of_month_str is not None:
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -976,6 +1032,9 @@ async def choice_month_rep_continue(update: Update,
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
+    if await _guard_reserve_user_data(update, context, 'choice_month_rep_continue'):
+        return
+
     # Достаем выбранный месяц
     _, callback_data = remove_intent_id(query.data)
     number_of_month_str = callback_data
@@ -1023,7 +1082,7 @@ async def choice_month_rep_continue(update: Update,
     if number_of_month_str is not None:
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -1168,6 +1227,10 @@ async def choice_time(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await query.answer()
     except TimedOut as e:
         reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_time'):
+        return
+
     _, callback_data = remove_intent_id(query.data)
 
     check_command_studio = check_entered_command(context, 'studio')
@@ -1248,6 +1311,9 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         await query.answer()
     except TimedOut as e:
         reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_place'):
+        return
 
     _, callback_data = remove_intent_id(query.data)
     try:
@@ -1356,6 +1422,10 @@ async def choice_option_of_reserve(
         await query.answer()
     except TimedOut as e:
         reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_option_of_reserve'):
+        return
+
     message = await update.effective_chat.send_message(
         'Загружаю данные по билетам...')
 
