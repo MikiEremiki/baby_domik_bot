@@ -1,13 +1,17 @@
 import logging
 
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 
 from db import db_postgres
 from utilities.utl_func import clean_context, extract_command
 
 
 async def init_conv_hl_dialog(update, context: 'ContextTypes.DEFAULT_TYPE'):
-    await check_user_db(update, context)
+    if update.effective_message is None:
+        logging.getLogger(__name__).info(
+            f'effective_message is None, returning END'
+        )
+        return ConversationHandler.END
     await clean_context(context)
     state = 'START'
     context.user_data['STATE'] = state
