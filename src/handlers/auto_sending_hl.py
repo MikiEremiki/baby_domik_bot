@@ -1169,7 +1169,13 @@ async def auto_sending_send_preview_to_self(update: Update, context):
 
 
 async def _build_recipient_ctx(schedule_event, ticket_ids_str: str) -> dict:
-    """Build the recipient context dict for manual auto-sending."""
+    """Build the recipient context dict for manual auto-sending.
+
+    Delegates to the shared ``new_recipient_ctx`` factory so that the 6-key
+    structure is defined in one place.  Supports ``schedule_event=None``
+    (fallback dashes) which the shared ``build_recipient_ctx`` does not need.
+    """
+    from schedule.auto_sending import new_recipient_ctx
     from utilities.utl_func import get_formatted_date_and_time_of_event, get_full_name_event
     from utilities.utl_place import format_place_footnote
 
@@ -1183,23 +1189,25 @@ async def _build_recipient_ctx(schedule_event, ticket_ids_str: str) -> dict:
         time_str = '—'
         place_str = ''
 
-    return {
-        'event_name': event_name,
-        'date': date_str,
-        'time': time_str,
-        'ticket_ids': ticket_ids_str,
-        'place': place_str,
-        'refund_info': '',
-    }
+    return new_recipient_ctx(
+        event_name=event_name,
+        date=date_str,
+        time=time_str,
+        ticket_ids=ticket_ids_str,
+        place=place_str,
+    )
 
 
 async def _manual_send_by_ticket(context, target_id: int):
     """Build recipients list for manual send by ticket ID."""
     from schedule.auto_sending import Recipient
-    
+
     ticket = await db_postgres.get_ticket(context.session, target_id)
     if not ticket:
         return None, f"Билет {target_id} не найден."
+
+    if ticket.user is None:
+        return None, "⚠️ Билет куплен без привязки пользователя, отправка невозможна."
 
     user = ticket.user
     if user.chat_id == 0:
@@ -1212,7 +1220,7 @@ async def _manual_send_by_ticket(context, target_id: int):
 
     ctx = await _build_recipient_ctx(schedule_event, str(ticket.id))
     recipients = [Recipient(user=user, ctx=ctx, dedup_key=f"t:{ticket.id}", schedule_event_id=se)]
-    return recipients, None
+    return recipients, None, []
 
 
 async def _manual_send_by_session(context, target_id: int):
@@ -1240,9 +1248,8 @@ async def _manual_send_by_session(context, target_id: int):
     )
     tickets = (await context.session.execute(stmt)).scalars().all()
 
-    user_tickets = {}
-    for t in tickets:
-        user_tickets.setdefault(t.user.user_id, []).append(t)
+    from schedule.auto_sending import group_tickets_by_user
+    user_tickets, no_user_ticket_ids = group_tickets_by_user(tickets)
 
     recipients = []
     for uid, tix in user_tickets.items():
@@ -1254,7 +1261,7 @@ async def _manual_send_by_session(context, target_id: int):
             dedup_key=f"se:{target_id}",
             schedule_event_id=target_id,
         ))
-    return recipients, None
+    return recipients, None, no_user_ticket_ids
 
 
 def _format_send_stats(stats: dict) -> str:
@@ -1264,8 +1271,10 @@ def _format_send_stats(stats: dict) -> str:
     no_chat_skipped = stats['no_chat_skipped']
     blocked_skipped = stats['blocked_skipped']
     not_sent_via_bot_skipped = stats['not_sent_via_bot_skipped']
+    no_user_skipped = stats.get('no_user_skipped', [])
 
-    if sent == 0 and (dedup_skipped + no_chat_skipped + blocked_skipped + not_sent_via_bot_skipped) > 0:
+    skip_total = dedup_skipped + no_chat_skipped + blocked_skipped + not_sent_via_bot_skipped + len(no_user_skipped)
+    if sent == 0 and skip_total > 0:
         msg = "⚠️ Рассылка не была отправлена ни одному получателю.<br><br>"
     else:
         msg = f"Отправлено: {sent} получателей<br>"
@@ -1278,6 +1287,9 @@ def _format_send_stats(stats: dict) -> str:
         msg += f"Пропущено (заблокирован): {blocked_skipped}<br>"
     if not_sent_via_bot_skipped > 0:
         msg += f"Пропущено (отправка через бот выключена): {not_sent_via_bot_skipped}<br>"
+    if no_user_skipped:
+        ids_str = ", ".join(str(tid) for tid in no_user_skipped)
+        msg += f"Пропущено (билет без пользователя): {len(no_user_skipped)} (IDs: {ids_str})<br>"
 
     return msg.rstrip('<br>')
 
@@ -1301,16 +1313,16 @@ async def auto_sending_handle_manual_id(update: Update, context):
 
     # Build recipients based on mode
     if mode == 'ticket':
-        recipients, error = await _manual_send_by_ticket(context, target_id)
+        recipients, error, no_user_ticket_ids = await _manual_send_by_ticket(context, target_id)
     else:
-        recipients, error = await _manual_send_by_session(context, target_id)
+        recipients, error, no_user_ticket_ids = await _manual_send_by_session(context, target_id)
 
     if error:
         await update.effective_chat.send_message(error)
         context.user_data.pop('manual_sending_id', None)
         return AUTO_SENDING_MANUAL_ID
 
-    if not recipients:
+    if not recipients and not no_user_ticket_ids:
         await update.effective_chat.send_message("Получатели не найдены.")
         context.user_data.pop('manual_sending_id', None)
         return AUTO_SENDING_MANUAL_ID
@@ -1322,6 +1334,10 @@ async def auto_sending_handle_manual_id(update: Update, context):
     stats = await dispatch_auto_sending(
         context, context.session, sending, recipients, force_resend=force_resend)
     auto_sending_hl_logger.info("Manual sending dispatched")
+
+    # Add no-user skipped info
+    if no_user_ticket_ids:
+        stats['no_user_skipped'] = no_user_ticket_ids
 
     # Report stats
     msg = _format_send_stats(stats)

@@ -4,7 +4,9 @@ from datetime import datetime, timedelta, timezone, time as dt_time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from schedule.auto_sending import (
+    build_recipient_ctx,
     compute_send_time,
+    group_tickets_by_user,
     render_text,
     Recipient,
     RECIPIENT_SELECTORS,
@@ -373,3 +375,131 @@ class TestDispatchAutoSending:
 
         # Should have called send_message twice (original + retry)
         assert context.bot.send_message.call_count >= 2
+
+
+# ─── Shared helpers: group_tickets_by_user, build_recipient_ctx ───────────────
+
+class TestGroupTicketsByUser:
+    """Tests for group_tickets_by_user: grouping, no-user tickets."""
+
+    def _make_ticket(self, ticket_id, user_id=None):
+        ticket = MagicMock()
+        ticket.id = ticket_id
+        if user_id is not None:
+            user = MagicMock()
+            user.user_id = user_id
+            ticket.user = user
+        else:
+            ticket.user = None
+        return ticket
+
+    def test_groups_tickets_by_user(self):
+        """Tickets with users are grouped by user_id."""
+        tickets = [
+            self._make_ticket(1, user_id=100),
+            self._make_ticket(2, user_id=100),
+            self._make_ticket(3, user_id=200),
+        ]
+        user_tickets, skipped = group_tickets_by_user(tickets)
+        assert len(skipped) == 0
+        assert 100 in user_tickets
+        assert 200 in user_tickets
+        assert len(user_tickets[100]) == 2
+        assert len(user_tickets[200]) == 1
+
+    def test_skips_tickets_without_user(self):
+        """Tickets with user=None are skipped and their IDs are returned."""
+        tickets = [
+            self._make_ticket(1, user_id=100),
+            self._make_ticket(2, user_id=None),
+            self._make_ticket(3, user_id=None),
+        ]
+        user_tickets, skipped = group_tickets_by_user(tickets)
+        assert len(user_tickets) == 1
+        assert 100 in user_tickets
+        assert skipped == [2, 3]
+
+    def test_empty_list(self):
+        """Empty list returns empty dict and empty skipped list."""
+        user_tickets, skipped = group_tickets_by_user([])
+        assert user_tickets == {}
+        assert skipped == []
+
+    def test_all_tickets_without_user(self):
+        """When all tickets have no user, returns empty dict with all IDs skipped."""
+        tickets = [
+            self._make_ticket(1, user_id=None),
+            self._make_ticket(2, user_id=None),
+        ]
+        user_tickets, skipped = group_tickets_by_user(tickets)
+        assert user_tickets == {}
+        assert skipped == [1, 2]
+
+
+class TestBuildRecipientCtx:
+    """Tests for build_recipient_ctx: context dict structure."""
+
+    def _make_schedule_event(self, event_id=1, place_id=1):
+        place = MagicMock()
+        place.name = "Main Hall"
+        theater_event = MagicMock()
+        theater_event.name = "Hamlet"
+        theater_event.director = None
+        theater_event.genre = None
+        theater_event.flag_premier = False
+        theater_event.min_age_child = 0
+        theater_event.max_age_child = None
+        theater_event.duration = None
+        theater_event.note = None
+        theater_event.link = None
+
+        se = MagicMock()
+        se.id = event_id
+        se.theater_event = theater_event
+        se.place = place if place_id else None
+        return se
+
+    def test_returns_correct_keys(self):
+        """Context dict contains all expected keys."""
+        se = self._make_schedule_event()
+        ctx = build_recipient_ctx(se, "1, 2, 3")
+        assert set(ctx.keys()) == {
+            "event_name", "date", "time", "place", "ticket_ids", "refund_info"
+        }
+
+    def test_event_name_from_theater_event(self):
+        """event_name is derived from theater_event."""
+        se = self._make_schedule_event()
+        ctx = build_recipient_ctx(se, "42")
+        assert "Hamlet" in ctx["event_name"]
+
+    def test_date_and_time_empty(self):
+        """date and time are empty strings — caller fills them."""
+        se = self._make_schedule_event()
+        ctx = build_recipient_ctx(se, "1")
+        assert ctx["date"] == ""
+        assert ctx["time"] == ""
+
+    def test_ticket_ids_passed_through(self):
+        """ticket_ids is set from the argument."""
+        se = self._make_schedule_event()
+        ctx = build_recipient_ctx(se, "7, 8, 9")
+        assert ctx["ticket_ids"] == "7, 8, 9"
+
+    def test_refund_info_default_empty(self):
+        """refund_info defaults to empty string."""
+        se = self._make_schedule_event()
+        ctx = build_recipient_ctx(se, "1")
+        assert ctx["refund_info"] == ""
+
+    def test_refund_info_custom(self):
+        """refund_info can be set to a custom value."""
+        se = self._make_schedule_event()
+        ctx = build_recipient_ctx(se, "1", refund_info="Refund to card")
+        assert ctx["refund_info"] == "Refund to card"
+
+    def test_place_none_warning(self):
+        """When place is None, place field is empty string."""
+        se = self._make_schedule_event(place_id=None)
+        ctx = build_recipient_ctx(se, "1")
+        assert ctx["place"] == ""

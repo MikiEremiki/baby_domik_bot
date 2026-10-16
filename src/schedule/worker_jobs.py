@@ -8,8 +8,7 @@ from telegram.ext import ContextTypes
 from db import db_postgres, Ticket
 from db.enum import AutoSendingTrigger, TicketStatus
 from utilities.utl_db import open_session
-from utilities.utl_func import (
-    get_formatted_date_and_time_of_event, get_full_name_event)
+from utilities.utl_func import get_formatted_date_and_time_of_event
 from utilities.utl_googlesheets import cancel_ticket_and_return_seat_auto
 
 worker_logger = logging.getLogger('bot.worker')
@@ -77,33 +76,26 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
             )
         ).scalars().all()
 
-        # Transitional: skip tickets already reminded via old flag.
+        # Filter out tickets already reminded via old legacy flag.
+        tickets = [t for t in tickets if not getattr(t, 'reminded_1d_at', None)]
+
         # Group by user, build recipients.
-        user_tickets: dict[int, list[Ticket]] = {}
-        for t in tickets:
-            if getattr(t, 'reminded_1d_at', None):
-                worker_logger.info(f"Ticket {t.id} already reminded (legacy flag)")
-                continue
-            user_tickets.setdefault(t.user.user_id, []).append(t)
+        from schedule.auto_sending import group_tickets_by_user
+        user_tickets, _ = group_tickets_by_user(tickets)
 
         if not user_tickets:
             worker_logger.info(f"send_reminder: no new recipients for event {event_id}")
             return
 
         date_event, time_event = await get_formatted_date_and_time_of_event(event)
-        theater_event = event.theater_event
-        full_name = get_full_name_event(theater_event)
 
+        from schedule.auto_sending import build_recipient_ctx
         recipients = []
         for user_id, user_tix in user_tickets.items():
             ticket_ids = ", ".join(str(t.id) for t in user_tix)
-            ctx = {
-                "event_name": full_name,
-                "date": date_event,
-                "time": time_event,
-                "ticket_ids": ticket_ids,
-                "refund_info": "",
-            }
+            ctx = build_recipient_ctx(event, ticket_ids)
+            ctx["date"] = date_event
+            ctx["time"] = time_event
             recipients.append(Recipient(
                 user=user_tix[0].user,
                 ctx=ctx,
