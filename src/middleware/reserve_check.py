@@ -98,10 +98,23 @@ def add_reserve_check_middleware(application, config):
             last_db_update = to_naive(await db_postgres.get_last_schedule_update_time(context.session))
             # 2. Проверка актуальности данных расписания
             if last_db_update and last_db_update > last_interaction:
-                reserve_check_md_logger.info(f'User {user_id} has outdated data. Resetting.')
-                text = 'Расписание обновилось. Повторите выбор.'
+                reserve_check_md_logger.info(
+                    f'User {user_id} has outdated data. '
+                    f'last_db_update={last_db_update}, last_interaction={last_interaction}, '
+                    f'current_state={current_state}, callback_data={callback_data}'
+                )
+                text = 'Расписание обновилось. Пожалуйста, начните бронирование заново.'
                 await update.callback_query.answer(text, show_alert=True)
-                await choice_mode(update, context)
+                try:
+                    await choice_mode(update, context)
+                except Exception as e:
+                    reserve_check_md_logger.error(
+                        f'choice_mode failed in middleware for user {user_id}: {e}',
+                        exc_info=True
+                    )
+                    await update.effective_chat.send_message(
+                        'Произошла ошибка. Пожалуйста, начните бронирование заново.'
+                    )
                 await reset_conversation_state(update, context)
                 raise ApplicationHandlerStop
 
