@@ -263,6 +263,7 @@ async def show_event_details(
         dt_moscow = dt.astimezone(MOSCOW_TZ)
         sessions.append({
             'id': s.id,
+            'datetime_sort': dt,
             'place_id': eff_place.id,
             'place_name': eff_place.name,
             'place_address': eff_place.address,
@@ -274,6 +275,10 @@ async def show_event_details(
             'free_seats_child': max(s.qty_child_free_seat or 0, 0),
             'free_seats_adult': max(s.qty_adult_free_seat or 0, 0),
         })
+
+    sessions.sort(key=lambda x: x['datetime_sort'])
+    for sess in sessions:
+        del sess['datetime_sort']
 
     # Сноски по отображаемым сеансам
     seen_place_ids = set()
