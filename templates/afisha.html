@@ -183,7 +183,7 @@
     <div class="flex overflow-x-auto gap-3 sm:gap-4 py-2 snap-x snap-mandatory scrollbar-hide">
         {% for afisha in afishas %}
         <div class="snap-center afisha-card group" onclick="openAfishaModal('{{ afisha.image_url }}')" title="Нажмите, чтобы увеличить">
-            <img src="{{ afisha.image_url }}" alt="Афиша {{ afisha.month }}.{{ afisha.year }}" class="w-full h-full object-cover">
+            <img src="{{ afisha.image_url }}" alt="Афиша {{ afisha.month }}" class="w-full h-full object-cover">
             <div class="zoom-hint absolute inset-0 bg-black/25 flex items-center justify-center pointer-events-none">
                 <span class="p-2 rounded-full bg-black/60 text-white shadow-md">
                     <svg class="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

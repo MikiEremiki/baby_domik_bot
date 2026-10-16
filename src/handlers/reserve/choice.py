@@ -568,7 +568,7 @@ async def choice_show(
     if number_of_month_str is not None:
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -712,7 +712,7 @@ async def _render_sessions_for_repertoire(
     if number_of_month_str is not None and select_mode == 'DATE':
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -960,7 +960,7 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     if number_of_month_str is not None:
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id
@@ -1082,7 +1082,7 @@ async def choice_month_rep_continue(update: Update,
     if number_of_month_str is not None:
         try:
             afisha_record = await db_postgres.get_afisha(
-                context.session, int(number_of_month_str), date.today().year
+                context.session, int(number_of_month_str)
             )
             if afisha_record:
                 photo = afisha_record.file_id

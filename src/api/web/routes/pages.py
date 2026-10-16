@@ -180,9 +180,8 @@ async def show_afisha(
         for pid, pname in sorted(available_places_map.items(), key=lambda x: x[0])
     ]
 
-    year_for_afisha = int(month.split('-')[0]) if month else now.year
     t_af0 = time.perf_counter()
-    afishas_db = await get_afishas(session, year_for_afisha)
+    afishas_db = await get_afishas(session)
     dur_af = (time.perf_counter() - t_af0) * 1000
     metrics_service.record_db_query(dur_af / 1000.0)
     dur_db += dur_af
@@ -198,7 +197,6 @@ async def show_afisha(
         path = '/' + a.file_path if not a.file_path.startswith('/') else a.file_path
         afishas.append({
             'month': a.month,
-            'year': a.year,
             'image_url': path
         })
     afishas.sort(key=lambda x: x['month'])

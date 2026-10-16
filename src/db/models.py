@@ -610,13 +610,12 @@ class Afisha(BaseModelTimed):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     month: Mapped[int]
-    year: Mapped[int]
     file_id: Mapped[str]
     file_path: Mapped[str]
     zones: Mapped[Optional[dict]] = mapped_column(JSON)
 
     __table_args__ = (
-        UniqueConstraint('month', 'year', name='uq_afisha_month_year'),
+        UniqueConstraint('month', name='uq_afisha_month'),
     )
 
 

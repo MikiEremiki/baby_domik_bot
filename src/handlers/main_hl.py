@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 from typing import List
 
 from sulguk import transform_html, RenderResult
@@ -1205,8 +1204,7 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             photo = None
             if number_of_month_str is not None:
                 month_afisha = int(number_of_month_str)
-                year_afisha = date.today().year
-                afisha_record = await db_postgres.get_afisha(context.session, month_afisha, year_afisha)
+                afisha_record = await db_postgres.get_afisha(context.session, month_afisha)
                 if afisha_record:
                     photo = afisha_record.file_id
             if (
