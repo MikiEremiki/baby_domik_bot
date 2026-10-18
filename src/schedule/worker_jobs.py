@@ -33,7 +33,7 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
     try:
         from schedule.auto_sending import (
             resolve_auto_sending, dispatch_auto_sending,
-            RECIPIENT_SELECTORS, Recipient,
+            RECIPIENT_SELECTORS, Recipient, ticket_dedup_keys,
         )
         from db.models import ScheduleEvent, User, UserStatus
         from sqlalchemy.orm import selectinload
@@ -99,7 +99,7 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
             recipients.append(Recipient(
                 user=user_tix[0].user,
                 ctx=ctx,
-                dedup_key=f"se:{event.id}",
+                dedup_keys=ticket_dedup_keys(user_tix),
                 schedule_event_id=event.id,
             ))
 

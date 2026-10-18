@@ -1219,7 +1219,7 @@ async def _manual_send_by_ticket(context, target_id: int):
         schedule_event = await db_postgres.get_schedule_event(context.session, se)
 
     ctx = await _build_recipient_ctx(schedule_event, str(ticket.id))
-    recipients = [Recipient(user=user, ctx=ctx, dedup_key=f"t:{ticket.id}", schedule_event_id=se)]
+    recipients = [Recipient(user=user, ctx=ctx, dedup_keys=[f"t:{ticket.id}"], schedule_event_id=se)]
     return recipients, None, []
 
 
@@ -1248,7 +1248,7 @@ async def _manual_send_by_session(context, target_id: int):
     )
     tickets = (await context.session.execute(stmt)).scalars().all()
 
-    from schedule.auto_sending import group_tickets_by_user
+    from schedule.auto_sending import group_tickets_by_user, ticket_dedup_keys
     user_tickets, no_user_ticket_ids = group_tickets_by_user(tickets)
 
     recipients = []
@@ -1258,7 +1258,7 @@ async def _manual_send_by_session(context, target_id: int):
         recipients.append(Recipient(
             user=tix[0].user,
             ctx=ctx,
-            dedup_key=f"se:{target_id}",
+            dedup_keys=ticket_dedup_keys(tix),
             schedule_event_id=target_id,
         ))
     return recipients, None, no_user_ticket_ids
@@ -1272,12 +1272,17 @@ def _format_send_stats(stats: dict) -> str:
     blocked_skipped = stats['blocked_skipped']
     not_sent_via_bot_skipped = stats['not_sent_via_bot_skipped']
     no_user_skipped = stats.get('no_user_skipped', [])
+    sent_ticket_ids = stats.get('sent_ticket_ids', [])
 
     skip_total = dedup_skipped + no_chat_skipped + blocked_skipped + not_sent_via_bot_skipped + len(no_user_skipped)
     if sent == 0 and skip_total > 0:
         msg = "⚠️ Рассылка не была отправлена ни одному получателю.<br><br>"
     else:
         msg = f"Отправлено: {sent} получателей<br>"
+
+    if sent_ticket_ids:
+        all_ids = [tid.strip() for part in sent_ticket_ids for tid in part.split(',') if tid.strip()]
+        msg += f"Отправлено по билетам: {', '.join(all_ids)}<br>"
 
     if dedup_skipped > 0:
         msg += f"Пропущено (уже отправлено): {dedup_skipped}<br>"
