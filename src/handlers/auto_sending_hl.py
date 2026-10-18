@@ -1118,7 +1118,8 @@ async def auto_sending_handle_manual_mode(update: Update, context):
     reply_markup = InlineKeyboardMarkup([
         add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='3')
     ])
-    await query.edit_message_text(text, reply_markup=reply_markup)
+    edited_msg = await query.edit_message_text(text, reply_markup=reply_markup)
+    context.user_data['manual_input_message_id'] = edited_msg.message_id
     return AUTO_SENDING_MANUAL_ID
 
 
@@ -1314,6 +1315,7 @@ async def auto_sending_handle_manual_id(update: Update, context):
     if not sending:
         await update.effective_chat.send_message("Рассылка не найдена.")
         context.user_data.pop('manual_sending_id', None)
+        context.user_data.pop('manual_input_message_id', None)
         return 3
 
     # Build recipients based on mode
@@ -1325,12 +1327,14 @@ async def auto_sending_handle_manual_id(update: Update, context):
     if error:
         await update.effective_chat.send_message(error)
         context.user_data.pop('manual_sending_id', None)
-        return AUTO_SENDING_MANUAL_ID
+        context.user_data.pop('manual_input_message_id', None)
+        return 3
 
     if not recipients and not no_user_ticket_ids:
         await update.effective_chat.send_message("Получатели не найдены.")
         context.user_data.pop('manual_sending_id', None)
-        return AUTO_SENDING_MANUAL_ID
+        context.user_data.pop('manual_input_message_id', None)
+        return 3
 
     # Dispatch
     from schedule.auto_sending import dispatch_auto_sending
@@ -1343,6 +1347,14 @@ async def auto_sending_handle_manual_id(update: Update, context):
     # Add no-user skipped info
     if no_user_ticket_ids:
         stats['no_user_skipped'] = no_user_ticket_ids
+
+    # Delete the input prompt message with buttons
+    msg_id = context.user_data.pop('manual_input_message_id', None)
+    if msg_id is not None:
+        try:
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_id)
+        except Exception:
+            pass
 
     # Report stats
     msg = _format_send_stats(stats)
