@@ -25,6 +25,7 @@ from db import ScheduleEvent, db_postgres, TheaterEvent, Ticket, BaseTicket
 from db.enum import TicketStatus
 from settings import parse_settings
 from utilities.utl_date import MOSCOW_TZ, to_moscow_dt
+from utilities.utl_place import format_place_line
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
@@ -1013,7 +1014,8 @@ async def add_qty_visitors_to_text(
     return text
 
 
-async def create_str_info_by_schedule_event_id(context, choice_event_id):
+async def create_str_info_by_schedule_event_id(
+        context, choice_event_id):
     schedule_event = await db_postgres.get_schedule_event(
         context.session, choice_event_id)
     theater_event = await db_postgres.get_theater_event(
@@ -1026,6 +1028,10 @@ async def create_str_info_by_schedule_event_id(context, choice_event_id):
                          f'<b>{full_name}<br>'
                          f'{date_event}<br>'
                          f'{time_event}</b><br>')
+    default_place = await db_postgres.get_default_place(context.session)
+    place_line = format_place_line(schedule_event, default_place)
+    if place_line:
+        text_select_event += f'{place_line}<br>'
     text_select_event += f'{text_emoji}<br>' if text_emoji else ''
     return text_select_event
 

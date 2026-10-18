@@ -34,7 +34,9 @@ from utilities.utl_func import (
 from utilities.utl_ticket import (
     cancel_tickets_db_and_gspread, check_and_set_privilege
 )
-from utilities.utl_place import effective_place, format_place_footnote
+from utilities.utl_place import (
+    effective_place, format_place_footnote, format_place_line
+)
 from schedule.worker_jobs import cancel_old_created_tickets
 from handlers.receipt_hl import build_receipt_button_row
 
@@ -332,10 +334,17 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         people_str = adult_str + child_str
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
+        default_place = await db_postgres.get_default_place(context.session)
+        place_line = format_place_line(schedule_event, default_place)
         text = (
             f'Техническая информация по билету {ticket_id}<br><br>'
             f'Событие {schedule_event.id}: {theater_event.name}<br>'
-            f'{date_event} в {time_event}<br><br>'
+            f'{date_event} в {time_event}<br>'
+        )
+        if place_line:
+            text += f'{place_line}<br>'
+        text += (
+            f'<br>'
             f'Привязан к профилю: {user.user_id if user else "Нет привязки"}<br>'
             f'Билет: {base_ticket.name}<br>'
             f'Стоимость: {ticket.price}<br>'

@@ -35,6 +35,7 @@ from utilities.utl_func import (
     get_formatted_date_and_time_of_event,
     add_clients_data_to_text, add_qty_visitors_to_text,
 )
+from utilities.utl_place import format_place_line
 from utilities.utl_kbd import (
     add_btn_back_and_cancel,
     create_replay_markup,
@@ -788,11 +789,15 @@ async def send_clients_data(
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
+    default_place = await db_postgres.get_default_place(context.session)
+    place_line = format_place_line(schedule_event, default_place)
     text = f'#Мероприятие <code>{event_id}</code><br>'
     text += (f'Список людей на<br>'
              f'<b>{theater_event.name}<br>'
              f'{date_event} в '
              f'{time_event}</b><br>')
+    if place_line:
+        text += f'{place_line}<br>'
 
     text += await add_qty_visitors_to_text(base_ticket_and_tickets)
 
