@@ -189,6 +189,22 @@ async def get_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     return state
 
 
+async def _safe_edit_message_text(query, **kwargs) -> None:
+    try:
+        await query.edit_message_text(**kwargs)
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise
+
+
+async def _safe_edit_message_reply_markup(query, **kwargs) -> None:
+    try:
+        await query.edit_message_reply_markup(**kwargs)
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise
+
+
 async def _finish_get_children(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE',
@@ -227,7 +243,7 @@ async def _handle_chld_edit_callback(
         # Кнопка отмены возвращает в основное меню
         keyboard = [[InlineKeyboardButton("Назад", callback_data="CHLD_EDIT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
         return 'CHILDREN'
     elif data.startswith('CHLD_EDIT_ONE|'):
         try:
@@ -255,11 +271,7 @@ async def _handle_chld_edit_callback(
                 context.session, chose_base_ticket_id)
             text, reply_markup = await get_child_text_and_reply(
                 update, chose_base_ticket, children, context)
-            try:
-                await query.edit_message_text(text=text, reply_markup=reply_markup)
-            except BadRequest as e:
-                if "Message is not modified" not in str(e):
-                    raise e
+            await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
             await set_back_context(context, 'CHILDREN', text, reply_markup)
             return 'CHILDREN'
 
@@ -293,7 +305,7 @@ async def _handle_chld_edit_callback(
             [InlineKeyboardButton("⬅️ Назад", callback_data="CHLD_EDIT")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
         return 'CHILDREN'
     elif data.startswith('CHLD_EDIT_PAGE|'):
         page = int(data.split('|')[1])
@@ -318,7 +330,7 @@ async def _handle_chld_edit_callback(
                 '<code>Имя Возраст</code>\nНапример: <code>Сергей 3</code>')
         keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
+        await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
         return 'CHILDREN'
 
     # Обновляем сообщение для всех случаев (EDIT, PAGE, DEL, EDIT_START)
@@ -327,11 +339,7 @@ async def _handle_chld_edit_callback(
         context.session, chose_base_ticket_id)
     text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
-    try:
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
-    except BadRequest as e:
-        if "Message is not modified" not in str(e):
-            raise e
+    await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
     await set_back_context(context, 'CHILDREN', text, reply_markup)
     return 'CHILDREN'
 
@@ -356,7 +364,7 @@ async def _handle_chld_selection_callback(
                 [f"Ребенок {i}", "0"] for i in range(1, qty + 1)
             ]
         reserve_user_data.setdefault('client_data', {})['flag_stub_children'] = True
-        await query.edit_message_reply_markup()
+        await _safe_edit_message_reply_markup(query)
         return await _finish_get_children(
             update,
             context,
@@ -372,7 +380,8 @@ async def _handle_chld_selection_callback(
         keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         res_text = transform_html(text)
-        await query.edit_message_text(
+        await _safe_edit_message_text(
+            query,
             text=res_text.text,
             entities=res_text.entities,
             parse_mode=None,
@@ -388,7 +397,8 @@ async def _handle_chld_selection_callback(
         keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         res_text = transform_html(text)
-        await query.edit_message_text(
+        await _safe_edit_message_text(
+            query,
             text=res_text.text,
             entities=res_text.entities,
             parse_mode=None,
@@ -423,7 +433,7 @@ async def _handle_chld_selection_callback(
                 return 'CHILDREN'
             processed_data_on_children = [[child[0], str(child[1])]]
             original_text = f"{child[0]} {int(child[1])}"
-            await query.edit_message_reply_markup()
+            await _safe_edit_message_reply_markup(query)
             return await _finish_get_children(
                 update, context, processed_data_on_children, original_text)
         # Иначе режим множественного выбора
@@ -467,7 +477,7 @@ async def _handle_chld_selection_callback(
             processed_data_on_children.append([child[0], str(child[1])])
             original_text_parts.append(f"{child[0]} {int(child[1])}")
 
-        await query.edit_message_reply_markup()
+        await _safe_edit_message_reply_markup(query)
         return await _finish_get_children(
             update,
             context,
@@ -475,17 +485,13 @@ async def _handle_chld_selection_callback(
             "\n".join(original_text_parts)
         )
     elif data == 'Далее':
-        await query.edit_message_reply_markup()
+        await _safe_edit_message_reply_markup(query)
         return await _finish_get_children(
             update, context, [['0', '0']], 'Далее')
     # Обновляем сообщение для SEL и PAGE
     text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
-    try:
-        await query.edit_message_text(text=text, reply_markup=reply_markup)
-    except BadRequest as e:
-        if "Message is not modified" not in str(e):
-            raise e
+    await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
     await set_back_context(context, 'CHILDREN', text, reply_markup)
     return 'CHILDREN'
 

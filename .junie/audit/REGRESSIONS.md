@@ -25,6 +25,12 @@
   - Как проверить: Отправка напоминаний для сеанса с билетами где `user=None` → воркер должен завершиться без ошибки
   - При будущих изменениях: При модификации `send_reminder` проверять, что `group_tickets_by_user()` используется, а не ручной цикл
 
+- **reserve/input.py:192-205** — `_safe_edit_message_text()` / `_safe_edit_message_reply_markup()` хелперы для `BadRequest: Message is not modified` (исправлено 2026-10-18)
+  - Что: Все вызовы `query.edit_message_text()` и `query.edit_message_reply_markup()` в хендлерах редактирования/выбора детей переведены на хелперы, которые тихо игнорируют ошибку при повторной доставке callback
+  - Почему важно: Без этого бот падает с `BadRequest` при двойном нажатии на кнопки редактирования детей
+  - Как проверить: Быстро нажать кнопку «✏️ Изменить» или «Добавить» дважды → бот не должен падать
+  - При будущих изменениях: При модификации `_handle_chld_edit_callback` или `_handle_chld_selection_callback` проверять, что все `query.edit_message_*` идут через `_safe_edit_message_text()` / `_safe_edit_message_reply_markup()`
+
 ---
 
 ## Архив
