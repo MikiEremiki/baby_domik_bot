@@ -2394,3 +2394,25 @@ async def update_delivery(
         await session.commit()
         await session.refresh(delivery)
     return delivery
+
+
+async def get_deliveries_by_keys(
+        session: AsyncSession,
+        auto_sending_id: int,
+        user_id: int,
+        dedup_keys: list[str],
+) -> set[str]:
+    """Batch-check delivery dedup keys.
+
+    Returns the set of dedup_keys that already have a delivery record.
+    """
+    stmt = (
+        select(AutoSendingDelivery.dedup_key)
+        .where(
+            AutoSendingDelivery.auto_sending_id == auto_sending_id,
+            AutoSendingDelivery.user_id == user_id,
+            AutoSendingDelivery.dedup_key.in_(dedup_keys),
+        )
+    )
+    res = await session.execute(stmt)
+    return {row[0] for row in res.all()}
