@@ -70,10 +70,10 @@ await db_postgres.create_or_update_afisha(
 При бронировании бот формирует список доступных месяцев на основе `schedule_event`:
 
 ```python
-months = get_unique_months(schedule_events)  # строка 407
+months = get_unique_months(schedule_events)  # choice.py, строка 407
 ```
 
-Функция `get_unique_months` (`src/utilities/utl_func.py`, строка 716–729):
+Функция `get_unique_months` (`src/utilities/utl_func.py`, строка 777):
 
 ```python
 def get_unique_months(events: Sequence[ScheduleEvent]):
@@ -113,7 +113,7 @@ await update.effective_chat.send_photo(
     photo=afisha_record.file_id,  # file_id из БД
     caption=text,
     reply_markup=reply_markup,
-)  # строка 615-618
+)  # choice.py, функция choice_show
 ```
 
 ---
@@ -128,7 +128,7 @@ await update.effective_chat.send_photo(
 
 ```python
 dt_moscow = dt.astimezone(MOSCOW_TZ)
-m_key = dt_moscow.strftime('%Y-%m')  # формат "2027-01"  # строка 107
+m_key = dt_moscow.strftime('%Y-%m')  # формат "2027-01"  # pages.py, строка 107
 ```
 
 ### Получение афиши
@@ -155,7 +155,7 @@ for a in afishas_db:
 
 ## Удаление афиши
 
-**Файл:** `src/handlers/afisha_hl.py`, функция `delete_afisha_action` (строка 139–169)
+**Файл:** `src/handlers/afisha_hl.py`, функция `delete_afisha_action` (строка 135)
 
 Удаление афиши из бота **мгновенно удаляет её и с сайта**, потому что бот и сайт используют единую БД и единую папку с файлами.
 
