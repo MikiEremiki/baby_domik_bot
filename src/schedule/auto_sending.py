@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone, time as dt_time
 from typing import Awaitable, Callable, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from telegram.error import Forbidden, RetryAfter
@@ -18,9 +18,10 @@ from db import db_postgres
 from db.enum import AutoSendingTrigger, TicketStatus
 from db.models import (
     AutoSending, AutoSendingDelivery, ScheduleEvent,
-    Ticket, User, UserStatus, UserTicket,
+    Ticket, User, UserTicket,
 )
 from utilities.utl_date import MOSCOW_TZ, to_moscow_dt
+from utilities.utl_db import open_session
 from utilities.utl_func import (
     get_full_name_event, get_formatted_date_and_time_of_event,
 )
@@ -385,8 +386,6 @@ async def select_payment_recipients(
 
     Returns a list of Recipients ready for ``dispatch_auto_sending``.
     """
-    from db import db_postgres
-
     # Load tickets with user info
     tickets = []
     for tid in ticket_ids:
@@ -753,8 +752,6 @@ async def auto_sending_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     async with _tick_lock:
-        from utilities.utl_db import open_session
-
         tick_start = time_module.monotonic()
         total_sent = 0
         total_dedup = 0
@@ -923,8 +920,6 @@ async def _has_undelivered_recipients(
     for at least one of their tickets.
     Returns False if all ticket owners are already delivered (or no tickets exist).
     """
-    from sqlalchemy import exists, func
-
     # A ticket is undelivered if its owner has no delivery record with the
     # ticket-level dedup key "t:{ticket.id}" for this auto_sending.
     stmt = (
@@ -977,8 +972,6 @@ async def _dispatch_for_event(
 
 async def _precise_dispatch_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Callback for precise run_once jobs — loads data and dispatches."""
-    from utilities.utl_db import open_session
-
     auto_sending_id = context.job.data["auto_sending_id"]
     schedule_event_id = context.job.data["schedule_event_id"]
 

@@ -5,15 +5,18 @@ from sulguk import transform_html
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
-from telegram.ext import ContextTypes, TypeHandler, ConversationHandler
+from telegram.ext import ContextTypes, ConversationHandler
 
 from db import db_postgres
 from db.enum import PriceType, TicketPriceType, PromotionDiscountType
 from handlers import init_conv_hl_dialog, place_hl
 from handlers.auto_sending_hl import auto_sending_select
+from handlers.schedule_sync_hl import send_pending_schedule_reports
+from permissions import can_or_false, is_privileged, get_allowed_settings
 from settings.settings import (
     RESERVE_TIMEOUT, COMMAND_DICT, DICT_CONVERT_MONTH_NUMBER_TO_STR,
-    ADMIN_ID)
+    SETTINGS_PREFIX, SETTINGS_DATABASE_KEY,
+)
 from utilities.utl_func import to_moscow_dt
 from utilities.schemas import (
     kv_name_attr_schedule_event,
@@ -105,21 +108,23 @@ def validate_value(value, option, key=None):
 
 async def start_settings(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await init_conv_hl_dialog(update, context)
-    user_is_admin = update.effective_user.id in ADMIN_ID
+    user_id = update.effective_user.id
+    allowed = await get_allowed_settings(user_id, context.session)
 
-    button_db = InlineKeyboardButton(text='База данных', callback_data='db')
     button_cancel = add_btn_back_and_cancel(postfix_for_cancel='settings',
                                             add_back_btn=False)
-    keyboard = [[button_db, ]]
-    if user_is_admin:
+    keyboard = []
+    if allowed - {f'{SETTINGS_PREFIX}update_data'}:
+        button_db = InlineKeyboardButton(text='База данных', callback_data='db')
+        keyboard.append([button_db, ])
+    if f'{SETTINGS_PREFIX}update_data' in allowed:
         button_updates = InlineKeyboardButton(text='Обновление данных',
                                               callback_data='update_data')
+        keyboard.append([button_updates, ])
+    if is_privileged(user_id):
         button_user_status = InlineKeyboardButton(text='Статусы пользователей',
                                                   callback_data='user_status_help')
-        keyboard.extend([
-            [button_updates, ],
-            [button_user_status, ],
-        ])
+        keyboard.append([button_user_status, ])
     keyboard.append([*button_cancel, ])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -146,7 +151,8 @@ async def choice_db_settings(
     except BadRequest:
         pass
 
-    user_is_admin = update.effective_user.id in ADMIN_ID
+    allowed = await get_allowed_settings(
+        update.effective_user.id, context.session)
 
     button_base_ticket = InlineKeyboardButton(text='Базовые билеты',
                                               callback_data='base_ticket')
@@ -165,27 +171,28 @@ async def choice_db_settings(
     button_back_and_cancel = add_btn_back_and_cancel(
         postfix_for_cancel='settings',
         postfix_for_back='1')
-    keyboard = [[button_schedule,]]
-    if user_is_admin:
-        keyboard.extend([
-            [
-                button_base_ticket,
-                button_event_type,
-            ],
-            [
-                button_event,
-                button_promotion,
-            ],
-            [
-                button_place,
-                button_auto_sending,
-            ],
-        ])
-    keyboard.append([*button_back_and_cancel, ])
+    layout = [
+        [('schedule_event', button_schedule)],
+        [('base_ticket', button_base_ticket),
+         ('event_type', button_event_type)],
+        [('theater_event', button_event),
+         ('promotion', button_promotion)],
+        [('place', button_place),
+         ('auto_sending', button_auto_sending)],
+    ]
+    keyboard = []
+    for layout_row in layout:
+        row = [btn for section, btn in layout_row
+               if f'{SETTINGS_PREFIX}{section}' in allowed]
+        if row:
+            keyboard.append(row)
 
     # Добавляем intent-id только к функциональным кнопкам, но НЕ к ряду Назад/Отменить
-    keyboard_intented = add_intent_id(keyboard[:-1], intent_id='db')
-    keyboard = keyboard_intented + [keyboard[-1]]
+    keyboard = add_intent_id(keyboard, intent_id='db')
+    if SETTINGS_DATABASE_KEY in allowed:
+        keyboard.append([InlineKeyboardButton(text='Доступ к командам',
+                                              callback_data='access')])
+    keyboard.append([*button_back_and_cancel, ])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = 'Выберите что хотите настроить'
@@ -206,7 +213,7 @@ async def get_updates_option(update: Update,
         pass
 
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:update_data', context.session):
         support_hl_logger.warning(
             "Пользователь %s попытался открыть меню обновления данных без прав администратора",
             user_id
@@ -303,7 +310,8 @@ async def get_settings(
     _, callback_data = remove_intent_id(query.data)
 
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID and callback_data != 'schedule_event':
+    if not await can_or_false(
+            user_id, f'{SETTINGS_PREFIX}{callback_data}', context.session):
         support_hl_logger.warning(
             "Пользователь %s попытался открыть раздел %s без прав администратора",
             user_id, callback_data
@@ -476,7 +484,7 @@ async def theater_event_select(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:theater_event', context.session):
         support_hl_logger.warning(
             "Пользователь %s попытался просмотреть репертуар без прав администратора",
             user_id
@@ -704,7 +712,7 @@ async def promotion_select(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:promotion', context.session):
         support_hl_logger.warning(
             "Пользователь %s попытался просмотреть промокоды без прав администратора",
             user_id
@@ -764,7 +772,7 @@ async def base_ticket_select(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:base_ticket', context.session):
         support_hl_logger.warning(
             "Пользователь %s попытался просмотреть базовые билеты без прав администратора",
             user_id
@@ -813,7 +821,7 @@ async def event_type_select(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:event_type', context.session):
         support_hl_logger.warning(
             "Пользователь %s попытался просмотреть типы показов без прав администратора",
             user_id
@@ -843,7 +851,7 @@ async def event_type_select(
     )
 
 
-async def theater_event_update_start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+async def theater_event_update_start(update: Update, _context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -855,7 +863,7 @@ async def theater_event_update_start(update: Update, context: 'ContextTypes.DEFA
     return 3
 
 
-async def base_ticket_update_start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+async def base_ticket_update_start(update: Update, _context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -867,7 +875,7 @@ async def base_ticket_update_start(update: Update, context: 'ContextTypes.DEFAUL
     return 3
 
 
-async def event_type_update_start(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+async def event_type_update_start(update: Update, _context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -1091,7 +1099,6 @@ async def promotion_create(
     query = update.callback_query
 
     promotion = context.user_data['promotion']
-    reply_markup = context.user_data['reply_markup']
 
     res = await db_postgres.create_promotion(
         context.session,
@@ -1116,7 +1123,6 @@ async def theater_event_create(
     query = update.callback_query
 
     theater_event = context.user_data['theater_event']
-    reply_markup = context.user_data['reply_markup']
 
     res = await db_postgres.create_theater_event(
         context.session,
@@ -1141,7 +1147,6 @@ async def schedule_event_create(
     query = update.callback_query
 
     schedule_event = context.user_data['schedule_event']
-    reply_markup = context.user_data['reply_markup']
 
     user = update.effective_user
     author_id = user.id if user else None
@@ -1162,7 +1167,6 @@ async def schedule_event_create(
     await query.answer()
     if res:
         try:
-            from handlers.schedule_sync_hl import send_pending_schedule_reports
             await send_pending_schedule_reports(context)
         except Exception as report_err:
             support_hl_logger.warning(f"Failed to send schedule report: {report_err}")

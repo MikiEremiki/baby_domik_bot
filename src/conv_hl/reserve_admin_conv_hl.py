@@ -2,14 +2,13 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
 )
 
-from custom_filters import filter_admin
 from handlers import reserve_hl, reserve_admin_hl, main_hl
 from conv_hl import (
     handlers_event_selection, handlers_client_data_selection,
     cancel_callback_handler, back_callback_handler,
     F_text_and_no_command, common_fallbacks
 )
-from settings.settings import COMMAND_DICT, RESERVE_TIMEOUT
+from settings.settings import COMMAND_DICT
 
 states = {
     1: [
@@ -60,8 +59,7 @@ for key in handlers_client_data_selection.keys():
 reserve_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE_ADMIN'][0],
-                       reserve_admin_hl.event_selection_option,
-                       filter_admin),
+                       reserve_admin_hl.event_selection_option),
     ],
     states=states,
     fallbacks=common_fallbacks,

@@ -248,9 +248,9 @@ def test_get_ticket_receipt_ready():
         ready_receipt = _receipt(
             type_='payment',
             status='succeeded',
-            fn='123456789012',
-            fp='098765432109',
-            i='000001',
+            fiscal_storage_number='123456789012',
+            fiscal_attribute='098765432109',
+            fiscal_document_number='000001',
             fd='FD-VALUE',
             registered_at='2026-10-11T12:00:00Z',
         )
@@ -290,9 +290,9 @@ def test_get_ticket_receipt_ready_no_user():
         ready_receipt = _receipt(
             type_='payment',
             status='succeeded',
-            fn='123456789012',
-            fp='098765432109',
-            i='000001',
+            fiscal_storage_number='123456789012',
+            fiscal_attribute='098765432109',
+            fiscal_document_number='000001',
         )
         with patch('api.receipt_service.get_ticket', new=fake_get_ticket):
             with patch('api.receipt_service.fetch_payment_receipts', return_value=[ready_receipt]):
@@ -635,7 +635,7 @@ def test_receipt_callback_non_admin():
         context = MagicMock()
         context.session = MagicMock()
 
-        with patch('handlers.receipt_hl.is_admin', return_value=False):
+        with patch('handlers.receipt_hl.is_privileged_update', return_value=False):
             await receipt_callback(update, context)
 
         # Should not send any message
@@ -675,7 +675,7 @@ def test_receipt_callback_admin_sends_card():
             client_chat_id=12345,
         )
 
-        with patch('handlers.receipt_hl.is_admin', return_value=True):
+        with patch('handlers.receipt_hl.is_privileged_update', return_value=True):
             with patch('handlers.receipt_hl.get_ticket_receipt', new=AsyncMock(return_value=ready_info)):
                 await receipt_callback(update, context)
 
@@ -703,7 +703,7 @@ def test_receipt_send_callback_non_admin():
         context = MagicMock()
         context.session = MagicMock()
 
-        with patch('handlers.receipt_hl.is_admin', return_value=False):
+        with patch('handlers.receipt_hl.is_privileged_update', return_value=False):
             await receipt_send_callback(update, context)
 
         # Should answer with alert
@@ -743,7 +743,7 @@ def test_receipt_send_callback_success():
             client_chat_id=67890,
         )
 
-        with patch('handlers.receipt_hl.is_admin', return_value=True):
+        with patch('handlers.receipt_hl.is_privileged_update', return_value=True):
             with patch('handlers.receipt_hl.get_ticket_receipt', new=AsyncMock(return_value=ready_info)):
                 await receipt_send_callback(update, context)
 
@@ -792,7 +792,7 @@ def test_receipt_send_callback_forbidden():
             client_chat_id=67890,
         )
 
-        with patch('handlers.receipt_hl.is_admin', return_value=True):
+        with patch('handlers.receipt_hl.is_privileged_update', return_value=True):
             with patch('handlers.receipt_hl.get_ticket_receipt', new=AsyncMock(return_value=ready_info)):
                 await receipt_send_callback(update, context)
 
@@ -833,7 +833,7 @@ def test_receipt_send_callback_not_ready():
             client_chat_id=67890,
         )
 
-        with patch('handlers.receipt_hl.is_admin', return_value=True):
+        with patch('handlers.receipt_hl.is_privileged_update', return_value=True):
             with patch('handlers.receipt_hl.get_ticket_receipt', new=AsyncMock(return_value=pending_info)):
                 await receipt_send_callback(update, context)
 

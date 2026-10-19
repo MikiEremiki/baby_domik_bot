@@ -107,7 +107,6 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     check_ticket = check_available_ticket_by_free_seat(
         schedule_event,
-        theater_event,
         type_event,
         chose_base_ticket,
         only_child

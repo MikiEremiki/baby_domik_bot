@@ -9,12 +9,22 @@ from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 
+from permissions import can_or_false
 from db import db_postgres
-from db.enum import AutoSendingTrigger
-from settings.settings import ADMIN_ID
-from utilities.utl_func import set_back_context
+from db.enum import AutoSendingTrigger, TicketStatus
+from db.models import Ticket as TicketModel, User as UserModel
+from sqlalchemy import select as sa_select
+from sqlalchemy.orm import selectinload
+from utilities.utl_func import (
+    set_back_context, get_formatted_date_and_time_of_event, get_full_name_event,
+)
+from utilities.utl_place import format_place_footnote
 from utilities.utl_kbd import (
     create_kbd_crud, add_btn_back_and_cancel,
+)
+from schedule.auto_sending import (
+    render_text, new_recipient_ctx, Recipient, group_tickets_by_user,
+    ticket_dedup_keys, dispatch_auto_sending,
 )
 
 auto_sending_hl_logger = logging.getLogger('bot.auto_sending_hl')
@@ -44,7 +54,7 @@ async def auto_sending_select(
 ):
     """List all auto-sendings with active flag and theater binding."""
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:auto_sending', context.session):
         auto_sending_hl_logger.warning(
             "Пользователь %s попытался открыть рассылки без прав администратора",
             user_id
@@ -584,7 +594,6 @@ async def auto_sending_handle_text(update: Update, context):
         'place': '📍 Название площадки: адрес',
         'refund_info': 'Возврат возможен за 3 дня',
     }
-    from schedule.auto_sending import render_text
     rendered = render_text(text, preview_ctx, sending_name='preview')
     length_warning = ""
     if len(rendered) > 4096:
@@ -632,7 +641,7 @@ async def auto_sending_confirm_create(update: Update, context):
 
     data = context.user_data['new_auto_sending']['data']
 
-    sending = await db_postgres.create_auto_sending(
+    await db_postgres.create_auto_sending(
         context.session,
         name=data['name'],
         trigger=data['trigger'],
@@ -1138,8 +1147,6 @@ async def auto_sending_send_preview_to_self(update: Update, context):
         await query.edit_message_text("Рассылка не найдена.")
         return AUTO_SENDING_MANUAL_MODE
 
-    from schedule.auto_sending import render_text
-
     # Demo context with sample placeholder values
     demo_ctx = {
         'event_name': 'В поход с котом (путешествие)\n👶🏼3-6⏳50мин',
@@ -1176,10 +1183,6 @@ async def _build_recipient_ctx(schedule_event, ticket_ids_str: str) -> dict:
     structure is defined in one place.  Supports ``schedule_event=None``
     (fallback dashes) which the shared ``build_recipient_ctx`` does not need.
     """
-    from schedule.auto_sending import new_recipient_ctx
-    from utilities.utl_func import get_formatted_date_and_time_of_event, get_full_name_event
-    from utilities.utl_place import format_place_footnote
-
     if schedule_event:
         event_name = get_full_name_event(schedule_event.theater_event)
         date_str, time_str = await get_formatted_date_and_time_of_event(schedule_event)
@@ -1201,8 +1204,6 @@ async def _build_recipient_ctx(schedule_event, ticket_ids_str: str) -> dict:
 
 async def _manual_send_by_ticket(context, target_id: int):
     """Build recipients list for manual send by ticket ID."""
-    from schedule.auto_sending import Recipient
-
     ticket = await db_postgres.get_ticket(context.session, target_id)
     if not ticket:
         return None, f"Билет {target_id} не найден.", []
@@ -1226,12 +1227,6 @@ async def _manual_send_by_ticket(context, target_id: int):
 
 async def _manual_send_by_session(context, target_id: int):
     """Build recipients list for manual send by session ID."""
-    from schedule.auto_sending import Recipient
-    from sqlalchemy import select as sa_select
-    from sqlalchemy.orm import selectinload
-    from db.enum import TicketStatus
-    from db.models import Ticket as TicketModel, User as UserModel, UserStatus
-
     schedule_event = await db_postgres.get_schedule_event(context.session, target_id)
     if not schedule_event:
         return None, f"Сеанс {target_id} не найден.", []
@@ -1249,7 +1244,6 @@ async def _manual_send_by_session(context, target_id: int):
     )
     tickets = (await context.session.execute(stmt)).scalars().all()
 
-    from schedule.auto_sending import group_tickets_by_user, ticket_dedup_keys
     user_tickets, no_user_ticket_ids = group_tickets_by_user(tickets)
 
     recipients = []
@@ -1337,7 +1331,6 @@ async def auto_sending_handle_manual_id(update: Update, context):
         return 3
 
     # Dispatch
-    from schedule.auto_sending import dispatch_auto_sending
     auto_sending_hl_logger.info("Manual sending")
     force_resend = context.user_data.pop('manual_force_resend', False)
     stats = await dispatch_auto_sending(
@@ -1366,7 +1359,7 @@ async def auto_sending_handle_manual_id(update: Update, context):
 
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
-async def query_or_message(update: Update, context,
+async def query_or_message(update: Update, _context,
                            text: str, reply_markup: InlineKeyboardMarkup):
     """Send or edit message depending on whether we have a callback query."""
     res = transform_html(text)

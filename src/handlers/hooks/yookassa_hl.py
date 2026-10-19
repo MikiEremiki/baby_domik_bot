@@ -19,6 +19,11 @@ from settings.settings import CHAT_ID_MIKIEREMIKI, ADMIN_CME_GROUP, ADMIN_GROUP
 
 from utilities.utl_func import create_str_info_by_schedule_event_id
 from utilities.utl_retry import retry_on_timeout
+from schedule.auto_sending import (
+    dispatch_auto_sending,
+    resolve_auto_sending,
+    select_payment_recipients,
+)
 
 webhook_hl_logger = logging.getLogger('bot.webhook')
 
@@ -270,7 +275,7 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             # Isolated from critical path: dispatcher failure must not break the webhook.
             try:
                 await _dispatch_payment_auto_sendings(
-                    context, ticket_ids, choose_schedule_event_ids)
+                    context, ticket_ids)
             except Exception as e:
                 webhook_hl_logger.exception(
                     f'Auto-sending PAYMENT dispatch failed (non-fatal): {e}')
@@ -384,7 +389,6 @@ async def processing_cme_prepaid(update, context):
 async def _dispatch_payment_auto_sendings(
     context: 'ContextTypes.DEFAULT_TYPE',
     ticket_ids: list[int],
-    schedule_event_ids: list[str],
 ) -> None:
     """Dispatch PAYMENT auto-sendings for just-paid tickets.
 
@@ -392,12 +396,6 @@ async def _dispatch_payment_auto_sendings(
     context with all standard placeholders (event_name, date, time, place,
     ticket_ids, refund_info) and groups by (user_id, schedule_event_id).
     """
-    from schedule.auto_sending import (
-        dispatch_auto_sending,
-        resolve_auto_sending,
-        select_payment_recipients,
-    )
-
     session = context.session
 
     # Resolve active PAYMENT auto-sendings using all schedule events from the payment

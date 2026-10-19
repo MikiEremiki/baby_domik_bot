@@ -1,3 +1,4 @@
+import datetime
 import html
 import logging
 import uuid
@@ -5,17 +6,19 @@ from typing import Any, Dict, List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
-from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from db import db_postgres
-from db.models import ScheduleChange, ScheduleSyncRun, ScheduleEvent, TheaterEvent, TypeEvent, Place
+from db.models import ScheduleChange
 from db.enum import TicketPriceType
 from api.gspread_pub import publish_sync_schedule
-from settings.settings import ADMIN_GROUP, ADMIN_GROUP_ID, ADMIN_ID
+from settings.settings import ADMIN_GROUP
 from utilities.schemas import kv_name_attr_schedule_event
-from utilities.utl_func import to_moscow_dt, MOSCOW_TZ, _bot_is_admin, split_message
+from utilities.utl_date import MOSCOW_TZ
+from utilities.utl_func import to_moscow_dt
+from permissions import bot_is_admin_in_chat
 from utilities.utl_schedule_changes import EXPORTABLE_SCHEDULE_FIELDS
+from settings.config_loader import parse_settings
 
 logger = logging.getLogger('bot.schedule_sync_hl')
 
@@ -29,7 +32,6 @@ def _format_value_for_report(field: str, val: Any) -> str:
         return '✅' if val else '❌'
     if field == 'datetime_event':
         try:
-            import datetime
             if isinstance(val, str):
                 dt = datetime.datetime.fromisoformat(val)
                 if dt.tzinfo is None:
@@ -211,11 +213,10 @@ async def sync_schedule_command(update: Update, context: ContextTypes.DEFAULT_TY
     """
     Команда /sync_schedule [event_id] для инициализации выгрузки в Google Sheets.
     """
-    if not await _bot_is_admin(update, context):
+    if not await bot_is_admin_in_chat(update, context):
         return
 
     session = context.session
-    from settings.config_loader import parse_settings
     cfg = parse_settings()
     sheet_id = cfg.sheets.sheet_id_domik
 
@@ -334,8 +335,7 @@ async def handle_sync_schedule_confirm(update: Update, context: ContextTypes.DEF
     query = update.callback_query
     await query.answer()
 
-    if not await _bot_is_admin(update, context):
-        await query.edit_message_text("Недостаточно прав для выполнения операции.")
+    if not await bot_is_admin_in_chat(update, context):
         return
 
     session = context.session
@@ -378,7 +378,7 @@ async def handle_sync_schedule_cancel(update: Update, context: ContextTypes.DEFA
     query = update.callback_query
     await query.answer()
 
-    if not await _bot_is_admin(update, context):
+    if not await bot_is_admin_in_chat(update, context):
         return
 
     session = context.session

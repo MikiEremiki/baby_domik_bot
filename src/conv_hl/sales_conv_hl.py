@@ -2,7 +2,6 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler, filters,
 )
 
-from custom_filters import filter_admin
 from conv_hl import (
     cancel_callback_handler, back_callback_handler, common_fallbacks,
 )
@@ -125,7 +124,7 @@ states = {
 
 sales_conv_hl = ConversationHandler(
     entry_points=[
-        CommandHandler(COMMAND_DICT.get('SALES', ['sales'])[0], sales_hl.start_sales, filter_admin),
+        CommandHandler(COMMAND_DICT.get('SALES', ['sales'])[0], sales_hl.start_sales),
     ],
     states=states,
     fallbacks=common_fallbacks,

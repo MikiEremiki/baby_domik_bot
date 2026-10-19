@@ -110,7 +110,7 @@ class TestAutoSendingTick:
         mock_session = AsyncMock()
         mock_session.close = AsyncMock()
 
-        with patch('utilities.utl_db.open_session', return_value=mock_session), \
+        with patch('schedule.auto_sending.open_session', return_value=mock_session), \
              patch('schedule.auto_sending.db_postgres.get_all_active_auto_sendings',
                    return_value=[]):
             _run(auto_sending_tick(context))
@@ -142,7 +142,7 @@ class TestAutoSendingTick:
         mock_result.scalars.return_value.all.return_value = [mock_se]
         mock_session.execute = AsyncMock(return_value=mock_result)
 
-        with patch('utilities.utl_db.open_session', return_value=mock_session), \
+        with patch('schedule.auto_sending.open_session', return_value=mock_session), \
              patch('schedule.auto_sending.db_postgres.get_all_active_auto_sendings',
                    return_value=[auto_sending]), \
              patch('schedule.auto_sending.to_moscow_dt', side_effect=lambda dt: dt.replace(tzinfo=timezone.utc).astimezone(__import__('zoneinfo').ZoneInfo("Europe/Moscow"))), \
@@ -187,7 +187,7 @@ class TestAutoSendingTick:
                 dt = dt.replace(tzinfo=timezone.utc)
             return dt.astimezone(MOSCOW_TZ)
 
-        with patch('utilities.utl_db.open_session', return_value=mock_session), \
+        with patch('schedule.auto_sending.open_session', return_value=mock_session), \
              patch('schedule.auto_sending.db_postgres.get_all_active_auto_sendings',
                    return_value=[auto_sending]), \
              patch('schedule.auto_sending.to_moscow_dt', side_effect=to_moscow_side_effect):
@@ -220,8 +220,8 @@ class TestDispatchForEvent:
         user.status = None
 
         recipients = [
-            Recipient(user=user, ctx={}, dedup_key="se:10", schedule_event_id=10),
-            Recipient(user=user, ctx={}, dedup_key="se:20", schedule_event_id=20),
+            Recipient(user=user, ctx={}, dedup_keys=["se:10"], schedule_event_id=10),
+            Recipient(user=user, ctx={}, dedup_keys=["se:20"], schedule_event_id=20),
         ]
 
         with patch('schedule.auto_sending.RECIPIENT_SELECTORS',
@@ -259,7 +259,7 @@ class TestPreciseDispatchJob:
         mock_session.close = AsyncMock()
         mock_session.get = AsyncMock(side_effect=[mock_sending, mock_se])
 
-        with patch('utilities.utl_db.open_session', return_value=mock_session), \
+        with patch('schedule.auto_sending.open_session', return_value=mock_session), \
              patch('schedule.auto_sending.db_postgres.get_auto_sending_by_id',
                    return_value=mock_sending), \
              patch('schedule.auto_sending.db_postgres.get_schedule_event',
@@ -284,7 +284,7 @@ class TestPreciseDispatchJob:
         mock_session = AsyncMock()
         mock_session.close = AsyncMock()
 
-        with patch('utilities.utl_db.open_session', return_value=mock_session), \
+        with patch('schedule.auto_sending.open_session', return_value=mock_session), \
              patch('schedule.auto_sending.db_postgres.get_auto_sending_by_id',
                    return_value=mock_sending), \
              patch('schedule.auto_sending._dispatch_for_event', new_callable=AsyncMock) as mock_disp:

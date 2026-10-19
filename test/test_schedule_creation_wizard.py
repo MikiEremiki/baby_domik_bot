@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 from db.models import Place, TypeEvent, TheaterEvent, BaseTicket
 from db.enum import TicketPriceType
 from handlers import schedule_hl
-from utilities.utl_func import MOSCOW_TZ
+from utilities.utl_date import MOSCOW_TZ
 
 
 def _make_context():

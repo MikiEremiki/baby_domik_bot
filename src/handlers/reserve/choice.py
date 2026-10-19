@@ -1,7 +1,7 @@
 ﻿from collections import defaultdict
 import html
 import logging
-from datetime import datetime, date
+from datetime import datetime
 
 from sulguk import transform_html
 from telegram import (
@@ -71,7 +71,7 @@ async def _guard_reserve_user_data(
 
 async def _guard_effective_message(
         update: Update,
-        context: 'ContextTypes.DEFAULT_TYPE',
+        _context: 'ContextTypes.DEFAULT_TYPE',
         func_name: str
 ):
     """Проверяет наличие effective_message, возвращает None если OK, иначе отправляет сообщение и возвращает END."""
@@ -1594,7 +1594,7 @@ async def choice_option_of_reserve(
     base_tickets_filtered = []
     for i, ticket in enumerate(base_tickets):
         check_ticket = check_available_ticket_by_free_seat(
-            schedule_event, theater_event, type_event, ticket, only_child)
+            schedule_event, type_event, ticket, only_child)
         if not ticket.flag_active or (check_command and not check_ticket):
             continue
         base_tickets_filtered.append(ticket)

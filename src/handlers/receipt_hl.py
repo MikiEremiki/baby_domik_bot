@@ -2,6 +2,7 @@
 
 import logging
 import re
+from datetime import timezone, timedelta
 from typing import Optional
 
 from sulguk import transform_html
@@ -14,7 +15,7 @@ from telegram.error import Forbidden, TimedOut
 from telegram.ext import ContextTypes
 
 from api.receipt_service import ReceiptInfo, ReceiptStatus, get_ticket_receipt
-from utilities.utl_func import is_admin
+from utilities.utl_func import is_privileged_update
 
 logger = logging.getLogger('bot.receipt')
 
@@ -62,7 +63,6 @@ def format_receipt_card(info: ReceiptInfo) -> str:
 
     if info.status == ReceiptStatus.READY and info.registered_at:
         # Format as Moscow time (UTC+3)
-        from datetime import timezone, timedelta
         msk = timezone(timedelta(hours=3))
         msk_time = info.registered_at.astimezone(msk)
         text += f'Дата регистрации: {msk_time.strftime("%d.%m.%Y %H:%M")} (МСК)<br>'
@@ -222,7 +222,7 @@ async def receipt_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except TimedOut:
         pass
 
-    if not is_admin(update):
+    if not is_privileged_update(update):
         logger.warning('Non-admin callback receipt: %s', update.effective_user.id)
         return
 
@@ -277,7 +277,7 @@ async def receipt_send_callback(update: Update, context: ContextTypes.DEFAULT_TY
     except TimedOut:
         pass
 
-    if not is_admin(update):
+    if not is_privileged_update(update):
         logger.warning('Non-admin callback receipt_send: %s', update.effective_user.id)
         try:
             await query.answer('Только для администраторов', show_alert=True)

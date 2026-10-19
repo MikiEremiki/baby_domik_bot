@@ -14,7 +14,16 @@ _startup_logger = logging.getLogger('bot.startup')
 
 
 async def post_init(app: Application, config):
-    await set_menu(app.bot)
+    # Set menus with DB session for per-user grant-based menus
+    try:
+        sessionmaker = create_sessionmaker_and_engine(str(config.postgres.db_url))
+        async with sessionmaker() as session:
+            await set_menu(app.bot, session)
+    except Exception:
+        # Fallback: set menus without per-user grants if DB is unavailable
+        _startup_logger.exception('Ошибка настройки меню с DB, используется fallback без грантов')
+        await set_menu(app.bot)
+
     await set_description(app.bot)
 
     app.bot_data.setdefault('texts', {})

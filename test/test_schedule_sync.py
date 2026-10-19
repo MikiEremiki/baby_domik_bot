@@ -150,7 +150,7 @@ def test_sync_schedule_events_to_gspread_create_and_update():
                 }
             ]
 
-            results = await sync_schedule_events_to_gspread('sheet123', 'run1', items)
+            results = await sync_schedule_events_to_gspread('sheet123', items)
 
             assert len(results) == 2
             assert results[0]['status'] == 'updated'
@@ -208,7 +208,7 @@ def test_sync_schedule_conflict_detection():
                 }
             ]
 
-            results = await sync_schedule_events_to_gspread('sheet123', 'run1', items)
+            results = await sync_schedule_events_to_gspread('sheet123', items)
 
             assert len(results) == 1
             assert results[0]['status'] == 'conflict'

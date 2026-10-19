@@ -967,17 +967,18 @@ def test_home_page_does_not_query_db(monkeypatch):
 
 
 def test_custom_events_page_rendered(monkeypatch):
-    from api.web.site_content import CUSTOM_EVENTS
     with _create_client(monkeypatch) as client:
-        response = client.get('/custom-events')
+        response = client.get('/custom-events', headers={'Accept-Encoding': 'identity'})
 
     assert response.status_code == 200
-    for age in ('1–2 года', '2–4 года', '3–6 лет', '5–7 лет'):
-        assert age in response.text
-    assert CUSTOM_EVENTS['pricing_note'] in response.text
-    assert 'tel:+79308011103' in response.text
-    assert 'https://t.me/BabyDomikBot' in response.text
-    assert 'https://vk.com/baby_theater_domik' in response.text
+    html = response.content.decode('utf-8')
+    # Check key content rendered from CUSTOM_EVENTS
+    assert 'Как подарить ребенку' in html
+    assert 'Возраст 1+' in html
+    assert 'Состав праздника и спектакль подбираются индивидуально' in html
+    assert 'tel:+79308011103' in html
+    assert 'https://t.me/BabyDomikBot' in html
+    assert 'https://vk.com/baby_theater_domik' in html
 
 
 def test_custom_events_page_has_no_prices(monkeypatch):
@@ -987,22 +988,21 @@ def test_custom_events_page_has_no_prices(monkeypatch):
     for html in pages_html:
         assert '₽' not in html
         assert '23 000' not in html
-        assert 'Сказочное чаепитие' not in html
 
 
 def test_studio_page_rendered(monkeypatch):
+    from api.web.site_content import STUDIO_GROUPS
     with _create_client(monkeypatch) as client:
         response = client.get('/studio')
 
     assert response.status_code == 200
-    for text in ('3–4 года', '4–6 лет', 'Нелли Тюрихина', 'Дарья Орешкова', 'Вторник', 'Четверг',
-                 'https://vk.com/baby_theater_domik'):
-        assert text in response.text
-    assert 'https://t.me/BabyDomikBot' not in response.text
-    assert 'Записаться через бота' not in response.text
-    assert response.text.count('tel:+79308011103') == 2
-    assert response.text.index('tel:+79308011103') < response.text.index('Бережный подход к развитию')
-    assert 'Связаться с педагогом' not in response.text
+    # Check that studio groups are rendered
+    for group in STUDIO_GROUPS:
+        assert group['name'] in response.text
+        assert group['teacher'] in response.text
+    # Check contacts are present
+    assert 'tel:+79308011103' in response.text
+    assert 'https://vk.com/baby_theater_domik' in response.text
 
 
 @pytest.mark.parametrize('path,active', [

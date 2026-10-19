@@ -11,6 +11,7 @@ from telegram import (
 
 from db import db_postgres
 from api.googlesheets import write_client_cme
+from handlers import init_conv_hl_dialog
 from settings.settings import (
     ADMIN_CME_GROUP,
     COMMAND_DICT,
@@ -85,8 +86,7 @@ async def get_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 
 async def paid_info(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    state = 'START'
-    context.user_data['STATE'] = state
+    await init_conv_hl_dialog(update, context)
 
     keyboard = []
     button_cancel = InlineKeyboardButton(
