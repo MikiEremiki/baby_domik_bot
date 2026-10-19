@@ -945,6 +945,17 @@ async def get_users_by_ids(session: AsyncSession,
     return result.scalars().all()
 
 
+async def get_usernames_by_ids(session: AsyncSession,
+                               user_ids: Collection[int]) -> dict:
+    """Возвращает {user_id: username | None} без загрузки связей User."""
+    if not user_ids:
+        return {}
+    query = select(User.user_id, User.username).where(
+        User.user_id.in_(user_ids))
+    result = await session.execute(query)
+    return {row[0]: row[1] for row in result.all()}
+
+
 async def get_persons_by_user_ids(session: AsyncSession,
                                   user_id: Collection[int]):
     query = select(Person).where(
