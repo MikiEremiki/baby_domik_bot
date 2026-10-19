@@ -50,15 +50,13 @@ def datetime_to_sheets_date_time(
         if dt.tzinfo is None:
             dt_local = dt
         else:
-            from zoneinfo import ZoneInfo
-            dt_local = dt.astimezone(ZoneInfo('Europe/Moscow')).replace(tzinfo=None)
+            dt_local = dt.astimezone(MOSCOW_TZ).replace(tzinfo=None)
     else:
         dt = dt_val
         if dt.tzinfo is None:
             dt_local = dt + datetime.timedelta(hours=utc_offset)
         else:
-            from zoneinfo import ZoneInfo
-            dt_local = dt.astimezone(ZoneInfo('Europe/Moscow')).replace(tzinfo=None)
+            dt_local = dt.astimezone(MOSCOW_TZ).replace(tzinfo=None)
 
     base_date = datetime.date(1899, 12, 30)
     sheets_date = (dt_local.date() - base_date).days

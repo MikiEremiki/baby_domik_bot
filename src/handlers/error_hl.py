@@ -5,7 +5,7 @@ import traceback
 from pprint import pformat
 
 from requests import HTTPError
-from telegram import Update, constants
+from telegram import Update
 from telegram.error import TimedOut, NetworkError, BadRequest, Forbidden
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
@@ -14,7 +14,6 @@ from utilities.utl_func import (
     clean_context, clean_context_on_end_handler, split_message,
 )
 from utilities.utl_ticket import cancel_tickets_db_and_gspread
-from db.db_postgres import update_user_status
 from middleware.db import active_sessions
 
 error_hl_logger = logging.getLogger('bot.error_hl')

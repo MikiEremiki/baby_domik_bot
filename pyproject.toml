@@ -30,6 +30,12 @@ dependencies = [
     "fastapi",
     "faststream[cli]",
     "nats-py",
+    "bleach>=6.4.0",  # Required by FastAPI: used in api/web/routes/booking.py for HTML sanitization
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.17.1",
 ]
 
 [tool.pytest.ini_options]

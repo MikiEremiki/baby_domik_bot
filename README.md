@@ -75,3 +75,23 @@ timeweb в качестве хостинга
 
 Проверка цепочки сертификатов и OCSP Stapling:
 `openssl s_client -connect baby-theater-domik.ru:443 -servername baby-theater-domik.ru -status -tlsextdebug < /dev/null`
+
+---
+Основной workflow:
+cd /home/baby_domik_bot/
+git pull
+docker image pull mikieremiki/baby_domik_bot
+docker image pull mikieremiki/baby_domik_fastapi
+docker image pull mikieremiki/baby_domik_sales_worker
+docker image pull mikieremiki/baby_domik_gspread_worker
+docker compose --profile all up -d
+docker container restart nginx
+docker image prune
+
+
+Если надо накатить миграцию:
+docker image pull mikieremiki/baby_domik_migration
+docker compose --profile migration up -d
+docker exec -i migration bash
+внутри: alembic -c 'config/alembic.ini' upgrade head
+docker container stop migration

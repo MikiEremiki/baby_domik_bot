@@ -3,16 +3,13 @@ from telegram.ext import (
     filters,
 )
 
-from custom_filters import filter_admin
 from handlers import afisha_hl
 from conv_hl import cancel_callback_handler, common_fallbacks
 from settings.settings import COMMAND_DICT
 
 afisha_conv_hl = ConversationHandler(
     entry_points=[
-        CommandHandler(COMMAND_DICT['AFISHA'][0],
-                       afisha_hl.load_afisha,
-                       filter_admin),
+        CommandHandler(COMMAND_DICT['AFISHA'][0], afisha_hl.load_afisha),
     ],
     states={
         1: [

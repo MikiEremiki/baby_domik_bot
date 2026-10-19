@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List
@@ -7,9 +6,16 @@ from telegram.ext import ContextTypes
 
 from db import db_postgres, Ticket
 from db.enum import AutoSendingTrigger, TicketStatus
+from db.models import User
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from utilities.utl_db import open_session
 from utilities.utl_func import get_formatted_date_and_time_of_event
 from utilities.utl_googlesheets import cancel_ticket_and_return_seat_auto
+from schedule.auto_sending import (
+    resolve_auto_sending, dispatch_auto_sending,
+    Recipient, ticket_dedup_keys, group_tickets_by_user, build_recipient_ctx,
+)
 
 worker_logger = logging.getLogger('bot.worker')
 
@@ -31,14 +37,6 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
     event_id = job.data['event_id']
     session = await open_session(context.config)
     try:
-        from schedule.auto_sending import (
-            resolve_auto_sending, dispatch_auto_sending,
-            RECIPIENT_SELECTORS, Recipient,
-        )
-        from db.models import ScheduleEvent, User, UserStatus
-        from sqlalchemy.orm import selectinload
-        from sqlalchemy import select
-
         event = await db_postgres.get_schedule_event(session, event_id)
         if not event:
             worker_logger.warning(f"send_reminder: event {event_id} not found")
@@ -80,7 +78,6 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
         tickets = [t for t in tickets if not getattr(t, 'reminded_1d_at', None)]
 
         # Group by user, build recipients.
-        from schedule.auto_sending import group_tickets_by_user
         user_tickets, _ = group_tickets_by_user(tickets)
 
         if not user_tickets:
@@ -89,7 +86,6 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
 
         date_event, time_event = await get_formatted_date_and_time_of_event(event)
 
-        from schedule.auto_sending import build_recipient_ctx
         recipients = []
         for user_id, user_tix in user_tickets.items():
             ticket_ids = ", ".join(str(t.id) for t in user_tix)
@@ -99,7 +95,7 @@ async def send_reminder(context: 'ContextTypes.DEFAULT_TYPE') -> None:
             recipients.append(Recipient(
                 user=user_tix[0].user,
                 ctx=ctx,
-                dedup_key=f"se:{event.id}",
+                dedup_keys=ticket_dedup_keys(user_tix),
                 schedule_event_id=event.id,
             ))
 

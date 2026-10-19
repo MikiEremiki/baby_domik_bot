@@ -5,7 +5,7 @@ from telegram.ext import (
     ChatMemberHandler, Application,
 )
 
-from custom_filters import filter_admin, filter_to_send_msg, REPLY_IN_TOPIC_FROM_BOT
+from custom_filters import REPLY_IN_TOPIC_FROM_BOT
 from handlers import main_hl, profile_hl, receipt_hl
 from handlers.sub_hl import update_admin_info, update_cme_admin_info, update_place_data
 from handlers.hooks import (
@@ -37,7 +37,8 @@ from middleware import (
     add_db_handlers_middleware,
     add_tg_update_logging_middleware,
     add_user_status_middleware,
-    add_reserve_check_middleware
+    add_reserve_check_middleware,
+    add_command_permission_middleware,
 )
 from utilities.utl_func import (
     echo, send_log, send_postgres_log,
@@ -65,10 +66,11 @@ def setup_handlers(application: Application, config):
 
 
 def _add_middlewares(application: Application, config):
-    """Регистрация мидлварей (5 штук)."""
+    """Регистрация мидлварей (6 штук)."""
     add_tg_update_logging_middleware(application, config)
     add_db_handlers_middleware(application, config)
     add_user_status_middleware(application, config)
+    add_command_permission_middleware(application, config)
     add_glob_on_off_middleware(application, config)
     add_reserve_check_middleware(application, config)
 
@@ -127,30 +129,30 @@ def _add_public_commands(application: Application):
 
 
 def _add_admin_commands(application: Application):
-    """Админские CommandHandler (~20 команд с filter_admin)."""
+    """Admin CommandHandler (~20 commands, access gated by middleware)."""
     application.add_handlers([
-        CommandHandler('clean_ud', clean_ud, filter_admin),
-        CommandHandler('print_ud', print_ud, filter_admin),
-        CommandHandler('clean_bd', clean_bd, filter_admin),
-        CommandHandler(COMMAND_DICT['UP_PLACE_DATA'][0], update_place_data, filter_admin),
-        CommandHandler('update_config', update_config, filter_admin),
-        CommandHandler('update_settings', update_settings, filter_admin),
-        CommandHandler('send_approve_msg', main_hl.send_approve_msg, filter_admin),
-        CommandHandler('update_ticket', main_hl.update_ticket, filter_admin),
-        CommandHandler('send_msg', main_hl.send_msg, filter_to_send_msg),
-        CommandHandler(COMMAND_DICT['LOG'][0], send_log, filter_admin),
-        CommandHandler('postgres_log', send_postgres_log, filter_admin),
-        CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance, filter_admin),
-        CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic, filter_admin),
-        CommandHandler(COMMAND_DICT['TOPIC'][0], create_or_connect_topic, filter_admin),
-        CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0], main_hl.global_on_off, filter_admin),
-        CommandHandler(COMMAND_DICT['ADM_INFO'][0], update_admin_info, filter_admin),
-        CommandHandler(COMMAND_DICT['ADM_CME_INFO'][0], update_cme_admin_info, filter_admin),
-        CommandHandler('cancel_old_created_tickets', main_hl.manual_cancel_old_created_tickets, filter_admin),
-        CommandHandler('set_user_status', main_hl.set_user_status, filter_admin),
-        CommandHandler(COMMAND_DICT['SYNC_SCHEDULE'][0], sync_schedule_command, filter_admin),
-        CommandHandler(COMMAND_DICT['CLOSE'][0], main_hl.close_feedback_topic, filter_admin),
-        CommandHandler('receipt', receipt_hl.receipt_cmd, filter_admin),
+        CommandHandler('clean_ud', clean_ud),
+        CommandHandler('print_ud', print_ud),
+        CommandHandler('clean_bd', clean_bd),
+        CommandHandler(COMMAND_DICT['UP_PLACE_DATA'][0], update_place_data),
+        CommandHandler('update_config', update_config),
+        CommandHandler('update_settings', update_settings),
+        CommandHandler('send_approve_msg', main_hl.send_approve_msg),
+        CommandHandler('update_ticket', main_hl.update_ticket),
+        CommandHandler('send_msg', main_hl.send_msg),
+        CommandHandler(COMMAND_DICT['LOG'][0], send_log),
+        CommandHandler('postgres_log', send_postgres_log),
+        CommandHandler(COMMAND_DICT['CB_TW'][0], get_balance),
+        CommandHandler(COMMAND_DICT['TOPIC_DEL'][0], del_topic),
+        CommandHandler(COMMAND_DICT['TOPIC'][0], create_or_connect_topic),
+        CommandHandler(COMMAND_DICT['GLOB_ON_OFF'][0], main_hl.global_on_off),
+        CommandHandler(COMMAND_DICT['ADM_INFO'][0], update_admin_info),
+        CommandHandler(COMMAND_DICT['ADM_CME_INFO'][0], update_cme_admin_info),
+        CommandHandler('cancel_old_created_tickets', main_hl.manual_cancel_old_created_tickets),
+        CommandHandler('set_user_status', main_hl.set_user_status),
+        CommandHandler(COMMAND_DICT['SYNC_SCHEDULE'][0], sync_schedule_command),
+        CommandHandler(COMMAND_DICT['CLOSE'][0], main_hl.close_feedback_topic),
+        CommandHandler('receipt', receipt_hl.receipt_cmd),
     ])
 
 

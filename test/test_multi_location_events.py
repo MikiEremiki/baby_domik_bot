@@ -18,7 +18,8 @@ from db.enum import TicketPriceType
 from utilities.schemas import kv_name_attr_schedule_event
 from handlers.sub_hl import update_schedule_event_data
 from utilities.utl_place import (
-    effective_place, needs_place_choice, collect_places, format_place_footnote
+    effective_place, needs_place_choice, collect_places,
+    format_place_footnote, format_place_line
 )
 from utilities.schemas.place import PlaceDTO
 from utilities.schemas.schedule_event import ScheduleEventDTO
@@ -101,6 +102,41 @@ def test_collect_places():
     assert len(collected) == 2
     assert collected[0].id == 1
     assert collected[1].id == 2
+
+
+def test_format_place_line():
+    default_place = Place(id=1, name="Домик", address="ул. Ленина, 1")
+    custom_place = Place(id=2, name="Театр на Покровке", address="ул. Покровка, 10")
+
+    # 1. Event с кастомной локацией
+    ev = ScheduleEvent(id=1, place_id=2)
+    ev.place = custom_place
+    assert format_place_line(ev, default_place) == "📍 Театр на Покровке"
+
+    # 2. Event без локации — используется default
+    ev2 = ScheduleEvent(id=2, place_id=None)
+    ev2.place = None
+    assert format_place_line(ev2, default_place) == "📍 Домик"
+
+    # 3. Event None — используется default
+    assert format_place_line(None, default_place) == "📍 Домик"
+
+    # 4. С адресом
+    assert format_place_line(ev, default_place, with_address=True) == "📍 Театр на Покровке (ул. Покровка, 10)"
+
+    # 5. HTML-экранирование названия
+    special_place = Place(id=3, name="<b>Зал</b> & 'VIP'", address="ул. <Мира>, 1")
+    ev3 = ScheduleEvent(id=3, place_id=3)
+    ev3.place = special_place
+    result = format_place_line(ev3, default_place)
+    assert "&lt;b&gt;Зал&lt;/b&gt;" in result
+    assert "&amp;" in result
+    # Без адреса — адрес не должен появиться
+    assert "Мира" not in result
+
+    # 6. HTML-экранирование адреса
+    result_addr = format_place_line(ev3, default_place, with_address=True)
+    assert "&lt;Мира&gt;, 1" in result_addr
 
 
 def test_format_place_footnote():

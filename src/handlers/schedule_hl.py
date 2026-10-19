@@ -9,8 +9,10 @@ from telegram.ext import ContextTypes
 from db import db_postgres
 from db.enum import TicketPriceType
 from handlers.support_hl import choice_db_settings
+from handlers.schedule_sync_hl import send_pending_schedule_reports
 from utilities.utl_kbd import add_btn_back_and_cancel
-from utilities.utl_func import set_back_context, to_moscow_dt, MOSCOW_TZ
+from utilities.utl_date import MOSCOW_TZ
+from utilities.utl_func import set_back_context, to_moscow_dt
 
 logger = logging.getLogger('bot.schedule_hl')
 
@@ -1237,7 +1239,6 @@ async def handle_confirm_save(update: Update, context: ContextTypes.DEFAULT_TYPE
             await query.answer('Событие создано')
 
         try:
-            from handlers.schedule_sync_hl import send_pending_schedule_reports
             await send_pending_schedule_reports(context)
         except Exception as report_err:
             logger.warning(f"Failed to send schedule report immediately: {report_err}")

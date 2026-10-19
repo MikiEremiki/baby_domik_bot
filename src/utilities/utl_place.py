@@ -74,6 +74,27 @@ def is_safe_url(url: Optional[str]) -> bool:
     return u.startswith('http://') or u.startswith('https://')
 
 
+def format_place_line(
+        schedule_event: Optional[ScheduleEvent],
+        default_place: Place,
+        with_address: bool = False,
+) -> str:
+    """
+    Форматирует короткую строку локации для вставки в текст мероприятия:
+    «📍 {place_name}» или «📍 {place_name} ({address})».
+    None-safe: возвращает пустую строку, если локация не определена.
+    Экранирует название и адрес через html.escape.
+    """
+    place = effective_place(schedule_event, default_place)
+    if place is None:
+        return ""
+    name = html.escape(place.name) if place.name else ""
+    if with_address and place.address:
+        address = html.escape(place.address)
+        return f"📍 {name} ({address})"
+    return f"📍 {name}"
+
+
 def format_place_footnote(place: Place) -> str:
     """
     Форматирует сноску с адресом локации для Telegram-бота:

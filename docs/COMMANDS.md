@@ -9,10 +9,39 @@
 | Роль | Описание | Примеры |
 |------|----------|---------|
 | **Клиент** | Любой пользователь бота | Все пользователи |
-| **Oreshkova** | Даша Орешкова (id: 452851990) | Доступ к спискам |
-| **Kochetkova** | Света Кочеткова (id: 1613417180) | Доступ к спискам + настройки + рассылка |
-| **Админ** | Администраторы (MikiEremiki, Tanya_domik) | Полный доступ к управлению |
-| **Dev (Superadmin)** | Разработчик (MikiEremiki) | Все команды + технические |
+| **Пользователь с грантами** | Любой пользователь, которому в `user_command_access` выданы права (напр. Oreshkova: `list`; Kochetkova: `settings`, `send_msg`, `settings:*`) | Только выданные команды и разделы `/settings` |
+| **Привилегированный (privileged)** | `ADMIN_ID` + `SUPERADMIN_CHAT_ID` — проходит любую проверку `can()` и чувствительные callback-кнопки | MikiEremiki, Tanya_domik |
+| **Админ (root)** | Только `ADMIN_ID` (MikiEremiki, Tanya_domik) | Полный доступ, управление правами |
+| **Dev (Superadmin)** | `SUPERADMIN_CHAT_ID` (MikiEremiki) | Полный доступ |
+
+> Таблицы ниже описывают значения по умолчанию. Реальный доступ определяется моделью из раздела «Модель доступа».
+
+---
+
+## Модель доступа
+
+- **root/super_admin** (`ADMIN_ID` + `SUPERADMIN_CHAT_ID` из `settings.py`) проходят любую проверку `can()`.
+- Остальные: публичные команды (`public=True`) доступны всем; непубличные — только при наличии записи `(user_id, command)` в таблице `user_command_access`. Команды с `root_only=True` недоступны никому, кроме root/super_admin.
+- **Ключи прав:** для команд — имя команды (`list`, `send_msg`, `update_places`…), для разделов `/settings` — `settings:<section>`:
+  `settings:schedule_event`, `settings:theater_event`, `settings:base_ticket`, `settings:event_type`, `settings:promotion`, `settings:place`, `settings:auto_sending`, `settings:update_data`, `settings:database`. Список разделов — `SETTINGS_SECTIONS` в `src/settings/settings.py`.
+- `/settings` строит меню по `can()`: «База данных» видна при наличии любого раздела БД, «Обновление данных» — по `settings:update_data`, «Статусы пользователей» — только root/super_admin. Каждый раздел дополнительно проверяется в хендлере и в middleware `command_permission`.
+- `settings:database` открывает экран «Доступ к командам» (см. ниже); выдать или забрать его могут только root/super_admin.
+
+### Управление доступом (UI)
+
+`/settings` → «База данных» → «Доступ к командам» (виден при `settings:database`):
+
+1. Экран сразу показывает список пользователей с доступом (по 8 на страницу) и поле для ввода. Введите `user_id` или переслать сообщение пользователя (скрытые профили → «введите user_id»); пользователь должен быть в таблице `users`.
+2. Выбрать группу со счётчиком `(выдано/всего)`: «Команды», «Разделы /settings», «Обновление данных», «Технические».
+3. Нажатие на пункт сразу выдаёт (✅) или забирает (⬜) доступ — автосохранение, кнопки «Сохранить» нет. Публичные и `root_only` команды не показываются; пункт `settings:database` показывается только root/super_admin. Для root/super_admin как цели тогглов нет («имеет полный доступ»).
+
+**Меню Telegram:** при старте бота `set_menu()` автоматически настраивает меню для всех scopes, собирая команды из `COMMAND_DICT` с флагом `in_menu=True`. Для пользователей с грантами устанавливается индивидуальное меню (per-user) через `BotCommandScopeChat`. Для администраторов групп администраторов меню объединяет admin_group-команды и команды по грантам. Команды `root_only` исключены из не-root scopes. Чтобы команда попала в меню, пометьте её в `COMMAND_DICT`: `CommandEntry('list', 'Список брони', public=False, in_menu=True)`.
+
+**Перезагрузка меню Telegram:** на экране групп (после списка групп) есть кнопка «🔄 Перезагрузить меню» — она вызывает `bot.set_my_commands` для целевого пользователя, перестраивая меню из актуальных грантов. Уведомление пользователя о выдаче прав не отправляется автоматически.
+
+> **Ограничение:** при отзыве грантов пользователь сохраняет старое per-user меню до нажатия кнопки «🔄 Перезагрузить меню».
+
+> **После деплоя:** раздел «Расписание» в `/settings` больше не выдаётся хардкодом. Root должен выдать Кочетковой (id 1613417180) право `settings:schedule_event` через «Доступ к командам», иначе она временно потеряет этот раздел.
 
 ---
 
@@ -30,48 +59,48 @@
 | `/bd_paid` | Оплатить день рождения | Все | Вызов после оформления ДР |
 | `/tickets` | Показать мои билеты | Все | Через меню настроек (profile) |
 | `/echo` | Узнать id чата | Все | ⚠️ Показана только dev в /help |
-| `/rcl` | Запросить контакт и местоположение | Все | ⚠️ Показана только dev в /help |
 
 ---
 
 ## Команды управления списками
 
-Доступны админам, Kochetkova и Oreshkova.
+Доступны админам и пользователям с грантом.
 
-| Команда | Описание | Доступно для | Фильтр |
+| Команда | Описание | Доступно для | Доступ |
 |---------|----------|--------------|--------|
-| `/list` | Показать список людей, оформивших бронь | Админ, Kochetkova, Oreshkova | `filter_list_cmd` |
-| `/list_wait` | Показать список людей на ожидании | Админ, Kochetkova, Oreshkova | `filter_list_cmd` |
+| `/list` | Показать список людей, оформивших бронь | Админ, пользователи с грантом | Грант `list` |
+| `/list_wait` | Показать список людей на ожидании | Админ, пользователи с грантом | Грант `list_wait` |
 
 ---
 
 ## Админские команды
 
-Доступны только администраторам (ADMIN_ID).
+Доступны привилегированным пользователям (root + superadmin) и пользователям с грантом.
 
-| Команда | Описание | Доступно для | Фильтр |
+| Команда | Описание | Доступно для | Доступ |
 |---------|----------|--------------|--------|
-| `/reserve_admin` | Запись на показ (ручная) | Админ, Dev | `filter_admin` |
-| `/migration_admin` | Оформление переноса | Админ, Dev | `filter_admin` |
-| `/load_afisha` | Загрузить афишу | Админ, Dev | `filter_admin` |
-| `/set_admin_info` | Обновить информацию о админе | Админ, Dev | `filter_admin` |
-| `/set_cme_admin_info` | Обновить информацию о админе ДР | Админ, Dev | `filter_admin` |
-| `/sales` | Рассылки/Продажи | Админ, Dev | `filter_admin` |
-| `/send_approve_msg` | Подтверждение билета вручную | Админ, Dev | `filter_admin` |
-| `/update_ticket` | Изменить статус билета вручную | Админ, Dev | `filter_admin` |
-| `/cancel_old_created_tickets` | Отменить просроченные брони | Админ, Dev | `filter_admin` |
-| `/set_user_status` | Изменить роль/статус пользователя | Админ, Dev | `filter_admin` |
-| `/sync_schedule` | Выгрузить изменения расписания в Google Таблицу | Админ, Dev | `filter_admin` |
-| `/close` | Закрыть топик фидбека | Админ, Dev | `filter_admin` |
+| `/reserve_admin` | Запись на показ (ручная) | Админ, пользователи с грантом | Грант `reserve_admin` |
+| `/migration_admin` | Оформление переноса | Админ, пользователи с грантом | Грант `migration_admin` |
+| `/load_afisha` | Загрузить афишу | Админ, пользователи с грантом | Грант `load_afisha` |
+| `/set_admin_info` | Обновить информацию о админе | Только root | `root_only` (tech) |
+| `/set_cme_admin_info` | Обновить информацию о админе ДР | Только root | `root_only` (tech) |
+| `/sales` | Рассылки/Продажи | Админ, пользователи с грантом | Грант `sales` |
+| `/send_approve_msg` | Подтверждение билета вручную | Админ, пользователи с грантом | Грант `send_approve_msg` |
+| `/update_ticket` | Изменить статус билета вручную | Админ, пользователи с грантом | Грант `update_ticket` |
+| `/cancel_old_created_tickets` | Отменить просроченные брони | Админ, пользователи с грантом | Грант `cancel_old_created_tickets` |
+| `/set_user_status` | Изменить роль/статус пользователя | Админ, пользователи с грантом | Грант `set_user_status` |
+| `/sync_schedule` | Выгрузить изменения расписания в Google Таблицу | Админ, пользователи с грантом | Грант `sync_schedule` |
+| `/close` | Закрыть топик фидбека | Админ, пользователи с грантом | Грант `close` |
+| `/receipt` | Чек вручную | Админ, пользователи с грантом | Грант `receipt` |
 
 ---
 
 ## Команды рассылки и настроек
 
-| Команда | Описание | Доступно для | Фильтр |
+| Команда | Описание | Доступно для | Доступ |
 |---------|----------|--------------|--------|
-| `/send_msg` | Написать пользователю от лица бота | Админ, Dev, Kochetkova | `filter_to_send_msg` |
-| `/settings` | Настройки профиля | Админ, Dev, Kochetkova (в /help) | Без фильтра (profile_conv_hl) |
+| `/send_msg` | Написать пользователю от лица бота | Админ, пользователи с грантом | Грант `send_msg` |
+| `/settings` | Настройки профиля | Админ, пользователи с грантом | Грант `settings` (автовыдаётся с первым `settings:*`) |
 
 ---
 
@@ -79,19 +108,20 @@
 
 Доступны только разработчику (Dev/Superadmin).
 
-| Команда | Описание | Доступно для | Фильтр |
+| Команда | Описание | Доступно для | Доступ |
 |---------|----------|--------------|--------|
-| `/topic` | Запустить настройку топиков | Dev | `filter_admin` |
-| `/topic_del` | Удалить топик | Dev | `filter_admin` |
-| `/global_on_off` | Вкл/Выкл команды для пользователей | Dev | `filter_admin` |
-| `/check_balance_on_timeweb` | Проверить баланс сервера | Dev | `filter_admin` |
-| `/log` | Отправить логи бота | Dev | `filter_admin` |
-| `/postgres_log` | Отправить логи базы данных | Dev | `filter_admin` |
-| `/clean_ud` | Очистить user_data | Dev | `filter_admin` |
-| `/print_ud` | Показать user_data | Dev | `filter_admin` |
-| `/clean_bd` | Очистить bot_data | Dev | `filter_admin` |
-| `/update_config` | Обновить конфиг | Dev | `filter_admin` |
-| `/update_settings` | Обновить настройки | Dev | `filter_admin` |
+| `/topic` | Запустить настройку топиков | Только root | `root_only` (tech) |
+| `/topic_del` | Удалить топик | Только root | `root_only` (tech) |
+| `/global_on_off` | Вкл/Выкл команды для пользователей | Только root | `root_only` (tech) |
+| `/check_balance_on_timeweb` | Проверить баланс сервера | Только root | `root_only` (tech) |
+| `/log` | Отправить логи бота | Только root | `root_only` (tech) |
+| `/postgres_log` | Отправить логи базы данных | Только root | `root_only` (tech) |
+| `/clean_ud` | Очистить user_data | Только root | `root_only` (tech) |
+| `/print_ud` | Показать user_data | Только root | `root_only` (tech) |
+| `/clean_bd` | Очистить bot_data | Только root | `root_only` (tech) |
+| `/update_config` | Обновить конфиг | Только root | `root_only` (tech) |
+| `/update_settings` | Обновить настройки | Только root | `root_only` (tech) |
+| `/rcl` | Запросить контакт и местоположение | Только root | `root_only` (tech) |
 
 ---
 
@@ -99,11 +129,30 @@
 
 Доступны админам, в /help показаны только dev с пометкой "(через /settings)".
 
-| Команда | Описание | Доступно для | Фильтр |
+| Команда | Описание | Доступно для | Доступ |
 |---------|----------|--------------|--------|
-| `/update_places` | 🔄 локации | Dev | `filter_admin` |
+| `/update_places` | 🔄 локации | Админ, пользователи с грантом | Грант `update_places` |
 
 > **Примечание:** Команды `/update_base_ticket_data`, `/update_theater_event_data`, `/update_schedule_event_data`, `/update_spec_price`, `/update_cmf_data`, `/update_promotions` ранее существовали в COMMAND_DICT, но больше не зарегистрированы как обработчики. См. `reports/2026-10-11_command-dict-audit.md`.
+
+---
+
+## Чувствительные callback-кнопки
+
+Кнопки подтверждения и квитанции защищены проверкой `is_privileged_update` (root + superadmin).
+Ранее использовалась `is_admin` (только root), но после унификации прав доступ расширен на superadmin.
+
+| Callback | Описание | Доступно для |
+|----------|----------|--------------|
+| `confirm-reserve` | Подтвердить бронь | Привилегированный (root + superadmin) |
+| `reject-reserve` | Отклонить бронь | Привилегированный (root + superadmin) |
+| `confirm-birthday` | Подтвердить день рождения | Привилегированный (root + superadmin) |
+| `reject-birthday` | Отклонить день рождения | Привилегированный (root + superadmin) |
+| `receipt` | Показать чек | Привилегированный (root + superadmin) |
+| `receipt_send` | Отправить чек клиенту | Привилегированный (root + superadmin) |
+
+> **Изменение:** ранее эти callback-ы могли использовать только root (`ADMIN_ID`).
+> После тикета 04 (`is_privileged_update`) superadmin (`SUPERADMIN_CHAT_ID`) также получает доступ.
 
 ---
 
@@ -126,8 +175,14 @@
 
 ## Источники
 
-- `config/settings.py` — COMMAND_DICT, ADMIN_ID, SUPERADMIN_CHAT_ID
-- `src/custom_filters/admin.py` — фильтры прав доступа
+- `src/settings/settings.py` — COMMAND_DICT, SETTINGS_SECTIONS, ADMIN_ID, SUPERADMIN_CHAT_ID
+- `src/permissions.py` — `can()`, `normalize_key()`, `_is_granted()`, `can_or_false()`, `get_user_access_or_empty()`, `PermissionBackendError`, `grantable_items()`, `grant()`/`revoke()`, `bot_is_admin_in_chat()`
+- `src/middleware/command_permission.py` — проверка команд и callback-ов
+- `src/middleware/glob_usage_users.py` — режим техработ, использует `_callback_to_command()`
+- `src/handlers/command_mgmt_hl.py` — UI управления доступом (хендлеры и бизнес-логика)
+- `src/handlers/command_mgmt/keyboards.py` — рендереры экранов и клавиатуры
+- `src/handlers/command_mgmt/parsers.py` — парсеры callback-данных
+- `src/utilities/utl_func.py` — `is_privileged_update()`, `is_admin()` (deprecated), `is_allowed()`, `extract_command()` (единый парсер команд), `set_menu()`
 - `src/setup_bot_handlers.py` — регистрация всех хендлеров, мидлварей и хуков
 - `src/handlers/main_hl.py` — реализация start, reset, help_cmd
 - `src/conv_hl/` — conversation handlers для всех команд

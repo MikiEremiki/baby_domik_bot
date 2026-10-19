@@ -21,7 +21,7 @@ if config.config_file_name is not None:
 target_metadata = BaseModel.metadata
 
 
-def include_object(object, name, type_, reflected, compare_to):
+def include_object(object, name, type_, reflected, compare_to):  # noqa: ARG001
     # Игнорируем таблицу APScheduler
     if type_ == "table" and name == "apscheduler_jobs":
         return False

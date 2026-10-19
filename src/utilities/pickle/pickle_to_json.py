@@ -96,7 +96,7 @@ for key, item in objects[0].items():
                               ensure_ascii=False,
                               cls=CustomEncoder,
                               sort_keys=sort_keys)
-                except TypeError as e:
+                except TypeError:
                     with open('user_ids', 'a', encoding='utf8') as f:
                         f.write(str(key_2) + '\n')
     elif key == 'conversations':

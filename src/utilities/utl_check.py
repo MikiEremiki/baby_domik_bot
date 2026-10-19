@@ -21,7 +21,6 @@ def check_available_seats(schedule_event, only_child=False):
 
 
 def check_available_ticket_by_free_seat(schedule_event,
-                                        theater_event,
                                         type_event,
                                         ticket,
                                         only_child=False):

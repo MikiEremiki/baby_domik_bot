@@ -241,7 +241,7 @@ async def handle_prom_name_start(update: Update, context: ContextTypes.DEFAULT_T
                                             postfix_for_back=PROM_CONFIRM if is_update else '3'))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    message = await _edit_or_send_new_message(update, context, text, reply_markup)
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_NAME
     await set_back_context(context, state, text, reply_markup)
@@ -319,7 +319,7 @@ async def handle_prom_code_start(update: Update, context: ContextTypes.DEFAULT_T
                                             postfix_for_back=PROM_CONFIRM if is_update else PROM_NAME))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    message = await _edit_or_send_new_message(update, context, text, reply_markup)
+    await _edit_or_send_new_message(update, context, text, reply_markup)
 
     state = PROM_CODE
     await set_back_context(context, state, text, reply_markup)
@@ -367,7 +367,7 @@ async def generate_prom_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     promotion_ = context.user_data['new_promotion']
     promotion_['data']['code'] = code
-    message = await query.message.reply_text(f"Сгенерирован код: <code>{code}</code>")
+    await query.message.reply_text(f"Сгенерирован код: <code>{code}</code>")
     # Мы не обновляем message_id здесь, так как ask_prom_type отправит следующее сообщение с кнопками
     
     return await ask_prom_type(update, context)
@@ -410,7 +410,6 @@ async def handle_prom_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     dtype = query.data
     promotion_ = context.user_data['new_promotion']
-    service = promotion_['service']
     promotion_['data']['discount_type'] = PromotionDiscountType(dtype)
     
     current_val = promotion_['data'].get('discount')
@@ -1198,7 +1197,6 @@ async def ask_promotion_summary(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def handle_prom_desc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     promotion_ = context.user_data['new_promotion']
-    service = promotion_['service']
 
     if update.callback_query:
         query = update.callback_query
@@ -1225,7 +1223,6 @@ async def _render_multi_select(update: Update,
                                prefix: str,
                                label_getter,
                                btn_label_getter=None) -> None:
-    service = context.user_data.get('new_promotion', {}).get('service', {})
     total = len(items)
     pages = max(1, (total + per_page - 1) // per_page)
     page = max(0, min(page, pages - 1))

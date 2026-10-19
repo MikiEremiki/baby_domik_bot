@@ -1,9 +1,12 @@
 from telegram.ext import (
     ConversationHandler, CommandHandler, CallbackQueryHandler, MessageHandler,
+    filters,
 )
 
-from custom_filters import filter_settings
-from handlers import support_hl, promotion_hl, schedule_hl, place_hl, auto_sending_hl
+from handlers import (
+    support_hl, promotion_hl, schedule_hl, place_hl, auto_sending_hl,
+    command_mgmt_hl,
+)
 from handlers.sub_hl import (
     update_base_ticket_data, update_theater_event_data,
     update_special_ticket_price, update_schedule_event_data,
@@ -54,8 +57,25 @@ states = {
     2: [
         back_callback_handler,
         cancel_callback_handler,
+        # Должен стоять до get_settings: там pattern '^db|$' совпадает с любым callback
+        CallbackQueryHandler(command_mgmt_hl.access_start, '^access$'),
         CallbackQueryHandler(support_hl.get_settings, pattern='^db|$'),
         CallbackQueryHandler(promotion_hl.ask_promotion_summary, '^skip_to_confirm$'),
+    ],
+    # Управление доступом к командам: ввод user_id, список, группы, тогглы
+    command_mgmt_hl.ACCESS_ASK_USER: [
+        back_callback_handler,
+        cancel_callback_handler,
+        CallbackQueryHandler(command_mgmt_hl.access_home, r'^acc\|home$'),
+        CallbackQueryHandler(command_mgmt_hl.access_users_list, r'^acc\|usr\|\d+$'),
+        CallbackQueryHandler(command_mgmt_hl.access_pick_user, r'^acc\|pick\|\d+$'),
+        CallbackQueryHandler(command_mgmt_hl.access_show_groups, r'^acc\|grp$'),
+        CallbackQueryHandler(command_mgmt_hl.access_show_group, r'^acc\|pg\|\w+\|\d+$'),
+        CallbackQueryHandler(command_mgmt_hl.access_toggle, r'^acc\|tg\|\w+\|\d+$'),
+        CallbackQueryHandler(command_mgmt_hl.access_reload_menu, r'^acc\|reload_menu$'),
+        CallbackQueryHandler(command_mgmt_hl.access_noop, r'^acc\|noop$'),
+        MessageHandler((filters.TEXT | filters.FORWARDED) & ~filters.COMMAND,
+                       command_mgmt_hl.access_receive_user),
     ],
     3: [
         back_callback_handler,
@@ -462,8 +482,7 @@ states = {
 support_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler('settings',
-                       support_hl.start_settings,
-                       filter_settings),
+                       support_hl.start_settings),
     ],
     states=states,
     fallbacks=common_fallbacks,

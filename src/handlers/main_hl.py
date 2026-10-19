@@ -19,13 +19,14 @@ from db.db_googlesheets import (
     increase_free_seat,
     increase_free_and_decrease_nonconfirm_seat, update_free_seat,
 )
+from permissions import is_privileged, get_available_commands
 from settings.settings import (
-    COMMAND_DICT, FILE_ID_RULES, CHAT_ID_KOCHETKOVA, CHAT_ID_ORESHKOVA
+    COMMAND_DICT, FILE_ID_RULES,
 )
 from api.googlesheets import update_cme_in_gspread, update_ticket_in_gspread
 from utilities.utl_check import is_user_blocked
 from utilities.utl_func import (
-    is_admin, is_dev, get_back_context, clean_context,
+    is_privileged_update, get_back_context, clean_context,
     clean_context_on_end_handler, cancel_common, del_messages,
     append_message_ids_back_context, create_str_info_by_schedule_event_id,
     get_formatted_date_and_time_of_event, get_child_and_adult_from_ticket,
@@ -34,7 +35,9 @@ from utilities.utl_func import (
 from utilities.utl_ticket import (
     cancel_tickets_db_and_gspread, check_and_set_privilege
 )
-from utilities.utl_place import effective_place, format_place_footnote
+from utilities.utl_place import (
+    effective_place, format_place_footnote, format_place_line
+)
 from schedule.worker_jobs import cancel_old_created_tickets
 from handlers.receipt_hl import build_receipt_button_row
 
@@ -332,10 +335,17 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         people_str = adult_str + child_str
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
+        default_place = await db_postgres.get_default_place(context.session)
+        place_line = format_place_line(schedule_event, default_place)
         text = (
             f'Техническая информация по билету {ticket_id}<br><br>'
             f'Событие {schedule_event.id}: {theater_event.name}<br>'
-            f'{date_event} в {time_event}<br><br>'
+            f'{date_event} в {time_event}<br>'
+        )
+        if place_line:
+            text += f'{place_line}<br>'
+        text += (
+            f'<br>'
             f'Привязан к профилю: {user.user_id if user else "Нет привязки"}<br>'
             f'Билет: {base_ticket.name}<br>'
             f'Стоимость: {ticket.price}<br>'
@@ -569,7 +579,7 @@ async def confirm_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    if not is_admin(update):
+    if not is_privileged_update(update):
         text = 'Не разрешенное действие: подтвердить бронь'
         main_handlers_logger.warning(text)
         return
@@ -727,7 +737,7 @@ async def approve_privilege(update: Update, context: 'ContextTypes.DEFAULT_TYPE'
     await query.edit_message_text(text)
 
 
-async def reject_privilege(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+async def reject_privilege(update: Update, _context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text("Действие отменено.")
@@ -811,7 +821,7 @@ async def reject_reserve(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    if not is_admin(update):
+    if not is_privileged_update(update):
         main_handlers_logger.warning('Не разрешенное действие: отклонить бронь')
         return
     message_thread_id = update.effective_message.message_thread_id
@@ -913,7 +923,7 @@ async def confirm_birthday(update: Update,
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    if not is_admin(update):
+    if not is_privileged_update(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: подтвердить день рождения')
         return
@@ -1035,7 +1045,7 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    if not is_admin(update):
+    if not is_privileged_update(update):
         main_handlers_logger.warning(
             'Не разрешенное действие: отклонить день рождения')
         return
@@ -1407,78 +1417,85 @@ async def reset(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> int:
 async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     main_handlers_logger.info(f"Пользователь: {update.effective_user}: Вызвал help")
 
-    user_is_admin = is_admin(update)
-    user_is_dev = is_dev(update)
+    user_id = update.effective_user.id
+    user_is_dev = is_privileged(user_id)
+
+    available = await get_available_commands(user_id, context.session)
 
     help_text = '<b>Доступные команды:</b>\n\n'
 
     # Группировка команд
-    client_cmds = [
-        'START', 'HELP', 'RESET', 'RESERVE', 'STUDIO', 'BD_ORDER', 'BD_PAID', 'REFUNDED_MIGRATED'
+    client_keys = [
+        'START', 'HELP', 'RESET', 'RESERVE', 'STUDIO', 'BD_ORDER', 'BD_PAID',
+        'REFUNDED_MIGRATED', 'ECHO'
     ]
-    # Команды доступные только через filter_admin (ADMIN_ID)
-    admin_only_cmds = [
-        'RESERVE_ADMIN', 'STUDIO_ADMIN', 'MIGRATION_ADMIN', 'AFISHA',
-        'ADM_INFO', 'ADM_CME_INFO', 'SALES', 'SEND_APPROVE_MSG', 'UPDATE_TICKET',
+    admin_only_keys = [
+        'RESERVE_ADMIN', 'MIGRATION_ADMIN',
+        'SEND_APPROVE_MSG', 'UPDATE_TICKET',
         'CANCEL_OLD_TICKETS', 'SET_USER_STATUS', 'SYNC_SCHEDULE',
     ]
-    # Команды доступные через filter_list_cmd (ADMIN_ID + KOCHETKOVA + ORESHKOVA)
-    list_cmds = ['LIST', 'LIST_WAIT']
-    # Команды доступные через filter_settings (ADMIN_ID + KOCHETKOVA)
-    settings_cmds = ['SETTINGS']
-    # Команды доступные через filter_to_send_msg (ADMIN_ID + KOCHETKOVA)
-    send_msg_cmds = ['SEND_MSG']
-    update_data_cmds = [
+    list_keys = ['LIST', 'LIST_WAIT']
+    settings_keys = ['SETTINGS']
+    send_msg_keys = ['SEND_MSG']
+    update_data_keys = [
         'UP_BT_DATA', 'UP_TE_DATA', 'UP_SE_DATA', 'UP_SPEC_PRICE',
         'UP_CMF_DATA', 'UP_PROM_DATA'
     ]
-    tech_cmds = [
+    tech_keys = [
         'TOPIC', 'TOPIC_DEL', 'GLOB_ON_OFF', 'CB_TW', 'LOG', 'POSTGRES_LOG',
-        'ECHO', 'CLEAN_UD', 'PRINT_UD', 'CLEAN_BD', 'UP_CONFIG', 'UP_SETTINGS', 'RCL'
+        'CLEAN_UD', 'PRINT_UD', 'CLEAN_BD', 'UP_CONFIG', 'UP_SETTINGS', 'RCL',
+        'ADM_INFO', 'ADM_CME_INFO', 'TICKETS', 'PROFILE'
     ]
+    other_keys = ['AFISHA', 'SALES', 'RECEIPT', 'CLOSE']
+
+    available_keys = {key for key, _ in available}
 
     def format_cmds(cmd_keys):
         text = ""
         for key in cmd_keys:
-            if key in COMMAND_DICT:
-                cmd_name, cmd_desc = COMMAND_DICT[key]
+            if key in available_keys and key in COMMAND_DICT:
+                entry = COMMAND_DICT[key]
                 stub_mark = ""
-                # Помечаем заглушки и не-команды только для разработчика
                 if user_is_dev:
-                    if key in ['STUDIO', 'STUDIO_ADMIN', 'REFUNDED_MIGRATED']:
+                    if key in ['STUDIO', 'REFUNDED_MIGRATED']:
                         stub_mark = " (заглушка)"
-                    elif key in update_data_cmds:
+                    elif key in update_data_keys:
                         stub_mark = " (через /settings)"
-                text += f"/{cmd_name} - {cmd_desc}{stub_mark}\n"
+                text += f"/{entry[0]} - {entry[1]}{stub_mark}\n"
         return text
 
     if user_is_dev:
         help_text += "<b>Клиентские команды:</b>\n"
-        help_text += format_cmds(client_cmds)
+        help_text += format_cmds(client_keys)
         help_text += "\n<b>Админские команды:</b>\n"
-        help_text += format_cmds(admin_only_cmds + list_cmds + settings_cmds + send_msg_cmds)
+        help_text += format_cmds(admin_only_keys + list_keys + settings_keys + send_msg_keys + other_keys)
         help_text += "\n<b>Обновление данных:</b>\n"
-        help_text += format_cmds(update_data_cmds)
+        help_text += format_cmds(update_data_keys)
         help_text += "\n<b>Технические команды:</b>\n"
-        help_text += format_cmds(tech_cmds)
-    elif user_is_admin:
-        help_text += "<b>Основные команды:</b>\n"
-        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
-        help_text += "\n<b>Управление:</b>\n"
-        help_text += format_cmds(admin_only_cmds + list_cmds + settings_cmds + send_msg_cmds)
-    elif update.effective_user and update.effective_user.id == CHAT_ID_KOCHETKOVA:
-        help_text += "<b>Основные команды:</b>\n"
-        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
-        help_text += "\n<b>Управление:</b>\n"
-        help_text += format_cmds(list_cmds + settings_cmds + send_msg_cmds)
-    elif update.effective_user and update.effective_user.id == CHAT_ID_ORESHKOVA:
-        help_text += "<b>Основные команды:</b>\n"
-        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
-        help_text += "\n<b>Управление:</b>\n"
-        help_text += format_cmds(list_cmds)
+        help_text += format_cmds(tech_keys)
     else:
-        help_text += format_cmds(['START', 'HELP', 'RESET', 'RESERVE', 'BD_ORDER'])
-        help_text += "\nЕсли у вас возникли вопросы, вы можете связаться с администратором."
+        # Non-privileged: show grouped available commands
+        has_client = bool(set(client_keys) & available_keys)
+        has_admin = bool(set(admin_only_keys + other_keys) & available_keys)
+        has_list = bool(set(list_keys) & available_keys)
+        has_settings = bool(set(settings_keys) & available_keys)
+        has_send_msg = bool(set(send_msg_keys) & available_keys)
+        has_update = bool(set(update_data_keys) & available_keys)
+
+        if has_client:
+            help_text += "<b>Основные команды:</b>\n"
+            help_text += format_cmds(client_keys)
+
+        if has_admin or has_list or has_settings or has_send_msg:
+            help_text += "\n<b>Управление:</b>\n"
+            help_text += format_cmds(list_keys + settings_keys + send_msg_keys + admin_only_keys + other_keys)
+
+        if has_update:
+            help_text += "\n<b>Обновление данных:</b>\n"
+            help_text += format_cmds(update_data_keys)
+
+        if not available_keys:
+            help_text += "Если у вас возникли вопросы, вы можете связаться с администратором."
 
     await update.effective_chat.send_message(
         help_text,

@@ -704,3 +704,11 @@ class AutoSendingDelivery(BaseModelTimed):
         UniqueConstraint('auto_sending_id', 'user_id', 'dedup_key',
                          name='uq__auto_sending_deliveries__auto_sending_id_user_id_dedup_key'),
     )
+
+
+class UserCommandAccess(BaseModel):
+    __tablename__ = 'user_command_access'
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=False)
+    command: Mapped[str] = mapped_column(String(50), primary_key=True)

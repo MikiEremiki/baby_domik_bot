@@ -325,7 +325,7 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 2. Проверка наличия свободных мест
         check_ticket = check_available_ticket_by_free_seat(
-            schedule_event, theater_event, type_event, base_ticket)
+            schedule_event, type_event, base_ticket)
         if not check_ticket:
             text = ('К сожалению, места на выбранный сеанс закончились. '
                     'Пожалуйста, выберите другое время или запишитесь в лист '

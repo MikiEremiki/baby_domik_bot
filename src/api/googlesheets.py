@@ -91,7 +91,7 @@ class RetryingClientManager(ClientManager):
         method_name = getattr(method, '__name__', str(method))
         googlesheets_logger.debug(f"Calling {method_name} {args!s} {kwargs!s}")
 
-    async def handle_requests_error(self, e, method, args, kwargs, attempt: int = 1):
+    async def handle_requests_error(self, e, method, args, kwargs, attempt: int = 1):  # noqa: ARG002
         backoff = self.gspread_delay * (2 ** (attempt - 1))
         method_name = getattr(method, '__name__', str(method))
         googlesheets_logger.warning(
@@ -99,7 +99,7 @@ class RetryingClientManager(ClientManager):
         )
         await asyncio.sleep(backoff)
 
-    async def handle_gspread_error(self, e, method, args, kwargs, attempt: int = 1):
+    async def handle_gspread_error(self, e, method, args, kwargs, attempt: int = 1):  # noqa: ARG002
         backoff = self.gspread_delay * (2 ** (attempt - 1))
         method_name = getattr(method, '__name__', str(method))
         code = getattr(getattr(e, 'response', None), 'status_code', None)
@@ -707,7 +707,6 @@ async def _execute_append_googlesheet(
 
 async def sync_schedule_events_to_gspread(
         spreadsheet_id: str,
-        run_id: str,
         items: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """

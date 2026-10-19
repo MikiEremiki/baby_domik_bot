@@ -8,7 +8,6 @@ from pprint import pformat
 from typing import List, Sequence, Tuple, Optional
 from zoneinfo import ZoneInfo
 
-import pytz
 from telegram import (
     Update,
     BotCommand, BotCommandScopeDefault,
@@ -24,7 +23,8 @@ from telegram.error import BadRequest
 from db import ScheduleEvent, db_postgres, TheaterEvent, Ticket, BaseTicket
 from db.enum import TicketStatus
 from settings import parse_settings
-from utilities.utl_date import MOSCOW_TZ, to_moscow_dt
+from utilities.utl_date import to_moscow_dt
+from utilities.utl_place import format_place_line
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
@@ -34,6 +34,10 @@ from settings.settings import (
 from utilities.schemas import context_user_data
 from utilities.settings_parser import sync_settings_to_db, load_bot_settings
 from utilities.utl_db import open_session
+from permissions import (
+    bot_is_admin_in_chat, can_or_false, get_user_menu_commands,
+    is_privileged, list_users_with_access,
+)
 
 utilites_logger = logging.getLogger('bot.utilites')
 
@@ -98,84 +102,145 @@ async def clean_context_on_end_handler(logger, context):
         context.user_data.pop('new_auto_sending')
 
 
-async def set_menu(bot: ExtBot) -> None:
+async def _set_user_menus(
+    bot: ExtBot,
+    session,
+    sub_admin_commands: list[BotCommand],
+) -> None:
+    """Set per-user menus for users with grants and admin group members.
+
+    For each user with DB grants, sets a per-user menu via BotCommandScopeChat.
+    For admin group members (determined by bot.get_chat_administrators),
+    merges admin_group commands with their grant-based commands.
+    """
+    try:
+        users_with_access = await list_users_with_access(session)
+        utilites_logger.info(f'Найдено {len(users_with_access)} пользователей с грантами')
+    except Exception:
+        utilites_logger.exception('Ошибка получения списка пользователей с грантами')
+        return
+
+    # Collect admin group member user IDs from all admin groups
+    admin_group_member_ids: set[int] = set()
+    for group_chat_id in ADMIN_GROUP_ID:
+        try:
+            admins = await bot.get_chat_administrators(group_chat_id)
+            for admin in admins:
+                if admin.user and not admin.user.is_bot:
+                    admin_group_member_ids.add(admin.user.id)
+        except Exception:
+            utilites_logger.exception(f'Ошибка получения администраторов группы {group_chat_id}')
+
+    for user_id, _grants_count in users_with_access:
+        try:
+            grant_commands = await get_user_menu_commands(user_id, session)
+
+            if user_id in admin_group_member_ids:
+                # Merge admin_group commands with grant commands, removing duplicates
+                grant_cmd_names = {cmd.command for cmd in grant_commands}
+                merged = list(grant_commands)
+                for cmd in sub_admin_commands:
+                    if cmd.command not in grant_cmd_names:
+                        merged.append(cmd)
+                await bot.set_my_commands(
+                    commands=merged,
+                    scope=BotCommandScopeChat(chat_id=user_id)
+                )
+                utilites_logger.info(f'Меню для админ-группы пользователя {user_id} настроено ({len(merged)} команд)')
+            else:
+                # Regular user with grants
+                await bot.set_my_commands(
+                    commands=grant_commands,
+                    scope=BotCommandScopeChat(chat_id=user_id)
+                )
+                utilites_logger.info(f'Меню для пользователя {user_id} настроено ({len(grant_commands)} команд)')
+        except Exception:
+            # Log and skip individual user errors (e.g., blocked bot)
+            utilites_logger.exception(f'Ошибка настройки меню для пользователя {user_id}')
+
+
+async def set_menu(bot: ExtBot, session=None) -> None:
+    """Set Telegram command menus for different chat scopes based on in_menu flag.
+
+    Commands with in_menu=True and public=True go to the default scope.
+    Non-public in_menu commands go to admin scopes.
+    root_only in_menu commands go to superadmin scope only.
+
+    For users with grants (from DB), per-user menus are set via BotCommandScopeChat.
+    For admin group members, admin_group commands are merged with their grants.
+    """
     utilites_logger.info('Начало настройки команд')
-    default_commands = [
-        BotCommand(COMMAND_DICT['START'][0],
-                   COMMAND_DICT['START'][1]),
-        BotCommand(COMMAND_DICT['RESERVE'][0],
-                   COMMAND_DICT['RESERVE'][1]),
-        BotCommand(COMMAND_DICT['BD_ORDER'][0],
-                   COMMAND_DICT['BD_ORDER'][1]),
-    ]
-    admin_group_commands = [
-        BotCommand(COMMAND_DICT['LIST'][0],
-                   COMMAND_DICT['LIST'][1]),
-        BotCommand(COMMAND_DICT['LIST_WAIT'][0],
-                   COMMAND_DICT['LIST_WAIT'][1]),
-    ]
-    sub_admin_commands = default_commands + admin_group_commands
-    admin_commands = sub_admin_commands + [
-        BotCommand(COMMAND_DICT['RESERVE_ADMIN'][0],
-                   COMMAND_DICT['RESERVE_ADMIN'][1]),
-        BotCommand(COMMAND_DICT['MIGRATION_ADMIN'][0],
-                   COMMAND_DICT['MIGRATION_ADMIN'][1]),
-        BotCommand(COMMAND_DICT['SALES'][0],
-                   COMMAND_DICT['SALES'][1]),
-        BotCommand(COMMAND_DICT['AFISHA'][0],
-                   COMMAND_DICT['AFISHA'][1]),
-        BotCommand(COMMAND_DICT['ADM_INFO'][0],
-                   COMMAND_DICT['ADM_INFO'][1]),
-        BotCommand(COMMAND_DICT['CB_TW'][0],
-                   COMMAND_DICT['CB_TW'][1]),
-        BotCommand(COMMAND_DICT['SETTINGS'][0],
-                   COMMAND_DICT['SETTINGS'][1]),
-    ]
-    backend_commands = [
-        BotCommand(COMMAND_DICT['TOPIC'][0],
-                   COMMAND_DICT['TOPIC'][1]),
-        BotCommand(COMMAND_DICT['TOPIC_DEL'][0],
-                   COMMAND_DICT['TOPIC_DEL'][1]),
-        BotCommand(COMMAND_DICT['LOG'][0],
-                   COMMAND_DICT['LOG'][1]),
-        BotCommand(COMMAND_DICT['ECHO'][0],
-                   COMMAND_DICT['ECHO'][1]),
-    ]
 
-    superadmin_commands = admin_commands + backend_commands
+    # Build command lists from COMMAND_DICT using in_menu flag
+    default_commands = []
+    admin_commands = []
+    root_only_commands = []
 
+    for key, entry in COMMAND_DICT.items():
+        if not entry.in_menu:
+            continue
+        cmd = BotCommand(entry[0], entry[1])
+        if entry.root_only:
+            root_only_commands.append(cmd)
+        elif entry.public:
+            default_commands.append(cmd)
+        else:
+            admin_commands.append(cmd)
+
+    # Superadmin gets all in_menu commands
+    superadmin_commands = default_commands + admin_commands + root_only_commands
+    # Admin group gets public + non-public (not root_only)
+    sub_admin_commands = default_commands + admin_commands
+
+    # Set menus for role-based scopes
     for chat_id in ADMIN_GROUP_ID:
         try:
             await bot.set_my_commands(
-                commands=admin_group_commands,
+                commands=admin_commands,
                 scope=BotCommandScopeChatAdministrators(chat_id=chat_id)
             )
             utilites_logger.info('Команды для админ группы настроены')
         except BadRequest:
             utilites_logger.error(f'Бот не состоит в группе {chat_id}')
     for chat_id in ADMIN_GROUP_ID:
-        await bot.set_my_commands(
-            commands=sub_admin_commands,
-            scope=BotCommandScopeChat(chat_id=chat_id)
-        )
+        try:
+            await bot.set_my_commands(
+                commands=sub_admin_commands,
+                scope=BotCommandScopeChat(chat_id=chat_id)
+            )
+        except Exception:
+            utilites_logger.exception(f'Ошибка настройки sub_admin меню для группы {chat_id}')
     utilites_logger.info('Команды для суб_администраторов настроены')
     for chat_id in ADMIN_CHAT_ID:
-        await bot.set_my_commands(
-            commands=admin_commands,
-            scope=BotCommandScopeChat(chat_id=chat_id)
-        )
+        try:
+            await bot.set_my_commands(
+                commands=sub_admin_commands,
+                scope=BotCommandScopeChat(chat_id=chat_id)
+            )
+        except Exception:
+            utilites_logger.exception(f'Ошибка настройки admin меню для чата {chat_id}')
     utilites_logger.info('Команды для администраторов настроены')
     for chat_id in SUPERADMIN_CHAT_ID:
-        await bot.set_my_commands(
-            commands=superadmin_commands,
-            scope=BotCommandScopeChat(chat_id=chat_id)
-        )
+        try:
+            await bot.set_my_commands(
+                commands=superadmin_commands,
+                scope=BotCommandScopeChat(chat_id=chat_id)
+            )
+        except Exception:
+            utilites_logger.exception(f'Ошибка настройки superadmin меню для чата {chat_id}')
     utilites_logger.info('Команды для суперадмина настроены')
-    await bot.set_my_commands(
-        commands=default_commands,
-        scope=BotCommandScopeDefault()
-    )
+    try:
+        await bot.set_my_commands(
+            commands=default_commands,
+            scope=BotCommandScopeDefault()
+        )
+    except Exception:
+        utilites_logger.exception('Ошибка настройки default меню')
     utilites_logger.info('Команды для всех пользователей настроены')
+
+    # Set per-user menus for users with grants
+    if session is not None:
+        await _set_user_menus(bot, session, sub_admin_commands)
 
 
 async def set_description(bot: ExtBot) -> None:
@@ -389,56 +454,49 @@ async def get_contact(
     print(update.effective_message.contact)
 
 
-def is_admin(update: Update):
+def is_privileged_update(update: Update) -> bool:
+    """Check if the user in ``update`` is root or super_admin (no DB needed).
+
+    Returns ``False`` if ``effective_user`` is missing.
+    """
     user = update.effective_user
-    if not hasattr(user, 'id'):
+    if user is None or not hasattr(user, 'id'):
         return False
-
-    is_admin_flag = user.id in ADMIN_ID
-    text = f'Пользователь: {user.id}: {user.full_name}'
-    if is_admin_flag:
-        text += ': Является администратором'
-    else:
-        text += ': Не является администратором'
-    utilites_logger.info(text)
-
-    return is_admin_flag
+    return is_privileged(user.id)
 
 
-def is_dev(update: Update):
+def is_admin(update: Update) -> bool:
+    """Check if the user is root (ADMIN_ID only).
+
+    .. deprecated::
+        Use :func:`is_privileged_update` instead to use a single rule set
+        (root + super_admin). This function is kept for backward compatibility.
+    """
+    return is_privileged_update(update)
+
+
+async def is_allowed(
+    update: Update,
+    context: 'ContextTypes.DEFAULT_TYPE',
+    command: str,
+) -> bool:
+    """Check whether the user in ``update`` may use ``command`` via :func:`can`.
+
+    Uses :func:`can_or_false` so that a DB error is treated as "no access"
+    (fail-closed). Returns ``False`` if ``effective_user`` is missing.
+    """
     user = update.effective_user
-    is_dev_flag = user.id in SUPERADMIN_CHAT_ID
-    text = f'Пользователь: {user.id}: {user.full_name}'
-    if is_dev_flag:
-        text += ': Является разработчиком'
-    else:
-        text += ': Не является разработчиком'
-    utilites_logger.info(text)
-
-    return is_dev_flag
-
-
-async def _bot_is_admin(
-        update: Update,
-        context: 'ContextTypes.DEFAULT_TYPE'
-):
-    admins = await update.effective_chat.get_administrators()
-    admins = [admin.user.id for admin in admins]
-    if context.bot.id not in admins:
-        await update.effective_message.reply_text(
-            text='Предоставьте боту права на управление темами',
-            reply_to_message_id=update.effective_message.id,
-            message_thread_id=update.effective_message.message_thread_id
-        )
+    if user is None:
         return False
-    return True
+    session = getattr(context, 'session', None)
+    return await can_or_false(user.id, command, session)
 
 
 async def create_or_connect_topic(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
-    if not await _bot_is_admin(update, context):
+    if not await bot_is_admin_in_chat(update, context):
         return
 
     dict_topics_name = context.bot_data.setdefault('dict_topics_name', {})
@@ -504,7 +562,7 @@ async def del_topic(
         update: Update,
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
-    if not await _bot_is_admin(update, context):
+    if not await bot_is_admin_in_chat(update, context):
         return
 
     if context.args:
@@ -580,12 +638,27 @@ async def clean_context(context: 'ContextTypes.DEFAULT_TYPE'):
             utilites_logger.info(f'{key}: {value} больше не используется')
 
 
-def extract_command(text):
-    if not text.startswith('/'):
-        return
-    if '@' in text:
-        text = text.split('@')[0]
-    return text.replace('/', '')
+def extract_command(text: str, bot_username: str | None = None) -> str | None:
+    """Extract command name from a message text like '/cmd' or '/cmd@botname args'.
+
+    Args:
+        text: Message text to parse.
+        bot_username: Optional bot username to filter ``/cmd@OtherBot`` commands.
+            If provided, a command addressed to another bot returns ``None``.
+
+    Returns:
+        Lowercase command name without the leading slash, or ``None`` if the
+        text is not a command, is addressed to another bot, or ``text`` is empty.
+    """
+    if not text:
+        return None
+    match = re.match(r'^/(\w+)(?:@(\w+))?(?:\s|$)', text)
+    if not match:
+        return None
+    mentioned_bot = match.group(2)
+    if mentioned_bot and bot_username and mentioned_bot.lower() != bot_username.lower():
+        return None
+    return match.group(1).lower()
 
 
 async def split_message(context, message: str):
@@ -1013,7 +1086,8 @@ async def add_qty_visitors_to_text(
     return text
 
 
-async def create_str_info_by_schedule_event_id(context, choice_event_id):
+async def create_str_info_by_schedule_event_id(
+        context, choice_event_id):
     schedule_event = await db_postgres.get_schedule_event(
         context.session, choice_event_id)
     theater_event = await db_postgres.get_theater_event(
@@ -1026,6 +1100,10 @@ async def create_str_info_by_schedule_event_id(context, choice_event_id):
                          f'<b>{full_name}<br>'
                          f'{date_event}<br>'
                          f'{time_event}</b><br>')
+    default_place = await db_postgres.get_default_place(context.session)
+    place_line = format_place_line(schedule_event, default_place)
+    if place_line:
+        text_select_event += f'{place_line}<br>'
     text_select_event += f'{text_emoji}<br>' if text_emoji else ''
     return text_select_event
 

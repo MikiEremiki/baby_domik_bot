@@ -11,6 +11,7 @@ from schedule.auto_sending import (
     render_text,
     Recipient,
     RECIPIENT_SELECTORS,
+    ticket_dedup_keys,
 )
 from db.enum import AutoSendingTrigger
 
@@ -260,10 +261,10 @@ class TestDispatchAutoSending:
         sending = self._make_sending()
 
         # Mock: delivery already exists
-        with patch.object(db_postgres, 'get_delivery', new=AsyncMock(return_value=MagicMock())):
+        with patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value={"t:1"})):
             recipients = [Recipient(
                 user=user, ctx={"name": "World"},
-                dedup_key="se:1", schedule_event_id=1,
+                dedup_keys=["t:1"], schedule_event_id=1,
             )]
             await dispatch_auto_sending(context, session, sending, recipients)
 
@@ -283,10 +284,10 @@ class TestDispatchAutoSending:
         user = self._make_user(chat_id=0)
         sending = self._make_sending()
 
-        with patch.object(db_postgres, 'get_delivery', new=AsyncMock(return_value=None)):
+        with patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value=set())):
             recipients = [Recipient(
                 user=user, ctx={"name": "World"},
-                dedup_key="se:1", schedule_event_id=1,
+                dedup_keys=["t:1"], schedule_event_id=1,
             )]
             await dispatch_auto_sending(context, session, sending, recipients)
 
@@ -305,10 +306,10 @@ class TestDispatchAutoSending:
         user = self._make_user(blocked=True)
         sending = self._make_sending()
 
-        with patch.object(db_postgres, 'get_delivery', new=AsyncMock(return_value=None)):
+        with patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value=set())):
             recipients = [Recipient(
                 user=user, ctx={"name": "World"},
-                dedup_key="se:1", schedule_event_id=1,
+                dedup_keys=["t:1"], schedule_event_id=1,
             )]
             await dispatch_auto_sending(context, session, sending, recipients)
 
@@ -329,12 +330,12 @@ class TestDispatchAutoSending:
 
         mock_delivery = AsyncMock()
         with (
-            patch.object(db_postgres, 'get_delivery', new=AsyncMock(return_value=None)),
+            patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value=set())),
             patch.object(db_postgres, 'create_delivery', new=mock_delivery),
         ):
             recipients = [Recipient(
                 user=user, ctx={"name": "World"},
-                dedup_key="se:1", schedule_event_id=1,
+                dedup_keys=["t:1"], schedule_event_id=1,
             )]
             await dispatch_auto_sending(context, session, sending, recipients)
 
@@ -364,13 +365,13 @@ class TestDispatchAutoSending:
         ]
 
         with (
-            patch.object(db_postgres, 'get_delivery', new=AsyncMock(return_value=None)),
+            patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value=set())),
             patch.object(db_postgres, 'create_delivery', new=AsyncMock()),
             patch('asyncio.sleep', new=AsyncMock()),
         ):
             recipients = [Recipient(
                 user=user, ctx={},
-                dedup_key="se:1", schedule_event_id=1,
+                dedup_keys=["t:1"], schedule_event_id=1,
             )]
             await dispatch_auto_sending(context, session, sending, recipients)
 
@@ -435,6 +436,31 @@ class TestGroupTicketsByUser:
         user_tickets, skipped = group_tickets_by_user(tickets)
         assert user_tickets == {}
         assert skipped == [1, 2]
+
+
+# ─── ticket_dedup_keys helper ─────────────────────────────────────────────────
+
+class TestTicketDedupKeys:
+    """Tests for ticket_dedup_keys: builds ['t:1', 't:2', ...] from tickets."""
+
+    def _make_ticket(self, ticket_id):
+        ticket = MagicMock()
+        ticket.id = ticket_id
+        return ticket
+
+    def test_empty_list(self):
+        """Empty list returns empty list."""
+        assert ticket_dedup_keys([]) == []
+
+    def test_single_ticket(self):
+        """Single ticket returns one key."""
+        tickets = [self._make_ticket(42)]
+        assert ticket_dedup_keys(tickets) == ["t:42"]
+
+    def test_multiple_tickets(self):
+        """Multiple tickets return keys in order."""
+        tickets = [self._make_ticket(1), self._make_ticket(2), self._make_ticket(3)]
+        assert ticket_dedup_keys(tickets) == ["t:1", "t:2", "t:3"]
 
 
 class TestBuildRecipientCtx:
@@ -837,3 +863,370 @@ class TestManualSendBySession:
         assert recipients == []
         assert error is None
         assert no_user_ids == [10, 11]
+
+
+# ─── _check_dedup (ticket-level) ──────────────────────────────────────────────
+
+class TestCheckDedup:
+    """Tests for _check_dedup: ticket-level dedup logic."""
+
+    def _make_auto_sending(self, sending_id=1):
+        sending = MagicMock()
+        sending.id = sending_id
+        return sending
+
+    def test_no_delivery_returns_empty_and_false(self):
+        """No existing delivery → (empty set, skip=False)."""
+        asyncio.run(self._test_no_delivery())
+
+    async def _test_no_delivery(self):
+        from schedule.auto_sending import _check_dedup
+        from db import db_postgres
+
+        session = AsyncMock()
+        sending = self._make_auto_sending()
+        with patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value=set())):
+            delivered_keys, skip = await _check_dedup(
+                session, sending, user_id=100, dedup_keys=["t:1", "t:2"], force_resend=False)
+        assert delivered_keys == set()
+        assert skip is False
+
+    def test_all_delivered_skips(self):
+        """All keys delivered → (all keys, skip=True)."""
+        asyncio.run(self._test_all_delivered())
+
+    async def _test_all_delivered(self):
+        from schedule.auto_sending import _check_dedup
+        from db import db_postgres
+
+        session = AsyncMock()
+        sending = self._make_auto_sending()
+        with patch.object(db_postgres, 'get_deliveries_by_keys',
+                          new=AsyncMock(return_value={"t:1", "t:2"})):
+            delivered_keys, skip = await _check_dedup(
+                session, sending, user_id=100, dedup_keys=["t:1", "t:2"], force_resend=False)
+        assert delivered_keys == {"t:1", "t:2"}
+        assert skip is True
+
+    def test_partial_delivery_does_not_skip(self):
+        """Some keys delivered → (delivered keys, skip=False)."""
+        asyncio.run(self._test_partial_delivery())
+
+    async def _test_partial_delivery(self):
+        from schedule.auto_sending import _check_dedup
+        from db import db_postgres
+
+        session = AsyncMock()
+        sending = self._make_auto_sending()
+        with patch.object(db_postgres, 'get_deliveries_by_keys',
+                          new=AsyncMock(return_value={"t:1"})):
+            delivered_keys, skip = await _check_dedup(
+                session, sending, user_id=100, dedup_keys=["t:1", "t:2"], force_resend=False)
+        assert delivered_keys == {"t:1"}
+        assert skip is False
+
+    def test_force_resend_overrides_skip(self):
+        """All keys delivered but force_resend=True → (all keys, skip=False)."""
+        asyncio.run(self._test_force_resend())
+
+    async def _test_force_resend(self):
+        from schedule.auto_sending import _check_dedup
+        from db import db_postgres
+
+        session = AsyncMock()
+        sending = self._make_auto_sending()
+        with patch.object(db_postgres, 'get_deliveries_by_keys',
+                          new=AsyncMock(return_value={"t:1", "t:2"})):
+            delivered_keys, skip = await _check_dedup(
+                session, sending, user_id=100, dedup_keys=["t:1", "t:2"], force_resend=True)
+        assert delivered_keys == {"t:1", "t:2"}
+        assert skip is False
+
+    def test_empty_dedup_keys_returns_early(self):
+        """Empty dedup_keys → (empty set, skip=False) without DB call."""
+        asyncio.run(self._test_empty_dedup_keys())
+
+    async def _test_empty_dedup_keys(self):
+        from schedule.auto_sending import _check_dedup
+        from db import db_postgres
+
+        session = AsyncMock()
+        sending = self._make_auto_sending()
+        # get_deliveries_by_keys should NOT be called
+        with patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock()) as mock_get:
+            delivered_keys, skip = await _check_dedup(
+                session, sending, user_id=100, dedup_keys=[], force_resend=False)
+        mock_get.assert_not_called()
+        assert delivered_keys == set()
+        assert skip is False
+
+
+# ─── _send_and_record_delivery ────────────────────────────────────────────────
+
+class TestSendAndRecordDelivery:
+    """Tests for _send_and_record_delivery: delivery create/update logic."""
+
+    def _make_user(self, user_id=100, chat_id=123):
+        user = MagicMock()
+        user.user_id = user_id
+        user.chat_id = chat_id
+        return user
+
+    def _make_auto_sending(self, sending_id=1):
+        sending = MagicMock()
+        sending.id = sending_id
+        return sending
+
+    def _make_transformed(self):
+        transformed = MagicMock()
+        transformed.text = "Hello!"
+        transformed.entities = []
+        return transformed
+
+    def test_creates_delivery_for_new_keys(self):
+        """Creates delivery records for keys not in delivered_keys."""
+        asyncio.run(self._test_creates_delivery())
+
+    async def _test_creates_delivery(self):
+        from schedule.auto_sending import _send_and_record_delivery
+        from db import db_postgres
+
+        bot = AsyncMock()
+        user = self._make_user()
+        sending = self._make_auto_sending()
+        session = AsyncMock()
+        transformed = self._make_transformed()
+
+        create_mock = AsyncMock()
+        with patch.object(db_postgres, 'create_delivery', new=create_mock):
+            result = await _send_and_record_delivery(
+                bot, user, transformed, sending, session,
+                dedup_keys=["t:1", "t:2"],
+                schedule_event_id=5,
+                delivered_keys=set(),
+                force_resend=False,
+                sent=0,
+            )
+
+        assert result == 1
+        # Should create 2 delivery records
+        assert create_mock.call_count == 2
+        # Check dedup_keys passed
+        call_args = [c.args for c in create_mock.call_args_list]
+        dedup_keys_called = [c[0] for c in call_args if len(c) > 3]
+        # dedup_key is passed as keyword arg
+        kw_dedup_keys = [c.kwargs.get('dedup_key') for c in create_mock.call_args_list]
+        assert set(kw_dedup_keys) == {"t:1", "t:2"}
+
+    def test_skips_already_delivered_keys(self):
+        """Does not create delivery for keys already in delivered_keys."""
+        asyncio.run(self._test_skips_delivered())
+
+    async def _test_skips_delivered(self):
+        from schedule.auto_sending import _send_and_record_delivery
+        from db import db_postgres
+
+        bot = AsyncMock()
+        user = self._make_user()
+        sending = self._make_auto_sending()
+        session = AsyncMock()
+        transformed = self._make_transformed()
+
+        create_mock = AsyncMock()
+        with patch.object(db_postgres, 'create_delivery', new=create_mock):
+            await _send_and_record_delivery(
+                bot, user, transformed, sending, session,
+                dedup_keys=["t:1", "t:2"],
+                schedule_event_id=5,
+                delivered_keys={"t:1"},
+                force_resend=False,
+                sent=0,
+            )
+
+        # Should create only 1 delivery (t:2, since t:1 is already delivered)
+        assert create_mock.call_count == 1
+        kw = create_mock.call_args.kwargs
+        assert kw['dedup_key'] == "t:2"
+
+    def test_force_resend_updates_all_deliveries(self):
+        """force_resend=True → updates all existing deliveries instead of creating."""
+        asyncio.run(self._test_force_resend_updates())
+
+    async def _test_force_resend_updates(self):
+        from schedule.auto_sending import _send_and_record_delivery
+        from db import db_postgres
+
+        bot = AsyncMock()
+        user = self._make_user()
+        sending = self._make_auto_sending()
+        session = AsyncMock()
+        transformed = self._make_transformed()
+
+        update_mock = AsyncMock()
+        create_mock = AsyncMock()
+        with (
+            patch.object(db_postgres, 'update_delivery', new=update_mock),
+            patch.object(db_postgres, 'create_delivery', new=create_mock),
+        ):
+            await _send_and_record_delivery(
+                bot, user, transformed, sending, session,
+                dedup_keys=["t:1", "t:2"],
+                schedule_event_id=5,
+                delivered_keys={"t:1", "t:2"},
+                force_resend=True,
+                sent=0,
+            )
+
+        # Should update 2 deliveries, not create any
+        assert update_mock.call_count == 2
+        create_mock.assert_not_called()
+
+
+# ─── _format_send_stats: sent_ticket_ids ──────────────────────────────────────
+
+class TestFormatSendStatsTicketIds:
+    """Tests for _format_send_stats: sent_ticket_ids display."""
+
+    def _import_format_func(self):
+        from handlers.auto_sending_hl import _format_send_stats
+        return _format_send_stats
+
+    def test_sent_ticket_ids_displayed(self):
+        """sent_ticket_ids shows ticket IDs in the report."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 2,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+            "sent_ticket_ids": ["1, 2", "3"],
+        }
+        result = fmt(stats)
+        assert "Отправлено по билетам:" in result
+        assert "1" in result
+        assert "2" in result
+        assert "3" in result
+
+    def test_sent_ticket_ids_empty(self):
+        """Empty sent_ticket_ids does not add a line."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+            "sent_ticket_ids": [],
+        }
+        result = fmt(stats)
+        assert "Отправлено по билетам" not in result
+
+    def test_sent_ticket_ids_missing_key(self):
+        """Missing sent_ticket_ids key does not cause error."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+        }
+        result = fmt(stats)
+        assert "Отправлено по билетам" not in result
+
+    def test_sent_ticket_ids_single(self):
+        """Single ticket ID is displayed correctly."""
+        fmt = self._import_format_func()
+        stats = {
+            "sent": 1,
+            "dedup_skipped": 0,
+            "no_chat_skipped": 0,
+            "blocked_skipped": 0,
+            "not_sent_via_bot_skipped": 0,
+            "sent_ticket_ids": ["42"],
+        }
+        result = fmt(stats)
+        assert "Отправлено по билетам: 42" in result
+
+
+# ─── dispatch_auto_sending: sent_ticket_ids tracking ──────────────────────────
+
+class TestDispatchSentTicketIds:
+    """Tests for dispatch_auto_sending: sent_ticket_ids in return stats."""
+
+    def _make_context(self):
+        context = MagicMock()
+        context.bot = AsyncMock()
+        context.bot_data = {"settings": {"REFUND_INFO": ""}}
+        return context
+
+    def _make_user(self, user_id=1, chat_id=123):
+        user = MagicMock()
+        user.user_id = user_id
+        user.chat_id = chat_id
+        user.status = None
+        return user
+
+    def _make_sending(self, sending_id=1, name="Test", text="Hello!", send_via_bot=True):
+        sending = MagicMock()
+        sending.id = sending_id
+        sending.name = name
+        sending.text = text
+        sending.send_via_bot = send_via_bot
+        return sending
+
+    def test_sent_ticket_ids_in_stats(self):
+        """dispatch_auto_sending returns sent_ticket_ids with ticket IDs."""
+        asyncio.run(self._test_sent_ticket_ids())
+
+    async def _test_sent_ticket_ids(self):
+        from schedule.auto_sending import dispatch_auto_sending
+        from db import db_postgres
+
+        context = self._make_context()
+        session = AsyncMock()
+        user = self._make_user()
+        sending = self._make_sending()
+
+        create_mock = AsyncMock()
+        with (
+            patch.object(db_postgres, 'get_deliveries_by_keys', new=AsyncMock(return_value=set())),
+            patch.object(db_postgres, 'create_delivery', new=create_mock),
+        ):
+            recipients = [Recipient(
+                user=user,
+                ctx={"ticket_ids": "7, 8"},
+                dedup_keys=["t:7", "t:8"],
+                schedule_event_id=1,
+            )]
+            stats = await dispatch_auto_sending(context, session, sending, recipients)
+
+        assert "sent_ticket_ids" in stats
+        assert stats["sent_ticket_ids"] == ["7, 8"]
+
+    def test_sent_ticket_ids_empty_when_no_send(self):
+        """When no messages are sent, sent_ticket_ids is empty."""
+        asyncio.run(self._test_no_send_empty_ids())
+
+    async def _test_no_send_empty_ids(self):
+        from schedule.auto_sending import dispatch_auto_sending
+        from db import db_postgres
+
+        context = self._make_context()
+        session = AsyncMock()
+        user = self._make_user()
+        sending = self._make_sending()
+
+        # All keys delivered → skip
+        with patch.object(db_postgres, 'get_deliveries_by_keys',
+                          new=AsyncMock(return_value={"t:1"})):
+            recipients = [Recipient(
+                user=user,
+                ctx={"ticket_ids": "1"},
+                dedup_keys=["t:1"],
+                schedule_event_id=1,
+            )]
+            stats = await dispatch_auto_sending(context, session, sending, recipients)
+
+        assert stats["sent_ticket_ids"] == []

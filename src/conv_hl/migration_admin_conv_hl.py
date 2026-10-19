@@ -2,7 +2,6 @@ from telegram.ext import (
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
 )
 
-from custom_filters import filter_admin
 from handlers import reserve_hl, reserve_admin_hl, migration_admin_hl
 from conv_hl import (
     handlers_event_selection, handlers_client_data_selection,
@@ -47,8 +46,7 @@ for key in handlers_client_data_selection.keys():
 migration_admin_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['MIGRATION_ADMIN'][0],
-                       migration_admin_hl.enter_ticket_id,
-                       filter_admin),
+                       migration_admin_hl.enter_ticket_id),
     ],
     states=states,
     fallbacks=common_fallbacks,

@@ -6,6 +6,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 
 from db import db_postgres
+from handlers import init_conv_hl_dialog
 from utilities.utl_kbd import add_btn_back_and_cancel
 
 from pathlib import Path
@@ -20,8 +21,7 @@ os.makedirs(STATIC_AFISHA_DIR, exist_ok=True)
 async def load_afisha(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     afisha_hl_logger.info(f'Пользователь загружает афишу: {update.effective_user.full_name}')
 
-    state = 'START'
-    context.user_data['STATE'] = state
+    await init_conv_hl_dialog(update, context)
 
     afishas = await db_postgres.get_afishas(context.session)
     existing_months = [a.month for a in afishas]

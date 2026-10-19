@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone, time as dt_time
 from typing import Awaitable, Callable, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from telegram.error import Forbidden, RetryAfter
@@ -18,9 +18,10 @@ from db import db_postgres
 from db.enum import AutoSendingTrigger, TicketStatus
 from db.models import (
     AutoSending, AutoSendingDelivery, ScheduleEvent,
-    Ticket, User, UserStatus, UserTicket,
+    Ticket, User, UserTicket,
 )
 from utilities.utl_date import MOSCOW_TZ, to_moscow_dt
+from utilities.utl_db import open_session
 from utilities.utl_func import (
     get_full_name_event, get_formatted_date_and_time_of_event,
 )
@@ -35,7 +36,7 @@ auto_sending_logger = logging.getLogger('bot.auto_sending')
 class Recipient:
     user: User
     ctx: dict
-    dedup_key: str
+    dedup_keys: list[str]
     schedule_event_id: int | None
 
 
@@ -132,12 +133,16 @@ async def _send_and_record_delivery(
     transformed: object,
     auto_sending: AutoSending,
     session: AsyncSession,
-    dedup_key: str,
+    dedup_keys: list[str],
     schedule_event_id: int | None,
-    delivery_updated: bool,
+    delivered_keys: set[str],
+    force_resend: bool,
     sent: int,
 ) -> int:
     """Send a message with transformed text and record the delivery.
+
+    For each dedup_key not yet delivered, creates a new delivery record.
+    If force_resend, updates all existing delivery records.
 
     Returns the updated *sent* counter (incremented by 1).
     """
@@ -148,19 +153,25 @@ async def _send_and_record_delivery(
         parse_mode=None,
     )
     sent_at = datetime.now(tz=timezone.utc)
-    if delivery_updated:
-        await db_postgres.update_delivery(
-            session, auto_sending.id, user.user_id, dedup_key, sent_at)
+
+    # Update existing deliveries if force_resend
+    if force_resend:
+        for dk in dedup_keys:
+            await db_postgres.update_delivery(
+                session, auto_sending.id, user.user_id, dk, sent_at)
     else:
-        await db_postgres.create_delivery(
-            session,
-            auto_sending_id=auto_sending.id,
-            user_id=user.user_id,
-            dedup_key=dedup_key,
-            sent_at=sent_at,
-            schedule_event_id=schedule_event_id,
-            auto_commit=True,
-        )
+        # Create delivery records for keys that weren't already delivered
+        for dk in dedup_keys:
+            if dk not in delivered_keys:
+                await db_postgres.create_delivery(
+                    session,
+                    auto_sending_id=auto_sending.id,
+                    user_id=user.user_id,
+                    dedup_key=dk,
+                    sent_at=sent_at,
+                    schedule_event_id=schedule_event_id,
+                    auto_commit=True,
+                )
     return sent + 1
 
 
@@ -212,6 +223,14 @@ def group_tickets_by_user(tickets: list[Ticket]) -> tuple[dict[int, list[Ticket]
             continue
         user_tickets.setdefault(t.user.user_id, []).append(t)
     return user_tickets, skipped
+
+
+def ticket_dedup_keys(tickets: list[Ticket]) -> list[str]:
+    """Build ticket-level dedup keys for a list of tickets.
+
+    Returns a list like ['t:1', 't:2', ...].
+    """
+    return [f"t:{t.id}" for t in tickets]
 
 
 # ─── Context factory (shared seam) ────────────────────────────────────────────
@@ -277,7 +296,7 @@ async def _selector_event(
     """Select recipients for EVENT trigger: users with PAID/APPROVED tickets
     for the schedule event(s) associated with the auto_sending.
 
-    Groups tickets by ``user_id``, builds ``dedup_key = se:{schedule_event_id}``.
+    Groups tickets by ``user_id``, builds ``dedup_keys = ["t:{ticket_id}", ...]``.
     """
     # Filter out events that ended more than 3 days ago at the DB level.
     cutoff = now - timedelta(days=3)
@@ -332,7 +351,7 @@ async def _selector_event(
             recipients.append(Recipient(
                 user=user_tix[0].user,
                 ctx=ctx,
-                dedup_key=f"se:{se.id}",
+                dedup_keys=ticket_dedup_keys(user_tix),
                 schedule_event_id=se.id,
             ))
 
@@ -367,8 +386,6 @@ async def select_payment_recipients(
 
     Returns a list of Recipients ready for ``dispatch_auto_sending``.
     """
-    from db import db_postgres
-
     # Load tickets with user info
     tickets = []
     for tid in ticket_ids:
@@ -414,7 +431,7 @@ async def select_payment_recipients(
         recipients.append(Recipient(
             user=user,
             ctx=ctx,
-            dedup_key=f"se:{se_id}",
+            dedup_keys=ticket_dedup_keys(user_tix),
             schedule_event_id=se_id,
         ))
 
@@ -433,29 +450,40 @@ async def _check_dedup(
     session: AsyncSession,
     auto_sending: AutoSending,
     user_id: int,
-    dedup_key: str,
+    dedup_keys: list[str],
     force_resend: bool,
-) -> tuple[bool, bool]:
-    """Check delivery dedup for a recipient.
+) -> tuple[set[str], bool]:
+    """Check delivery dedup for a recipient across all ticket-level keys.
 
-    Returns (delivery_updated: bool, skip: bool).
-    - ``skip=True``  → already delivered, do not resend (unless force_resend).
-    - ``delivery_updated=True`` → force_resend mode; delivery row will be
-      updated instead of created.
+    Returns (delivered_keys: set[str], skip: bool).
+    - ``skip=True``  → all keys already delivered, do not resend.
+    - ``delivered_keys`` → set of keys that already have a delivery record.
     """
-    existing = await db_postgres.get_delivery(
-        session, auto_sending.id, user_id, dedup_key)
-    if existing:
+    if not dedup_keys:
+        return set(), False
+
+    delivered_keys = await db_postgres.get_deliveries_by_keys(
+        session, auto_sending.id, user_id, dedup_keys)
+
+    all_keys = set(dedup_keys)
+
+    if delivered_keys >= all_keys:
         if force_resend:
             auto_sending_logger.info(
-                f"Force resend: will update delivery for {user_id} "
-                f"auto_sending {auto_sending.id} / {dedup_key}")
-            return True, False
+                f"Force resend for {user_id}: will update {len(delivered_keys)} "
+                f"deliveries, auto_sending {auto_sending.id}")
+            return delivered_keys, False
         auto_sending_logger.info(
-            f"Skip {user_id}: already delivered "
-            f"auto_sending {auto_sending.id} / {dedup_key}")
-        return False, True
-    return False, False
+            f"Skip {user_id}: all tickets delivered "
+            f"auto_sending {auto_sending.id}")
+        return delivered_keys, True
+    elif delivered_keys:
+        auto_sending_logger.info(
+            f"Partial delivery for {user_id}: delivered={delivered_keys}, "
+            f"pending={all_keys - delivered_keys}")
+        return delivered_keys, False
+    else:
+        return delivered_keys, False
 
 
 def _check_user_eligible(user: User) -> str | None:
@@ -482,9 +510,10 @@ async def _send_with_retry(
     transformed: object,
     auto_sending: AutoSending,
     session: AsyncSession,
-    dedup_key: str,
+    dedup_keys: list[str],
     schedule_event_id: int | None,
-    delivery_updated: bool,
+    delivered_keys: set[str],
+    force_resend: bool,
 ) -> tuple[int, int]:
     """Send a message to *user* with RetryAfter handling.
 
@@ -493,7 +522,7 @@ async def _send_with_retry(
     try:
         await _send_and_record_delivery(
             bot, user, transformed, auto_sending, session,
-            dedup_key, schedule_event_id, delivery_updated, 0)
+            dedup_keys, schedule_event_id, delivered_keys, force_resend, 0)
         return 1, 0
 
     except Forbidden:
@@ -513,7 +542,7 @@ async def _send_with_retry(
         try:
             await _send_and_record_delivery(
                 bot, user, transformed, auto_sending, session,
-                dedup_key, schedule_event_id, delivery_updated, 0)
+                dedup_keys, schedule_event_id, delivered_keys, force_resend, 0)
             return 1, 0
         except Exception as retry_err:
             error_type = type(retry_err).__name__
@@ -522,7 +551,7 @@ async def _send_with_retry(
                 extra={
                     'user_id': user.user_id,
                     'auto_sending_id': auto_sending.id,
-                    'dedup_key': dedup_key,
+                    'dedup_keys': dedup_keys,
                     'error_type': error_type,
                     'error_message': str(retry_err),
                 },
@@ -536,7 +565,7 @@ async def _send_with_retry(
             extra={
                 'user_id': user.user_id,
                 'auto_sending_id': auto_sending.id,
-                'dedup_key': dedup_key,
+                'dedup_keys': dedup_keys,
                 'error_type': error_type,
                 'error_message': str(e),
             },
@@ -559,7 +588,7 @@ async def _dispatch_single_recipient(
     """
     user = recipient.user
     ctx = recipient.ctx
-    dedup_key = recipient.dedup_key
+    dedup_keys = recipient.dedup_keys
     schedule_event_id = recipient.schedule_event_id
 
     # Inject refund info if placeholder exists.
@@ -567,8 +596,8 @@ async def _dispatch_single_recipient(
         ctx["refund_info"] = refund_info
 
     # 1. Dedup check.
-    delivery_updated, skip = await _check_dedup(
-        session, auto_sending, user.user_id, dedup_key, force_resend)
+    delivered_keys, skip = await _check_dedup(
+        session, auto_sending, user.user_id, dedup_keys, force_resend)
     if skip:
         return {'dedup_skipped': 1}
 
@@ -600,7 +629,7 @@ async def _dispatch_single_recipient(
 
     sent_delta, error_delta = await _send_with_retry(
         bot, user, transformed, auto_sending, session,
-        dedup_key, schedule_event_id, delivery_updated)
+        dedup_keys, schedule_event_id, delivered_keys, force_resend)
 
     return {
         'sent': sent_delta,
@@ -644,6 +673,7 @@ async def dispatch_auto_sending(
     blocked_skipped = 0
     not_sent_via_bot_skipped = 0
     errors = 0
+    sent_ticket_ids: list[str] = []
 
     for recipient in recipients:
         stats = await _dispatch_single_recipient(
@@ -654,6 +684,10 @@ async def dispatch_auto_sending(
         blocked_skipped += stats.get('blocked_skipped', 0)
         not_sent_via_bot_skipped += stats.get('not_sent_via_bot_skipped', 0)
         errors += stats.get('errors', 0)
+        if stats.get('sent', 0) == 1:
+            ticket_ids = recipient.ctx.get('ticket_ids', '')
+            if ticket_ids:
+                sent_ticket_ids.append(ticket_ids)
 
     return {
         'sent': sent,
@@ -662,6 +696,7 @@ async def dispatch_auto_sending(
         'blocked_skipped': blocked_skipped,
         'not_sent_via_bot_skipped': not_sent_via_bot_skipped,
         'errors': errors,
+        'sent_ticket_ids': sent_ticket_ids,
     }
 
 
@@ -717,8 +752,6 @@ async def auto_sending_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     async with _tick_lock:
-        from utilities.utl_db import open_session
-
         tick_start = time_module.monotonic()
         total_sent = 0
         total_dedup = 0
@@ -883,14 +916,14 @@ async def _has_undelivered_recipients(
     """Check if there is at least one undelivered recipient.
 
     Returns True if there exists a user with a PAID/APPROVED ticket for the
-    schedule event who does not yet have a delivery record for this auto_sending.
+    schedule event who does not yet have a delivery record for this auto_sending
+    for at least one of their tickets.
     Returns False if all ticket owners are already delivered (or no tickets exist).
     """
-    from sqlalchemy import exists
-
-    dedup_key = f"se:{schedule_event_id}"
+    # A ticket is undelivered if its owner has no delivery record with the
+    # ticket-level dedup key "t:{ticket.id}" for this auto_sending.
     stmt = (
-        select(Ticket)
+        select(Ticket.id)
         .join(UserTicket, UserTicket.ticket_id == Ticket.id)
         .where(
             Ticket.schedule_event_id == schedule_event_id,
@@ -900,7 +933,7 @@ async def _has_undelivered_recipients(
                 .where(
                     AutoSendingDelivery.auto_sending_id == auto_sending.id,
                     AutoSendingDelivery.user_id == UserTicket.user_id,
-                    AutoSendingDelivery.dedup_key == dedup_key,
+                    AutoSendingDelivery.dedup_key == func.concat('t:', Ticket.id),
                 )
             ),
         )
@@ -939,8 +972,6 @@ async def _dispatch_for_event(
 
 async def _precise_dispatch_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Callback for precise run_once jobs — loads data and dispatches."""
-    from utilities.utl_db import open_session
-
     auto_sending_id = context.job.data["auto_sending_id"]
     schedule_event_id = context.job.data["schedule_event_id"]
 

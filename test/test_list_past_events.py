@@ -371,6 +371,10 @@ def test_send_clients_data_with_past_event(monkeypatch):
 
         monkeypatch.setattr('handlers.reserve.input.db_postgres.get_schedule_event', AsyncMock(return_value=past_event))
         monkeypatch.setattr('handlers.reserve.input.db_postgres.get_theater_event', AsyncMock(return_value=theater_event))
+        mock_place = MagicMock()
+        mock_place.id = 1
+        mock_place.name = "Зал"
+        monkeypatch.setattr('handlers.reserve.input.db_postgres.get_default_place', AsyncMock(return_value=mock_place))
 
         update = MagicMock()
         update.callback_query = MagicMock()

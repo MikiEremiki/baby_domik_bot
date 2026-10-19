@@ -7,7 +7,7 @@ from telegram.ext import (
 
 from db import db_postgres
 from handlers.reserve_hl import choice_mode, conversation_timeout
-from settings.settings import RESERVE_TIMEOUT, CHAT_ID_KOCHETKOVA
+from settings.settings import RESERVE_TIMEOUT
 from utilities.utl_date import to_naive
 
 reserve_check_md_logger = logging.getLogger('bot.md.reserve_check')
@@ -59,7 +59,7 @@ def add_reserve_check_middleware(application, config):
             return
 
         # Не проверяем в админских чатах
-        if update.effective_chat.id in [config.bot.admin_group, CHAT_ID_KOCHETKOVA]:
+        if update.effective_chat.id == config.bot.admin_group:
             return
 
         # Проверку делаем только при переходах по кнопкам (CallbackQuery)

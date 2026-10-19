@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List
 
-from telegram import User, Message, InlineKeyboardMarkup, Update
+from telegram import User, Message, InlineKeyboardMarkup
 
 from db import ScheduleEvent, TheaterEvent, BaseTicket, Promotion
 from db.enum import PromotionDiscountType, GroupOfPeopleByDiscountType

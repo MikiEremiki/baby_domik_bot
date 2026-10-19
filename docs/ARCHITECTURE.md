@@ -47,6 +47,10 @@ baby_domik_bot/
 │   │   +-- afisha_hl.py        # Афиша спектаклей
 │   │   +-- profile_hl.py       # Профиль пользователя (/tickets)
 │   │   +-- support_hl.py       # Админская панель: CRUD спектаклей, билетов, промо
+│   │   +-- command_mgmt_hl.py  # UI управления доступом к командам (/settings → База данных)
+│   │   +-- command_mgmt/       # Подмодули управления доступом
+│   │   │   +-- keyboards.py    # Рендереры экранов и клавиатуры
+│   │   │   L-- parsers.py      # Парсеры callback-данных
 │   │   +-- auto_sending_hl.py  # CRUD авторассылок (выделено из support_hl)
 │   │   +-- schedule_hl.py      # CRUD сеансов расписания
 │   │   +-- place_hl.py         # CRUD мест (площадки)
@@ -87,6 +91,7 @@ baby_domik_bot/
 │   │
 │   +-- middleware/             # ПРОМЕЖУТОЧНОЕ ПО
 │   │   +-- db_handlers.py      # Прокидывание сессии БД
+│   │   +-- command_permission.py # Проверка прав на команды и разделы /settings (can)
 │   │   L-- reserve_check.py    # Проверка возможности бронирования
 │   │
 │   +-- settings/               # НАСТРОЙКИ
@@ -99,7 +104,6 @@ baby_domik_bot/
 │   │   L-- utl_db.py           # Утилиты для сессий БД
 │   │
 │   +-- custom_filters/         # ПОЛЬЗОВАТЕЛЬСКИЕ ФИЛЬТРЫ
-│   │   L-- filter_admin.py     # Фильтр админских команд
 │   │
 │   +-- log/                    # ЛОГИРОВАНИЕ
 │   │   L-- logging_conf.py     # Конфигурация именованных логгеров
@@ -236,7 +240,8 @@ YooKassa → POST /yookassa (FastAPI)
 #### 6.4. Логирование
 - Использовать именованные логгеры (например, `bot.reserve`, `bot.webhook`).
 - Конфигурация логов находится в `src\log\logging_conf.py`.
-- Стартовые middleware: `add_db_handlers_middleware`, `add_glob_on_off_middleware`, `add_user_status_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`.
+- Стартовые middleware: `add_db_handlers_middleware`, `add_user_status_middleware`, `add_command_permission_middleware`, `add_glob_on_off_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`.
+- Права доступа: единая точка — `can(user_id, key, session)` в `src/permissions.py`. Ключи нормализуются через `normalize_key()` (ключ COMMAND_DICT маппится в `entry[0]`, `settings:*` без изменений). root/super_admin (`ADMIN_ID` + `SUPERADMIN_CHAT_ID` из `settings.py`) проходят всегда; остальным непубличные команды и разделы доступны по записям таблицы `user_command_access`. При ошибке БД `can()` бросает `PermissionBackendError`; middleware показывает пользователю «Временная ошибка, попробуйте позже.» Хелперы `can_or_false()` и `get_user_access_or_empty()` ловят исключение с fallback. Выдача/снятие прав — через UI `command_mgmt_hl.py` (`/settings` → База данных → Доступ к командам; callback-и с intent_id `acc` защищены ключом `settings:database`), без деплоя.
 
 #### 6.5. Работа с Google Sheets
 - Все операции записи должны быть асинхронными через NATS (`gspread_worker.py`).
@@ -266,7 +271,9 @@ YooKassa → POST /yookassa (FastAPI)
 
 #### 6.7. Handlers и команды
 - Регистрация всех обработчиков централизована в `src\setup_bot_handlers.py` (функция `setup_handlers`).
-- Только для админов (через `custom_filters.filter_admin`): `/update_config`, `/send_approve_msg`, `/update_ticket`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`, `/receipt`.
+- Доступ к командам проверяет middleware `command_permission` через `can()`. Старые ID-фильтры (`filter_admin` и др.) удалены — middleware единственный гейт. Технические команды (`group='tech'`) — `root_only`, доступны только root (`ADMIN_ID`), super_admin их не получает. Неизвестные команды (нет в `COMMAND_DICT`) закрыты всем, кроме root (fail-closed). Команда `settings` выдаётся автоматически с первым `settings:*` и снимается с последним.
+- Middleware `glob_usage_users` (режим техработ) и `reserve_check` (актуальность бронирования) также используют только `can()` для проверки прав — `has_any_grant` и `is_privileged` больше не применяются. `reserve_check` проверяет всех пользователей, включая имеющих гранты.
+- При старте бота `set_menu()` настраивает меню Telegram: role-based scopes (admin group, sub_admin, admin, superadmin, default) строятся из `COMMAND_DICT` по `in_menu=True`. Для пользователей с грантами устанавливается per-user меню. Администраторы групп получают объединённое меню (admin_group + гранты).
 - Команды синхронизации данных из Google Sheets: `/update_places` (остальные команды `/update_*` из COMMAND_DICT больше не зарегистрированы, см. `reports/2026-10-11_command-dict-audit.md`).
 - `COMMAND_DICT` маппит имена команд на telegram-команды и подписи; при изменении — обновлять консистентно.
 - Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания».
@@ -334,6 +341,11 @@ YooKassa → POST /yookassa (FastAPI)
   ```powershell
   python -m pytest -q
   ```
+
+#### Деплой
+- `src/settings/settings.py` находится в `.gitignore` (`**/settings.py`). Изменения `COMMAND_DICT` (новые команды, `root_only`, `in_menu`) и `SETTINGS_SECTIONS` не попадут в git-коммит. **Обязательно** вручную перенести `settings.py` на прод (и все окружения) вместе с этим релизом. После старта проверить, что бот запускается и `/help` для root показывает `/receipt`.
+- Режим техработ (`global_on_off`): после этого релиза `raise ApplicationHandlerStop` наконец выполняется, и клиенты реально блокируются. Перед деплоем убедитесь, что `global_on_off` включён, если блокировка не нужна.
+- После деплоя зайдите как root в «Доступ к командам» и выдайте Кочетковой `settings:schedule_event`, иначе она потеряет «Расписание».
 
 #### NATS миграция
 - Для автоматической синхронизации стрима и создания всех недостающих тем/консьюмеров:

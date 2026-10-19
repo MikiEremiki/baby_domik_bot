@@ -40,8 +40,9 @@
 | **ConversationHandler** | Механизм `python-telegram-bot` для управления состоянием диалога с пользователем. Состояния определяются в `src\conv_hl\`, бизнес-логика — в `src\handlers\`. |
 | **Handler (Обработчик)** | Функция, реагирующая на команду, callback или текст пользователя. Регистрация централизована в `src\setup_bot_handlers.py`. |
 | **Inline Keyboard** | Клавиатура с кнопками под сообщением бота. Создаётся через `src\utilities\utl_kbd.py`. |
-| **Middleware** | Промежуточный обработчик, выполняющийся до/после handler'а. Стартовые middleware: `add_db_handlers_middleware`, `add_glob_on_off_middleware`, `add_user_status_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`. |
-| **Custom Filter** | Пользовательский фильтр для маршрутизации обновлений (например, `filter_admin` для админских команд). |
+| **Middleware** | Промежуточный обработчик, выполняющийся до/после handler'а. Стартовые middleware: `add_db_handlers_middleware`, `add_user_status_middleware`, `add_command_permission_middleware`, `add_glob_on_off_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`. |
+| **Custom Filter** | Пользовательский фильтр для маршрутизации обновлений (например, `REPLY_IN_TOPIC_FROM_BOT` для реплик в топиках). |
+| **Command Permission** | Система прав на команды: `can()` проверяет гранты в `user_command_access`, middleware `command_permission` блокирует доступ по `can()`, UI «Доступ к командам» в `/settings` → «База данных» позволяет управлять грантами. Middleware `glob_usage_users` и `reserve_check` также используют только `can()`. |
 
 ---
 
@@ -110,7 +111,7 @@
 | Термин | Описание |
 |--------|----------|
 | **Админские команды** | `/update_config`, `/send_approve_msg`, `/update_ticket`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`, `/sync_schedule`, `/receipt`. |
-| **Команды синхронизации** | `/update_base_ticket_data`, `/update_theater_event_data`, `/update_schedule_event_data`, `/update_spec_price`, `/update_cmf_data`, `/update_promotions`. |
+| **Команды синхронизации** | `/update_places`, `/update_schedule_event_data` (остальные `/update_*` больше не зарегистрированы). |
 | **Forum Topics (Топики)** | Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания». |
 | **RANGE_NAME** | Маппинг именованных вкладок Google Sheets: «Расписание», «Репертуар», «Клиентская база», «Заказные мероприятия», «Форматы ЗакМероп», «Лист ожидания», «Индив стоимости». |
 

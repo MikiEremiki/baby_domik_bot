@@ -1559,7 +1559,7 @@ async def pick_filter_base_ticket(update: Update,
     return await show_pick_filter_base_ticket(update, context)
 
 
-async def show_pick_filter_child_age_min(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_pick_filter_child_age_min(update: Update, _context: ContextTypes.DEFAULT_TYPE):
     lines = [
         "<b>Возраст детей — минимум</b>",
         "Выберите минимальный возраст ребёнка (включительно).",

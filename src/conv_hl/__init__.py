@@ -18,3 +18,22 @@ from .support_conv_hl import support_conv_hl
 from .migration_admin_conv_hl import migration_admin_conv_hl
 from .sales_conv_hl import sales_conv_hl
 from .profile_conv_hl import profile_conv_hl
+
+__all__ = [
+    'F_text_and_no_command',
+    'afisha_conv_hl',
+    'back_callback_handler',
+    'birthday_conv_hl',
+    'birthday_paid_conv_hl',
+    'cancel_callback_handler',
+    'common_fallbacks',
+    'handlers_client_data_selection',
+    'handlers_event_selection',
+    'list_wait_conv_hl',
+    'migration_admin_conv_hl',
+    'profile_conv_hl',
+    'reserve_admin_conv_hl',
+    'reserve_conv_hl',
+    'sales_conv_hl',
+    'support_conv_hl',
+]

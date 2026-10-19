@@ -1,5 +1,4 @@
 import logging
-from datetime import timedelta, datetime
 
 from telegram.ext import ContextTypes
 

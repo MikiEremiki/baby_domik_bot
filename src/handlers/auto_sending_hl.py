@@ -9,12 +9,22 @@ from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 
+from permissions import can_or_false
 from db import db_postgres
-from db.enum import AutoSendingTrigger
-from settings.settings import ADMIN_ID
-from utilities.utl_func import set_back_context
+from db.enum import AutoSendingTrigger, TicketStatus
+from db.models import Ticket as TicketModel, User as UserModel
+from sqlalchemy import select as sa_select
+from sqlalchemy.orm import selectinload
+from utilities.utl_func import (
+    set_back_context, get_formatted_date_and_time_of_event, get_full_name_event,
+)
+from utilities.utl_place import format_place_footnote
 from utilities.utl_kbd import (
     create_kbd_crud, add_btn_back_and_cancel,
+)
+from schedule.auto_sending import (
+    render_text, new_recipient_ctx, Recipient, group_tickets_by_user,
+    ticket_dedup_keys, dispatch_auto_sending,
 )
 
 auto_sending_hl_logger = logging.getLogger('bot.auto_sending_hl')
@@ -44,7 +54,7 @@ async def auto_sending_select(
 ):
     """List all auto-sendings with active flag and theater binding."""
     user_id = update.effective_user.id
-    if user_id not in ADMIN_ID:
+    if not await can_or_false(user_id, 'settings:auto_sending', context.session):
         auto_sending_hl_logger.warning(
             "Пользователь %s попытался открыть рассылки без прав администратора",
             user_id
@@ -584,7 +594,6 @@ async def auto_sending_handle_text(update: Update, context):
         'place': '📍 Название площадки: адрес',
         'refund_info': 'Возврат возможен за 3 дня',
     }
-    from schedule.auto_sending import render_text
     rendered = render_text(text, preview_ctx, sending_name='preview')
     length_warning = ""
     if len(rendered) > 4096:
@@ -632,7 +641,7 @@ async def auto_sending_confirm_create(update: Update, context):
 
     data = context.user_data['new_auto_sending']['data']
 
-    sending = await db_postgres.create_auto_sending(
+    await db_postgres.create_auto_sending(
         context.session,
         name=data['name'],
         trigger=data['trigger'],
@@ -1118,7 +1127,8 @@ async def auto_sending_handle_manual_mode(update: Update, context):
     reply_markup = InlineKeyboardMarkup([
         add_btn_back_and_cancel(postfix_for_cancel='settings', add_back_btn=True, postfix_for_back='3')
     ])
-    await query.edit_message_text(text, reply_markup=reply_markup)
+    edited_msg = await query.edit_message_text(text, reply_markup=reply_markup)
+    context.user_data['manual_input_message_id'] = edited_msg.message_id
     return AUTO_SENDING_MANUAL_ID
 
 
@@ -1136,8 +1146,6 @@ async def auto_sending_send_preview_to_self(update: Update, context):
     if not sending:
         await query.edit_message_text("Рассылка не найдена.")
         return AUTO_SENDING_MANUAL_MODE
-
-    from schedule.auto_sending import render_text
 
     # Demo context with sample placeholder values
     demo_ctx = {
@@ -1175,10 +1183,6 @@ async def _build_recipient_ctx(schedule_event, ticket_ids_str: str) -> dict:
     structure is defined in one place.  Supports ``schedule_event=None``
     (fallback dashes) which the shared ``build_recipient_ctx`` does not need.
     """
-    from schedule.auto_sending import new_recipient_ctx
-    from utilities.utl_func import get_formatted_date_and_time_of_event, get_full_name_event
-    from utilities.utl_place import format_place_footnote
-
     if schedule_event:
         event_name = get_full_name_event(schedule_event.theater_event)
         date_str, time_str = await get_formatted_date_and_time_of_event(schedule_event)
@@ -1200,8 +1204,6 @@ async def _build_recipient_ctx(schedule_event, ticket_ids_str: str) -> dict:
 
 async def _manual_send_by_ticket(context, target_id: int):
     """Build recipients list for manual send by ticket ID."""
-    from schedule.auto_sending import Recipient
-
     ticket = await db_postgres.get_ticket(context.session, target_id)
     if not ticket:
         return None, f"Билет {target_id} не найден.", []
@@ -1219,18 +1221,12 @@ async def _manual_send_by_ticket(context, target_id: int):
         schedule_event = await db_postgres.get_schedule_event(context.session, se)
 
     ctx = await _build_recipient_ctx(schedule_event, str(ticket.id))
-    recipients = [Recipient(user=user, ctx=ctx, dedup_key=f"t:{ticket.id}", schedule_event_id=se)]
+    recipients = [Recipient(user=user, ctx=ctx, dedup_keys=[f"t:{ticket.id}"], schedule_event_id=se)]
     return recipients, None, []
 
 
 async def _manual_send_by_session(context, target_id: int):
     """Build recipients list for manual send by session ID."""
-    from schedule.auto_sending import Recipient
-    from sqlalchemy import select as sa_select
-    from sqlalchemy.orm import selectinload
-    from db.enum import TicketStatus
-    from db.models import Ticket as TicketModel, User as UserModel, UserStatus
-
     schedule_event = await db_postgres.get_schedule_event(context.session, target_id)
     if not schedule_event:
         return None, f"Сеанс {target_id} не найден.", []
@@ -1248,7 +1244,6 @@ async def _manual_send_by_session(context, target_id: int):
     )
     tickets = (await context.session.execute(stmt)).scalars().all()
 
-    from schedule.auto_sending import group_tickets_by_user
     user_tickets, no_user_ticket_ids = group_tickets_by_user(tickets)
 
     recipients = []
@@ -1258,7 +1253,7 @@ async def _manual_send_by_session(context, target_id: int):
         recipients.append(Recipient(
             user=tix[0].user,
             ctx=ctx,
-            dedup_key=f"se:{target_id}",
+            dedup_keys=ticket_dedup_keys(tix),
             schedule_event_id=target_id,
         ))
     return recipients, None, no_user_ticket_ids
@@ -1272,12 +1267,17 @@ def _format_send_stats(stats: dict) -> str:
     blocked_skipped = stats['blocked_skipped']
     not_sent_via_bot_skipped = stats['not_sent_via_bot_skipped']
     no_user_skipped = stats.get('no_user_skipped', [])
+    sent_ticket_ids = stats.get('sent_ticket_ids', [])
 
     skip_total = dedup_skipped + no_chat_skipped + blocked_skipped + not_sent_via_bot_skipped + len(no_user_skipped)
     if sent == 0 and skip_total > 0:
         msg = "⚠️ Рассылка не была отправлена ни одному получателю.<br><br>"
     else:
         msg = f"Отправлено: {sent} получателей<br>"
+
+    if sent_ticket_ids:
+        all_ids = [tid.strip() for part in sent_ticket_ids for tid in part.split(',') if tid.strip()]
+        msg += f"Отправлено по билетам: {', '.join(all_ids)}<br>"
 
     if dedup_skipped > 0:
         msg += f"Пропущено (уже отправлено): {dedup_skipped}<br>"
@@ -1309,6 +1309,7 @@ async def auto_sending_handle_manual_id(update: Update, context):
     if not sending:
         await update.effective_chat.send_message("Рассылка не найдена.")
         context.user_data.pop('manual_sending_id', None)
+        context.user_data.pop('manual_input_message_id', None)
         return 3
 
     # Build recipients based on mode
@@ -1320,15 +1321,16 @@ async def auto_sending_handle_manual_id(update: Update, context):
     if error:
         await update.effective_chat.send_message(error)
         context.user_data.pop('manual_sending_id', None)
-        return AUTO_SENDING_MANUAL_ID
+        context.user_data.pop('manual_input_message_id', None)
+        return 3
 
     if not recipients and not no_user_ticket_ids:
         await update.effective_chat.send_message("Получатели не найдены.")
         context.user_data.pop('manual_sending_id', None)
-        return AUTO_SENDING_MANUAL_ID
+        context.user_data.pop('manual_input_message_id', None)
+        return 3
 
     # Dispatch
-    from schedule.auto_sending import dispatch_auto_sending
     auto_sending_hl_logger.info("Manual sending")
     force_resend = context.user_data.pop('manual_force_resend', False)
     stats = await dispatch_auto_sending(
@@ -1338,6 +1340,14 @@ async def auto_sending_handle_manual_id(update: Update, context):
     # Add no-user skipped info
     if no_user_ticket_ids:
         stats['no_user_skipped'] = no_user_ticket_ids
+
+    # Delete the input prompt message with buttons
+    msg_id = context.user_data.pop('manual_input_message_id', None)
+    if msg_id is not None:
+        try:
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_id)
+        except Exception:
+            pass
 
     # Report stats
     msg = _format_send_stats(stats)
@@ -1349,7 +1359,7 @@ async def auto_sending_handle_manual_id(update: Update, context):
 
 # ─── Helper ────────────────────────────────────────────────────────────────────
 
-async def query_or_message(update: Update, context,
+async def query_or_message(update: Update, _context,
                            text: str, reply_markup: InlineKeyboardMarkup):
     """Send or edit message depending on whether we have a callback query."""
     res = transform_html(text)

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 from db.models import ScheduleEvent
+from utilities.utl_date import MOSCOW_TZ
 from utilities.utl_func import (
-    MOSCOW_TZ,
     to_moscow_dt,
     get_time_with_timezone,
     get_formatted_date_and_time_of_event,

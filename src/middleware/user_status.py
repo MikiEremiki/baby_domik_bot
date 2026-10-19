@@ -10,7 +10,7 @@ from handlers import check_user_db
 
 user_status_md_logger = logging.getLogger('bot.md.user_status')
 
-def add_user_status_middleware(application: Application, config):
+def add_user_status_middleware(application: Application, _config):
     async def check_user_status(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         if not update.effective_user or update.effective_user.is_bot or not update.effective_chat:
             return

@@ -945,6 +945,17 @@ async def get_users_by_ids(session: AsyncSession,
     return result.scalars().all()
 
 
+async def get_usernames_by_ids(session: AsyncSession,
+                               user_ids: Collection[int]) -> dict:
+    """Возвращает {user_id: username | None} без загрузки связей User."""
+    if not user_ids:
+        return {}
+    query = select(User.user_id, User.username).where(
+        User.user_id.in_(user_ids))
+    result = await session.execute(query)
+    return {row[0]: row[1] for row in result.all()}
+
+
 async def get_persons_by_user_ids(session: AsyncSession,
                                   user_id: Collection[int]):
     query = select(Person).where(
@@ -2394,3 +2405,25 @@ async def update_delivery(
         await session.commit()
         await session.refresh(delivery)
     return delivery
+
+
+async def get_deliveries_by_keys(
+        session: AsyncSession,
+        auto_sending_id: int,
+        user_id: int,
+        dedup_keys: list[str],
+) -> set[str]:
+    """Batch-check delivery dedup keys.
+
+    Returns the set of dedup_keys that already have a delivery record.
+    """
+    stmt = (
+        select(AutoSendingDelivery.dedup_key)
+        .where(
+            AutoSendingDelivery.auto_sending_id == auto_sending_id,
+            AutoSendingDelivery.user_id == user_id,
+            AutoSendingDelivery.dedup_key.in_(dedup_keys),
+        )
+    )
+    res = await session.execute(stmt)
+    return {row[0] for row in res.all()}
