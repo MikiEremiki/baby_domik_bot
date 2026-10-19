@@ -107,7 +107,7 @@ async def handle_gspread_task(data: Dict[str, Any], logger: Logger):
             run_id = str(data['run_id'])
             items = data['items']
             try:
-                item_results = await sync_schedule_events_to_gspread(sheet_id, run_id, items)
+                item_results = await sync_schedule_events_to_gspread(sheet_id, items)
                 res_msg = {
                     'action': 'schedule_sync_result',
                     'sheet_id': sheet_id,

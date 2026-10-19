@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, registry
 
 # https://alembic.sqlalchemy.org/en/latest/naming.html
 convention = {
-    'all_column_names': lambda constraint, table: '_'.join([
+    'all_column_names': lambda constraint, table: '_'.join([  # noqa: ARG005
         column.name for column in constraint.columns.values()
     ]),
     'ix': 'ix__%(table_name)s__%(all_column_names)s',

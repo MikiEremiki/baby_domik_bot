@@ -1,6 +1,5 @@
 from collections import defaultdict
 import threading
-import time
 
 class MetricsService:
     def __init__(self):

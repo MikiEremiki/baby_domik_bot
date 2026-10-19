@@ -44,7 +44,7 @@ with open(path, "rb") as file:
         except EOFError:
             print("Достигнут конец файла, загрузка завершена.")
             break
-        except pickle.UnpicklingError as e:
+        except pickle.UnpicklingError:
             # print("Ошибка при загрузке объекта:", e)
             break
 print(objects)

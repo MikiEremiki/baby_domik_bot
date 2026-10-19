@@ -2,7 +2,6 @@ import pickle
 import sys
 import os
 from typing import Any, List, Tuple
-from telegram import InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 # Константы, используемые в python-telegram-bot's PicklePersistence для замены Bot объекта
 _REPLACED_KNOWN_BOT = "a known bot replaced by PTB's PicklePersistence"

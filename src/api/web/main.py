@@ -27,7 +27,7 @@ class CachedStaticFiles(StaticFiles):
         return response
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     # Подключение к NATS
     await broker.connect()
     # Запуск фоновой задачи очистки просроченных броней
