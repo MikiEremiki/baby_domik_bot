@@ -1068,8 +1068,8 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     cme_id = query.data.split('|')[1].split()[2]
 
     step = query.data.split('|')[0][-1]
-    text = ('Возникла ошибка\n'
-            'Cвяжитесь с администратором:\n'
+    text = ('Возникла ошибка<br>'
+            'Cвяжитесь с администратором:<br>'
             f'{context.bot_data['cme_admin']['contacts']}')
 
     cme_status = CustomMadeStatus.REJECTED
@@ -1097,32 +1097,35 @@ async def reject_birthday(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         case '1':
             await message.edit_text(f'Заявка {cme_id} отклонена')
 
-            text = f'Мы рассмотрели Вашу заявку: {cme_id}.\n'
-            text += ('Срок обработки данной заявки истёк.\n'
-                     'При необходимости сформируйте повторную заявку.\n'
+            text = f'Мы рассмотрели Вашу заявку: {cme_id}.<br>'
+            text += ('Срок обработки данной заявки истёк.<br>'
+                     'При необходимости сформируйте повторную заявку.<br>'
                      'Мы всегда готовы стать частью Вашего праздника🏡💚')
 
         case '2':
             await message.edit_text(f'Отклонена бронь по заявке {cme_id}')
 
-            text = f'Ваша бронь по заявке: {cme_id} отклонена.\n'
+            text = f'Ваша бронь по заявке: {cme_id} отклонена.<br>'
 
-    text += ('При возникновении вопросов, свяжитесь с Администратором:\n'
+    text += ('При возникновении вопросов, свяжитесь с Администратором:<br>'
              f'{context.bot_data['cme_admin']['contacts']}')
     if await is_user_blocked(
             context, chat_id, 'sending reject birthday message'):
         return
 
+    text = transform_html(text)
     try:
         await context.bot.send_message(
-            text=text,
+            text=text.text,
+            entities=text.entities,
             chat_id=chat_id,
             reply_to_message_id=message_id_for_reply,
         )
     except BadRequest as e:
         main_handlers_logger.error(e)
         await context.bot.send_message(
-            text=text,
+            text=text.text,
+            entities=text.entities,
             chat_id=chat_id,
         )
 
