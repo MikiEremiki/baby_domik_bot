@@ -37,7 +37,7 @@
                 <input class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="phone" name="phone" placeholder="+7 (999) 111-22-33" type="tel" value="{{ form_data.phone if form_data else '' }}" required>
             </div>
             <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email (для билета)</label>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for="email">Email для чека</label>
                 <input class="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-domik-green-soft/50 focus:ring" id="email" name="email" placeholder="anna@example.com" type="email" value="{{ form_data.email if form_data else '' }}" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
             </div>
         </div>
@@ -124,7 +124,10 @@
             <li>• Подтверждение придёт после оплаты</li>
             <li>• Пожалуйста, проверьте корректность данных перед оплатой</li>
             <li class="mt-3 font-bold uppercase text-slate-800">
-                ❗️ Важная информация: В чеке об оплате указан номер билета. Вход на спектакль осуществляется по имени или номеру билета.
+                ❗️ Чек для входа не нужен. Вход на спектакль — по спискам: назовите номер билета или данные человека, на которого он оформлен. Номер билета также указан в чеке об оплате.
+            </li>
+            <li class="text-sm text-slate-600">
+                Если чек не пришёл на почту и нужен вам для личных целей, обратитесь к администратору или напишите боту: «Мне нужен чек». По возможности укажите номер билета.
             </li>
             <li class="mt-3 font-semibold text-slate-700">
                 💡 После оплаты нажмите "Вернуться на сайт", чтобы увидеть номер билета и дополнительную информацию.

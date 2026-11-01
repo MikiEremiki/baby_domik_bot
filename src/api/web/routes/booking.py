@@ -1,5 +1,6 @@
 import asyncio
 import bleach
+import os
 import time
 import uuid
 from datetime import timezone
@@ -17,6 +18,7 @@ from ..services.booking_service import (
     check_promo_restrictions_web,
     compute_discounted_price_web,
 )
+from api.receipt_service import get_ticket_receipt, ReceiptStatus
 from db.models import ScheduleEvent, Adult, Child, Person, Ticket, PersonTicket, UserTicket
 from db.enum import AgeType, AutoSendingTrigger, TicketStatus, UserRole
 from db.db_postgres import (
@@ -390,6 +392,10 @@ async def post_booking_form(
         log_ctx.info("[5/5]", f"Redirect 303 to confirmation_url (payment_id={payment.id})")
         ticket.payment_id = payment.id
         await session.commit()
+
+        # Store ticket_id in session for receipt lookup after payment
+        request.session['web_ticket_id'] = ticket.id
+
         return RedirectResponse(url=payment.confirmation.confirmation_url, status_code=303)
     except asyncio.TimeoutError:
         dur_yoo = (time.perf_counter() - t_yoo0) * 1000
@@ -533,6 +539,32 @@ async def show_payment_result(
         sanitized_text = bleach.clean(sending.text, tags=ALLOWED_HTML_TAGS, strip=True)
         sanitized_sendings.append((sending, sanitized_text))
 
+    # Receipt lookup: only for the session-owned ticket with confirmed payment
+    receipt_ofd_url = None
+    receipt_unavailable = False
+    session_ticket_id = request.session.get('web_ticket_id')
+    session_secret = os.getenv('WEB_SESSION_SECRET', 'web-preview-secret-key')
+    has_secure_session = session_secret != 'web-preview-secret-key'
+
+    if is_success and session_ticket_id and has_secure_session:
+        # Only look up receipt if the session ticket matches the URL ticket_id
+        # (or if no URL ticket_id, use session ticket)
+        lookup_ticket_id = ticket_id if ticket_id == session_ticket_id else session_ticket_id
+        try:
+            receipt_info = await get_ticket_receipt(session, lookup_ticket_id)
+            if receipt_info.status == ReceiptStatus.READY and receipt_info.ofd_url:
+                receipt_ofd_url = receipt_info.ofd_url
+            else:
+                receipt_unavailable = True
+        except Exception as e:
+            log_ctx.error("PAYMENT_RESULT", f"Receipt check failed (non-fatal): {e}")
+            receipt_unavailable = True
+    elif is_success and session_ticket_id and not has_secure_session:
+        logger.warning(
+            "Receipt not shown: WEB_SESSION_SECRET is using default value. "
+            "Set a secure secret to enable receipt display."
+        )
+
     return templates.TemplateResponse(
         request=request,
         name='payment_result.html',
@@ -543,5 +575,7 @@ async def show_payment_result(
             'confirmation_url': confirmation_url,
             'payment_sendings': payment_sendings,
             'sanitized_sendings': sanitized_sendings,
+            'receipt_ofd_url': receipt_ofd_url,
+            'receipt_unavailable': receipt_unavailable,
         },
     )

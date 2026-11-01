@@ -18,6 +18,22 @@
     </div>
     {% endif %}
 
+    <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+        <p class="text-sm font-semibold text-blue-900">❗️ Чек для входа не нужен.</p>
+        <p class="mt-1 text-sm text-blue-800">Вход на спектакль — по спискам: назовите номер билета или данные человека, на которого он оформлен.</p>
+    </div>
+
+    {% if receipt_ofd_url %}
+    <div class="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+        <p class="text-sm font-semibold text-emerald-900">✅ Чек готов</p>
+        <a class="mt-2 inline-block text-sm font-medium text-emerald-700 hover:underline" href="{{ receipt_ofd_url }}" target="_blank">Открыть чек</a>
+    </div>
+    {% elif receipt_unavailable %}
+    <div class="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-100">
+        <p class="text-sm text-amber-800">Чек ещё формируется. Если он не придёт на почту и нужен вам для личных целей, обратитесь к администратору или напишите боту: «Мне нужен чек». По возможности укажите номер билета.</p>
+    </div>
+    {% endif %}
+
     {% if sanitized_sendings %}
     {% for sending, sanitized_text in sanitized_sendings %}
     <details class="mt-6 text-left rounded-xl border border-slate-200 bg-white shadow-sm">
