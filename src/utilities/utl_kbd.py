@@ -212,11 +212,12 @@ async def create_kbd_unique_dates(schedule_events: List[ScheduleEvent]):
     return keyboard
 
 
-async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum_theater_events, default_place=None):
+async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum_theater_events, default_place=None, seats_map: dict | None = None):
     """
     Создает клавиатуру вариантов (спектакль + время) для выбранной даты.
     Каждая кнопка соответствует конкретному событию расписания (schedule_event.id)
     и отображает эмодзи спектакля, время, локацию и кол-во мест.
+    Если seats_map передан, использует его для определения распроданных сеансов.
     """
     # Сопоставление спектакль -> индекс эмодзи
     index_map = {}
@@ -243,12 +244,21 @@ async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum
             if p:
                 place_str = f" ({p.name})"
 
-        qty_child = max(int(event.qty_child_free_seat), 0)
-        qty_adult = max(int(event.qty_adult_free_seat), 0)
-        text = prefix + time_txt + text_emoji + place_str + f' | {qty_child} дет | {qty_adult} взр'
+        if seats_map and event.id in seats_map:
+            qty_child = seats_map[event.id]['free_child']
+            qty_adult = seats_map[event.id]['free_adult']
+        else:
+            qty_child = max(int(event.qty_child_free_seat), 0)
+            qty_adult = max(int(event.qty_adult_free_seat), 0)
+
+        is_sold_out_child = qty_child == 0
+        if is_sold_out_child:
+            btn_text = prefix + time_txt + text_emoji + place_str + ' 📋 ЛО'
+        else:
+            btn_text = prefix + time_txt + text_emoji + place_str + f' | {qty_child} дет | {qty_adult} взр'
 
         keyboard.append(
-            InlineKeyboardButton(text=text, callback_data=event.id)
+            InlineKeyboardButton(text=btn_text, callback_data=event.id)
         )
     return keyboard
 
