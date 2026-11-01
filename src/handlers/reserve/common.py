@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from db import BaseTicket, db_postgres
 from handlers.sub_hl import processing_successful_payment
+from permissions import can_or_false
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
     add_btn_back_and_cancel,
@@ -238,28 +239,48 @@ async def _update_children(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reserve_user_data = context.user_data.get('reserve_user_data', {})
     mode = reserve_user_data.get('child_filter_mode', 'PHONE')
     command = context.user_data.get('command', '')
-    is_admin = '_admin' in command
+    user_id = update.effective_user.id
+
+    # Admin mode: только для фактической админ-команды с проверкой прав
+    is_admin = False
+    if '_admin' in command:
+        try:
+            is_admin = await can_or_false(user_id, 'RESERVE_ADMIN', context.session)
+        except Exception:
+            is_admin = False
 
     if mode == 'SEARCH_NAME':
         name_q = reserve_user_data.get('child_search_name', '')
         children = await db_postgres.search_children(
-            context.session, name_query=name_q)
+            context.session,
+            name_query=name_q,
+            user_id=user_id if not is_admin else None,
+            admin_mode=is_admin,
+        )
     elif mode == 'SEARCH_AGE':
         age_q = reserve_user_data.get('child_search_age')
         children = await db_postgres.search_children(
-            context.session, age_query=age_q)
+            context.session,
+            age_query=age_q,
+            user_id=user_id if not is_admin else None,
+            admin_mode=is_admin,
+        )
     elif (
             mode == 'PHONE' and
             reserve_user_data.get('client_data', {}).get('phone')
     ):
         phone = reserve_user_data['client_data']['phone']
         children = await db_postgres.get_children_by_phone(
-            context.session, phone)
+            context.session,
+            phone,
+            user_id=user_id if not is_admin else None,
+            admin_mode=is_admin,
+        )
         if not children and not is_admin:
             reserve_user_data['child_filter_mode'] = 'MY'
             children = await db_postgres.get_children(
-                context.session, update.effective_user.id)
+                context.session, user_id)
     else:
         children = await db_postgres.get_children(
-            context.session, update.effective_user.id)
+            context.session, user_id)
     return children

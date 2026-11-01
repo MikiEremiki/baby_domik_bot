@@ -646,6 +646,11 @@ async def _render_sessions_for_repertoire(
         postfix_for_back='SHOW'
 ):
     default_place = await db_postgres.get_default_place(context.session)
+    
+    # Получаем актуальные данные о местах по билетам
+    event_ids = [ev.id for ev in schedule_events]
+    seats_map = await db_postgres.get_schedule_events_with_seats(
+        context.session, event_ids)
     schedule_events_sorted = sorted(schedule_events,
                                     key=lambda s_e: s_e.datetime_event)
     unique_places = {effective_place(s_ev, default_place).id for s_ev in schedule_events_sorted}
@@ -654,12 +659,22 @@ async def _render_sessions_for_repertoire(
     keyboard = []
     unique_times = []
     seen_times = set()
+    
+    # Определяем, есть ли сеансы без детских мест
+    has_sold_out_child = any(
+        seats_map.get(s_ev.id, {}).get('free_child', 0) == 0
+        for s_ev in schedule_events_sorted
+    )
+
     for s_ev in schedule_events_sorted:
         date_txt, time_txt = await get_formatted_date_and_time_of_event(s_ev)
         text_emoji = await get_emoji(s_ev)
         p = effective_place(s_ev, default_place)
         place_suffix = f" ({p.name})" if has_multiple_places else ""
-        btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
+        if seats_map and s_ev.id in seats_map and seats_map[s_ev.id]['free_child'] == 0:
+            btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji} 📋 ЛО"
+        else:
+            btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
         keyboard.append(
             InlineKeyboardButton(text=btn_text, callback_data=str(s_ev.id)))
         # Копим список уникальных времен для текста
@@ -689,6 +704,8 @@ async def _render_sessions_for_repertoire(
     if unique_times:
         text += '<b>Доступное время:</b> '
         text += ', '.join(unique_times) + '\n\n'
+    if has_sold_out_child:
+        text += '<i>Для сеансов без детских мест доступна запись в лист ожидания.</i>\n\n'
     text += f'<i>Выберите удобные дату и время</i>\n\n{_text}'
 
     # Информация о свободных местах по каждому показу
@@ -698,8 +715,12 @@ async def _render_sessions_for_repertoire(
             date_txt, time_txt = await get_formatted_date_and_time_of_event(
                 s_ev)
             p = effective_place(s_ev, default_place)
-            qty_child = max(int(s_ev.qty_child_free_seat), 0)
-            qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
+            if seats_map and s_ev.id in seats_map:
+                qty_child = seats_map[s_ev.id]['free_child']
+                qty_adult = seats_map[s_ev.id]['free_adult']
+            else:
+                qty_child = max(int(s_ev.qty_child_free_seat), 0)
+                qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
             place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places else ""
             text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
 
@@ -707,6 +728,11 @@ async def _render_sessions_for_repertoire(
     places = collect_places(schedule_events_sorted, default_place)
     if places:
         text += '\n' + '\n'.join(format_place_footnote(p) for p in places)
+
+    if has_sold_out_child:
+        text += ('\n\n<i>📋 ЛО — лист ожидания. Если места освободятся, вы '
+                 'сможете получить уведомление. Нажмите кнопку нужного сеанса '
+                 'и на следующем экране выберите «Записаться в лист ожидания».</i>')
 
     photo = False
     if number_of_month_str is not None and select_mode == 'DATE':
@@ -1147,6 +1173,11 @@ async def _render_time_for_date(
         postfix_for_back='DATE'
 ):
     default_place = await db_postgres.get_default_place(context.session)
+    
+    # Получаем актуальные данные о местах по билетам
+    event_ids = [ev.id for ev in schedule_events]
+    seats_map = await db_postgres.get_schedule_events_with_seats(
+        context.session, event_ids)
     theater_event_id_order = []
     for ev in schedule_events:
         if ev.theater_event_id not in theater_event_id_order:
@@ -1159,9 +1190,16 @@ async def _render_time_for_date(
     )
     enum_theater_events = tuple(enumerate(theater_events, start=1))
 
-    keyboard = await create_kbd_for_time_by_date(schedule_events,
-                                                 enum_theater_events,
-                                                 default_place=default_place)
+    # Определяем, есть ли сеансы без детских мест
+    has_sold_out_child = any(
+        seats_map.get(ev.id, {}).get('free_child', 0) == 0
+        for ev in schedule_events
+    )
+
+    keyboard = await create_kbd_for_time_by_date(
+        schedule_events, enum_theater_events, default_place=default_place,
+        seats_map=seats_map
+    )
 
     if context.user_data.get('command', False) == 'list':
         state = 'LIST'
@@ -1181,9 +1219,9 @@ async def _render_time_for_date(
         f"<b>Выберите спектакль и удобное время</b>\n\n"
     )
     text = await create_event_names_text(enum_theater_events, text, add_link=True)
-    text += ('<i>Вы также можете выбрать вариант с 0 кол-вом мест '
-             'для записи в лист ожидания на данное время</i>\n\n'
-             'Кол-во свободных мест:\n')
+    if has_sold_out_child:
+        text += '<i>Для сеансов без детских мест доступна запись в лист ожидания.</i>\n\n'
+    text += 'Кол-во свободных мест:\n'
 
     if check_command_studio:
         text += '⬇️<i>Время</i> | <i>Детских</i>⬇️'
@@ -1194,6 +1232,11 @@ async def _render_time_for_date(
     places = collect_places(schedule_events, default_place)
     if places:
         text += '\n\n' + '\n'.join(format_place_footnote(p) for p in places)
+
+    if has_sold_out_child:
+        text += ('\n\n<i>📋 ЛО — лист ожидания. Если места освободятся, вы '
+                 'сможете получить уведомление. Нажмите кнопку нужного сеанса '
+                 'и на следующем экране выберите «Записаться в лист ожидания».</i>')
 
     if query:
         await query.delete_message()

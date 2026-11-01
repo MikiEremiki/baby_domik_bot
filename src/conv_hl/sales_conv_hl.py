@@ -106,19 +106,55 @@ states = {
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.input_dev_chat_ids),
         CallbackQueryHandler(sales_hl.ask_message, pattern='^sales:next_message'),
     ],
+    sales_hl.PREVIEW: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.preview_action, pattern='^sales:preview'),
+    ],
+    # SEASON_TICKET_HOLDERS states
+    sales_hl.PICK_SEASON_START: [
+        cancel_callback_handler,
+        back_callback_handler,
+        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_start),
+    ],
+    sales_hl.PICK_SEASON_END: [
+        cancel_callback_handler,
+        back_callback_handler,
+        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_end),
+    ],
+    sales_hl.PICK_SEASON_THEATERS: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_season_theaters, pattern='^sales:season_theater_page'),
+        CallbackQueryHandler(sales_hl.pick_season_theaters, pattern='^sales:season_theater'),
+    ],
+    sales_hl.PICK_SEASON_AGE_MIN: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_season_age_min, pattern='^sales:season_age_min'),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_age_min),
+    ],
+    sales_hl.PICK_SEASON_AGE_MAX: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_season_age_max, pattern='^sales:season_age_max'),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_age_max),
+    ],
+    sales_hl.PICK_SEASON_STATUSES: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_season_statuses, pattern='^sales:season_status'),
+    ],
+    # GET_MESSAGE — merged back handlers for all campaign types
     sales_hl.GET_MESSAGE: [
         cancel_callback_handler,
         CallbackQueryHandler(sales_hl.back_to_pick_filters, pattern='^Назад-PICK_FILTERS$'),
+        CallbackQueryHandler(sales_hl.back_to_attach_theater, pattern='^Назад-PICK_ATTACH_THEATER$'),
         back_callback_handler,
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.handle_admin_message),
         MessageHandler(filters.PHOTO, sales_hl.handle_admin_message),
         MessageHandler(filters.VIDEO, sales_hl.handle_admin_message),
         MessageHandler(filters.ANIMATION, sales_hl.handle_admin_message),
-    ],
-    sales_hl.PREVIEW: [
-        cancel_callback_handler,
-        back_callback_handler,
-        CallbackQueryHandler(sales_hl.preview_action, pattern='^sales:preview'),
     ],
 }
 

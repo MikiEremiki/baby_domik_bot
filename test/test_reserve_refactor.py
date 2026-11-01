@@ -54,10 +54,12 @@ def test_update_children_modes(monkeypatch):
         mock_search = AsyncMock(return_value=[("Имя1", 3, 1)])
         mock_phone = AsyncMock(return_value=[("Имя2", 4, 2)])
         mock_my = AsyncMock(return_value=[("Имя3", 5, 3)])
+        mock_can = AsyncMock(return_value=False)  # Not admin
 
         monkeypatch.setattr('handlers.reserve.common.db_postgres.search_children', mock_search)
         monkeypatch.setattr('handlers.reserve.common.db_postgres.get_children_by_phone', mock_phone)
         monkeypatch.setattr('handlers.reserve.common.db_postgres.get_children', mock_my)
+        monkeypatch.setattr('handlers.reserve.common.can_or_false', mock_can)
 
         update = MagicMock()
         update.effective_user.id = 12345
@@ -74,7 +76,9 @@ def test_update_children_modes(monkeypatch):
         }
         res = await _update_children(update, context)
         assert res == [("Имя1", 3, 1)]
-        mock_search.assert_awaited_with(context.session, name_query='Тест')
+        mock_search.assert_awaited_with(
+            context.session, name_query='Тест', user_id=12345, admin_mode=False
+        )
 
         # 2. SEARCH_AGE
         context.user_data = {
@@ -86,7 +90,9 @@ def test_update_children_modes(monkeypatch):
         }
         res = await _update_children(update, context)
         assert res == [("Имя1", 3, 1)]
-        mock_search.assert_awaited_with(context.session, age_query=4)
+        mock_search.assert_awaited_with(
+            context.session, age_query=4, user_id=12345, admin_mode=False
+        )
 
         # 3. PHONE with results
         context.user_data = {
@@ -98,7 +104,9 @@ def test_update_children_modes(monkeypatch):
         }
         res = await _update_children(update, context)
         assert res == [("Имя2", 4, 2)]
-        mock_phone.assert_awaited_with(context.session, '9991112233')
+        mock_phone.assert_awaited_with(
+            context.session, '9991112233', user_id=12345, admin_mode=False
+        )
 
         # 4. PHONE empty fallback to MY for non-admin
         mock_phone.return_value = []
