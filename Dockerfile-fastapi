@@ -11,7 +11,7 @@ RUN --mount=type=bind,source=requirements-fastapi.txt,target=requirements-fastap
 COPY src/__init__.py ./src/
 COPY src/api/__init__.py ./src/api/
 COPY src/api/web ./src/api/web
-COPY src/api/yookassa_connect.py src/api/gspread_pub.py ./src/api/
+COPY src/api/yookassa_connect.py src/api/gspread_pub.py src/api/receipt_service.py ./src/api/
 COPY src/db ./src/db
 COPY src/settings ./src/settings
 COPY src/log ./src/log
