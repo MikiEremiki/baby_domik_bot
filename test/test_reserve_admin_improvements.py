@@ -91,14 +91,14 @@ def test_get_children_by_phone_website_and_bot():
 
         await session.commit()
 
-        # Query children for website adult phone
-        children_web = await get_children_by_phone(session, "9991112233")
+        # Admin mode: query children for website adult phone (unrestricted)
+        children_web = await get_children_by_phone(session, "9991112233", admin_mode=True)
         assert len(children_web) == 1
         assert children_web[0][0] == "Саша"
         assert children_web[0][1] == 4
 
-        # Query children for bot adult phone
-        children_bot = await get_children_by_phone(session, "9992223344")
+        # Admin mode: query children for bot adult phone (unrestricted)
+        children_bot = await get_children_by_phone(session, "9992223344", admin_mode=True)
         assert len(children_bot) == 1
         assert children_bot[0][0] == "Миша"
         assert children_bot[0][1] == 6
@@ -106,6 +106,74 @@ def test_get_children_by_phone_website_and_bot():
         # Query non-existent phone
         children_empty = await get_children_by_phone(session, "0000000000")
         assert len(children_empty) == 0
+
+    asyncio.run(_run_with_db(run))
+
+
+def test_get_children_by_phone_user_id_restriction():
+    """Test that get_children_by_phone restricts results to user_id for non-admin."""
+    async def run(session: AsyncSessionWrapper):
+        # User 100 with phone 9991112233
+        user1 = User(user_id=100, chat_id=100)
+        p_adult1 = Person(id=1, name="Взрослый 1", age_type=AgeType.adult, user_id=100)
+        a1 = Adult(id=1, person_id=1, phone="9991112233")
+        session.add_all([user1, p_adult1, a1])
+
+        # Child of user 100
+        p_child1 = Person(id=2, name="Ребенок 1", age_type=AgeType.child, user_id=100)
+        c1 = Child(id=2, person_id=2, age=4)
+        session.add_all([p_child1, c1])
+
+        # User 200 with SAME phone number (different account)
+        user2 = User(user_id=200, chat_id=200)
+        p_adult2 = Person(id=3, name="Взрослый 2", age_type=AgeType.adult, user_id=200)
+        a2 = Adult(id=3, person_id=3, phone="9991112233")
+        session.add_all([user2, p_adult2, a2])
+
+        # Child of user 200
+        p_child2 = Person(id=4, name="Ребенок 2", age_type=AgeType.child, user_id=200)
+        c2 = Child(id=4, person_id=4, age=6)
+        session.add_all([p_child2, c2])
+
+        # Child from website (no user_id) with same phone via parent_id
+        p_adult_web = Person(id=5, name="Взрослый сайт", age_type=AgeType.adult)
+        a_web = Adult(id=5, person_id=5, phone="9991112233")
+        session.add_all([p_adult_web, a_web])
+
+        p_child_web = Person(id=6, name="Ребенок сайт", age_type=AgeType.child, parent_id=5)
+        c_web = Child(id=6, person_id=6, age=3)
+        session.add_all([p_child_web, c_web])
+
+        await session.commit()
+
+        # User 100 should only see their own child
+        children_user1 = await get_children_by_phone(
+            session, "9991112233", user_id=100, admin_mode=False
+        )
+        assert len(children_user1) == 1
+        assert children_user1[0][0] == "Ребенок 1"
+
+        # User 200 should only see their own child
+        children_user2 = await get_children_by_phone(
+            session, "9991112233", user_id=200, admin_mode=False
+        )
+        assert len(children_user2) == 1
+        assert children_user2[0][0] == "Ребенок 2"
+
+        # Admin mode sees all children with this phone
+        children_admin = await get_children_by_phone(
+            session, "9991112233", admin_mode=True
+        )
+        names = [c[0] for c in children_admin]
+        assert "Ребенок 1" in names
+        assert "Ребенок 2" in names
+        assert "Ребенок сайт" in names
+
+        # Stranger with different phone sees nothing
+        children_stranger = await get_children_by_phone(
+            session, "0000000000", user_id=100, admin_mode=False
+        )
+        assert len(children_stranger) == 0
 
     asyncio.run(_run_with_db(run))
 
@@ -124,19 +192,85 @@ def test_search_children_name_and_age():
         session.add_all([p1, c1, p2, c2, p3, c3])
         await session.commit()
 
-        # Search by name substring
-        res_name = await search_children(session, name_query="Ан")
+        # Admin mode: search by name substring (unrestricted)
+        res_name = await search_children(session, name_query="Ан", admin_mode=True)
         names = [r[0] for r in res_name]
         assert "Анна Смирнова" in names
         assert "Анечка Иванова" in names
         assert "Борис Петров" not in names
 
-        # Search by age
-        res_age = await search_children(session, age_query=3)
+        # Admin mode: search by age (unrestricted)
+        res_age = await search_children(session, age_query=3, admin_mode=True)
         names_age = [r[0] for r in res_age]
         assert "Анна Смирнова" in names_age
         assert "Борис Петров" in names_age
         assert "Анечка Иванова" not in names_age
+
+    asyncio.run(_run_with_db(run))
+
+
+def test_search_children_user_id_restriction():
+    """Test that search_children restricts results to user_id for non-admin."""
+    async def run(session: AsyncSessionWrapper):
+        # User 100's children
+        user1 = User(user_id=100, chat_id=100)
+        p1 = Person(id=10, name="Анна", age_type=AgeType.child, user_id=100)
+        c1 = Child(id=10, person_id=10, age=3)
+        session.add_all([user1, p1, c1])
+
+        # User 200's children with same name
+        user2 = User(user_id=200, chat_id=200)
+        p2 = Person(id=11, name="Анна", age_type=AgeType.child, user_id=200)
+        c2 = Child(id=11, person_id=11, age=5)
+        session.add_all([user2, p2, c2])
+
+        # User 200's child with different name
+        p3 = Person(id=12, name="Борис", age_type=AgeType.child, user_id=200)
+        c3 = Child(id=12, person_id=12, age=3)
+        session.add_all([p3, c3])
+
+        # Child from website (no user_id)
+        p4 = Person(id=13, name="Анна", age_type=AgeType.child)
+        c4 = Child(id=13, person_id=13, age=4)
+        session.add_all([p4, c4])
+
+        await session.commit()
+
+        # User 100 searches by name "Ан" - should only see their own child
+        res_user1 = await search_children(
+            session, name_query="Ан", user_id=100, admin_mode=False
+        )
+        assert len(res_user1) == 1
+        assert res_user1[0][0] == "Анна"
+        assert res_user1[0][2] == 10  # person_id
+
+        # User 200 searches by name "Ан" - should see only their own Anna
+        res_user2 = await search_children(
+            session, name_query="Ан", user_id=200, admin_mode=False
+        )
+        assert len(res_user2) == 1
+        assert res_user2[0][0] == "Анна"
+        assert res_user2[0][2] == 11  # person_id
+
+        # User 100 searches by age 3 - should only see their own child
+        res_age_user1 = await search_children(
+            session, age_query=3, user_id=100, admin_mode=False
+        )
+        assert len(res_age_user1) == 1
+        assert res_age_user1[0][0] == "Анна"
+
+        # Admin sees all children matching "Ан"
+        res_admin = await search_children(
+            session, name_query="Ан", admin_mode=True
+        )
+        names = [r[0] for r in res_admin]
+        assert names.count("Анна") == 3  # All three Annas
+
+        # Empty search for user with no matching children
+        res_empty = await search_children(
+            session, name_query="Неизвестное", user_id=100, admin_mode=False
+        )
+        assert len(res_empty) == 0
 
     asyncio.run(_run_with_db(run))
 

@@ -297,33 +297,53 @@ async def get_children(session: AsyncSession, user_id):
     return children
 
 
-async def get_children_by_phone(session: AsyncSession, phone: str):
+async def get_children_by_phone(
+    session: AsyncSession,
+    phone: str,
+    user_id: int | None = None,
+    admin_mode: bool = False,
+):
     """
     Возвращает всех детей, привязанных к родителю с указанным телефоном
     (через parent_id взрослого или user_id пользователя с этим телефоном).
+    
+    Если admin_mode=False и user_id указан, поиск ограничен аккаунтом текущего пользователя:
+    взрослый должен быть привязан к этому user_id, а не просто иметь совпадающий телефон.
+    Если admin_mode=True, поиск по всей базе (для администраторов).
     """
-    adult_res = await session.execute(
-        select(Adult.person_id, Person.user_id)
-        .join(Person, Adult.person_id == Person.id)
-        .where(Adult.phone == phone)
-    )
+    if not admin_mode and user_id is not None:
+        # Ограничиваем поиск взрослых текущим аккаунтом
+        adult_res = await session.execute(
+            select(Adult.person_id, Person.user_id)
+            .join(Person, Adult.person_id == Person.id)
+            .where(
+                Adult.phone == phone,
+                Person.user_id == user_id
+            )
+        )
+    else:
+        adult_res = await session.execute(
+            select(Adult.person_id, Person.user_id)
+            .join(Person, Adult.person_id == Person.id)
+            .where(Adult.phone == phone)
+        )
     adult_rows = adult_res.all()
     if not adult_rows:
         return []
 
     adult_person_ids = {row[0] for row in adult_rows if row[0] is not None}
-    user_ids = {row[1] for row in adult_rows if row[1] is not None}
+    user_ids_from_adult = {row[1] for row in adult_rows if row[1] is not None}
 
     conditions = []
     if adult_person_ids:
         conditions.append(Person.parent_id.in_(adult_person_ids))
-    if user_ids:
-        conditions.append(Person.user_id.in_(user_ids))
+    if user_ids_from_adult:
+        conditions.append(Person.user_id.in_(user_ids_from_adult))
 
     if not conditions:
         return []
 
-    result = await session.execute(
+    query = (
         select(Person.name, Child.age, Person.id)
         .join(Child, Person.id == Child.person_id)
         .where(
@@ -334,6 +354,9 @@ async def get_children_by_phone(session: AsyncSession, phone: str):
         .distinct()
         .order_by(Person.name)
     )
+    if not admin_mode and user_id is not None:
+        query = query.where(Person.user_id == user_id)
+    result = await session.execute(query)
     children = result.all()
     return children
 
@@ -343,9 +366,14 @@ async def search_children(
     name_query: str | None = None,
     age_query: float | int | None = None,
     limit: int = 50,
+    user_id: int | None = None,
+    admin_mode: bool = False,
 ):
     """
     Поиск детей по подстроке имени (ilike) или возрасту.
+    
+    Если admin_mode=False и user_id указан, поиск ограничен детьми текущего аккаунта.
+    Если admin_mode=True, поиск по всей базе (для администраторов).
     """
     query = (
         select(Person.name, Child.age, Person.id)
@@ -362,6 +390,8 @@ async def search_children(
             query = query.where(Child.age == float(age_query))
         except (ValueError, TypeError):
             pass
+    if not admin_mode and user_id is not None:
+        query = query.where(Person.user_id == user_id)
     query = query.distinct().order_by(Person.name).limit(limit)
     result = await session.execute(query)
     return result.all()

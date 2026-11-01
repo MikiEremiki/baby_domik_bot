@@ -42,6 +42,7 @@ from utilities.utl_kbd import (
     remove_intent_id,
     create_phone_confirm_btn, create_kbd_edit_children,
 )
+from permissions import can_or_false
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT,
 )
@@ -219,6 +220,34 @@ async def _finish_get_children(
     return await show_reservation_summary(update, context)
 
 
+async def _is_admin_mode(
+    user_id: int, context: ContextTypes.DEFAULT_TYPE
+) -> bool:
+    """Проверяет, является ли текущая сессия административной."""
+    command = context.user_data.get('command', '')
+    if '_admin' not in command:
+        return False
+    try:
+        return await can_or_false(user_id, 'RESERVE_ADMIN', context.session)
+    except Exception:
+        return False
+
+
+async def _is_child_accessible(
+    person_id: int,
+    user_id: int,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> bool:
+    """Проверяет, доступен ли ребенок текущему пользователю."""
+    is_admin = await _is_admin_mode(user_id, context)
+    if is_admin:
+        return True
+    child_person = await db_postgres.get_person(context.session, person_id)
+    if child_person is None:
+        return False
+    return child_person.user_id == user_id
+
+
 async def _handle_chld_edit_callback(
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
@@ -227,6 +256,7 @@ async def _handle_chld_edit_callback(
     data = query.data
     reserve_user_data = context.user_data['reserve_user_data']
     children = reserve_user_data.get('children', [])
+    user_id = update.effective_user.id
 
     if data == 'CHLD_EDIT':
         reserve_user_data['is_editing_children'] = True
@@ -249,6 +279,20 @@ async def _handle_chld_edit_callback(
         try:
             person_id = int(data.split('|')[1])
         except (IndexError, ValueError):
+            return 'CHILDREN'
+        # Проверяем принадлежность ребенка
+        if not await _is_child_accessible(person_id, user_id, context):
+            text = "Не удалось найти выбранного ребенка"
+            await query.answer(text, show_alert=True)
+            chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
+            chose_base_ticket = await db_postgres.get_base_ticket(
+                context.session, chose_base_ticket_id)
+            children = await _update_children(update, context)
+            reserve_user_data['children'] = children
+            text, reply_markup = await get_child_text_and_reply(
+                update, chose_base_ticket, children, context)
+            await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
+            await set_back_context(context, 'CHILDREN', text, reply_markup)
             return 'CHILDREN'
         # Определяем индекс текущего ребенка в списке для совместимости с дальнейшей логикой
         idx = None
@@ -312,26 +356,40 @@ async def _handle_chld_edit_callback(
         reserve_user_data['children_page'] = page
     elif data.startswith('CHLD_DEL|'):
         person_id = int(data.split('|')[1])
-        await db_postgres.delete_person(context.session, person_id)
-        # Обновляем список детей в контексте согласно активному фильтру
-        children = await _update_children(update, context)
-        reserve_user_data['children'] = children
-        # Сбрасываем выбранных детей, так как список изменился
-        reserve_user_data['selected_children'] = []
+        # Проверяем принадлежность ребенка перед удалением
+        if not await _is_child_accessible(person_id, user_id, context):
+            text = "Не удалось найти выбранного ребенка"
+            await query.answer(text, show_alert=True)
+            children = await _update_children(update, context)
+            reserve_user_data['children'] = children
+        else:
+            await db_postgres.delete_person(context.session, person_id)
+            # Обновляем список детей в контексте согласно активному фильтру
+            children = await _update_children(update, context)
+            reserve_user_data['children'] = children
+            # Сбрасываем выбранных детей, так как список изменился
+            reserve_user_data['selected_children'] = []
 
     elif data.startswith('CHLD_EDIT_START|'):
         try:
             person_id = int(data.split('|')[1])
         except (IndexError, ValueError):
             return 'CHILDREN'
-        reserve_user_data['is_editing_child_data'] = True
-        reserve_user_data['edit_person_id'] = person_id
-        text = ('Напишите новое имя и сколько полных лет ребенку в формате: '
-                '<code>Имя Возраст</code>\nНапример: <code>Сергей 3</code>')
-        keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
-        return 'CHILDREN'
+        # Проверяем принадлежность ребенка перед редактированием
+        if not await _is_child_accessible(person_id, user_id, context):
+            text = "Не удалось найти выбранного ребенка"
+            await query.answer(text, show_alert=True)
+            children = await _update_children(update, context)
+            reserve_user_data['children'] = children
+        else:
+            reserve_user_data['is_editing_child_data'] = True
+            reserve_user_data['edit_person_id'] = person_id
+            text = ('Напишите новое имя и сколько полных лет ребенку в формате: '
+                    '<code>Имя Возраст</code>\nНапример: <code>Сергей 3</code>')
+            keyboard = [[InlineKeyboardButton("Отмена", callback_data="CHLD_EDIT")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
+            return 'CHILDREN'
 
     # Обновляем сообщение для всех случаев (EDIT, PAGE, DEL, EDIT_START)
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
@@ -353,6 +411,7 @@ async def _handle_chld_selection_callback(
     data = query.data
     reserve_user_data = context.user_data['reserve_user_data']
     children = reserve_user_data.get('children', [])
+    user_id = update.effective_user.id
 
     if data == 'CHLD_SKIP':
         # Пропуск ввода детей (заглушки)
@@ -423,31 +482,42 @@ async def _handle_chld_selection_callback(
             person_id = int(data.split('|')[1])
         except (IndexError, ValueError):
             return 'CHILDREN'
-        # Если требуется выбрать одного ребенка — завершаем сразу
-        if chose_base_ticket.quality_of_children == 1:
-            # Находим ребенка по person_id
-            child = next((c for c in children if c[2] == person_id), None)
-            if child is None:
-                text = "Не удалось найти выбранного ребенка"
-                await query.answer(text, show_alert=True)
-                return 'CHILDREN'
-            processed_data_on_children = [[child[0], str(child[1])]]
-            original_text = f"{child[0]} {int(child[1])}"
-            await _safe_edit_message_reply_markup(query)
-            return await _finish_get_children(
-                update, context, processed_data_on_children, original_text)
-        # Иначе режим множественного выбора
-        selected = reserve_user_data.get('selected_children', [])
-        if person_id in selected:
-            selected.remove(person_id)
+        # Проверяем принадлежность ребенка перед выбором
+        if not await _is_child_accessible(person_id, user_id, context):
+            text = "Не удалось найти выбранного ребенка"
+            await query.answer(text, show_alert=True)
+            children = await _update_children(update, context)
+            reserve_user_data['children'] = children
+            available_ids = {c[2] for c in children}
+            reserve_user_data['selected_children'] = [
+                pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
+            ]
         else:
-            if len(selected) < chose_base_ticket.quality_of_children:
-                selected.append(person_id)
+            # Если требуется выбрать одного ребенка — завершаем сразу
+            if chose_base_ticket.quality_of_children == 1:
+                # Находим ребенка по person_id
+                child = next((c for c in children if c[2] == person_id), None)
+                if child is None:
+                    text = "Не удалось найти выбранного ребенка"
+                    await query.answer(text, show_alert=True)
+                    return 'CHILDREN'
+                processed_data_on_children = [[child[0], str(child[1])]]
+                original_text = f"{child[0]} {int(child[1])}"
+                await _safe_edit_message_reply_markup(query)
+                return await _finish_get_children(
+                    update, context, processed_data_on_children, original_text)
+            # Иначе режим множественного выбора
+            selected = reserve_user_data.get('selected_children', [])
+            if person_id in selected:
+                selected.remove(person_id)
             else:
-                text = f"Выбрано максимум детей: {chose_base_ticket.quality_of_children}"
-                await query.answer(text, show_alert=True)
-                return 'CHILDREN'
-        reserve_user_data['selected_children'] = selected
+                if len(selected) < chose_base_ticket.quality_of_children:
+                    selected.append(person_id)
+                else:
+                    text = f"Выбрано максимум детей: {chose_base_ticket.quality_of_children}"
+                    await query.answer(text, show_alert=True)
+                    return 'CHILDREN'
+            reserve_user_data['selected_children'] = selected
     elif data.startswith('CHLD_FLTR|'):
         mode = data.split('|')[1]
         reserve_user_data['child_filter_mode'] = mode
@@ -470,6 +540,9 @@ async def _handle_chld_selection_callback(
         # Быстрый доступ по person_id
         child_by_id = {c[2]: c for c in children}
         for pid in selected:
+            # Проверяем принадлежность ребенка перед подтверждением
+            if not await _is_child_accessible(pid, user_id, context):
+                continue
             child = child_by_id.get(pid)
             if not child:
                 # Перестраховка: пропускаем отсутствующих
