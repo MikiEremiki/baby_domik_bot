@@ -7,6 +7,7 @@ from yookassa.domain.notification import WebhookNotification
 
 from api.googlesheets import update_ticket_in_gspread
 from api.gspread_pub import publish_update_ticket
+from api.receipt_service import get_ticket_receipt, ReceiptStatus
 from db import db_postgres
 from db.db_googlesheets import decrease_nonconfirm_seat
 from db.enum import AutoSendingTrigger, TicketStatus
@@ -281,10 +282,41 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
                     f'Auto-sending PAYMENT dispatch failed (non-fatal): {e}')
 
             if int_chat_id != 0:
+                # Check receipt availability for the first ticket (isolated from payment flow)
+                receipt_ofd_url = None
+                try:
+                    first_ticket_id = ticket_ids[0]
+                    receipt_info = await get_ticket_receipt(context.session, first_ticket_id)
+                    if receipt_info.status == ReceiptStatus.READY and receipt_info.ofd_url:
+                        receipt_ofd_url = receipt_info.ofd_url
+                except Exception as e:
+                    webhook_hl_logger.exception(
+                        f'Receipt check failed (non-fatal) for ticket {first_ticket_id}: {e}')
+
+                # Build receipt section for theater events
+                base_command = command.replace('_admin', '')
+                is_theater = base_command == 'reserve'
+                receipt_section = ''
+                if is_theater:
+                    if receipt_ofd_url:
+                        receipt_section = (
+                            f'\n\n<b>✅ Чек готов:</b> '
+                            f'<a href="{receipt_ofd_url}">Открыть чек</a>'
+                        )
+                    else:
+                        receipt_section = (
+                            '\n\n<i>Чек формируется. Если он не придёт на почту и нужен вам '
+                            'для личных целей, обратитесь к администратору или напишите боту: '
+                            '«Мне нужен чек». По возможности укажите номер билета.</i>'
+                        )
+
                 text += (
                     'Нажмите <b>«ДАЛЕЕ»</b> под сообщением для получения более '
                     'подробной информации\n\n'
-                    '<i>Или отправьте квитанцию/чек об оплате</i>'
+                    '<i>Если кнопка «ДАЛЕЕ» не сработала, отправьте в этот чат фото или файл '
+                    'квитанции об оплате. Если бот не отвечает, обратитесь к администратору '
+                    'и укажите номер билета.</i>'
+                    f'{receipt_section}'
                 )
 
                 reply_markup = InlineKeyboardMarkup(
