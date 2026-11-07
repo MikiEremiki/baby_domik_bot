@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
@@ -114,28 +115,29 @@ async def start_profile(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             age = getattr(getattr(p, 'child', None), 'age', None)
             children.append(f"{p.name or ''} {age if age is not None else ''}")
 
-    text = '<b>Профиль пользователя</b>\n\n'
+    text = '<b>Профиль пользователя</b><br><br>'
     if adults:
-        text += 'Взрослые:\n' + '\n'.join(adults) + '\n\n'
+        text += 'Взрослые:<br>' + '<br>'.join(adults) + '<br><br>'
     if children:
-        text += 'Дети:\n' + '\n'.join(children) + '\n\n'
+        text += 'Дети:<br>' + '<br>'.join(children) + '<br><br>'
     if not (adults or children):
-        text += 'Пока нет добавленных людей.\n\n'
+        text += 'Пока нет добавленных людей.<br><br>'
     text += 'Выберите участника для изменения или удаления, либо добавьте нового:'
 
     reply_markup = _profile_keyboard(persons)
+    res = transform_html(text)
     # Edit message if invoked via callback, else send new message
     if update.callback_query:
         try:
-            await update.callback_query.edit_message_text(text=text,
-                                                          reply_markup=reply_markup)
+            await update.callback_query.edit_message_text(
+                text=res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
         except Exception as e:
             profile_logger.debug(e)
-            await update.effective_chat.send_message(text=text,
-                                                     reply_markup=reply_markup)
+            await update.effective_chat.send_message(
+                res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
     else:
-        await update.effective_chat.send_message(text=text,
-                                                 reply_markup=reply_markup)
+        await update.effective_chat.send_message(
+            res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
     context.user_data['STATE'] = MENU
     return MENU
 
@@ -145,11 +147,13 @@ async def select_add_type(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     await query.answer()
     data = query.data
     if data == 'add_adult':
-        await query.edit_message_text('Введите имя взрослого:')
+        res = transform_html('Введите имя взрослого:')
+        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
         context.user_data['STATE'] = ADD_ADULT_NAME
         return ADD_ADULT_NAME
     if data == 'add_child':
-        await query.edit_message_text('Введите имя ребенка:')
+        res = transform_html('Введите имя ребенка:')
+        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
         context.user_data['STATE'] = ADD_CHILD_NAME
         return ADD_CHILD_NAME
 
@@ -157,11 +161,12 @@ async def select_add_type(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 async def add_adult_name(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     name = update.message.text.strip()
     if not name:
-        await update.message.reply_text(
-            'Имя не должно быть пустым. Введите имя взрослого:')
+        res = transform_html('Имя не должно быть пустым. Введите имя взрослого:')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return ADD_ADULT_NAME
     context.user_data.setdefault('profile', {})['adult_name'] = name
-    await update.message.reply_text('Введите телефон (10 цифр без +7):')
+    res = transform_html('Введите телефон (10 цифр без +7):')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     context.user_data['STATE'] = ADD_ADULT_PHONE
     return ADD_ADULT_PHONE
 
@@ -179,19 +184,20 @@ async def add_adult_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     name = context.user_data.get('profile', {}).get('adult_name')
     user_id = update.effective_user.id
     await db_postgres.create_adult(context.session, user_id, name, phone)
-    await update.message.reply_text(
-        'Взрослый добавлен. Возвращаюсь в профиль...')
+    res = transform_html('Взрослый добавлен. Возвращаюсь в профиль...')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     return await start_profile(update, context)
 
 
 async def add_child_name(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     name = update.message.text.strip()
     if not name:
-        await update.message.reply_text(
-            'Имя не должно быть пустым. Введите имя ребенка:')
+        res = transform_html('Имя не должно быть пустым. Введите имя ребенка:')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return ADD_CHILD_NAME
     context.user_data.setdefault('profile', {})['child_name'] = name
-    await update.message.reply_text('Введите возраст ребенка (например 4.5):')
+    res = transform_html('Введите возраст ребенка (например 4.5):')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     context.user_data['STATE'] = ADD_CHILD_AGE
     return ADD_CHILD_AGE
 
@@ -201,14 +207,14 @@ async def add_child_age(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     try:
         age = float(text)
     except ValueError:
-        await update.message.reply_text(
-            'Возраст должен быть числом, например 4 или 4.5. Повторите ввод:')
+        res = transform_html('Возраст должен быть числом, например 4 или 4.5. Повторите ввод:')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return ADD_CHILD_AGE
     name = context.user_data.get('profile', {}).get('child_name')
     user_id = update.effective_user.id
     await db_postgres.create_child(context.session, user_id, name, age=age)
-    await update.message.reply_text(
-        'Ребенок добавлен. Возвращаюсь в профиль...')
+    res = transform_html('Ребенок добавлен. Возвращаюсь в профиль...')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     return await start_profile(update, context)
 
 
@@ -225,9 +231,10 @@ async def profile_callback(update: Update,
         person_id = int(parts[2])
         age_type = parts[3]
         text = 'Управление участником'
+        res = transform_html(text)
         await query.edit_message_text(
-            text=text,
-            reply_markup=_person_menu_keyboard(person_id, age_type)
+            text=res.text, entities=res.entities,
+            reply_markup=_person_menu_keyboard(person_id, age_type), parse_mode=None
         )
         context.user_data['STATE'] = PERSON_MENU
         return PERSON_MENU
@@ -240,7 +247,8 @@ async def profile_callback(update: Update,
             'person_id': person_id,
             'age_type': age_type,
         }
-        await query.edit_message_text('Введите новое имя:')
+        res = transform_html('Введите новое имя:')
+        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
         context.user_data['STATE'] = EDIT_NAME
         return EDIT_NAME
     if action == 'edit_phone':
@@ -249,7 +257,8 @@ async def profile_callback(update: Update,
             'person_id': person_id,
             'age_type': 'adult',
         }
-        await query.edit_message_text('Введите телефон (10 цифр без +7):')
+        res = transform_html('Введите телефон (10 цифр без +7):')
+        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
         context.user_data['STATE'] = EDIT_ADULT_PHONE
         return EDIT_ADULT_PHONE
     if action == 'edit_age':
@@ -258,7 +267,8 @@ async def profile_callback(update: Update,
             'person_id': person_id,
             'age_type': 'child',
         }
-        await query.edit_message_text('Введите возраст ребенка (например 4.5):')
+        res = transform_html('Введите возраст ребенка (например 4.5):')
+        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
         context.user_data['STATE'] = EDIT_CHILD_AGE
         return EDIT_CHILD_AGE
     if action == 'del':
@@ -270,33 +280,36 @@ async def profile_callback(update: Update,
             [InlineKeyboardButton('⬅️ Назад',
                                   callback_data=f'profile:menu:{person_id}:{age_type}')],
         ]
+        res = transform_html('Вы уверены, что хотите удалить участника? Действие необратимо.')
         await query.edit_message_text(
-            'Вы уверены, что хотите удалить участника? Действие необратимо.',
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            res.text, entities=res.entities,
+            reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None
         )
         context.user_data['STATE'] = CONFIRM_DELETE
         return CONFIRM_DELETE
     if action == 'confirm_del':
         person_id = int(parts[2])
         await db_postgres.delete_person(context.session, person_id)
-        await query.edit_message_text('Удалено. Обновляю профиль...')
+        res = transform_html('Удалено. Обновляю профиль...')
+        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
         return await start_profile(update, context)
 
 
 async def set_new_name(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     new_name = update.message.text.strip()
     if not new_name:
-        await update.message.reply_text(
-            'Имя не должно быть пустым. Введите новое имя:')
+        res = transform_html('Имя не должно быть пустым. Введите новое имя:')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return EDIT_NAME
     edit_person = context.user_data.get('profile', {}).get('edit_person')
     if not edit_person:
-        await update.message.reply_text(
-            'Не удалось определить участника. Возвращаюсь в профиль.')
+        res = transform_html('Не удалось определить участника. Возвращаюсь в профиль.')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return await start_profile(update, context)
     person_id = edit_person['person_id']
     await db_postgres.update_person(context.session, person_id, name=new_name)
-    await update.message.reply_text('Имя обновлено. Возвращаюсь в профиль...')
+    res = transform_html('Имя обновлено. Возвращаюсь в профиль...')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     return await start_profile(update, context)
 
 
@@ -312,14 +325,14 @@ async def set_new_adult_phone(update: Update,
         return context.user_data['STATE']
     edit_person = context.user_data.get('profile', {}).get('edit_person')
     if not edit_person:
-        await update.message.reply_text(
-            'Не удалось определить участника. Возвращаюсь в профиль.')
+        res = transform_html('Не удалось определить участника. Возвращаюсь в профиль.')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return await start_profile(update, context)
     person_id = edit_person['person_id']
     await db_postgres.update_adult_by_person_id(context.session, person_id,
                                                 phone=phone)
-    await update.message.reply_text(
-        'Телефон обновлен. Возвращаюсь в профиль...')
+    res = transform_html('Телефон обновлен. Возвращаюсь в профиль...')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     return await start_profile(update, context)
 
 
@@ -329,19 +342,19 @@ async def set_new_child_age(update: Update,
     try:
         age = float(text)
     except ValueError:
-        await update.message.reply_text(
-            'Возраст должен быть числом, например 4 или 4.5. Повторите ввод:')
+        res = transform_html('Возраст должен быть числом, например 4 или 4.5. Повторите ввод:')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return EDIT_CHILD_AGE
     edit_person = context.user_data.get('profile', {}).get('edit_person')
     if not edit_person:
-        await update.message.reply_text(
-            'Не удалось определить участника. Возвращаюсь в профиль.')
+        res = transform_html('Не удалось определить участника. Возвращаюсь в профиль.')
+        await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
         return await start_profile(update, context)
     person_id = edit_person['person_id']
     await db_postgres.update_child_by_person_id(context.session, person_id,
                                                 age=age)
-    await update.message.reply_text(
-        'Возраст обновлен. Возвращаюсь в профиль...')
+    res = transform_html('Возраст обновлен. Возвращаюсь в профиль...')
+    await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     return await start_profile(update, context)
 
 
@@ -407,22 +420,23 @@ async def show_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             keyboard.append([back_button, cancel_button])
         reply_markup = InlineKeyboardMarkup(keyboard)
         text = (
-            '<b>Мои билеты</b>\n\n'
-            'У вас нет купленных билетов.\n\n'
+            '<b>Мои билеты</b><br><br>'
+            'У вас нет купленных билетов.<br><br>'
             'Вы можете забронировать билеты командой /reserve'
         )
+        res = transform_html(text)
 
         if update.callback_query:
             try:
                 await update.callback_query.edit_message_text(
-                    text=text, reply_markup=reply_markup)
+                    text=res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
             except Exception as e:
                 profile_logger.debug(e)
                 await update.effective_chat.send_message(
-                    text=text, reply_markup=reply_markup)
+                    res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
         else:
             await update.effective_chat.send_message(
-                text=text, reply_markup=reply_markup)
+                res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
         context.user_data['STATE'] = MENU
         return MENU
 
@@ -464,7 +478,7 @@ async def show_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 text_event = 'Индивидуальное мероприятие'
             base_ticket = await db_postgres.get_base_ticket(context.session, ticket.base_ticket_id)
             parts.append(
-                '\n'.join([
+                '<br>'.join([
                     f'Билет <code>{ticket.id}</code>',
                     text_event,
                     f'Стоимость: {base_ticket.name if base_ticket else ""} {int(ticket.price)}руб',
@@ -474,7 +488,7 @@ async def show_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         except Exception as e:
             profile_logger.error(e)
 
-    text = '\n\n'.join(parts)
+    text = '<br><br>'.join(parts)
 
     # Build pagination keyboard
     keyboard: List[List[InlineKeyboardButton]] = []
@@ -490,15 +504,19 @@ async def show_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         keyboard.append([back_button, cancel_button])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    res = transform_html(text)
 
     if update.callback_query:
         try:
-            await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+            await update.callback_query.edit_message_text(
+                text=res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
         except Exception as e:
             profile_logger.debug(e)
-            await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+            await update.effective_chat.send_message(
+                res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
     else:
-        await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+        await update.effective_chat.send_message(
+            res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
 
     context.user_data['STATE'] = MENU
     if context.user_data.get('profile_user_id', False):
