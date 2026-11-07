@@ -10,7 +10,7 @@ from db.models import User
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from utilities.utl_db import open_session
-from utilities.utl_func import get_formatted_date_and_time_of_event
+from utilities.utl_event import get_formatted_date_and_time_of_event
 from utilities.utl_googlesheets import cancel_ticket_and_return_seat_auto
 from schedule.auto_sending import (
     resolve_auto_sending, dispatch_auto_sending,

@@ -22,7 +22,7 @@ from db.models import (
 )
 from utilities.utl_date import MOSCOW_TZ, to_moscow_dt
 from utilities.utl_db import open_session
-from utilities.utl_func import (
+from utilities.utl_event import (
     get_full_name_event, get_formatted_date_and_time_of_event,
 )
 from utilities.utl_place import format_place_footnote
