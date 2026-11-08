@@ -1,6 +1,6 @@
 """rev_31: add tickets.source column (ticket_source enum)
 
-Revision ID: a7b8c9d0e1f2
+Revision ID: 1a2b3c4d5e6f
 Revises: f6a7b8c9d0e1
 Create Date: 2026-11-08 14:50:00.000000
 
@@ -12,7 +12,7 @@ from db import BaseModel
 
 
 # revision identifiers, used by Alembic.
-revision = "a7b8c9d0e1f2"
+revision = "1a2b3c4d5e6f"
 down_revision = "f6a7b8c9d0e1"
 branch_labels = None
 depends_on = None
