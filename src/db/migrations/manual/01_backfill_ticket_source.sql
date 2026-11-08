@@ -12,11 +12,13 @@ CREATE TABLE IF NOT EXISTS manual_migrations (
 
 -- Backfill: классификация исторических записей
 UPDATE tickets
-SET source = CASE
+SET source = (CASE
     WHEN notes LIKE '%Сайт:%' THEN 'website'
-    WHEN notes LIKE '%Web booking.%' THEN 'website'
+    WHEN notes LIKE '%Web booking%' THEN 'website'
+    WHEN notes LIKE '%Website booking%' THEN 'website'
+    WHEN notes LIKE '%website%' THEN 'website'
     ELSE 'bot'
-END
+END)::ticket_source
 WHERE source IS NULL;
 
 -- Маркер выполнения
