@@ -127,15 +127,16 @@ baby_domik_bot/
 │   │   L-- site.css            # Стили веб-интерфейса
 │   L-- img/                    # Изображения
 │
-+-- test/                       # ТЕСТЫ (pytest, ~28 файлов)
-│   +-- test_reserve_refactor.py    # Бронирование: выбор сеанса, билетов
-│   +-- test_reserve_admin_improvements.py  # Админское бронирование
-│   +-- test_ticket_email.py        # Email покупателя: валидация, сохранение, наследование
-│   +-- test_ticket_source.py       # Источник билета: BOT / WEBSITE
-│   +-- test_yookassa_webhook.py    # Вебхуки YooKassa
-│   +-- test_auto_sending.py        # Авторассылки
-│   +-- test_receipts.py            # Фискальные чеки
-│   L-- ...                         # Итого ~28 тестовых файлов
++-- test/                       # ТЕСТЫ (pytest, 580 тестов, 29 файлов)
+│   +-- conftest.py             # Общие фикстуры: DB, Telegram, FastAPI моки
+│   +-- test_schedule/          # Расписание и авторассылки (7 файлов)
+│   +-- test_handlers/          # Обработчики Telegram (8 файлов)
+│   +-- test_api/               # FastAPI веб-сервис (5 файлов)
+│   +-- test_db/                # БД и миграции (1 файл)
+│   +-- test_permissions/       # Права доступа (1 файл)
+│   +-- test_tickets/           # Билеты и чеки (3 файла)
+│   +-- test_events/            # События и площадки (2 файла)
+│   L-- test_sales/             # Рассылки и продажи (1 файл)
 │
 +-- config/                     # КОНФИГУРАЦИЯ (игнорируется в Git)
 │   +-- alembic.ini             # Конфигурация Alembic
