@@ -282,7 +282,11 @@ def test_send_approve_reject_message_to_admin_real_helper_website_user(monkeypat
         schedule_event_id=101,
         promo_id=None,
         is_admin_notified=False,
-        notes='Сайт: user@example.com'
+        notes='Сайт: user@example.com',
+        source=None,
+        user=None,
+        phone=None,
+        email=None,
     )
     mock_schedule_event = MagicMock(theater_event_id=10)
     mock_theater_event = MagicMock()
@@ -337,7 +341,11 @@ def test_get_booking_admin_text_user_none(monkeypatch):
         base_ticket_id=1,
         schedule_event_id=101,
         promo_id=None,
-        notes='Сайт: test@domain.com'
+        notes='Сайт: test@domain.com',
+        source=None,
+        user=None,
+        phone=None,
+        email=None,
     )
     mock_schedule_event = MagicMock(theater_event_id=10)
     mock_theater_event = MagicMock()
@@ -369,7 +377,8 @@ def test_get_booking_admin_text_user_none(monkeypatch):
         user_data={}
     ))
 
-    assert 'Покупатель: Сайт (test@domain.com)' in res_text
+    # format_ticket_contacts возвращает "Покупатель: Неизвестен" когда ticket.user=None
+    assert 'Покупатель: Неизвестен' in res_text
 
 
 def test_processing_ticket_paid_bot_booking(monkeypatch):

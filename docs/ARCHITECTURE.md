@@ -103,6 +103,7 @@ baby_domik_bot/
 │   +-- utilities/              # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 │   │   +-- utl_kbd.py          # Создание клавиатур Telegram
 │   │   +-- utl_func.py         # Форматирование текста, даты
+│   │   +-- utl_ticket.py       # Форматирование контактов билета (format_ticket_contacts)
 │   │   L-- utl_db.py           # Утилиты для сессий БД
 │   │
 │   +-- custom_filters/         # ПОЛЬЗОВАТЕЛЬСКИЕ ФИЛЬТРЫ
@@ -288,6 +289,7 @@ YooKassa → POST /yookassa (FastAPI)
 - `build_ofd_url(fn, fp, i)` (`src\api\yookassa_connect.py`) — формирует публичную ссылку OFD по фискальным данным.
 - Обработка вебхука (`src\handlers\hooks\yookassa_hl.py`):
   - status `succeeded`: обновляет билеты в Google Sheets и PostgreSQL, удаляет inline-кнопки оплаты, уведомляет пользователя и постит в админский топик в зависимости от `metadata.command` (`reserve` или `studio`).
+  - Админские уведомления формируются через `get_booking_admin_text` (`src\handlers\sub_hl.py`), которая использует единый хелпер `format_ticket_contacts` (`src\utilities\utl_ticket.py`) для вывода контактов (`Ticket.phone`, `Ticket.email`) и источника (`Ticket.source`). Строки: `Источник: …`, `Покупатель: …`, `Телефон: …`, `Email: …`. Если у билета нет Telegram-пользователя (`ticket.user is None`), выводится `Покупатель: Неизвестен`.
   - После успешной оплаты для спектаклей (`reserve`) однократно проверяет готовность чека через `get_ticket_receipt` по первому билету платежа: при `READY` добавляет ссылку «Открыть чек» в сообщение; при отсутствии — пояснение, что чек формируется. Ошибки сервиса не прерывают обработку платежа.
   - Предоплаченные счета определяются по `metadata.dashboardInvoiceOriginalNumber` и маршрутизируются в топик «Выездные мероприятия».
   - Используемые поля `metadata`: `message_id`, `chat_id`, `ticket_ids` (через `|`), `choose_schedule_event_ids` (через `|`), `command`.

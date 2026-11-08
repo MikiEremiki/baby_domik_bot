@@ -1,7 +1,7 @@
 -- 03_backfill_ticket_phone.sql
--- Перенос телефона из PersonTicket -> Person -> Adult в tickets.phone (INTEGER).
+-- Перенос телефона из PersonTicket -> Person -> Adult в tickets.phone (BIGINT).
 -- Идемпотентен: повторный запуск безопасен.
--- Выполнить после: alembic upgrade head (rev_31 — добавление колонки tickets.phone INTEGER).
+-- Выполнить после: alembic upgrade head (rev_31 — добавление колонки tickets.phone BIGINT).
 --
 -- Логика:
 -- 1. Для каждого билета ищем связанные Person через people_tickets.
@@ -22,11 +22,11 @@ SET phone = sub.unique_phone
 FROM (
     SELECT
         pt.ticket_id,
-        -- Если ровно один уникальный корректный номер — берём его как INTEGER, иначе NULL
+        -- Если ровно один уникальный корректный номер — берём его как BIGINT, иначе NULL
         CASE
             WHEN COUNT(DISTINCT a.phone) = 1
                  AND MAX(a.phone) ~ '^9[0-9]{9}$'
-            THEN CAST(MAX(a.phone) AS INTEGER)
+            THEN CAST(MAX(a.phone) AS BIGINT)
             ELSE NULL
         END AS unique_phone
     FROM people_tickets pt

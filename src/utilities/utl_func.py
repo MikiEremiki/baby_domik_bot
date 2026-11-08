@@ -24,7 +24,9 @@ from db import ScheduleEvent, db_postgres, TheaterEvent, Ticket, BaseTicket
 from db.enum import TicketStatus
 from settings import parse_settings
 from utilities.utl_date import to_moscow_dt
+from utilities.utl_context import clean_context_on_end_handler
 from utilities.utl_place import format_place_line
+from utilities.utl_ticket import format_ticket_contacts
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
@@ -81,30 +83,6 @@ async def echo(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:
         text=text,
         message_thread_id=message_thread_id
     )
-
-
-async def clean_context_on_end_handler(logger, context):
-    if context.user_data.get('STATE', False):
-        logger.info(
-            f'Обработчик завершился на этапе {context.user_data['STATE']}')
-        context.user_data.pop('STATE')
-    else:
-        logger.info('STATE не задан')
-
-    if context.user_data.get('command', False):
-        context.user_data.pop('command')
-    if context.user_data.get('common_data', False):
-        context.user_data.pop('common_data')
-    if context.user_data.get('birthday_user_data', False):
-        context.user_data.pop('birthday_user_data')
-    if context.user_data.get('reserve_user_data', False):
-        context.user_data.pop('reserve_user_data')
-    if context.user_data.get('reserve_admin_data', False):
-        context.user_data.pop('reserve_admin_data')
-    if context.user_data.get('editing_auto_sending', False):
-        context.user_data.pop('editing_auto_sending')
-    if context.user_data.get('new_auto_sending', False):
-        context.user_data.pop('new_auto_sending')
 
 
 async def _set_user_menus(
@@ -960,14 +938,20 @@ async def add_clients_data_to_text(
         tickets_info: List[Tuple[BaseTicket, Ticket]]):
     text = ''
     for base_ticket, ticket in tickets_info:
-        adult_str, child_str = await get_child_and_adult_from_ticket(
-            ticket)
+        contacts_block = format_ticket_contacts(ticket)
+
+        # Дети — из ticket.people
+        child_str = ''
+        for person in ticket.people:
+            if hasattr(person.child, 'age'):
+                child_str += f'{person.name} {person.child.age}<br>'
 
         text += '<br>__________<br>'
         text += f'<code>{ticket.id}</code> | {base_ticket.name}'
-        text += f'<br><b>{adult_str}</b>'
-        text += f'Дети: {child_str}'
-        text += f'Статус билета: {ticket.status.value}'
+        text += f'<br>{contacts_block}'
+        if child_str:
+            text += f'<br>Дети: {child_str}'
+        text += f'<br>Статус билета: {ticket.status.value}'
         if ticket.notes:
             text += f'<br>Примечание: {ticket.notes}'
     return text
@@ -990,15 +974,18 @@ def add_reserve_clients_data_to_text(text, reserve_user_data):
 
 
 async def get_child_and_adult_from_ticket(ticket):
-    people = ticket.people
-    adult_str = ''
+    """Возвращает (contacts_block, child_str) для вывода информации о билете.
+
+    contacts_block — результат format_ticket_contacts(ticket).
+    child_str — строка с детьми через ticket.people.
+    """
+    contacts_block = format_ticket_contacts(ticket)
+
     child_str = ''
-    for person in people:
-        if hasattr(person.adult, 'phone'):
-            adult_str = f'{person.name}<br>+7{person.adult.phone}<br>'
-        elif hasattr(person.child, 'age'):
+    for person in ticket.people:
+        if hasattr(person.child, 'age'):
             child_str += f'{person.name} {person.child.age}<br>'
-    return adult_str, child_str
+    return contacts_block, child_str
 
 
 async def add_qty_visitors_to_text(

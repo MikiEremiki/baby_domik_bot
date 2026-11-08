@@ -33,7 +33,8 @@ from utilities.utl_func import (
     extract_status_change
 )
 from utilities.utl_ticket import (
-    cancel_tickets_db_and_gspread, check_and_set_privilege
+    cancel_tickets_db_and_gspread, check_and_set_privilege,
+    format_ticket_contacts
 )
 from utilities.utl_place import (
     effective_place, format_place_footnote, format_place_line
@@ -317,7 +318,6 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     if len(context.args) == 1:
         user = ticket.user
-        people = ticket.people
         base_ticket = await db_postgres.get_base_ticket(
             context.session, ticket.base_ticket_id)
         schedule_event = await db_postgres.get_schedule_event(
@@ -325,14 +325,15 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         theater_event = await db_postgres.get_theater_event(
             context.session, schedule_event.theater_event_id
         )
-        adult_str = ''
+
+        contacts_block = format_ticket_contacts(ticket)
+
+        # Дети — из ticket.people
         child_str = ''
-        for person in people:
-            if person.adult and hasattr(person.adult, 'phone'):
-                adult_str = f'{person.name}<br>+7{person.adult.phone}<br>'
-            elif person.child and hasattr(person.child, 'age'):
+        for person in ticket.people:
+            if hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}<br>'
-        people_str = adult_str + child_str
+
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
         default_place = await db_postgres.get_default_place(context.session)
@@ -351,9 +352,12 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             f'Стоимость: {ticket.price}<br>'
             f'Статус: {ticket.status.value}<br>'
             f'Payment ID: <code>{ticket.payment_id}</code><br>'
-            f'{people_str}'
-            f'Примечание: {ticket.notes}<br>'
         )
+        text += contacts_block.replace('\n', '<br>')
+        if child_str:
+            text += f'<br>Дети: {child_str}'
+        text += f'<br>Примечание: {ticket.notes}<br>'
+
         res_text = transform_html(text)
         await update.effective_message.reply_text(
             text=res_text.text,
@@ -458,9 +462,14 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                         sheet_id_domik, ticket_id, new_ticket_status.value)
                 data['status'] = new_ticket_status
             case 'Покупатель':
-                adult_str, child_str = await get_child_and_adult_from_ticket(
-                    ticket)
-                people_str = adult_str + child_str
+                contacts_block = format_ticket_contacts(ticket)
+
+                # Дети — из ticket.people
+                child_str = ''
+                for person in ticket.people:
+                    if hasattr(person.child, 'age'):
+                        child_str += f'{person.name} {person.child.age}<br>'
+
                 schedule_event_id = ticket.schedule_event_id
                 price = ticket.price
                 base_ticket = await db_postgres.get_base_ticket(
@@ -473,8 +482,10 @@ async def update_ticket(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 text += text_select_event + (f'<br>Вариант бронирования:<br>'
                                              f'{base_ticket.name} '
                                              f'{int(price)}руб<br><br>')
-                text += 'На кого оформлен:<br>'
-                text += people_str + '<br><br>'
+                text += contacts_block.replace('\n', '<br>')
+                if child_str:
+                    text += f'<br>Дети: {child_str}'
+                text += '<br><br>'
                 refund = context.bot_data.get('settings', {}).get('REFUND_INFO', '')
                 text += refund + '<br><br>'
 

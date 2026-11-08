@@ -218,7 +218,7 @@ class Ticket(BaseModelTimed):
     promo_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('promotions.id'))
 
-    user: Mapped['User'] = relationship(
+    user: Mapped[Optional['User']] = relationship(
         secondary='users_tickets', back_populates='tickets', lazy='selectin')
     people: Mapped[List['Person']] = relationship(
         secondary='people_tickets', back_populates='tickets', lazy='selectin')
