@@ -1,5 +1,4 @@
 import asyncio
-from collections import defaultdict
 from types import MappingProxyType
 from unittest.mock import AsyncMock, MagicMock
 import pytest
@@ -9,64 +8,7 @@ from telegram.ext import Application
 from db.models import TicketStatus
 from handlers.hooks import yookassa_hl
 from handlers import sub_hl
-
-
-def _create_mock_update(
-    source='website',
-    chat_id='5473664345',
-    message_id=123,
-    ticket_ids='4915',
-    choose_schedule_event_ids='101',
-    command='reserve',
-    promo_id=None
-):
-    update = MagicMock()
-    metadata = {
-        'source': source,
-        'chat_id': str(chat_id) if chat_id is not None else '',
-        'message_id': message_id,
-        'ticket_ids': ticket_ids,
-        'choose_schedule_event_ids': choose_schedule_event_ids,
-        'command': command,
-    }
-    if promo_id:
-        metadata['promo_id'] = str(promo_id)
-    update.object.metadata = metadata
-    return update
-
-
-def _create_mock_context(has_persistence=True):
-    context = MagicMock()
-    raw_user_data = defaultdict(dict)
-    context.application.user_data = MappingProxyType(raw_user_data)
-    
-    if has_persistence:
-        context.application.persistence = MagicMock()
-        # Моделируем persistence из PTB v20+, где get_user_data() - асинхронный метод
-        context.application.persistence.get_user_data = AsyncMock(return_value={})
-        context.application.persistence.update_conversation = AsyncMock()
-        context.application.mark_data_for_update_persistence = MagicMock()
-    else:
-        context.application.persistence = None
-        context.application.mark_data_for_update_persistence = MagicMock()
-    
-    context.config.sheets.sheet_id_domik = 'test_sheet_id'
-    context.config.bot.developer_chat_id = 111
-    context.bot_data = {
-        'settings': {'REFUND_INFO': 'Правила возврата'},
-        'dict_topics_name': {
-            'Бронирования спектаклей': 42,
-            'Бронирования студия': 43,
-        }
-    }
-    context.session = AsyncMock()
-    
-    mock_sent_msg = MagicMock()
-    mock_sent_msg.message_id = 777
-    context.bot.send_message = AsyncMock(return_value=mock_sent_msg)
-    context.bot.edit_message_reply_markup = AsyncMock()
-    
-    return context
+from conftest import _create_mock_update, _create_mock_context
 
 
 def test_real_application_user_data_contract():

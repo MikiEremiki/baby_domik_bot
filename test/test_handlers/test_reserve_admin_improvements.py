@@ -2,11 +2,9 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 
 import pytest
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import select
 
 from db.models import (
-    BaseModel,
     ScheduleEvent,
     BaseTicket,
     Ticket,
@@ -26,44 +24,7 @@ from db.db_postgres import (
     get_expired_tickets,
 )
 from utilities.utl_kbd import create_kbd_edit_children
-
-
-class AsyncSessionWrapper:
-    def __init__(self, sync_session: Session):
-        self._session = sync_session
-
-    async def execute(self, statement, *args, **kwargs):
-        return self._session.execute(statement, *args, **kwargs)
-
-    async def get(self, entity, ident, *args, **kwargs):
-        return self._session.get(entity, ident, *args, **kwargs)
-
-    async def commit(self):
-        return self._session.commit()
-
-    async def flush(self):
-        return self._session.flush()
-
-    async def rollback(self):
-        return self._session.rollback()
-
-    def add(self, instance):
-        self._session.add(instance)
-
-    def add_all(self, instances):
-        self._session.add_all(instances)
-
-
-async def _run_with_db(test_coro):
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    BaseModel.metadata.create_all(engine)
-
-    sync_maker = sessionmaker(bind=engine, expire_on_commit=False)
-    with sync_maker() as session:
-        wrapped = AsyncSessionWrapper(session)
-        await test_coro(wrapped)
-
-    engine.dispose()
+from conftest import AsyncSessionWrapper, _run_with_db
 
 
 def test_get_children_by_phone_website_and_bot():

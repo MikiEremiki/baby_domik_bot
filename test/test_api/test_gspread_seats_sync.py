@@ -12,31 +12,6 @@ from db.db_googlesheets import (
 )
 
 
-@pytest.fixture
-def mock_context():
-    context = MagicMock()
-    context.session = AsyncMock()
-    context.bot = MagicMock()
-    context.bot.send_message = AsyncMock()
-    context.config = MagicMock()
-    context.config.bot.developer_chat_id = 123456789
-    return context
-
-
-@pytest.fixture
-def mock_seats():
-    return {
-        'total_child': 10,
-        'total_adult': 8,
-        'occupied_child': 2,
-        'occupied_adult': 2,
-        'free_child': 6,
-        'free_adult': 5,
-        'nonconfirm_child': 2,
-        'nonconfirm_adult': 1,
-    }
-
-
 def test_increase_free_and_decrease_nonconfirm_seat(mock_context, mock_seats):
     with patch('db.db_postgres.get_schedule_event_available_seats', AsyncMock(return_value=mock_seats)) as mock_db, \
          patch('db.db_googlesheets._publish_write_data_reserve', AsyncMock()) as mock_pub:

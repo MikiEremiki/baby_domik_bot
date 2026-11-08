@@ -3,11 +3,8 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
 
 from db.models import (
-    BaseModel,
     ScheduleEvent,
     BaseTicket,
     Ticket,
@@ -19,44 +16,7 @@ from db.db_postgres import (
     populate_schedule_events_seats,
 )
 from api.googlesheets import _write_data_to_batch_update
-
-
-class AsyncSessionWrapper:
-    def __init__(self, sync_session: Session):
-        self._session = sync_session
-
-    async def execute(self, statement, *args, **kwargs):
-        return self._session.execute(statement, *args, **kwargs)
-
-    async def get(self, entity, ident, *args, **kwargs):
-        return self._session.get(entity, ident, *args, **kwargs)
-
-    async def commit(self):
-        return self._session.commit()
-
-    async def flush(self):
-        return self._session.flush()
-
-    async def rollback(self):
-        return self._session.rollback()
-
-    def add(self, instance):
-        self._session.add(instance)
-
-    def add_all(self, instances):
-        self._session.add_all(instances)
-
-
-async def _run_with_db(test_coro):
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    BaseModel.metadata.create_all(engine)
-
-    sync_maker = sessionmaker(bind=engine, expire_on_commit=False)
-    with sync_maker() as session:
-        wrapped = AsyncSessionWrapper(session)
-        await test_coro(wrapped)
-
-    engine.dispose()
+from conftest import AsyncSessionWrapper, _run_with_db
 
 
 def test_dynamic_seats_empty_schedule():

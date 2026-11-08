@@ -2,58 +2,16 @@ import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
 
 from db import db_postgres
-from db.models import BaseModel, ScheduleChange, ScheduleEvent, TheaterEvent, TypeEvent
+from db.models import ScheduleChange, ScheduleEvent, TheaterEvent, TypeEvent
 from handlers.schedule_sync_hl import (
     format_schedule_change_report,
     send_schedule_change_report,
     send_pending_schedule_reports,
 )
 from settings.settings import ADMIN_GROUP
-
-
-class AsyncSessionWrapper:
-    def __init__(self, sync_session: Session):
-        self._session = sync_session
-
-    async def execute(self, statement, *args, **kwargs):
-        return self._session.execute(statement, *args, **kwargs)
-
-    async def get(self, entity, ident, *args, **kwargs):
-        return self._session.get(entity, ident, *args, **kwargs)
-
-    async def commit(self):
-        return self._session.commit()
-
-    async def flush(self):
-        return self._session.flush()
-
-    async def refresh(self, instance):
-        return self._session.refresh(instance)
-
-    async def rollback(self):
-        return self._session.rollback()
-
-    def add(self, instance):
-        self._session.add(instance)
-
-    def add_all(self, instances):
-        self._session.add_all(instances)
-
-
-async def _run_with_db(test_coro):
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    BaseModel.metadata.create_all(engine)
-
-    sync_maker = sessionmaker(bind=engine, expire_on_commit=False)
-    with sync_maker() as session:
-        wrapped = AsyncSessionWrapper(session)
-        await test_coro(wrapped)
-
-    engine.dispose()
+from conftest import AsyncSessionWrapper, _run_with_db
 
 
 def test_format_schedule_change_report_create():
