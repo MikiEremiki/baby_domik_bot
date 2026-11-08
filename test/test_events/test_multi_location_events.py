@@ -29,6 +29,7 @@ from api.web.config import broker
 from api.web.deps import get_session
 from api.web.routes import pages, booking
 from api.web.services import booking_service
+from conftest import _create_web_client
 
 
 # -------------------------------------------------------------
@@ -334,28 +335,7 @@ def test_format_receipt_description():
 # 4. Веб-интерфейс: фильтрация по месту и отображение
 # -------------------------------------------------------------
 
-def _create_web_client(monkeypatch):
-    monkeypatch.setattr(broker, 'connect', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(broker, 'close', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(broker, 'stop', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(booking_service, 'cleanup_expired_bookings', AsyncMock())
-    monkeypatch.setattr(booking_service, 'publish_update_ticket', AsyncMock(), raising=False)
-    monkeypatch.setattr(booking, 'publish_update_ticket', AsyncMock(), raising=False)
-    monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
-
-    mock_session = AsyncMock()
-    mock_session.add = MagicMock()
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.first.return_value = None
-    mock_result.scalars.return_value.all.return_value = []
-    mock_session.execute = AsyncMock(return_value=mock_result)
-    mock_session.commit = AsyncMock()
-    mock_session.flush = AsyncMock()
-    mock_session.rollback = AsyncMock()
-
-    app.dependency_overrides[get_session] = lambda: mock_session
-    return TestClient(app)
+# _create_web_client imported from conftest
 
 
 def test_index_page_places_filter_and_event_details(monkeypatch):

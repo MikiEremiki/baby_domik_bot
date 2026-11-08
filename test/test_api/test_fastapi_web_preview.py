@@ -3,7 +3,6 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
 from yookassa import Payment
 
 from api.web.main import app
@@ -12,87 +11,14 @@ from api.web.deps import get_session
 from api.web.routes import pages, booking, api as api_route
 from api.web.services import booking_service
 from db.enum import PromotionDiscountType, UserRole
-
-
-def _create_mock_event(free_seats_child=10, free_seats_adult=5):
-    event = MagicMock()
-    event.id = 1
-    event.name = "Test Event"
-    event.note = "Test Description"
-    event.duration = None
-    event.min_age_child = 3
-    event.flag_active_repertoire = True  # Активен по умолчанию
-    event.link = "http://test.com/image.jpg"
-    
-    # Сеанс в будущем
-    s_event = MagicMock()
-    s_event.id = 101
-    s_event.datetime_event = datetime(2030, 1, 1, tzinfo=timezone.utc)
-    s_event.qty_child_free_seat = free_seats_child
-    s_event.qty_adult_free_seat = free_seats_adult
-    s_event.qty_child_nonconfirm_seat = 0
-    s_event.qty_adult_nonconfirm_seat = 0
-    s_event.flag_turn_in_bot = True
-    s_event.theater_event = event
-    s_event.type_event_id = 1
-    type_event_mock = MagicMock()
-    type_event_mock.name = 'Репертуарный'
-    s_event.type_event = type_event_mock
-    
-    event.schedule_events = [s_event]
-    return event
-
-
-def _create_mock_session_event(free_seats_child=None, free_seats_adult=None):
-    # Чтобы избежать дублирования объектов, создаем событие через базовый метод
-    event = _create_mock_event(
-        free_seats_child=free_seats_child if free_seats_child is not None else 10,
-        free_seats_adult=free_seats_adult if free_seats_adult is not None else 5
-    )
-    s_event = event.schedule_events[0]
-    s_event.type_event = MagicMock()
-    s_event.type_event.base_tickets = []
-    return s_event
-
-
-def _create_client(monkeypatch) -> TestClient:
-    # Инфраструктурные моки, чтобы тесты работали быстро и не зависали
-    monkeypatch.setattr(broker, 'connect', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(broker, 'close', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(broker, 'stop', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(booking_service, 'cleanup_expired_bookings', AsyncMock())
-    monkeypatch.setattr(booking_service, 'publish_update_ticket', AsyncMock(), raising=False)
-    monkeypatch.setattr(booking, 'publish_update_ticket', AsyncMock(), raising=False)
-    monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
-    default_place = MagicMock(id=1, name='Домик', address='ул. Пушкина, 1')
-    monkeypatch.setattr(pages, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
-    monkeypatch.setattr(booking, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
-    monkeypatch.setattr(booking_service, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
-
-    # Переопределяем зависимость сессии
-    mock_session = AsyncMock()
-    mock_session.add = MagicMock()  # session.add — синхронный метод
-    
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = None
-    mock_result.scalars.return_value.first.return_value = None
-    mock_result.scalars.return_value.all.return_value = []
-    mock_session.execute = AsyncMock(return_value=mock_result)
-    mock_session.commit = AsyncMock()
-    mock_session.flush = AsyncMock()
-    mock_session.rollback = AsyncMock()
-    
-    app.dependency_overrides[get_session] = lambda: mock_session
-
-    return TestClient(app)
+from conftest import _create_web_client, _create_mock_theater_event, _create_mock_schedule_event
 
 
 def test_index_page_is_rendered(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_event, _ = _create_mock_theater_event()
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
     monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/afisha')
 
     assert response.status_code == 200
@@ -105,13 +31,13 @@ def test_index_page_is_rendered(monkeypatch):
 
 
 def test_index_page_afisha_rendered_compact_with_modal(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_event, _ = _create_mock_theater_event()
     mock_afisha = MagicMock()
     mock_afisha.month = 5
     mock_afisha.year = 2030
     mock_afisha.file_path = "static/afisha/may_2030.jpg"
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
         monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[mock_afisha]))
         response = client.get('/afisha')
@@ -125,9 +51,9 @@ def test_index_page_afisha_rendered_compact_with_modal(monkeypatch):
 
 
 def test_event_details_page_is_rendered(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_event, _ = _create_mock_theater_event()
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/event/1')
 
     assert response.status_code == 200
@@ -142,16 +68,15 @@ def test_event_details_page_is_rendered(monkeypatch):
 
 def test_event_details_returns_404_for_unknown_event(monkeypatch):
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=None))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/event/9999')
 
     assert response.status_code == 404
 
 
 def test_booking_page_has_add_child_button(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_s_event, mock_event = _create_mock_schedule_event()
     mock_event.flag_indiv_cost = True
-    mock_s_event = _create_mock_session_event()
     mock_ticket_type = MagicMock()
     mock_ticket_type.base_ticket_id = 1
     mock_ticket_type.flag_active = True
@@ -162,7 +87,7 @@ def test_booking_page_has_add_child_button(monkeypatch):
     monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[mock_ticket_type]))
     monkeypatch.setattr(booking_service, 'get_special_ticket_price', AsyncMock(return_value=3000))
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/booking/101')
 
     assert response.status_code == 200
@@ -196,9 +121,9 @@ def test_post_booking_form_success(monkeypatch):
     monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
     monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         # Мокаем БД
-        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        mock_s_event, _ = _create_mock_schedule_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
 
         form_data = {
@@ -221,15 +146,12 @@ def test_post_booking_form_success(monkeypatch):
 
 def test_post_booking_discontinued_event(monkeypatch):
     # Создаем мок события, которое снято с производства
-    mock_event = _create_mock_event()
+    mock_s_event, mock_event = _create_mock_schedule_event(flag_active_repertoire=False)
     mock_event.flag_active_repertoire = False
-    
-    mock_s_event = _create_mock_session_event()
-    mock_s_event.theater_event = mock_event
 
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
 
         form_data = {
             'ticket_type': '1',
@@ -247,10 +169,10 @@ def test_post_booking_discontinued_event(monkeypatch):
 
 def test_post_booking_no_seats(monkeypatch):
     # Создаем сеанс без мест
-    mock_s_event = _create_mock_session_event(free_seats_child=0)
+    mock_s_event, _ = _create_mock_schedule_event(free_seats_child=0)
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
 
         form_data = {
             'ticket_type': '1',
@@ -268,10 +190,10 @@ def test_post_booking_no_seats(monkeypatch):
 
 def test_negative_free_seats_shown_as_zero(monkeypatch):
     # Создаем мок-событие с отрицательным количеством мест
-    mock_event = _create_mock_event(free_seats_child=-5, free_seats_adult=-2)
-    mock_s_event = _create_mock_session_event(free_seats_child=-3, free_seats_adult=-1)
+    mock_event, _ = _create_mock_theater_event(free_seats_child=-5, free_seats_adult=-2)
+    mock_s_event, _ = _create_mock_schedule_event(free_seats_child=-3, free_seats_adult=-1)
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
         monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
@@ -297,7 +219,7 @@ def test_negative_free_seats_shown_as_zero(monkeypatch):
 
 def test_booking_returns_404_for_unknown_session(monkeypatch):
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=None))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/booking/9999')
 
     assert response.status_code == 404
@@ -338,7 +260,7 @@ def test_index_filtering_and_button_states(monkeypatch):
     s_past.type_event = MagicMock(name='Репертуарный')
     event2.schedule_events = [s_past]
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event1, event2]))
 
         # 1. Проверка без фильтра (only_actual=True по умолчанию)
@@ -378,12 +300,12 @@ def test_index_filtering_and_button_states(monkeypatch):
 
 def test_index_date_filtering(monkeypatch):
     # Тестируем фильтрацию по дате и наличие данных для календаря
-    event = _create_mock_event()
+    event, _ = _create_mock_theater_event()
     # Устанавливаем конкретную дату сеанса в будущем
     target_date = "2030-05-20"
     event.schedule_events[0].datetime_event = datetime.strptime(target_date, "%Y-%m-%d")
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         # Мокаем БД для возврата нашего события
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event]))
         
@@ -430,7 +352,7 @@ def test_index_month_filtering(monkeypatch):
     s_feb.type_event = MagicMock(name='Репертуарный')
     event2.schedule_events = [s_feb]
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event1, event2]))
 
         # 1. Без фильтра (оба спектакля и оба месяца в фильтре)
@@ -455,7 +377,7 @@ def test_index_month_filtering(monkeypatch):
 
 def test_payment_result_pages_are_rendered(monkeypatch):
     monkeypatch.setattr(booking, 'get_ticket', AsyncMock(return_value=None))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         success_response = client.get('/payment-result?status=success')
         fail_response = client.get('/payment-result?status=fail')
 
@@ -465,20 +387,20 @@ def test_payment_result_pages_are_rendered(monkeypatch):
     assert 'Оплата не завершена' in fail_response.text
 def test_no_seats_disables_button(monkeypatch):
     # 1. Проверка на главной странице
-    event_no_seats = _create_mock_event(free_seats_child=0, free_seats_adult=0)
+    event_no_seats, _ = _create_mock_theater_event(free_seats_child=0, free_seats_adult=0)
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event_no_seats]))
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=event_no_seats))
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         resp_details = client.get('/event/1')
         assert "Мест нет" in resp_details.text
         assert "cursor-not-allowed" in resp_details.text
 
 
 def test_only_child_seats_determine_availability(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         # 1. Случай: 0 детских, 10 взрослых. Кнопка должна быть заблокирована.
-        event_only_adult = _create_mock_event(free_seats_child=0, free_seats_adult=10)
+        event_only_adult, _ = _create_mock_theater_event(free_seats_child=0, free_seats_adult=10)
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event_only_adult]))
         
         resp_index = client.get('/afisha')
@@ -493,7 +415,7 @@ def test_only_child_seats_determine_availability(monkeypatch):
         assert "cursor-not-allowed" in resp_details.text
 
         # 3. Случай: 1 детское, 0 взрослых. Кнопка должна быть активна.
-        event_only_child = _create_mock_event(free_seats_child=1, free_seats_adult=0)
+        event_only_child, _ = _create_mock_theater_event(free_seats_child=1, free_seats_adult=0)
         monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[event_only_child]))
         
         resp_index_2 = client.get('/afisha')
@@ -520,7 +442,7 @@ def test_check_promo_api(monkeypatch):
     mock_promo.max_count_of_usage = 0
     mock_promo.count_of_usage = 0
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         monkeypatch.setattr(api_route, 'get_promotion_by_code', AsyncMock(return_value=mock_promo))
         monkeypatch.setattr(api_route, 'check_promo_restrictions_web', AsyncMock(return_value=(True, "")))
         
@@ -560,12 +482,12 @@ def test_check_promo_api(monkeypatch):
 
 
 def test_booking_page_promo_elements(monkeypatch):
-    mock_s_event = _create_mock_session_event()
+    mock_s_event, _ = _create_mock_schedule_event()
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[]))
     monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2000))
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/booking/101')
 
     assert response.status_code == 200
@@ -589,9 +511,9 @@ def test_post_booking_form_finds_chat_id_by_phone(monkeypatch):
     mock_user.status = MagicMock()
     mock_user.status.role = UserRole.USER  # Обычный пользователь
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         # Мокаем функции БД, необходимые для бронирования
-        mock_event = _create_mock_event()
+        mock_event, _ = _create_mock_theater_event()
         mock_ticket_type = MagicMock()
         mock_ticket_type.base_ticket_id = 1
         mock_ticket_type.flag_active = True
@@ -608,7 +530,7 @@ def test_post_booking_form_finds_chat_id_by_phone(monkeypatch):
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
 
         # Мокаем сеанс с местами
-        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        mock_s_event, _ = _create_mock_schedule_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
         monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=mock_user))
         
@@ -644,9 +566,9 @@ def test_post_booking_form_skips_chat_id_for_admin(monkeypatch):
     mock_admin.status = MagicMock()
     mock_admin.status.role = UserRole.ADMIN  # Администратор
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         # Мокаем функции БД, необходимые для бронирования
-        mock_event = _create_mock_event()
+        mock_event, _ = _create_mock_theater_event()
         mock_ticket_type = MagicMock()
         mock_ticket_type.base_ticket_id = 1
         mock_ticket_type.flag_active = True
@@ -663,7 +585,7 @@ def test_post_booking_form_skips_chat_id_for_admin(monkeypatch):
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
 
         # Мокаем сеанс с местами
-        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        mock_s_event, _ = _create_mock_schedule_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
         monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=mock_admin))
         
@@ -685,9 +607,9 @@ def test_post_booking_form_skips_chat_id_for_admin(monkeypatch):
 
 
 def test_server_timing_and_request_id_headers(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_event, _ = _create_mock_theater_event()
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/afisha', headers={'X-Request-ID': 'custom-req-123'})
 
     assert response.status_code == 200
@@ -700,7 +622,7 @@ def test_server_timing_and_request_id_headers(monkeypatch):
 
 
 def test_prometheus_metrics_endpoint(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/metrics')
 
     assert response.status_code == 200
@@ -710,7 +632,7 @@ def test_prometheus_metrics_endpoint(monkeypatch):
 
 
 def test_static_cache_control_header(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/static/css/site.css')
 
     assert response.status_code == 200
@@ -718,12 +640,12 @@ def test_static_cache_control_header(monkeypatch):
 
 
 def test_booking_form_button_and_spinner_elements(monkeypatch):
-    mock_s_event = _create_mock_session_event()
+    mock_s_event, _ = _create_mock_schedule_event()
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     monkeypatch.setattr(booking, 'get_base_tickets_by_event_or_all', AsyncMock(return_value=[]))
     monkeypatch.setattr(booking, 'get_ticket_price_for_web', AsyncMock(return_value=2000))
     
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/booking/101')
 
     assert response.status_code == 200
@@ -739,8 +661,8 @@ def test_post_booking_yookassa_success(monkeypatch):
     mock_payment_create = MagicMock(return_value=mock_payment)
     monkeypatch.setattr(Payment, "create", mock_payment_create)
 
-    with _create_client(monkeypatch) as client:
-        mock_event = _create_mock_event()
+    with _create_web_client(monkeypatch) as client:
+        mock_event, _ = _create_mock_theater_event()
         mock_ticket_type = MagicMock()
         mock_ticket_type.base_ticket_id = 1
         mock_ticket_type.flag_active = True
@@ -756,7 +678,7 @@ def test_post_booking_yookassa_success(monkeypatch):
         monkeypatch.setattr(booking, 'publish_write_data_reserve', AsyncMock())
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
 
-        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        mock_s_event, _ = _create_mock_schedule_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
         monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=None))
 
@@ -780,8 +702,8 @@ def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
 
     monkeypatch.setattr(Payment, "create", timeout_create)
 
-    with _create_client(monkeypatch) as client:
-        mock_event = _create_mock_event()
+    with _create_web_client(monkeypatch) as client:
+        mock_event, _ = _create_mock_theater_event()
         mock_ticket_type = MagicMock()
         mock_ticket_type.base_ticket_id = 1
         mock_ticket_type.flag_active = True
@@ -799,7 +721,7 @@ def test_post_booking_yookassa_timeout_rolls_back_seats(monkeypatch):
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
         monkeypatch.setattr(booking, 'publish_update_ticket', mock_publish_cancel)
 
-        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        mock_s_event, _ = _create_mock_schedule_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
         monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=None))
 
@@ -824,8 +746,8 @@ def test_post_booking_yookassa_error_rolls_back_seats(monkeypatch):
 
     monkeypatch.setattr(Payment, "create", error_create)
 
-    with _create_client(monkeypatch) as client:
-        mock_event = _create_mock_event()
+    with _create_web_client(monkeypatch) as client:
+        mock_event, _ = _create_mock_theater_event()
         mock_ticket_type = MagicMock()
         mock_ticket_type.base_ticket_id = 1
         mock_ticket_type.flag_active = True
@@ -843,7 +765,7 @@ def test_post_booking_yookassa_error_rolls_back_seats(monkeypatch):
         monkeypatch.setattr(booking, 'publish_write_client_reserve', AsyncMock())
         monkeypatch.setattr(booking, 'publish_update_ticket', mock_publish_cancel)
 
-        mock_s_event = _create_mock_session_event(free_seats_child=10, free_seats_adult=10)
+        mock_s_event, _ = _create_mock_schedule_event(free_seats_child=10, free_seats_adult=10)
         monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
         monkeypatch.setattr(booking, 'get_user_by_phone', AsyncMock(return_value=None))
 
@@ -874,7 +796,7 @@ def test_payment_result_with_payment_find_one(monkeypatch):
     monkeypatch.setattr(Payment, "find_one", MagicMock(return_value=mock_payment))
     monkeypatch.setattr(booking, 'get_ticket', AsyncMock(return_value=mock_ticket))
 
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/payment-result?ticket_id=456')
 
     assert response.status_code == 200
@@ -922,9 +844,9 @@ def _nav_active_hrefs(html: str) -> set[str]:
 
 
 def test_afisha_filter_links_point_to_afisha(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_event, _ = _create_mock_theater_event()
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/afisha')
 
     assert response.status_code == 200
@@ -933,9 +855,9 @@ def test_afisha_filter_links_point_to_afisha(monkeypatch):
 
 
 def test_event_details_back_link_to_afisha(monkeypatch):
-    mock_event = _create_mock_event()
+    mock_event, _ = _create_mock_theater_event()
     monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         plain = client.get('/event/1')
         with_place = client.get('/event/1?place_id=2')
 
@@ -945,7 +867,7 @@ def test_event_details_back_link_to_afisha(monkeypatch):
 
 def test_home_page_rendered_with_three_products(monkeypatch):
     from api.web.site_content import PRODUCTS
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/')
 
     assert response.status_code == 200
@@ -958,7 +880,7 @@ def test_home_page_rendered_with_three_products(monkeypatch):
 def test_home_page_does_not_query_db(monkeypatch):
     events_mock = AsyncMock(return_value=[])
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', events_mock)
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/?age=3')
 
     assert response.status_code == 200
@@ -967,7 +889,7 @@ def test_home_page_does_not_query_db(monkeypatch):
 
 
 def test_custom_events_page_rendered(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/custom-events', headers={'Accept-Encoding': 'identity'})
 
     assert response.status_code == 200
@@ -982,7 +904,7 @@ def test_custom_events_page_rendered(monkeypatch):
 
 
 def test_custom_events_page_has_no_prices(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         pages_html = [client.get('/custom-events').text, client.get('/').text]
 
     for html in pages_html:
@@ -992,7 +914,7 @@ def test_custom_events_page_has_no_prices(monkeypatch):
 
 def test_studio_page_rendered(monkeypatch):
     from api.web.site_content import STUDIO_GROUPS
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get('/studio')
 
     assert response.status_code == 200
@@ -1013,9 +935,10 @@ def test_studio_page_rendered(monkeypatch):
     ('/studio', '/studio'),
 ])
 def test_navigation_active_item(monkeypatch, path, active):
-    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[_create_mock_event()]))
-    monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=_create_mock_event()))
-    with _create_client(monkeypatch) as client:
+    mock_event, _ = _create_mock_theater_event()
+    monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[mock_event]))
+    monkeypatch.setattr(pages, 'get_theater_event', AsyncMock(return_value=mock_event))
+    with _create_web_client(monkeypatch) as client:
         response = client.get(path)
 
     assert response.status_code == 200
@@ -1028,7 +951,7 @@ def test_navigation_active_item(monkeypatch, path, active):
 def test_pages_have_seo_meta(monkeypatch, path):
     import re
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[]))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get(path)
 
     html = response.text
@@ -1065,7 +988,7 @@ def test_auth_callback_redirects_to_next(monkeypatch):
         "api.web.routes.auth.validate_telegram_data",
         lambda data, token: True,
     )
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         resp = client.get(
             "/auth/telegram/callback",
             params={
@@ -1086,7 +1009,7 @@ def test_auth_callback_blocks_open_redirect(monkeypatch):
         "api.web.routes.auth.validate_telegram_data",
         lambda data, token: True,
     )
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         resp = client.get(
             "/auth/telegram/callback",
             params={
@@ -1103,14 +1026,14 @@ def test_auth_callback_blocks_open_redirect(monkeypatch):
 
 
 def test_logout_redirects_to_next(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         resp = client.get("/logout?next=/afisha", follow_redirects=False)
     assert resp.status_code in (307, 303, 302)
     assert resp.headers["location"].endswith("/afisha")
 
 
 def test_logout_blocks_open_redirect(monkeypatch):
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         resp = client.get("/logout?next=//evil.com", follow_redirects=False)
     assert resp.status_code in (307, 303, 302)
     assert resp.headers["location"].endswith("/")
@@ -1118,7 +1041,7 @@ def test_logout_blocks_open_redirect(monkeypatch):
 
 def test_layout_auth_url_contains_next(monkeypatch):
     monkeypatch.setattr(pages, 'get_all_theater_events_actual', AsyncMock(return_value=[]))
-    with _create_client(monkeypatch) as client:
+    with _create_web_client(monkeypatch) as client:
         response = client.get("/")
     assert response.status_code == 200
     assert "next=/" in response.text

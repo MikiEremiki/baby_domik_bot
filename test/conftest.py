@@ -1,12 +1,19 @@
 """Shared pytest fixtures and utilities for all tests."""
 from collections import defaultdict
+from datetime import datetime, timezone
 from types import MappingProxyType
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
+from api.web import main as web_main
+from api.web.config import broker
+from api.web.deps import get_session
+from api.web.routes import pages, booking
+from api.web.services import booking_service
 from db.models import BaseModel
 
 
@@ -155,3 +162,139 @@ def _create_mock_context(has_persistence=True):
     context.bot.edit_message_reply_markup = AsyncMock()
 
     return context
+
+
+# ─── FastAPI web mock utilities ────────────────────────────────────────────────
+
+
+def _create_mock_theater_event(
+    free_seats_child=10,
+    free_seats_adult=5,
+    event_id=1,
+    event_name="Test Event",
+    note="Test Description",
+    min_age_child=3,
+    flag_active_repertoire=True,
+    link="http://test.com/image.jpg",
+    session_id=101,
+    session_datetime=None,
+    flag_turn_in_bot=True,
+    type_event_name='Репертуарный',
+    qty_child_nonconfirm=0,
+    qty_adult_nonconfirm=0,
+):
+    """Create a mock TheaterEvent with one ScheduleEvent.
+
+    Returns ``(theater_event, schedule_event)`` tuple.
+    """
+    if session_datetime is None:
+        session_datetime = datetime(2030, 1, 1, tzinfo=timezone.utc)
+
+    event = MagicMock()
+    event.id = event_id
+    event.name = event_name
+    event.note = note
+    event.duration = None
+    event.min_age_child = min_age_child
+    event.flag_active_repertoire = flag_active_repertoire
+    event.link = link
+
+    s_event = MagicMock()
+    s_event.id = session_id
+    s_event.datetime_event = session_datetime
+    s_event.qty_child_free_seat = free_seats_child
+    s_event.qty_adult_free_seat = free_seats_adult
+    s_event.qty_child_nonconfirm_seat = qty_child_nonconfirm
+    s_event.qty_adult_nonconfirm_seat = qty_adult_nonconfirm
+    s_event.flag_turn_in_bot = flag_turn_in_bot
+    s_event.theater_event = event
+    s_event.type_event_id = 1
+    type_event_mock = MagicMock()
+    type_event_mock.name = type_event_name
+    s_event.type_event = type_event_mock
+
+    event.schedule_events = [s_event]
+    return event, s_event
+
+
+def _create_mock_schedule_event(
+    free_seats_child=10,
+    free_seats_adult=5,
+    event_id=1,
+    event_name="Test Event",
+    note="Test Description",
+    min_age_child=3,
+    flag_active_repertoire=True,
+    link="http://test.com/image.jpg",
+    session_id=101,
+    session_datetime=None,
+    flag_turn_in_bot=True,
+    type_event_name='Репертуарный',
+    qty_child_nonconfirm=0,
+    qty_adult_nonconfirm=0,
+    base_tickets=None,
+):
+    """Create a mock ScheduleEvent (with attached TheaterEvent).
+
+    Returns ``(schedule_event, theater_event)`` tuple.
+    """
+    event, s_event = _create_mock_theater_event(
+        free_seats_child=free_seats_child,
+        free_seats_adult=free_seats_adult,
+        event_id=event_id,
+        event_name=event_name,
+        note=note,
+        min_age_child=min_age_child,
+        flag_active_repertoire=flag_active_repertoire,
+        link=link,
+        session_id=session_id,
+        session_datetime=session_datetime,
+        flag_turn_in_bot=flag_turn_in_bot,
+        type_event_name=type_event_name,
+        qty_child_nonconfirm=qty_child_nonconfirm,
+        qty_adult_nonconfirm=qty_adult_nonconfirm,
+    )
+    s_event.type_event.base_tickets = base_tickets if base_tickets is not None else []
+    return s_event, event
+
+
+def _create_web_client(monkeypatch, mock_default_place=True):
+    """Create a FastAPI TestClient with all common mocks applied.
+
+    Args:
+        monkeypatch: pytest monkeypatch fixture.
+        mock_default_place: If True, also mock ``get_default_place`` on
+            ``pages``, ``booking``, and ``booking_service`` modules.
+    """
+    # Infrastructure mocks — prevent real NATS/DB connections
+    monkeypatch.setattr(broker, 'connect', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(broker, 'close', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(broker, 'stop', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(broker, 'publish', AsyncMock(return_value=None), raising=False)
+    monkeypatch.setattr(booking_service, 'cleanup_expired_bookings', AsyncMock())
+    monkeypatch.setattr(booking_service, 'publish_update_ticket', AsyncMock(), raising=False)
+    monkeypatch.setattr(booking, 'publish_update_ticket', AsyncMock(), raising=False)
+    monkeypatch.setattr(pages, 'get_afishas', AsyncMock(return_value=[]))
+
+    if mock_default_place:
+        default_place = MagicMock(id=1, name='Домик', address='ул. Пушкина, 1')
+        monkeypatch.setattr(pages, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+        monkeypatch.setattr(booking, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+        monkeypatch.setattr(booking_service, 'get_default_place', AsyncMock(return_value=default_place), raising=False)
+
+    # Session dependency override
+    mock_session = AsyncMock()
+    mock_session.add = MagicMock()
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_result.scalars.return_value.first.return_value = None
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.commit = AsyncMock()
+    mock_session.flush = AsyncMock()
+    mock_session.rollback = AsyncMock()
+
+    web_main.app.dependency_overrides[get_session] = lambda: mock_session
+
+    return TestClient(web_main.app)
