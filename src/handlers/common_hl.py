@@ -10,7 +10,7 @@ async def validate_phone_or_request(
         raw_phone: str,
 ) -> tuple[str | None, Message | None]:
     phone = extract_phone_number_from_text(raw_phone)
-    if check_phone_number(phone):
+    if not check_phone_number(phone):
         message = await request_phone_number(update, context)
         return None, message
 

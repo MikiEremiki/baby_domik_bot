@@ -1,3 +1,4 @@
+import decimal
 import logging
 import re
 from datetime import datetime, timezone, timedelta, date
@@ -1280,7 +1281,6 @@ async def pick_season_statuses(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def _round_half_to_even(value: float) -> int:
     """Round float to nearest even integer on tie (banker's rounding)."""
-    import decimal
     d = decimal.Decimal(str(value))
     return int(d.quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_EVEN))
 

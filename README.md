@@ -77,7 +77,7 @@ timeweb в качестве хостинга
 `openssl s_client -connect baby-theater-domik.ru:443 -servername baby-theater-domik.ru -status -tlsextdebug < /dev/null`
 
 ---
-Основной workflow:
+Основной workflow в prod:
 cd /home/baby_domik_bot/
 git pull
 docker image pull mikieremiki/baby_domik_bot
@@ -95,6 +95,12 @@ docker compose --profile migration up -d
 docker exec -i migration bash
 внутри: alembic -c 'config/alembic.ini' upgrade head
 docker container stop migration
+
+workflow в dev:
+
+
+для миграций:
+.\.venv\Scripts\python -m alembic -c 'config/alembic-dev.ini' upgrade +1
 
 ---
 ### Миграции

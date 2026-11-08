@@ -10,11 +10,11 @@ import re
 from typing import Optional
 
 from permissions import AccessItem
+from settings.settings import ACCESS_INTENT_ID
 
 
 def _intent_cb(payload: str) -> str:
     """Build an intent-prefixed callback payload."""
-    from settings.settings import ACCESS_INTENT_ID
     return f'{ACCESS_INTENT_ID}|{payload}'
 
 

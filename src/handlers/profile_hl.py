@@ -176,7 +176,7 @@ async def add_adult_phone(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
-    if check_phone_number(phone):
+    if not check_phone_number(phone):
         message = await request_phone_number(update, context)
         reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
@@ -319,7 +319,7 @@ async def set_new_adult_phone(update: Update,
 
     phone = update.effective_message.text
     phone = extract_phone_number_from_text(phone)
-    if check_phone_number(phone):
+    if not check_phone_number(phone):
         message = await request_phone_number(update, context)
         reserve_user_data['message_id'] = message.message_id
         return context.user_data['STATE']
