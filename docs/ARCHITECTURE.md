@@ -38,8 +38,10 @@ baby_domik_bot/
 │   +-- db/                     # БАЗА ДАННЫХ
 │   │   +-- models.py           # SQLAlchemy модели (User, Ticket, ScheduleEvent и др.)
 │   │   +-- db_postgres.py      # CRUD-операции PostgreSQL (AsyncSession)
-│   │   +-- enum.py             # Перечисления (TicketStatus, PriceType и др.)
+│   │   +-- enum.py             # Перечисления (TicketStatus, PriceType, TicketSource и др.)
 │   │   L-- migrations/         # Миграции Alembic
+│   │       +-- versions/       # Ревизии Alembic (схема БД)
+│   │       L-- manual/         # Ручные SQL-скрипты (перенос исторических данных)
 │   │
 │   +-- handlers/               # ОБРАБОТЧИКИ TELEGRAM
 │   │   +-- main_hl.py          # Стартовые команды (/start, /help)
@@ -340,6 +342,14 @@ YooKassa → POST /yookassa (FastAPI)
   alembic -c "config\alembic.ini" upgrade head
   alembic -c "config\alembic.ini" downgrade base
   ```
+
+**Правило:** схема БД — только ревизиями Alembic (`src/db/migrations/versions/`), перенос исторических данных — отдельными SQL-скриптами вне цепочки (`src/db/migrations/manual/`). Подробнее — раздел «Миграции» в README.md.
+
+#### Ручные миграции данных
+- Ручные SQL-скрипты лежат в `src/db/migrations/manual/` и не влияют на цепочку Alembic.
+- Порядок для рабочей БД: `alembic upgrade head` → ручной SQL → проверка.
+- Проверка применённых ручных миграций:
+  — вручную проверить таблицу `manual_migrations` в БД.
 
 #### Тесты
 - Из корня проекта:

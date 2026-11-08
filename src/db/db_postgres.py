@@ -12,8 +12,8 @@ from db import (
     ScheduleSyncRun, ScheduleChange, AutoSending, AutoSendingDelivery)
 from db.enum import (
     PriceType, TicketStatus, TicketPriceType, AgeType, CustomMadeStatus, UserRole,
-    AutoSendingTrigger)
-from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, Afisha
+    AutoSendingTrigger, TicketSource)
+from db.models import CustomMadeFormat, CustomMadeEvent, PersonTicket, UserTicket, Afisha
 from utilities.utl_schedule_changes import (
     normalize_schedule_snapshot, compute_schedule_diff)
 
@@ -615,7 +615,11 @@ async def create_ticket(
         notes=None,
         payment_id=None,
         idempotency_id=None,
+        source: TicketSource | None = None,
 ):
+    if source is None:
+        source = TicketSource.BOT
+
     ticket = Ticket(
         base_ticket_id=base_ticket_id,
         price=price,
@@ -625,9 +629,109 @@ async def create_ticket(
         notes=notes,
         payment_id=payment_id,
         idempotency_id=idempotency_id,
+        source=source,
     )
     session.add(ticket)
     await session.commit()
+    return ticket
+
+
+async def create_booking_ticket(
+        session: AsyncSession,
+        base_ticket_id: int,
+        schedule_event_id: int,
+        price: int,
+        adult_name: str,
+        phone: str,
+        email: str,
+        child_names: list[str] | None = None,
+        child_ages: list[int] | None = None,
+        promo_code: str | None = None,
+        promo_id: int | None = None,
+        found_chat_id: int | None = None,
+) -> Ticket:
+    """Создает билет через сайт: Ticket, Person (взрослый + дети), Adult, Child, PersonTicket, UserTicket.
+
+    Возвращает созданный Ticket. Коммит не делает — вызывающий код решает, когда коммитить.
+    """
+    child_names = child_names or []
+    child_ages = child_ages or []
+
+    # Создаем взрослого
+    person_adult = Person(
+        name=adult_name,
+        age_type=AgeType.adult,
+        user_id=found_chat_id if found_chat_id else None,
+    )
+    session.add(person_adult)
+    await session.flush()
+
+    adult = Adult(phone=phone, person_id=person_adult.id)
+    session.add(adult)
+
+    # Создаем детей
+    children_persons: list[Person] = []
+    for i in range(len(child_names)):
+        person_child = Person(
+            name=child_names[i],
+            age_type=AgeType.child,
+            parent_id=person_adult.id,
+        )
+        session.add(person_child)
+        await session.flush()
+
+        child = Child(age=child_ages[i], person_id=person_child.id)
+        session.add(child)
+        children_persons.append(person_child)
+
+    await session.flush()
+
+    # Создаем билет
+    ticket = Ticket(
+        base_ticket_id=base_ticket_id,
+        schedule_event_id=schedule_event_id,
+        status=TicketStatus.CREATED,
+        notes=f"Сайт: {email}\nPromo: {promo_code if promo_code else 'None'}",
+        payment_id=None,
+        price=price,
+        source=TicketSource.WEBSITE,
+    )
+    session.add(ticket)
+    await session.flush()
+
+    # Связываем персон с билетом
+    session.add(PersonTicket(person_id=person_adult.id, ticket_id=ticket.id))
+    for pc in children_persons:
+        session.add(PersonTicket(person_id=pc.id, ticket_id=ticket.id))
+
+    if found_chat_id:
+        session.add(UserTicket(user_id=found_chat_id, ticket_id=ticket.id))
+
+    return ticket
+
+
+async def create_transferred_ticket(
+        session: AsyncSession,
+        original_ticket: Ticket,
+        base_ticket_id: int,
+        price: int,
+        schedule_event_id: int,
+) -> Ticket:
+    """Создает новый билет при переносе: наследует source из исходного билета.
+
+    Возвращает созданный Ticket. Коммит не делает — вызывающий код решает, когда коммитить.
+    """
+    ticket = Ticket(
+        base_ticket_id=base_ticket_id,
+        price=price,
+        schedule_event_id=schedule_event_id,
+        promo_id=original_ticket.promo_id,
+        status=TicketStatus.CREATED,
+        notes=original_ticket.notes,
+        source=original_ticket.source,
+    )
+    session.add(ticket)
+    await session.flush()
     return ticket
 
 

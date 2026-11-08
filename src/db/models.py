@@ -8,7 +8,8 @@ from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
     GroupOfPeopleByDiscountType, CustomMadeStatus,
-    UserRole, PromotionDiscountType, AutoSendingTrigger)
+    UserRole, PromotionDiscountType, AutoSendingTrigger,
+    TicketSource)
 
 
 class User(BaseModelTimed):
@@ -207,6 +208,8 @@ class Ticket(BaseModelTimed):
 
     payment_id: Mapped[Optional[str]] = mapped_column(unique=True)
     idempotency_id: Mapped[Optional[str]] = mapped_column(unique=True)
+    source: Mapped[Optional[TicketSource]] = mapped_column(
+        Enum(TicketSource, name='ticket_source'))
 
     schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))

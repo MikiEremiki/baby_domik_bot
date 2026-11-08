@@ -257,14 +257,12 @@ async def start_forma_info(
         await query.edit_message_text(text)
 
         ticket_ids = []
-        ticket = await db_postgres.create_ticket(
+        ticket = await db_postgres.create_transferred_ticket(
             context.session,
+            original_ticket=ticket,
             base_ticket_id=base_ticket_id,
             price=chose_price,
             schedule_event_id=schedule_event_id,
-            promo_id=ticket.promo_id,
-            status=TicketStatus.CREATED,
-            notes=ticket.notes
         )
         ticket_ids.append(ticket.id)
 

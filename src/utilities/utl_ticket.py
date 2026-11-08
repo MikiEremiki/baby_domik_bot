@@ -3,7 +3,7 @@ import logging
 from telegram.ext import ContextTypes
 
 from db import BaseTicket, ScheduleEvent, TheaterEvent, db_postgres
-from db.enum import PriceType, TicketStatus
+from db.enum import PriceType, TicketStatus, TicketSource
 from utilities.utl_func import clean_context_on_end_handler
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
@@ -166,6 +166,7 @@ async def create_tickets(context, ticket_status):
             schedule_event_id=event_id,
             status=ticket_status,
             promo_id=promo_id,
+            source=TicketSource.BOT,
         )
         ticket_ids.append(ticket.id)
 

@@ -79,7 +79,10 @@
 | **PostgreSQL** | Реляционная база данных для хранения пользователей, билетов, расписания и настроек. |
 | **SQLAlchemy** | ORM для работы с БД, используется в асинхронном режиме (`AsyncSession`). Модели в `src\db\models.py`. |
 | **Alembic** | Инструмент миграций БД, конфигурация в `config\alembic.ini`. |
-| **Enum** | Перечисления (`src\db\enum.py`): `TicketStatus`, `PriceType`, `AgeType`, `CustomMadeStatus`, `GroupOfPeopleByDiscountType`. |
+| **Enum** | Перечисления (`src\db\enum.py`): `TicketStatus`, `PriceType`, `AgeType`, `CustomMadeStatus`, `GroupOfPeopleByDiscountType`, `TicketSource`. |
+| **TicketSource** | Источник первоначальной покупки билета: `WEBSITE` (сайт) или `BOT` (бот). `NULL` трактуется как `BOT`. Наследуется при переносе билета. |
+| **manual_migrations** | Таблица в БД для отслеживания выполненных ручных SQL-скриптов переноса данных. Создаётся скриптами (`CREATE TABLE IF NOT EXISTS`), не управляется Alembic. |
+| **Ручная миграция данных** | SQL-скрипт в `src/db/migrations/manual/` для переноса исторических данных. Не влияет на цепочку Alembic. Проверка — вручную через таблицу `manual_migrations`. |
 
 ---
 
