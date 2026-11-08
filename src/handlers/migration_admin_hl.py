@@ -10,6 +10,7 @@ from utilities.utl_kbd import add_btn_back_and_cancel
 from utilities.utl_func import (
     set_back_context, get_back_context, get_formatted_date_and_time_of_event
 )
+from utilities.utl_ticket import format_ticket_contacts
 
 transfer_admin_hl_logger = logging.getLogger('bot.transfer_admin_hl')
 
@@ -72,12 +73,12 @@ async def get_ticket_by_id(
                 update.effective_chat.id,
                 del_message_ids[0]
             )
+
     client_data = context.user_data['reserve_user_data']['client_data']
     ticket_id = int(update.effective_message.text)
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if ticket:
         user = ticket.user
-        people = ticket.people
         base_ticket = await db_postgres.get_base_ticket(
             context.session, ticket.base_ticket_id)
         schedule_event = await db_postgres.get_schedule_event(
@@ -85,19 +86,18 @@ async def get_ticket_by_id(
         theater_event = await db_postgres.get_theater_event(
             context.session, schedule_event.theater_event_id
         )
-        adult_str = ''
+
+        contacts_block = format_ticket_contacts(ticket)
+
+        # Дети — из ticket.people
         child_str = ''
         client_data['data_children'] = []
-        for person in people:
-            if person.adult and hasattr(person.adult, 'phone'):
-                adult_str = f'{person.name}\n+7{person.adult.phone}\n'
-                client_data['name_adult'] = person.name
-                client_data['phone'] = person.adult.phone
-            elif person.child and hasattr(person.child, 'age'):
+        for person in ticket.people:
+            if hasattr(person.child, 'age'):
                 child_str += f'{person.name} {person.child.age}\n'
                 client_data['data_children'].append(
                     [person.name, str(person.child.age)])
-        people_str = adult_str + child_str
+
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)
         text = (
@@ -107,9 +107,11 @@ async def get_ticket_by_id(
             f'Билет: {base_ticket.name}\n'
             f'Стоимость: {ticket.price}\n'
             f'Статус: {ticket.status.value}\n'
-            f'{people_str}'
-            f'Примечание: {ticket.notes}\n'
+            f'{contacts_block}\n'
         )
+        if child_str:
+            text += f'Дети: {child_str}'
+        text += f'Примечание: {ticket.notes}\n'
         keyboard = [
             [
                 InlineKeyboardButton('Перенести', callback_data='migration'),

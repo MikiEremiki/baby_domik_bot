@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from sulguk import transform_html
@@ -28,9 +30,188 @@ from conv_hl.reserve_common_hl import (
     handle_email_input,
     handle_email_confirm_callback,
 )
-from utilities.utl_ticket import get_ticket_and_price
+from utilities.utl_ticket import (
+    get_ticket_and_price,
+    parse_and_create_custom_ticket,
+    apply_custom_ticket_to_reserve,
+)
 
 reserve_admin_hl_logger = logging.getLogger('bot.reserve_admin_hl')
+
+
+async def _migrate_ticket_db(
+        session,
+        original_ticket,
+        base_ticket_id: int,
+        price: int,
+        schedule_event_id: int,
+        user_id: int,
+) -> 'db_postgres.Ticket' | None:
+    """Одна транзакция БД: MIGRATED старый билет + новый билет + привязка."""
+    people_ids = [person.id for person in original_ticket.people]
+    ticket_id = original_ticket.id
+
+    try:
+        await db_postgres.update_ticket(
+            session, ticket_id,
+            status=TicketStatus.MIGRATED,
+            auto_commit=False,
+        )
+
+        new_ticket = await db_postgres.create_transferred_ticket(
+            session,
+            original_ticket=original_ticket,
+            base_ticket_id=base_ticket_id,
+            price=price,
+            schedule_event_id=schedule_event_id,
+        )
+
+        await db_postgres.attach_user_and_people_to_ticket(
+            session,
+            new_ticket.id,
+            user_id,
+            people_ids,
+            auto_commit=False,
+        )
+
+        await session.commit()
+        return new_ticket
+    except Exception:
+        await session.rollback()
+        reserve_admin_hl_logger.exception("DB transaction rollback during ticket migration")
+        return None
+
+
+async def _sync_gspread_migration(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        original_ticket,
+        new_ticket,
+        base_ticket_id: int,
+        schedule_event_id: int,
+        reserve_user_data: dict,
+        send_status: callable,
+) -> int | None:
+    """Google Sheets синхронизация после успешной БД-транзакции."""
+    ticket_id = original_ticket.id
+
+    text = 'Обновляю клиентскую базу...'
+    await send_status(text)
+    await update.effective_chat.send_action(ChatAction.TYPING)
+    await update_ticket_db_and_gspread(
+        context, ticket_id, status=TicketStatus.MIGRATED, auto_commit=False
+    )
+
+    text += '\nВозвращаю места с перенесенного мероприятия...'
+    await send_status(text)
+    reserve_user_data['changed_seat'] = False
+    result = await increase_free_seat(context, original_ticket.schedule_event_id)
+    if not result:
+        text += ('\nМеста не были возвращены в продажу.'
+                 '\nНеобходимо проверить вручную.')
+        await send_status(text)
+        return new_ticket.id
+    reserve_user_data['changed_seat'] = True
+
+    # Write new ticket to client DB and decrease free seats
+    text += '\nЗаписываю новый билет в клиентскую базу...'
+    await send_status(text)
+    await update.effective_chat.send_action(ChatAction.TYPING)
+    sheet_id_domik = context.config.sheets.sheet_id_domik
+    chat_id = update.effective_chat.id
+    base_ticket_dto = (await db_postgres.get_base_ticket(
+        context.session, base_ticket_id)).to_dto()
+    ticket_status_value = str(TicketStatus.CREATED.value)
+    reserve_user_data['ticket_ids'] = [new_ticket.id]
+    try:
+        await publish_write_client_reserve(
+            sheet_id_domik,
+            reserve_user_data,
+            chat_id,
+            base_ticket_dto,
+            ticket_status_value
+        )
+    except Exception as e:
+        reserve_admin_hl_logger.exception(
+            f'Failed to publish gspread task, fallback to direct call: {e}')
+        res = await write_client_reserve(sheet_id_domik,
+                                         reserve_user_data,
+                                         chat_id,
+                                         base_ticket_dto,
+                                         ticket_status_value)
+        if res == 0:
+            await context.bot.send_message(
+                chat_id=context.config.bot.developer_chat_id,
+                text=f'Не записался билет {new_ticket.id} в клиентскую базу')
+
+    reserve_user_data['changed_seat'] = False
+    result = await decrease_free_seat(context, schedule_event_id)
+    if not result:
+        await update_ticket_db_and_gspread(
+            context, new_ticket.id, status=TicketStatus.CANCELED, auto_commit=False)
+        text += ('\nНе уменьшились свободные места'
+                 '\nНовый билет отменен.'
+                 '\nНеобходимо проверить вручную')
+        await send_status(text)
+        return new_ticket.id
+    reserve_user_data['changed_seat'] = True
+
+    text += '\nУменьшил кол-во свободных мест...'
+    await send_status(text)
+    return new_ticket.id
+
+
+async def execute_ticket_migration(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE',
+        original_ticket,
+        base_ticket_id: int,
+        price: int,
+        *,
+        reserve_user_data: dict,
+        send_status: callable | None = None,
+) -> int | None:
+    """Переносит билет одной транзакцией БД.
+
+    Возвращает ID нового билета при успехе, None при ошибке.
+    Google Sheets обновляется только после успешного commit.
+
+    :param send_status: Асинхронная функция(text) для отправки статуса пользователю.
+                        Если None, статус отправляется в чат как новое сообщение.
+    """
+    if send_status is None:
+        async def send_status(text: str) -> None:
+            await update.effective_chat.send_message(text=text)
+
+    # Check if already migrated
+    if original_ticket.status == TicketStatus.MIGRATED:
+        await send_status('Билет уже перенесён')
+        return None
+
+    # Single DB transaction
+    new_ticket = await _migrate_ticket_db(
+        context.session,
+        original_ticket,
+        base_ticket_id,
+        price,
+        reserve_user_data.get('choose_schedule_event_id'),
+        update.effective_user.id,
+    )
+    if new_ticket is None:
+        text = 'Транзакция БД откатилась, выполните откат в Google Sheets вручную'
+        await context.bot.send_message(
+            chat_id=context.config.bot.developer_chat_id,
+            text=text,
+        )
+        await send_status('Ошибка переноса билета. Обратитесь к разработчику.')
+        return None
+
+    # Google Sheets sync
+    schedule_event_id = reserve_user_data.get('choose_schedule_event_id')
+    return await _sync_gspread_migration(
+        update, context, original_ticket, new_ticket,
+        base_ticket_id, schedule_event_id, reserve_user_data, send_status,
+    )
 
 
 async def event_selection_option(
@@ -218,119 +399,29 @@ async def start_forma_info(
     reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
     if 'migration' in context.user_data['command']:
-        ticket_id = context.user_data['reserve_admin_data']['ticket_id']
-        ticket = await db_postgres.get_ticket(context.session, ticket_id)
-        people_ids = []
-        for person in ticket.people:
-            people_ids.append(person.id)
+        original_ticket_id = context.user_data['reserve_admin_data']['ticket_id']
+        original_ticket = await db_postgres.get_ticket(context.session, original_ticket_id)
 
-        old_ticket_status = ticket.status
-        new_ticket_status = TicketStatus.MIGRATED
-        text = 'Проверяю надо ли переносить билет...'
-        await query.edit_message_text(text)
-        if new_ticket_status != old_ticket_status:
-            text += '\nОбновляю билет который надо перенести...'
-            await query.edit_message_text(text)
-            await update.effective_chat.send_action(ChatAction.TYPING)
-            await update_ticket_db_and_gspread(context,
-                                               ticket_id,
-                                               status=new_ticket_status)
-            text += '\nВозвращаю места с перенесенного мероприятия...'
-            await query.edit_message_text(text)
-            reserve_user_data['changed_seat'] = False
-            result = await increase_free_seat(
-                context, ticket.schedule_event_id)
-            if not result:
-                await update_ticket_db_and_gspread(context,
-                                                   ticket_id,
-                                                   status=old_ticket_status)
-                text += (
-                    '\nМеста не были возвращены в продажу.'
-                    '\nСтатус билета возвращен обратно.'
-                    '\nНеобходимо повторить перенос заново.')
-                await query.edit_message_text(text)
-                await clean_context_on_end_handler(
-                    reserve_admin_hl_logger, context)
-                return ConversationHandler.END
-            else:
-                reserve_user_data['changed_seat'] = True
-        else:
-            text += '\nБилет уже в статусе Перенесен...'
+        async def send_status(text: str) -> None:
             await query.edit_message_text(text)
 
-        text += '\nСоздаю новые билеты в бд...'
-        await query.edit_message_text(text)
-
-        ticket_ids = []
-        ticket = await db_postgres.create_transferred_ticket(
-            context.session,
-            original_ticket=ticket,
-            base_ticket_id=base_ticket_id,
-            price=chose_price,
-            schedule_event_id=schedule_event_id,
+        new_ticket_id = await execute_ticket_migration(
+            update, context, original_ticket,
+            base_ticket_id, chose_price,
+            reserve_user_data=context.user_data['reserve_user_data'],
+            send_status=send_status,
         )
-        ticket_ids.append(ticket.id)
 
-        reserve_user_data['ticket_ids'] = ticket_ids
-
-        await db_postgres.attach_user_and_people_to_ticket(context.session,
-                                                           ticket.id,
-                                                           update.effective_user.id,
-                                                           people_ids)
-
-        text += '\nЗаписываю новый билет в клиентскую базу...'
-        await query.edit_message_text(text)
-        await update.effective_chat.send_action(ChatAction.TYPING)
-        sheet_id_domik = context.config.sheets.sheet_id_domik
-        chat_id = update.effective_chat.id
-        base_ticket_dto = chose_base_ticket.to_dto()
-        ticket_status_value = str(TicketStatus.CREATED.value)
-        reserve_user_data = context.user_data['reserve_user_data']
-        try:
-            await publish_write_client_reserve(
-                sheet_id_domik,
-                reserve_user_data,
-                chat_id,
-                base_ticket_dto,
-                ticket_status_value
-            )
-        except Exception as e:
-            reserve_admin_hl_logger.exception(
-                f'Failed to publish gspread task, fallback to direct call: {e}')
-            res = await write_client_reserve(sheet_id_domik,
-                                             reserve_user_data,
-                                             chat_id,
-                                             base_ticket_dto,
-                                             ticket_status_value)
-            if res == 0:
-                await context.bot.send_message(
-                    chat_id=context.config.bot.developer_chat_id,
-                    text=f'Не записался билет {ticket_ids} в клиентскую базу')
-        reserve_user_data['changed_seat'] = False
-        result = await decrease_free_seat(
-            context, schedule_event_id)
-        if not result:
-            await update_ticket_db_and_gspread(context,
-                                               ticket_id,
-                                               status=TicketStatus.CANCELED)
-            text += ('\nНе уменьшились свободные места'
-                     '\nНовый билет отменен.'
-                     '\nСтарый билет будет учтен, что уже перенесен.'
-                     '\nНеобходимо повторить перенос заново')
-            await query.edit_message_text(text)
+        if new_ticket_id is None:
             await clean_context_on_end_handler(reserve_admin_hl_logger, context)
-            return ConversationHandler.END
+            state = ConversationHandler.END
         else:
-            reserve_user_data['changed_seat'] = True
-
-        text += '\nУменьшил кол-во свободных мест...\nПоследняя проверка...'
-        await query.edit_message_text(text)
-        await update.effective_chat.send_action(ChatAction.TYPING)
-        await processing_successful_payment(update, context)
-        text += '\n\nБилет успешно перенесен.'
-        await query.edit_message_text(text)
-
-        state = ConversationHandler.END
+            reserve_user_data = context.user_data['reserve_user_data']
+            reserve_user_data['ticket_ids'] = [new_ticket_id]
+            await processing_successful_payment(update, context)
+            text = 'Билет успешно перенесен.'
+            await query.edit_message_text(text)
+            state = ConversationHandler.END
     else:
         # Prompt for buyer email first
         _, state = await send_email_step(update, context, postfix_for_back='TICKET',
@@ -345,12 +436,8 @@ async def handle_custom_ticket_params(
         context: 'ContextTypes.DEFAULT_TYPE'
 ):
     text_input = update.effective_message.text.strip()
-    parts = text_input.split()
-    if len(parts) != 3 or not all(p.isdigit() for p in parts):
-        text_error = ('<b>Неверный формат!</b><br><br>'
-                      'Введите три числа через пробел: '
-                      '<code>кол-во детей</code> <code>кол-во взрослых</code> <code>стоимость</code><br>'
-                      'Например: <code>8 1 15000</code>')
+    custom_ticket, error_text = await parse_and_create_custom_ticket(context, text_input)
+    if custom_ticket is None:
         keyboard = [
             add_btn_back_and_cancel(
                 postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
@@ -359,7 +446,7 @@ async def handle_custom_ticket_params(
             )
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        res_text = transform_html(text_error)
+        res_text = transform_html(error_text)
         await update.effective_chat.send_message(
             text=res_text.text,
             entities=res_text.entities,
@@ -368,22 +455,8 @@ async def handle_custom_ticket_params(
         )
         return 'CUSTOM_TICKET_PARAMS'
 
-    qty_child = int(parts[0])
-    qty_adult = int(parts[1])
-    cost = int(parts[2])
-
-    custom_ticket = await db_postgres.get_or_create_custom_base_ticket(
-        context.session,
-        quality_of_children=qty_child,
-        quality_of_adult=qty_adult,
-        cost=cost
-    )
-
-    reserve_user_data = context.user_data['reserve_user_data']
-    schedule_event_id = reserve_user_data['choose_schedule_event_id']
-    reserve_user_data['chose_price'] = cost
-    reserve_user_data['chose_base_ticket_id'] = custom_ticket.base_ticket_id
-    reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
+    cost = int(text_input.strip().split()[2])
+    apply_custom_ticket_to_reserve(context, custom_ticket, cost)
 
     # Prompt for buyer email first
     _, state = await send_email_step(update, context, postfix_for_back='TICKET')

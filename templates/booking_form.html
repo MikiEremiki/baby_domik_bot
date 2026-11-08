@@ -240,23 +240,60 @@
     addChildBtn.addEventListener('click', () => {
         const entry = document.createElement('div');
         entry.className = 'child-entry grid gap-4 sm:grid-cols-2 relative rounded-xl border border-slate-100 bg-slate-50/50 p-4';
-        entry.innerHTML = `
-            <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Имя ребёнка</label>
-                <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_name" placeholder="Например, Миша" type="text" required>
-            </div>
-            <div class="flex gap-2 items-end">
-                <div class="flex-1">
-                    <label class="mb-1 block text-xs font-medium text-slate-500">Возраст</label>
-                    <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring" name="child_age" placeholder="5" type="number" min="1" max="17" required>
-                </div>
-                <button type="button" class="remove-child mb-0.5 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Удалить ребенка">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-        `;
+
+        // Имя ребёнка
+        const nameDiv = document.createElement('div');
+        const nameLabel = document.createElement('label');
+        nameLabel.className = 'mb-1 block text-xs font-medium text-slate-500';
+        nameLabel.textContent = 'Имя ребёнка';
+        const nameInput = document.createElement('input');
+        nameInput.className = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring';
+        nameInput.name = 'child_name';
+        nameInput.placeholder = 'Например, Миша';
+        nameInput.type = 'text';
+        nameInput.required = true;
+        nameDiv.appendChild(nameLabel);
+        nameDiv.appendChild(nameInput);
+        entry.appendChild(nameDiv);
+
+        // Возраст + кнопка удаления
+        const ageWrapper = document.createElement('div');
+        ageWrapper.className = 'flex gap-2 items-end';
+
+        const ageDiv = document.createElement('div');
+        ageDiv.className = 'flex-1';
+        const ageLabel = document.createElement('label');
+        ageLabel.className = 'mb-1 block text-xs font-medium text-slate-500';
+        ageLabel.textContent = 'Возраст';
+        const ageInput = document.createElement('input');
+        ageInput.className = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-domik-green-soft/50 focus:ring';
+        ageInput.name = 'child_age';
+        ageInput.placeholder = '5';
+        ageInput.type = 'number';
+        ageInput.min = '1';
+        ageInput.max = '17';
+        ageInput.required = true;
+        ageDiv.appendChild(ageLabel);
+        ageDiv.appendChild(ageInput);
+        ageWrapper.appendChild(ageDiv);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-child mb-0.5 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors';
+        removeBtn.title = 'Удалить ребенка';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'h-5 w-5');
+        svg.setAttribute('viewBox', '0 0 20 20');
+        svg.setAttribute('fill', 'currentColor');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('fill-rule', 'evenodd');
+        path.setAttribute('clip-rule', 'evenodd');
+        path.setAttribute('d', 'M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z');
+        svg.appendChild(path);
+        removeBtn.appendChild(svg);
+        ageWrapper.appendChild(removeBtn);
+
+        entry.appendChild(ageWrapper);
         childrenContainer.appendChild(entry);
         updateRemoveButtons();
     });
@@ -300,19 +337,48 @@
         const bgColor = type === 'error' ? 'bg-red-600' : 'bg-green-600';
         
         toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-xl transform transition-all duration-500 translate-y-[-20px] opacity-0 flex items-center justify-between gap-4 min-w-[300px] border border-white/20`;
-        toast.innerHTML = `
-            <div class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-                <span class="font-medium">${message}</span>
-            </div>
-            <button type="button" class="text-white/80 hover:text-white transition-colors" onclick="this.parentElement.classList.add('opacity-0'); setTimeout(() => this.parentElement.remove(), 500)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-            </button>
-        `;
+
+        // Build structure without innerHTML to prevent XSS
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'flex items-center gap-2';
+
+        const svgIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgIcon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        svgIcon.setAttribute('class', 'h-5 w-5');
+        svgIcon.setAttribute('viewBox', '0 0 20 20');
+        svgIcon.setAttribute('fill', 'currentColor');
+        const pathIcon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathIcon.setAttribute('fill-rule', 'evenodd');
+        pathIcon.setAttribute('d', 'M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z');
+        svgIcon.appendChild(pathIcon);
+
+        const spanText = document.createElement('span');
+        spanText.className = 'font-medium';
+        spanText.textContent = message;
+
+        contentDiv.appendChild(svgIcon);
+        contentDiv.appendChild(spanText);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'text-white/80 hover:text-white transition-colors';
+        closeBtn.addEventListener('click', () => {
+            toast.classList.add('opacity-0');
+            setTimeout(() => toast.remove(), 500);
+        });
+        const svgClose = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgClose.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        svgClose.setAttribute('class', 'h-5 w-5');
+        svgClose.setAttribute('viewBox', '0 0 20 20');
+        svgClose.setAttribute('fill', 'currentColor');
+        const pathClose = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathClose.setAttribute('fill-rule', 'evenodd');
+        pathClose.setAttribute('d', 'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z');
+        svgClose.appendChild(pathClose);
+        closeBtn.appendChild(svgClose);
+
+        toast.appendChild(contentDiv);
+        toast.appendChild(closeBtn);
         
         container.appendChild(toast);
         

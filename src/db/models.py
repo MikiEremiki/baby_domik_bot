@@ -204,6 +204,7 @@ class Ticket(BaseModelTimed):
     status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus, name='ticket_status'))
     notes: Mapped[Optional[str]]
     email: Mapped[Optional[str]]
+    phone: Mapped[Optional[int]]
     reminded_1d_at: Mapped[Optional[datetime]]
     is_admin_notified: Mapped[bool] = mapped_column(default=False)
 

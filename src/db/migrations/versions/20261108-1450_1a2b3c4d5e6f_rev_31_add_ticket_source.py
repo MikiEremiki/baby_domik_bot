@@ -32,9 +32,11 @@ def upgrade() -> None:
         sa.Column('source', TicketSourceEnum, nullable=True)
     )
     op.add_column('tickets', sa.Column('email', sa.String(), nullable=True))
+    op.add_column('tickets', sa.Column('phone', sa.BigInteger(), nullable=True))
 
 
 def downgrade() -> None:
+    op.drop_column('tickets', 'phone')
     op.drop_column('tickets', 'email')
     op.drop_column('tickets', 'source')
     TicketSourceEnum.drop(op.get_bind(), checkfirst=True)

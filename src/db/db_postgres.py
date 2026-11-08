@@ -113,7 +113,8 @@ async def attach_user_and_people_to_ticket(
         session: AsyncSession,
         ticket_id,
         user_id,
-        people_ids
+        people_ids,
+        auto_commit: bool = True
 ):
     result = await (session.execute(
         select(Ticket)
@@ -128,7 +129,8 @@ async def attach_user_and_people_to_ticket(
 
     user: Type[User] | None = await session.get(User, user_id)
     ticket.user = user
-    await session.commit()
+    if auto_commit:
+        await session.commit()
 
 
 async def sync_table_sequence(session: AsyncSession, table_name: str, pk_col: str = 'id') -> None:
@@ -617,6 +619,8 @@ async def create_ticket(
         idempotency_id=None,
         source: TicketSource | None = None,
         email: str | None = None,
+        phone: int | None = None,
+        auto_commit: bool = True,
 ):
     if source is None:
         source = TicketSource.BOT
@@ -629,12 +633,16 @@ async def create_ticket(
         status=status,
         notes=notes,
         email=email,
+        phone=phone,
         payment_id=payment_id,
         idempotency_id=idempotency_id,
         source=source,
     )
     session.add(ticket)
-    await session.commit()
+    if auto_commit:
+        await session.commit()
+    else:
+        await session.flush()
     return ticket
 
 
@@ -644,7 +652,7 @@ async def create_booking_ticket(
         schedule_event_id: int,
         price: int,
         adult_name: str,
-        phone: str,
+        phone: int,
         email: str,
         child_names: list[str] | None = None,
         child_ages: list[int] | None = None,
@@ -668,7 +676,7 @@ async def create_booking_ticket(
     session.add(person_adult)
     await session.flush()
 
-    adult = Adult(phone=phone, person_id=person_adult.id)
+    adult = Adult(phone=str(phone), person_id=person_adult.id)
     session.add(adult)
 
     # Создаем детей
@@ -695,6 +703,7 @@ async def create_booking_ticket(
         status=TicketStatus.CREATED,
         notes=f"Сайт: {email}\nPromo: {promo_code if promo_code else 'None'}",
         email=email.strip().lower() if email else None,
+        phone=phone,
         payment_id=None,
         price=price,
         source=TicketSource.WEBSITE,
@@ -720,7 +729,7 @@ async def create_transferred_ticket(
         price: int,
         schedule_event_id: int,
 ) -> Ticket:
-    """Создает новый билет при переносе: наследует source и email из исходного билета.
+    """Создает новый билет при переносе: наследует source, email и phone из исходного билета.
 
     Возвращает созданный Ticket. Коммит не делает — вызывающий код решает, когда коммитить.
     """
@@ -732,6 +741,7 @@ async def create_transferred_ticket(
         status=TicketStatus.CREATED,
         notes=original_ticket.notes,
         email=original_ticket.email,
+        phone=original_ticket.phone,
         source=original_ticket.source,
     )
     session.add(ticket)
@@ -1667,12 +1677,14 @@ async def update_base_ticket(
 async def update_ticket(
         session: AsyncSession,
         ticket_id,
+        auto_commit: bool = True,
         **kwargs
 ):
     ticket = await session.get(Ticket, ticket_id)
     for key, value in kwargs.items():
         setattr(ticket, key, value)
-    await session.commit()
+    if auto_commit:
+        await session.commit()
     return ticket
 
 

@@ -87,7 +87,7 @@ async def cancel_ticket_and_return_seat_auto(context, ticket_id: int) -> str:
     return text
 
 
-async def update_ticket_db_and_gspread(context, ticket_id, **kwargs):
+async def update_ticket_db_and_gspread(context, ticket_id, *, auto_commit: bool = True, **kwargs):
     sheet_id_domik = context.config.sheets.sheet_id_domik
     try:
         await publish_update_ticket(
@@ -101,5 +101,5 @@ async def update_ticket_db_and_gspread(context, ticket_id, **kwargs):
         await update_ticket_in_gspread(
             sheet_id_domik, ticket_id, kwargs['status'].value)
     ticket = await db_postgres.update_ticket(
-        context.session, ticket_id, **kwargs)
+        context.session, ticket_id, auto_commit=auto_commit, **kwargs)
     return ticket

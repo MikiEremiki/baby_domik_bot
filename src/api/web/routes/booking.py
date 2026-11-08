@@ -45,6 +45,7 @@ from api.yookassa_connect import create_param_payment
 from utilities.utl_text import (
     extract_phone_number_from_text,
     check_email,
+    check_phone_number,
     format_receipt_description,
 )
 from utilities.utl_place import effective_place
@@ -155,6 +156,26 @@ async def post_booking_form(
     log_ctx.info("[1/5]", f"Form received & validated for schedule {schedule_id}. Promo: {promo_code}, adult: {adult_name}, email: {email}")
 
     phone = clean_phone
+
+    # Validate Russian phone number (same logic as in the bot)
+    if not check_phone_number(phone):
+        log_ctx.warning("[1/5]", f"Invalid phone number: {phone}")
+        context = await _get_booking_form_context(request, s, session)
+        context.update({
+            'error_message': f'Проверьте правильность 10 цифр после +7/8, определено: {phone}',
+            'form_data': {
+                'ticket_type': ticket_type,
+                'adult_name': adult_name,
+                'phone': phone,
+                'email': email,
+                'child_name': child_name,
+                'child_age': child_age,
+                'promo_code': promo_code,
+                'applied_promo_id': applied_promo_id,
+            }
+        })
+        return templates.TemplateResponse(request=request, name='booking_form.html', context=context, status_code=400)
+
     s = await get_schedule_event(session, schedule_id)
     if s is None:
         log_ctx.warning("[1/5]", f"Schedule event {schedule_id} not found")
@@ -250,6 +271,9 @@ async def post_booking_form(
                 final_price = await compute_discounted_price_web(base_price, promo)
                 promo_id = promo.id
 
+    # Конвертируем phone в int для хранения в Ticket
+    phone_int = int(phone)
+
     user_session = request.session.get('user')
     found_chat_id = 0
     if user_session:
@@ -268,7 +292,7 @@ async def post_booking_form(
         schedule_event_id=schedule_id,
         price=final_price,
         adult_name=adult_name,
-        phone=phone,
+        phone=phone_int,
         email=email,
         child_names=child_name if child_name else None,
         child_ages=child_age if child_age else None,
