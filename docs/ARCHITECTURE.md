@@ -253,7 +253,28 @@ YooKassa → POST /yookassa (FastAPI)
 - Стартовые middleware: `add_db_handlers_middleware`, `add_user_status_middleware`, `add_command_permission_middleware`, `add_glob_on_off_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`.
 - Права доступа: единая точка — `can(user_id, key, session)` в `src/permissions.py`. Ключи нормализуются через `normalize_key()` (ключ COMMAND_DICT маппится в `entry[0]`, `settings:*` без изменений). root/super_admin (`ADMIN_ID` + `SUPERADMIN_CHAT_ID` из `settings.py`) проходят всегда; остальным непубличные команды и разделы доступны по записям таблицы `user_command_access`. При ошибке БД `can()` бросает `PermissionBackendError`; middleware показывает пользователю «Временная ошибка, попробуйте позже.» Хелперы `can_or_false()` и `get_user_access_or_empty()` ловят исключение с fallback. Выдача/снятие прав — через UI `command_mgmt_hl.py` (`/settings` → База данных → Доступ к командам; callback-и с intent_id `acc` защищены ключом `settings:database`), без деплоя.
 
-#### 6.5. Работа с Google Sheets
+#### 6.5. Перечисления (Enum)
+- Все enum определены в `src\db\enum.py` как `python.enum.Enum`.
+- **Значения enum** должны совпадать с типом `PostgreSQL ENUM` в БД. SQLAlchemy сопоставляет значения по `.value`, а не по имени.
+- **Существующие enum** используют три стиля значений (исторически сложилось):
+
+  | Enum | Стиль значений | Примеры |
+  |------|----------------|---------|
+  | `TicketStatus` | Кириллица | `'Создан'`, `'Оплачен'` |
+  | `PriceType` | Кириллица + None | `'Базовая стоимость'`, `None` |
+  | `TicketPriceType` | Lowercase кириллица | `'будни'`, `'выходные'` |
+  | `AgeType` | Lowercase кириллица | `'взрослый'`, `'ребенок'` |
+  | `GroupOfPeopleByDiscountType` | Int | `0`, `1`, `2` |
+  | `PromotionDiscountType` | Lowercase ASCII | `'percentage'`, `'fixed'` |
+  | `CustomMadeStatus` | Кириллица | `'Создан'`, `'Подтвержден'` |
+  | `UserRole` | Кириллица | `'Пользователь'`, `'Администратор'` |
+  | `AutoSendingTrigger` | Uppercase ASCII | `'EVENT'`, `'PAYMENT'` |
+  | `TicketSource` | Uppercase ASCII | `'WEBSITE'`, `'BOT'` |
+
+- **Новые enum:** если значения не привязаны к историческим данным или внешнему API, использовать **uppercase ASCII** (как `TicketSource`, `AutoSendingTrigger`) — это совместимо с SQLAlchemy по умолчанию и не требует дополнительных настроек.
+- **Миграции enum:** при создании нового PostgreSQL enum через Alembic используйте `sa.Enum("VALUE1", "VALUE2", name="enum_name")` — значения в миграции должны точно совпадать с `.value` в Python-enum.
+
+#### 6.6. Работа с Google Sheets
 - Все операции записи должны быть асинхронными через NATS (`gspread_worker.py`).
 - Чтение данных (синхронизация) выполняется через `/update_*` команды.
 - Путь к credentials: из `settings.sheets.credentials_path` или собирается из `CONFIG_PATH`. Scope: `https://www.googleapis.com/auth/spreadsheets`.
@@ -261,7 +282,7 @@ YooKassa → POST /yookassa (FastAPI)
 - Маппинг `RANGE_NAME` задаёт именованные вкладки/диапазоны: «Расписание», «Репертуар», «Клиентская база», «Заказные мероприятия», «Форматы ЗакМероп», «Лист ожидания», «Индив стоимости».
 - Хелперы: `get_values`, `write_data_reserve`, `write_client_reserve`, `update_ticket_in_gspread`, `write_client_cme`, `write_client_list_waiting`, `update_cme_in_gspread`.
 
-#### 6.6. YooKassa
+#### 6.7. YooKassa
 - `create_param_payment(...)` (`src\api\yookassa_connect.py`) формирует запрос платежа; `payment_method_type` по умолчанию — `sbp`, тип подтверждения — `redirect` с `return_url=URL_BOT`.
 - `fetch_payment_receipts(payment_id, timeout)` (`src\api\yookassa_connect.py`) — асинхронная обёртка `Receipt.list` через `asyncio.to_thread` + `wait_for(10s)`.
 - `build_ofd_url(fn, fp, i)` (`src\api\yookassa_connect.py`) — формирует публичную ссылку OFD по фискальным данным.
@@ -271,20 +292,7 @@ YooKassa → POST /yookassa (FastAPI)
   - Предоплаченные счета определяются по `metadata.dashboardInvoiceOriginalNumber` и маршрутизируются в топик «Выездные мероприятия».
   - Используемые поля `metadata`: `message_id`, `chat_id`, `ticket_ids` (через `|`), `choose_schedule_event_ids` (через `|`), `command`.
 
-#### 6.11. Фискальные чеки
-- `get_ticket_receipt(session, ticket_id)` (`src\api\receipt_service.py`) — получает статус и данные чека по билету: маппинг статусов платежа (succeeded→READY, pending→PENDING, canceled→CANCELED) и обработка ошибок (NO_PAYMENT, NOT_FOUND, API_ERROR).
-- `ReceiptStatus` (StrEnum): READY, PENDING, CANCELED, NO_PAYMENT, NOT_FOUND, API_ERROR.
-- `ReceiptInfo` (dataclass): статус, фискальные данные (FN, FP, номер, дата, сумма), ссылка OFD, `client_chat_id`.
-- Команда `/receipt` (`src\handlers\receipt_hl.py`) — админская, отправляет карточку чека с фискальными данными и кнопкой OFD.
-- Кнопка «🧾 Чек» добавлена в уведомление о платеже (webhook) и сохраняется после confirm/reject.
-- Кнопка «📤 Отправить клиенту» — отправляет ссылку на чек клиенту с обработкой `Forbidden`.
-- `create_approve_and_replay` (`src\utilities\utl_func.py`) поддерживает `extra_rows` для добавления дополнительных строк клавиатуры (например, кнопки чека).
-- **Автоматическая проверка чека после оплаты:**
-  - **Бот** (`src\handlers\hooks\yookassa_hl.py`): после успешной оплаты спектакля однократно вызывает `get_ticket_receipt` по первому билету; при `READY` показывает ссылку «Открыть чек», иначе — пояснение о формировании. Ошибки изолированы от обработки платежа.
-  - **Сайт** (`src\api\web\routes\booking.py`): при создании платежа `ticket_id` сохраняется в сессии (`web_ticket_id`); `show_payment_result` проверяет сессию, надёжность `WEB_SESSION_SECRET` и подтверждённую оплату, затем однократно получает чек. Ссылка показывается только при `READY` с `ofd_url`.
-  - **Текст о входе**: до и после оплаты покупатель видит, что чек для входа не нужен; вход — по спискам (номер билета или данные человека).
-
-#### 6.7. Handlers и команды
+#### 6.8. Handlers и команды
 - Регистрация всех обработчиков централизована в `src\setup_bot_handlers.py` (функция `setup_handlers`).
 - Доступ к командам проверяет middleware `command_permission` через `can()`. Старые ID-фильтры (`filter_admin` и др.) удалены — middleware единственный гейт. Технические команды (`group='tech'`) — `root_only`, доступны только root (`ADMIN_ID`), super_admin их не получает. Неизвестные команды (нет в `COMMAND_DICT`) закрыты всем, кроме root (fail-closed). Команда `settings` выдаётся автоматически с первым `settings:*` и снимается с последним.
 - Middleware `glob_usage_users` (режим техработ) и `reserve_check` (актуальность бронирования) также используют только `can()` для проверки прав — `has_any_grant` и `is_privileged` больше не применяются. `reserve_check` проверяет всех пользователей, включая имеющих гранты.
@@ -297,17 +305,17 @@ YooKassa → POST /yookassa (FastAPI)
 - Обратный импорт `/update_schedule_event_data` защищает сеансы с несинхронизированными/конфликтными правками в боте от затирания.
 - Пользователь может посмотреть свои билеты через `/tickets` (`src\handlers\profile_hl.py::show_tickets`).
 
-#### 6.8. Timeweb
+#### 6.9. Timeweb
 - Запрос: `GET https://api.timeweb.cloud/api/v1/account/finances` с `Authorization: Bearer <timeweb.token>`.
 - Тесты (`test\test_timeweb.py`) ожидают: инстанс `Response`, `status_code == 200`, `finances.hours_left` — `int`. Требуется валидный токен в `settings.yml`. Интеграционные тесты гейтятся переменной окружения `TIMEWEB_TOKEN`.
 
-#### 6.9. Правила именования
+#### 6.10. Правила именования
 - Функции-обработчики: `choice_date`, `get_phone`, `handle_payment`.
 - Функции утилиты: `utl_*`.
 - Файлы диалогов: `*_conv_hl.py`.
 - Файлы логики: `*_hl.py`.
 
-#### 6.10. Конфигурация
+#### 6.11. Конфигурация
 - Настройки загружаются из `config\settings.yml` через `src\settings\config_loader.parse_settings()`. Можно переопределить через переменную окружения `CONFIG_PATH`.
 - Обязательные ключи (pydantic-модели):
   - `bot`: `token`, `admin_group`, `developer_chat_id`
@@ -316,6 +324,19 @@ YooKassa → POST /yookassa (FastAPI)
   - `sheets`: `credentials_path`, `sheet_id_domik`, `sheet_id_cme`
   - `yookassa`: `account_id`, `secret_key`, `payment_method_type`
 - Runtime-константы — в `src\settings\settings.py` (ID чатов/админов, `COMMAND_DICT`, `RANGE_NAME` mapping, `nats_url`).
+
+#### 6.12. Фискальные чеки
+- `get_ticket_receipt(session, ticket_id)` (`src\api\receipt_service.py`) — получает статус и данные чека по билету: маппинг статусов платежа (succeeded→READY, pending→PENDING, canceled→CANCELED) и обработка ошибок (NO_PAYMENT, NOT_FOUND, API_ERROR).
+- `ReceiptStatus` (StrEnum): READY, PENDING, CANCELED, NO_PAYMENT, NOT_FOUND, API_ERROR.
+- `ReceiptInfo` (dataclass): статус, фискальные данные (FN, FP, номер, дата, сумма), ссылка OFD, `client_chat_id`.
+- Команда `/receipt` (`src\handlers\receipt_hl.py`) — админская, отправляет карточку чека с фискальными данными и кнопкой OFD.
+- Кнопка «🧾 Чек» добавлена в уведомление о платеже (webhook) и сохраняется после confirm/reject.
+- Кнопка «📤 Отправить клиенту» — отправляет ссылку на чек клиенту с обработкой `Forbidden`.
+- `create_approve_and_replay` (`src\utilities\utl_func.py`) поддерживает `extra_rows` для добавления дополнительных строк клавиатуры (например, кнопки чека).
+- **Автоматическая проверка чека после оплаты:**
+  - **Бот** (`src\handlers\hooks\yookassa_hl.py`): после успешной оплаты спектакля однократно вызывает `get_ticket_receipt` по первому билету; при `READY` показывает ссылку «Открыть чек», иначе — пояснение о формировании. Ошибки изолированы от обработки платежа.
+  - **Сайт** (`src\api\web\routes\booking.py`): при создании платежа `ticket_id` сохраняется в сессии (`web_ticket_id`); `show_payment_result` проверяет сессию, надёжность `WEB_SESSION_SECRET` и подтверждённую оплату, затем однократно получает чек. Ссылка показывается только при `READY` с `ofd_url`.
+  - **Текст о входе**: до и после оплаты покупатель видит, что чек для входа не нужен; вход — по спискам (номер билета или данные человека).
 
 ---
 

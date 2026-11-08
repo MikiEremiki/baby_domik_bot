@@ -65,5 +65,5 @@ class AutoSendingTrigger(enum.Enum):
 
 
 class TicketSource(enum.Enum):
-    WEBSITE = 'website'
-    BOT = 'bot'
+    WEBSITE = 'WEBSITE'
+    BOT = 'BOT'

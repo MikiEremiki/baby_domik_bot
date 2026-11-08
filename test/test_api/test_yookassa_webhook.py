@@ -42,7 +42,7 @@ def test_processing_ticket_paid_website_new_user(monkeypatch):
     Убеждается в отсутствии AttributeError, создании сессии, заполнении полей,
     отсутствии вызова get_user_data и вызове mark_data_for_update_persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -88,7 +88,7 @@ def test_processing_ticket_paid_website_existing_user(monkeypatch):
     Проверяет обработку вебхука с сайта для пользователя с уже существующим user_data.
     Убеждается в сохранении посторонних ключей, удалении старых client_data и пометке persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     context.application.user_data[5473664345].update({
         'custom_key': 'custom_val',
@@ -141,7 +141,7 @@ def test_processing_ticket_paid_website_error_in_notification_still_marks_persis
     Проверяет, что при ошибке отправки уведомлений блок finally всё равно
     помечает измененные данные для сохранения в persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -176,7 +176,7 @@ def test_processing_ticket_paid_website_unhandled_exception_still_marks_persiste
     Проверяет, что даже при необработанном исключении блок finally выполняет
     пометку данных в persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     monkeypatch.setattr('handlers.hooks.yookassa_hl.create_str_info_by_schedule_event_id',
@@ -199,7 +199,7 @@ def test_processing_ticket_paid_invalid_chat_ids(monkeypatch, invalid_chat_id):
     Проверяет, что при некорректных chat_id (0, пустая строка, нечисловые)
     сессия не создаётся и пометка persistence не вызывается.
     """
-    update = _create_mock_update(source='website', chat_id=invalid_chat_id, message_id=0, ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id=invalid_chat_id, message_id=0, ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -228,7 +228,7 @@ def test_processing_ticket_paid_no_persistence(monkeypatch):
     Проверяет, что при отсутствии persistence (context.application.persistence is None)
     обработка выполняется успешно без обращений к update_conversation.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=False)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -376,7 +376,7 @@ def test_processing_ticket_paid_bot_booking(monkeypatch):
     """
     Проверяет регрессию для бронирования через бота (source='bot').
     """
-    update = _create_mock_update(source='bot', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='BOT', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context()
     context.application.user_data[5473664345].update({
         'command': 'reserve',
@@ -407,7 +407,7 @@ def test_processing_ticket_paid_admin_booking(monkeypatch, has_user):
     """
     Проверяет административную бронь (command='reserve_admin') с наличием и отсутствием ключа user в user_data.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', command='reserve_admin', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', command='reserve_admin', ticket_ids='4915')
     context = _create_mock_context()
     
     user_dict = context.application.user_data[5473664345]

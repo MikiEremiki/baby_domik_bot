@@ -106,7 +106,7 @@ def mock_seats():
 
 
 def _create_mock_update(
-    source='website',
+    source='WEBSITE',
     chat_id='5473664345',
     message_id=123,
     ticket_ids='4915',

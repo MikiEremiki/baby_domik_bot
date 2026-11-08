@@ -18,8 +18,8 @@ branch_labels = None
 depends_on = None
 
 TicketSourceEnum = sa.Enum(
-    "website",
-    "bot",
+    "WEBSITE",
+    "BOT",
     name="ticket_source",
     metadata=BaseModel.metadata
 )

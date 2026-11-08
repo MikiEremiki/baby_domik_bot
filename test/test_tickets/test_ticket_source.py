@@ -18,8 +18,8 @@ from db.models import Ticket
 
 def test_ticket_source_enum_values():
     """TicketSource enum has WEBSITE and BOT values."""
-    assert TicketSource.WEBSITE.value == 'website'
-    assert TicketSource.BOT.value == 'bot'
+    assert TicketSource.WEBSITE.value == 'WEBSITE'
+    assert TicketSource.BOT.value == 'BOT'
 
 
 def test_create_ticket_with_source_website(monkeypatch):

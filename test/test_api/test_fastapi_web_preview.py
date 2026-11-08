@@ -549,7 +549,7 @@ def test_post_booking_form_finds_chat_id_by_phone(monkeypatch):
         args, kwargs = mock_payment_create.call_args
         payment_params = args[0]
         assert payment_params['metadata']['chat_id'] == 123456789
-        assert payment_params['metadata']['source'] == 'website'
+        assert payment_params['metadata']['source'] == 'WEBSITE'
 
 
 def test_post_booking_form_skips_chat_id_for_admin(monkeypatch):
