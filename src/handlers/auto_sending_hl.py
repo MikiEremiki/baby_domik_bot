@@ -166,7 +166,7 @@ async def auto_sending_create_start(update: Update, context):
 
 async def auto_sending_ask_name(update: Update, context):
     """Ask for the sending name."""
-    text = "Введите название рассылки:\n\n"
+    text = "Введите название рассылки:<br><br>"
     text += "Примеры: «Напоминание за день», «Материалы после оплаты», «Запрос отзыва»"
 
     reply_markup = InlineKeyboardMarkup([

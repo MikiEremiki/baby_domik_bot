@@ -458,8 +458,8 @@ async def _handle_chld_selection_callback(
     elif data == 'CHLD_SEARCH_NAME':
         reserve_user_data['waiting_for_child_search_name'] = True
         reserve_user_data.pop('waiting_for_child_search_age', None)
-        text = ('<b>Поиск де��ей по имени</b>\n\n'
-                'Введите имя или часть имени ребенка:\n'
+        text = ('<b>Поиск детей по имени</b><br><br>'
+                'Введите имя или часть имени ребенка:<br>'
                 'Например: <code>Аня</code>')
         keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -475,8 +475,8 @@ async def _handle_chld_selection_callback(
     elif data == 'CHLD_SEARCH_AGE':
         reserve_user_data['waiting_for_child_search_age'] = True
         reserve_user_data.pop('waiting_for_child_search_name', None)
-        text = ('<b>Фильтр детей по возрасту</b>\n\n'
-                'Введите возраст ребенка (число):\n'
+        text = ('<b>Фильтр детей по возрасту</b><br><br>'
+                'Введите возраст ребенка (число):<br>'
                 'Например: <code>3</code> или <code>5</code>')
         keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
         reply_markup = InlineKeyboardMarkup(keyboard)

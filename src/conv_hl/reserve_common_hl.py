@@ -19,7 +19,7 @@ from utilities.utl_kbd import (
 from utilities.utl_text import check_email
 
 
-EMAIL_PROMPT = 'Напишите email покупателя, на который будет направлен чек\n\n'
+EMAIL_PROMPT = 'Напишите email покупателя, на который будет направлен чек<br><br>'
 
 
 async def create_email_keyboard(

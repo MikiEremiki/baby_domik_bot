@@ -917,7 +917,7 @@ async def send_message_about_list_waiting(update: Update, context):
 
     text = reserve_user_data['text_select_event']
     if command == 'reserve':
-        text += ('К сожалению места уже забронировали и свободных мест\n'
+        text += ('К сожалению места уже забронировали и свободных мест<br>'
                  f' Осталось: '
                  f'<i>{qty_child} дет</i>'
                  f' | '

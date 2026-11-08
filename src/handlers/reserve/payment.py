@@ -303,7 +303,7 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buyer_email = await db_postgres.get_email(context.session,
                                                   update.effective_user.id)
     if not buyer_email:
-        text = ('Для создания ссылки на оплату необходим email покупателя.\n\n'
+        text = ('Для создания ссылки на оплату необходим email покупателя.<br><br>'
                 'Пожалуйста, введите email.')
         keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
