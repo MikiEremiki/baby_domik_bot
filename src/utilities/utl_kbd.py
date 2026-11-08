@@ -253,7 +253,7 @@ async def create_kbd_for_time_by_date(schedule_events: List[ScheduleEvent], enum
 
         is_sold_out_child = qty_child == 0
         if is_sold_out_child:
-            btn_text = prefix + time_txt + text_emoji + place_str + ' 📋 ЛО'
+            btn_text = prefix + time_txt + text_emoji + place_str + ' 📋 ЛистОжид'
         else:
             btn_text = prefix + time_txt + text_emoji + place_str + f' | {qty_child} дет | {qty_adult} взр'
 

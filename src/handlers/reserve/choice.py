@@ -672,7 +672,7 @@ async def _render_sessions_for_repertoire(
         p = effective_place(s_ev, default_place)
         place_suffix = f" ({p.name})" if has_multiple_places else ""
         if seats_map and s_ev.id in seats_map and seats_map[s_ev.id]['free_child'] == 0:
-            btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji} 📋 ЛО"
+            btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji} 📋 ЛистОжид"
         else:
             btn_text = f"{date_txt} {time_txt}{place_suffix}{text_emoji}"
         keyboard.append(
@@ -722,7 +722,10 @@ async def _render_sessions_for_repertoire(
                 qty_child = max(int(s_ev.qty_child_free_seat), 0)
                 qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
             place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places else ""
-            text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
+            if qty_child == 0:
+                text += f"{date_txt} {time_txt}{place_suffix_text} — мест нет\n"
+            else:
+                text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
 
     # Адресные сноски
     places = collect_places(schedule_events_sorted, default_place)
@@ -730,7 +733,7 @@ async def _render_sessions_for_repertoire(
         text += '\n' + '\n'.join(format_place_footnote(p) for p in places)
 
     if has_sold_out_child:
-        text += ('\n\n<i>📋 ЛО — лист ожидания. Если места освободятся, вы '
+        text += ('\n\n<i>📋 ЛистОжид — лист ожидания. Если места освободятся, вы '
                  'сможете получить уведомление. Нажмите кнопку нужного сеанса '
                  'и на следующем экране выберите «Записаться в лист ожидания».</i>')
 
@@ -972,7 +975,10 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             place_suffix_text = f" ({html.escape(p.name)})" if has_multiple_places_dt else ""
             qty_child = max(int(s_ev.qty_child_free_seat), 0)
             qty_adult = max(int(s_ev.qty_adult_free_seat), 0)
-            text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
+            if qty_child == 0:
+                text += f"{date_txt} {time_txt}{place_suffix_text} — мест нет\n"
+            else:
+                text += f"{date_txt} {time_txt}{place_suffix_text} — {qty_child} дет | {qty_adult} взр\n"
     else:
         # Суммарно по датам (на выбранную дату времена покажем на следующем шаге)
         text += '\n<b>Свободные места по датам (суммарно):</b>\n'
@@ -980,7 +986,10 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             evs = by_date[d]
             qty_child = sum(max(int(e.qty_child_free_seat), 0) for e in evs)
             qty_adult = sum(max(int(e.qty_adult_free_seat), 0) for e in evs)
-            text += f"{d.strftime('%d.%m')} — {qty_child} дет | {qty_adult} взр\n"
+            if qty_child == 0:
+                text += f"{d.strftime('%d.%m')} — мест нет\n"
+            else:
+                text += f"{d.strftime('%d.%m')} — {qty_child} дет | {qty_adult} взр\n"
 
     photo = False
     if number_of_month_str is not None:
@@ -1234,9 +1243,9 @@ async def _render_time_for_date(
         text += '\n\n' + '\n'.join(format_place_footnote(p) for p in places)
 
     if has_sold_out_child:
-        text += ('\n\n<i>📋 ЛО — лист ожидания. Если места освободятся, вы '
-                 'сможете получить уведомление. Нажмите кнопку нужного сеанса '
-                 'и на следующем экране выберите «Записаться в лист ожидания».</i>')
+        text += ('\n\n<i>📋 ЛистОжид — лист ожидания. Если места освободятся '
+                 'с вами свяжется администратор. Нажмите кнопку нужного сеанса '
+                 'и на следующем этапе выберите «Записаться в лист ожидания».</i>')
 
     if query:
         await query.delete_message()
