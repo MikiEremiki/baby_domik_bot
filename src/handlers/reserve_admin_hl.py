@@ -21,7 +21,12 @@ from utilities.utl_func import (
 )
 from utilities.utl_kbd import (
     create_kbd_and_text_tickets_for_choice, create_replay_markup,
-    remove_intent_id, add_btn_back_and_cancel, create_adult_confirm_btn,
+    remove_intent_id, add_btn_back_and_cancel,
+)
+from conv_hl.reserve_common_hl import (
+    send_email_step,
+    handle_email_input,
+    handle_email_confirm_callback,
 )
 from utilities.utl_ticket import get_ticket_and_price
 
@@ -327,35 +332,9 @@ async def start_forma_info(
 
         state = ConversationHandler.END
     else:
-        text = '<b>Напишите фамилию и имя (взрослого)</b><br><br>'
-        adult_name = await db_postgres.get_adult_name(context.session,
-                                                      update.effective_user.id)
-        adult_confirm_btn, text = await create_adult_confirm_btn(
-            text, adult_name)
-
-        back_and_cancel = add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-            add_back_btn=False
-        )
-
-        if adult_confirm_btn:
-            keyboard = [adult_confirm_btn, back_and_cancel]
-            reserve_user_data['client_data']['name_adult'] = adult_name
-        else:
-            keyboard = [back_and_cancel]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        res_text = transform_html(text)
-        message = await query.edit_message_text(
-            text=res_text.text,
-            entities=res_text.entities,
-            reply_markup=reply_markup,
-            parse_mode=None
-        )
-
-        reserve_user_data['message_id'] = message.message_id
-        state = 'FORMA'
-        await set_back_context(context, state, res_text.text, reply_markup)
+        # Prompt for buyer email first
+        _, state = await send_email_step(update, context, postfix_for_back='TICKET',
+                                          edit_message=True)
 
     context.user_data['STATE'] = state
     return state
@@ -406,34 +385,20 @@ async def handle_custom_ticket_params(
     reserve_user_data['chose_base_ticket_id'] = custom_ticket.base_ticket_id
     reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]
 
-    text = '<b>Напишите фамилию и имя (взрослого)</b><br><br>'
-    adult_name = await db_postgres.get_adult_name(context.session,
-                                                  update.effective_user.id)
-    adult_confirm_btn, text = await create_adult_confirm_btn(
-        text, adult_name)
-
-    back_and_cancel = add_btn_back_and_cancel(
-        postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
-        add_back_btn=False
-    )
-
-    if adult_confirm_btn:
-        keyboard = [adult_confirm_btn, back_and_cancel]
-        reserve_user_data['client_data']['name_adult'] = adult_name
-    else:
-        keyboard = [back_and_cancel]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    res_text = transform_html(text)
-    message = await update.effective_chat.send_message(
-        text=res_text.text,
-        entities=res_text.entities,
-        reply_markup=reply_markup,
-        parse_mode=None
-    )
-
-    reserve_user_data['message_id'] = message.message_id
-    state = 'FORMA'
-    await set_back_context(context, state, res_text.text, reply_markup)
+    # Prompt for buyer email first
+    _, state = await send_email_step(update, context, postfix_for_back='TICKET')
     context.user_data['STATE'] = state
     return state
+
+
+async def get_email_admin(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    """Admin reservation: collect buyer email before proceeding to FORMA."""
+    return await handle_email_input(update, context, postfix_for_back='TICKET')
+
+
+async def email_confirm(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """Admin reservation: confirm pre-filled email from admin profile."""
+    return await handle_email_confirm_callback(update, context, postfix_for_back='TICKET')

@@ -392,7 +392,7 @@ async def create_email_confirm_btn(text, email):
         text += f'Последний введенный email:\n<code>{email}</code>\n\n'
         text += 'Использовать последнюю введенную почту?'
         email_confirm_btn = [
-            InlineKeyboardButton('Да', callback_data='email_confirm')]
+            InlineKeyboardButton('Да', callback_data=f'email_confirm|{email}')]
     return email_confirm_btn, text
 
 

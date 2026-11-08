@@ -64,7 +64,7 @@ baby_domik_bot/
 │   │   +-- sales_hl.py         # Массовые рассылки
 │   │   +-- ticket_hl.py        # Работа с билетами
 │   │   +-- timeweb_hl.py       # Баланс Timeweb
-│   │   +-- email_hl.py         # Email-рассылки
+│   │   +-- email_hl.py         # Валидация и сохранение email покупателя
 │   │   +-- offer_hl.py         # Офферы
 │   │   +-- list_wait_hl.py     # Лист ожидания
 │   │   +-- migration_admin_hl.py # Админские миграции
@@ -127,8 +127,15 @@ baby_domik_bot/
 │   │   L-- site.css            # Стили веб-интерфейса
 │   L-- img/                    # Изображения
 │
-+-- test/                       # ТЕСТЫ (pytest)
-│   L-- test_timeweb.py         # Интеграционные тесты Timeweb API
++-- test/                       # ТЕСТЫ (pytest, ~28 файлов)
+│   +-- test_reserve_refactor.py    # Бронирование: выбор сеанса, билетов
+│   +-- test_reserve_admin_improvements.py  # Админское бронирование
+│   +-- test_ticket_email.py        # Email покупателя: валидация, сохранение, наследование
+│   +-- test_ticket_source.py       # Источник билета: BOT / WEBSITE
+│   +-- test_yookassa_webhook.py    # Вебхуки YooKassa
+│   +-- test_auto_sending.py        # Авторассылки
+│   +-- test_receipts.py            # Фискальные чеки
+│   L-- ...                         # Итого ~28 тестовых файлов
 │
 +-- config/                     # КОНФИГУРАЦИЯ (игнорируется в Git)
 │   +-- alembic.ini             # Конфигурация Alembic

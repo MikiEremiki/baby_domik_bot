@@ -616,6 +616,7 @@ async def create_ticket(
         payment_id=None,
         idempotency_id=None,
         source: TicketSource | None = None,
+        email: str | None = None,
 ):
     if source is None:
         source = TicketSource.BOT
@@ -627,6 +628,7 @@ async def create_ticket(
         promo_id=promo_id,
         status=status,
         notes=notes,
+        email=email,
         payment_id=payment_id,
         idempotency_id=idempotency_id,
         source=source,
@@ -692,6 +694,7 @@ async def create_booking_ticket(
         schedule_event_id=schedule_event_id,
         status=TicketStatus.CREATED,
         notes=f"Сайт: {email}\nPromo: {promo_code if promo_code else 'None'}",
+        email=email.strip().lower() if email else None,
         payment_id=None,
         price=price,
         source=TicketSource.WEBSITE,
@@ -717,7 +720,7 @@ async def create_transferred_ticket(
         price: int,
         schedule_event_id: int,
 ) -> Ticket:
-    """Создает новый билет при переносе: наследует source из исходного билета.
+    """Создает новый билет при переносе: наследует source и email из исходного билета.
 
     Возвращает созданный Ticket. Коммит не делает — вызывающий код решает, когда коммитить.
     """
@@ -728,6 +731,7 @@ async def create_transferred_ticket(
         promo_id=original_ticket.promo_id,
         status=TicketStatus.CREATED,
         notes=original_ticket.notes,
+        email=original_ticket.email,
         source=original_ticket.source,
     )
     session.add(ticket)

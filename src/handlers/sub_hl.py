@@ -373,8 +373,11 @@ async def create_and_send_payment(
         context.session, chose_base_ticket_id)
     name = theater_event.name
 
-    email = await db_postgres.get_email(context.session,
-                                        update.effective_user.id)
+    # Use buyer email from reservation context first, fall back to user profile
+    email = reserve_user_data.get('buyer_email')
+    if not email:
+        email = await db_postgres.get_email(context.session,
+                                            update.effective_user.id)
 
     choose_schedule_event_ids = await get_schedule_event_ids_studio(context)
 

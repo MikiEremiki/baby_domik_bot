@@ -158,6 +158,9 @@ async def create_tickets(context, ticket_status):
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
 
+    # Email покупателя из контекста бронирования
+    buyer_email = reserve_user_data.get('buyer_email')
+
     for event_id in choose_schedule_event_ids:
         ticket = await db_postgres.create_ticket(
             context.session,
@@ -167,6 +170,7 @@ async def create_tickets(context, ticket_status):
             status=ticket_status,
             promo_id=promo_id,
             source=TicketSource.BOT,
+            email=buyer_email,
         )
         ticket_ids.append(ticket.id)
 

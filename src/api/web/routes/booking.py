@@ -350,7 +350,7 @@ async def post_booking_form(
         choose_schedule_event_ids=str(s.id),
         command='reserve',
         promo_id=promo_id,
-        source=TicketSource.WEBSITE,
+        source=TicketSource.WEBSITE.value,
     )
 
     idempotency_id = uuid.uuid4()
