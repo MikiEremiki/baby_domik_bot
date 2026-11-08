@@ -18,8 +18,7 @@ SET source = (CASE
     WHEN notes LIKE '%Website booking%' THEN 'website'
     WHEN notes LIKE '%website%' THEN 'website'
     ELSE 'bot'
-END)::ticket_source
-WHERE source IS NULL;
+END)::ticket_source;
 
 -- Маркер выполнения
 INSERT INTO manual_migrations (migration_name)

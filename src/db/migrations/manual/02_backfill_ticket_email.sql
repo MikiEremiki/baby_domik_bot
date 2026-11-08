@@ -11,17 +11,19 @@ CREATE TABLE IF NOT EXISTS manual_migrations (
 );
 
 -- Извлекаем email из notes для билетов, созданных через сайт.
--- Формат notes: "Сайт: user@example.com\nPromo: None"
--- Для билетов бота (без маркера "Сайт:") ставим NULL.
+-- В production только два формата:
+--   "Сайт: user@example.com\nPromo: None"
+--   "Website booking: user@example.com\nPromo: None"
+-- Логика: берём текст после маркера, затем первую строку (до \n), убираем пробелы.
+-- Для билетов бота (без маркера сайта) ставим NULL.
 UPDATE tickets
 SET email = CASE
     WHEN notes LIKE '%Сайт:%' THEN
         TRIM(SPLIT_PART(SPLIT_PART(notes, 'Сайт:', 2), E'\n', 1))
-    WHEN notes LIKE '%Web booking.%' THEN
-        TRIM(SPLIT_PART(SPLIT_PART(notes, 'Web booking.', 2), E'\n', 1))
+    WHEN notes LIKE '%Website booking:%' THEN
+        TRIM(SPLIT_PART(SPLIT_PART(notes, 'Website booking:', 2), E'\n', 1))
     ELSE NULL
-END
-WHERE email IS NULL;
+END;
 
 -- Приводим к нижнему регистру
 UPDATE tickets
