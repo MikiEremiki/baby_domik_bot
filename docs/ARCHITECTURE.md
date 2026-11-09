@@ -47,9 +47,19 @@ baby_domik_bot/
 │   │   +-- main_hl.py          # Стартовые команды (/start, /help)
 │   │   +-- common_hl.py        # Общие обработчики
 │   │   +-- afisha_hl.py        # Афиша спектаклей
-│   │   +-- profile_hl.py       # Профиль пользователя (/tickets)
+│   │   +-- profile_hl.py       # Профиль пользователя (CRUD участников, ~400 строк; tickets-функции ре-экспортирует из tickets_user)
+│   │   +-- tickets_user.py     # Клиентский просмотр билетов /tickets (список, детали, чек, ~370 строк)
 │   │   +-- support_hl.py       # Админская панель: CRUD спектаклей, билетов, промо
 │   │   +-- command_mgmt_hl.py  # UI управления доступом к командам (/settings → База данных)
+│   │   +-- tickets_admin/          # Бизнес-логика /tickets_admin (админское меню управления билетом)
+│   │   │   +-- constants.py        # Состояния и константы
+│   │   │   +-- keyboards.py        # Клавиатуры
+│   │   │   +-- display.py          # Форматирование и показ карточки билета
+│   │   │   +-- status.py           # Смена статуса с синхронизацией мест
+│   │   │   +-- ticket_list.py      # Компактный список с пагинацией и фильтром
+│   │   │   +-- buyer.py            # Карточка покупателя и билеты покупателя
+│   │   │   +-- inputs.py           # Обработчики текстового ввода
+│   │   │   L-- callbacks.py        # Callback-обработчики и диспетчер
 │   │   +-- command_mgmt/       # Подмодули управления доступом
 │   │   │   +-- keyboards.py    # Рендереры экранов и клавиатуры
 │   │   │   L-- parsers.py      # Парсеры callback-данных
@@ -89,6 +99,11 @@ baby_domik_bot/
 │   │       L-- schedule_sync_hl.py  # Результаты выгрузки расписания
 │   │
 │   +-- conv_hl/                # ДИАЛОГИ (ConversationHandlers)
+│   │   +-- common_conv_hl.py   # Общие обработчики (cancel, fallback)
+│   │   +-- profile_conv_hl.py  # Диалог /profile (включая вложенный просмотр билетов)
+│   │   +-- tickets_conv_hl.py  # Диалог /tickets (клиентский, список билетов)
+│   │   +-- tickets_admin_conv_hl.py # Диалог /tickets_admin (админский, импортирует логику из handlers/tickets_admin/)
+│   │   +-- reserve_common_hl.py  # Общие состояния бронирования
 │   │   L-- *_conv_hl.py        # Состояния и переходы для сложных диалогов
 │   │
 │   +-- middleware/             # ПРОМЕЖУТОЧНОЕ ПО
@@ -128,7 +143,7 @@ baby_domik_bot/
 │   │   L-- site.css            # Стили веб-интерфейса
 │   L-- img/                    # Изображения
 │
-+-- test/                       # ТЕСТЫ (pytest, 580 тестов, 29 файлов)
++-- test/                       # ТЕСТЫ (pytest, 623 теста, 29 файлов)
 │   +-- conftest.py             # Общие фикстуры: DB, Telegram, FastAPI моки
 │   +-- test_schedule/          # Расписание и авторассылки (7 файлов)
 │   +-- test_handlers/          # Обработчики Telegram (8 файлов)
@@ -305,7 +320,8 @@ YooKassa → POST /yookassa (FastAPI)
 - Команда выгрузки расписания: `/sync_schedule [event_id]` (только админы). Фиксирует срез накопленных правок, запрашивает подтверждение и публикует задачу в NATS `gspread`.
 - При выгрузке проверяются конфликты со значениями в Google Таблице: конфликтующие сеансы не перезаписываются и требуют ручного разрешения.
 - Обратный импорт `/update_schedule_event_data` защищает сеансы с несинхронизированными/конфликтными правками в боте от затирания.
-- Пользователь может посмотреть свои билеты через `/tickets` (`src\handlers\profile_hl.py::show_tickets`).
+- Пользователь может посмотреть свои билеты через `/tickets` (открыта всем, отдельный диалог `tickets_conv_hl.py`, логика `profile_hl.py::show_tickets`).
+- Администратор управляет билетами через `/tickets_admin` (`tickets_admin_conv_hl.py`): поиск по пользователю/билету, карточка с кнопками (статус, email, телефон, примечание, базовый, покупатель). Кнопка «Отменить» обрабатывается в общем `main_hl.cancel` веткой `tickets_admin`.
 
 #### 6.9. Timeweb
 - Запрос: `GET https://api.timeweb.cloud/api/v1/account/finances` с `Authorization: Bearer <timeweb.token>`.

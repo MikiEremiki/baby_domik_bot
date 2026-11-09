@@ -114,7 +114,7 @@
 
 | Термин | Описание |
 |--------|----------|
-| **Админские команды** | `/update_config`, `/send_approve_msg`, `/update_ticket`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`, `/sync_schedule`, `/receipt`. |
+| **Админские команды** | `/update_config`, `/send_approve_msg`, `/tickets_admin`, `/log`, `/check_balance_on_timeweb`, `/topic`, `/topic_del`, `/global_on_off`, `/set_admin_info`, `/set_cme_admin_info`, `/sync_schedule`, `/receipt`. |
 | **Команды синхронизации** | `/update_places`, `/update_schedule_event_data` (остальные `/update_*` больше не зарегистрированы). |
 | **Forum Topics (Топики)** | Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания». |
 | **RANGE_NAME** | Маппинг именованных вкладок Google Sheets: «Расписание», «Репертуар», «Клиентская база», «Заказные мероприятия», «Форматы ЗакМероп», «Лист ожидания», «Индив стоимости». |

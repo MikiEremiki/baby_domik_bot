@@ -7,13 +7,18 @@ from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
 from db import db_postgres
-from db.enum import AgeType, TicketStatus
+from db.enum import AgeType
 from handlers import init_conv_hl_dialog
 from handlers.sub_hl import request_phone_number
-from utilities.utl_func import (
-    create_str_info_by_schedule_event_id, extract_command
-)
+from utilities.utl_func import set_back_context
+from utilities.utl_kbd import add_btn_back_and_cancel
 from utilities.utl_text import extract_phone_number_from_text, check_phone_number
+
+# Re-export tickets-related symbols from tickets_user for backward compatibility
+from handlers.tickets_user import (  # noqa: F401
+    TICKETS_MENU, PAGE_SIZE_TICKETS,
+    show_tickets, tickets_callback,
+)
 
 profile_logger = logging.getLogger('bot.profile')
 
@@ -29,14 +34,8 @@ EDIT_ADULT_PHONE = 9
 EDIT_CHILD_AGE = 10
 CONFIRM_DELETE = 11
 
-
 adult_button = InlineKeyboardButton('➕ Взрослый', callback_data='add_adult')
 child_button = InlineKeyboardButton('➕ Ребенок', callback_data='add_child')
-back_button = InlineKeyboardButton('⬅️ Назад', callback_data='profile:back')
-cancel_button = InlineKeyboardButton('❌ Отмена', callback_data='Отменить-settings')
-
-# Pagination size for tickets list
-PAGE_SIZE_TICKETS = 5
 
 
 def _profile_keyboard(persons) -> InlineKeyboardMarkup:
@@ -57,8 +56,10 @@ def _profile_keyboard(persons) -> InlineKeyboardMarkup:
         ])
     keyboard.append(
         [adult_button, child_button])
-    keyboard.append(
-        [cancel_button])
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel='tickets',
+        add_back_btn=False,
+    ))
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -76,7 +77,10 @@ def _person_menu_keyboard(person_id: int,
             '🎂 Возраст', callback_data=f'profile:edit_age:{person_id}:{age_type}')])
     keyboard.append([InlineKeyboardButton(
         '🗑 Удалить', callback_data=f'profile:del:{person_id}:{age_type}')])
-    keyboard.append([back_button])
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_back='MENU',
+        add_cancel_btn=False,
+    ))
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -138,6 +142,7 @@ async def start_profile(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     else:
         await update.effective_chat.send_message(
             res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
+    await set_back_context(context, MENU, text, reply_markup)
     context.user_data['STATE'] = MENU
     return MENU
 
@@ -220,79 +225,120 @@ async def add_child_age(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
 async def profile_callback(update: Update,
                            context: 'ContextTypes.DEFAULT_TYPE'):
+    """Dispatch profile callbacks to specific handlers."""
     query = update.callback_query
     await query.answer()
     parts = query.data.split(':')
     action = parts[1] if len(parts) > 1 else ''
-    # profile:menu:<person_id>:<age_type>
+
     if action == 'tickets':
         return await show_tickets(update, context)
     if action == 'menu':
-        person_id = int(parts[2])
-        age_type = parts[3]
-        text = 'Управление участником'
-        res = transform_html(text)
-        await query.edit_message_text(
-            text=res.text, entities=res.entities,
-            reply_markup=_person_menu_keyboard(person_id, age_type), parse_mode=None
-        )
-        context.user_data['STATE'] = PERSON_MENU
-        return PERSON_MENU
+        return await _cb_person_menu(query, context, int(parts[2]), parts[3])
     if action == 'back':
         return await start_profile(update, context)
     if action == 'edit_name':
-        person_id = int(parts[2])
-        age_type = parts[3]
-        context.user_data.setdefault('profile', {})['edit_person'] = {
-            'person_id': person_id,
-            'age_type': age_type,
-        }
-        res = transform_html('Введите новое имя:')
-        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
-        context.user_data['STATE'] = EDIT_NAME
-        return EDIT_NAME
+        return await _cb_edit_name(query, context, int(parts[2]), parts[3])
     if action == 'edit_phone':
-        person_id = int(parts[2])
-        context.user_data.setdefault('profile', {})['edit_person'] = {
-            'person_id': person_id,
-            'age_type': 'adult',
-        }
-        res = transform_html('Введите телефон (10 цифр без +7):')
-        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
-        context.user_data['STATE'] = EDIT_ADULT_PHONE
-        return EDIT_ADULT_PHONE
+        return await _cb_edit_phone(query, context, int(parts[2]))
     if action == 'edit_age':
-        person_id = int(parts[2])
-        context.user_data.setdefault('profile', {})['edit_person'] = {
-            'person_id': person_id,
-            'age_type': 'child',
-        }
-        res = transform_html('Введите возраст ребенка (например 4.5):')
-        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
-        context.user_data['STATE'] = EDIT_CHILD_AGE
-        return EDIT_CHILD_AGE
+        return await _cb_edit_age(query, context, int(parts[2]))
     if action == 'del':
-        person_id = int(parts[2])
-        age_type = parts[3]
-        keyboard = [
-            [InlineKeyboardButton('✅ Да, удалить',
-                                  callback_data=f'profile:confirm_del:{person_id}')],
-            [InlineKeyboardButton('⬅️ Назад',
-                                  callback_data=f'profile:menu:{person_id}:{age_type}')],
-        ]
-        res = transform_html('Вы уверены, что хотите удалить участника? Действие необратимо.')
-        await query.edit_message_text(
-            res.text, entities=res.entities,
-            reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None
-        )
-        context.user_data['STATE'] = CONFIRM_DELETE
-        return CONFIRM_DELETE
+        return await _cb_delete_confirm(query, context, int(parts[2]), parts[3])
     if action == 'confirm_del':
-        person_id = int(parts[2])
-        await db_postgres.delete_person(context.session, person_id)
-        res = transform_html('Удалено. Обновляю профиль...')
-        await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
-        return await start_profile(update, context)
+        return await _cb_confirm_delete(update, context, int(parts[2]))
+    return MENU
+
+
+async def _cb_person_menu(
+    query, context: 'ContextTypes.DEFAULT_TYPE', person_id: int, age_type: str,
+) -> int:
+    """Show person management menu."""
+    text = 'Управление участником'
+    res = transform_html(text)
+    reply_markup = _person_menu_keyboard(person_id, age_type)
+    await query.edit_message_text(
+        text=res.text, entities=res.entities,
+        reply_markup=reply_markup, parse_mode=None
+    )
+    await set_back_context(context, PERSON_MENU, text, reply_markup)
+    context.user_data['STATE'] = PERSON_MENU
+    return PERSON_MENU
+
+
+async def _cb_edit_name(
+    query, context: 'ContextTypes.DEFAULT_TYPE', person_id: int, age_type: str,
+) -> int:
+    """Prompt for new name."""
+    context.user_data.setdefault('profile', {})['edit_person'] = {
+        'person_id': person_id,
+        'age_type': age_type,
+    }
+    res = transform_html('Введите новое имя:')
+    await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
+    context.user_data['STATE'] = EDIT_NAME
+    return EDIT_NAME
+
+
+async def _cb_edit_phone(
+    query, context: 'ContextTypes.DEFAULT_TYPE', person_id: int,
+) -> int:
+    """Prompt for new phone."""
+    context.user_data.setdefault('profile', {})['edit_person'] = {
+        'person_id': person_id,
+        'age_type': 'adult',
+    }
+    res = transform_html('Введите телефон (10 цифр без +7):')
+    await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
+    context.user_data['STATE'] = EDIT_ADULT_PHONE
+    return EDIT_ADULT_PHONE
+
+
+async def _cb_edit_age(
+    query, context: 'ContextTypes.DEFAULT_TYPE', person_id: int,
+) -> int:
+    """Prompt for new child age."""
+    context.user_data.setdefault('profile', {})['edit_person'] = {
+        'person_id': person_id,
+        'age_type': 'child',
+    }
+    res = transform_html('Введите возраст ребенка (например 4.5):')
+    await query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
+    context.user_data['STATE'] = EDIT_CHILD_AGE
+    return EDIT_CHILD_AGE
+
+
+async def _cb_delete_confirm(
+    query, context: 'ContextTypes.DEFAULT_TYPE', person_id: int, age_type: str,
+) -> int:
+    """Show delete confirmation dialog."""
+    keyboard = [
+        [InlineKeyboardButton('✅ Да, удалить',
+                              callback_data=f'profile:confirm_del:{person_id}')],
+        add_btn_back_and_cancel(
+            postfix_for_back='PERSON_MENU',
+            add_cancel_btn=False,
+        ),
+    ]
+    res = transform_html('Вы уверены, что хотите удалить участника? Действие необратимо.')
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(
+        res.text, entities=res.entities,
+        reply_markup=reply_markup, parse_mode=None
+    )
+    await set_back_context(context, CONFIRM_DELETE, res.text, reply_markup)
+    context.user_data['STATE'] = CONFIRM_DELETE
+    return CONFIRM_DELETE
+
+
+async def _cb_confirm_delete(
+    update: Update, context: 'ContextTypes.DEFAULT_TYPE', person_id: int,
+) -> int:
+    """Confirm and execute person deletion."""
+    await db_postgres.delete_person(context.session, person_id)
+    res = transform_html('Удалено. Обновляю профиль...')
+    await update.callback_query.edit_message_text(res.text, entities=res.entities, parse_mode=None)
+    return await start_profile(update, context)
 
 
 async def set_new_name(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
@@ -356,169 +402,3 @@ async def set_new_child_age(update: Update,
     res = transform_html('Возраст обновлен. Возвращаюсь в профиль...')
     await update.message.reply_text(res.text, entities=res.entities, parse_mode=None)
     return await start_profile(update, context)
-
-
-# Sort tickets by event datetime if available (upcoming first)
-async def _get_dt(t, session):
-   if t.schedule_event_id:
-       se = await db_postgres.get_schedule_event(session,
-                                                 t.schedule_event_id)
-       return se.datetime_event if se else None
-   return None
-
-
-async def show_tickets(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    """Show list of user's purchased tickets with pagination (PAID or APPROVED)."""
-    command = context.user_data.get('command', None)
-    if not command and update.effective_message:
-        command = extract_command(update.effective_message.text)
-    if command == 'tickets':
-        await init_conv_hl_dialog(update, context)
-    elif command == 'profile':
-        query = update.callback_query
-        await query.answer()
-
-    # Determine requested page from callback data if present
-    page = 0
-    if update.callback_query:
-        try:
-            parts = update.callback_query.data.split(':')
-            if len(parts) > 2:
-                page = int(parts[2])
-        except Exception as e:
-            profile_logger.debug(f"Bad page index in callback: {e}")
-            page = 0
-
-    try:
-        await update.effective_chat.send_action(ChatAction.TYPING)
-    except Exception as e:
-        profile_logger.debug(e)
-
-    is_admin_chat = context.config.bot.developer_chat_id == update.effective_chat.id
-    if context.args and is_admin_chat:
-        user_id = context.args[0]
-    elif is_admin_chat and context.user_data.get('profile_user_id', False):
-        user_id = context.user_data['profile_user_id']
-    else:
-        user_id = update.effective_user.id
-    user = await db_postgres.get_user(context.session, user_id)
-
-    tickets = []
-    if user:
-        try:
-            tickets = [
-                t for t in user.tickets
-                if t.status in (TicketStatus.PAID, TicketStatus.APPROVED)
-            ]
-        except Exception as e:
-            profile_logger.error(e)
-            tickets = []
-
-    if not tickets:
-        keyboard: List[List[InlineKeyboardButton]] = []
-        if command == 'profile':
-            keyboard.append([back_button, cancel_button])
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        text = (
-            '<b>Мои билеты</b><br><br>'
-            'У вас нет купленных билетов.<br><br>'
-            'Вы можете забронировать билеты командой /reserve'
-        )
-        res = transform_html(text)
-
-        if update.callback_query:
-            try:
-                await update.callback_query.edit_message_text(
-                    text=res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
-            except Exception as e:
-                profile_logger.debug(e)
-                await update.effective_chat.send_message(
-                    res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
-        else:
-            await update.effective_chat.send_message(
-                res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
-        context.user_data['STATE'] = MENU
-        return MENU
-
-    # Build list [(datetime|None, ticket)] and sort by datetime (None last)
-    dt_list: List[tuple] = []
-    for t in tickets:
-        try:
-            dt = await _get_dt(t, context.session)
-        except Exception as e:
-            profile_logger.debug(e)
-            dt = None
-        dt_list.append((dt, t))
-
-    dt_list.sort(key=lambda x: (x[0] is None, x[0]))
-
-    total = len(dt_list)
-    page_size = PAGE_SIZE_TICKETS
-    pages = (total + page_size - 1) // page_size
-    if pages == 0:
-        pages = 1
-    if page < 0:
-        page = 0
-    if page > pages - 1:
-        page = pages - 1
-
-    start = page * page_size
-    end = min(total, start + page_size)
-
-    parts = [
-        '<b>Мои билеты</b>',
-        f'Страница {page + 1}/{pages} • Показаны {start + 1}-{end} из {total}',
-    ]
-
-    for dt, ticket in dt_list[start:end]:
-        try:
-            if ticket.schedule_event_id:
-                text_event = await create_str_info_by_schedule_event_id(context, ticket.schedule_event_id)
-            else:
-                text_event = 'Индивидуальное мероприятие'
-            base_ticket = await db_postgres.get_base_ticket(context.session, ticket.base_ticket_id)
-            parts.append(
-                '<br>'.join([
-                    f'Билет <code>{ticket.id}</code>',
-                    text_event,
-                    f'Стоимость: {base_ticket.name if base_ticket else ""} {int(ticket.price)}руб',
-                    f'Статус: {ticket.status.value}',
-                ])
-            )
-        except Exception as e:
-            profile_logger.error(e)
-
-    text = '<br><br>'.join(parts)
-
-    # Build pagination keyboard
-    keyboard: List[List[InlineKeyboardButton]] = []
-    nav_row: List[InlineKeyboardButton] = []
-    if page > 0:
-        nav_row.append(InlineKeyboardButton('◀️ Предыдущая', callback_data=f'profile:tickets:{page - 1}'))
-    if page < pages - 1:
-        nav_row.append(InlineKeyboardButton('Следующая ▶️', callback_data=f'profile:tickets:{page + 1}'))
-    if nav_row:
-        keyboard.append(nav_row)
-
-    if command == 'profile':
-        keyboard.append([back_button, cancel_button])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    res = transform_html(text)
-
-    if update.callback_query:
-        try:
-            await update.callback_query.edit_message_text(
-                text=res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
-        except Exception as e:
-            profile_logger.debug(e)
-            await update.effective_chat.send_message(
-                res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
-    else:
-        await update.effective_chat.send_message(
-            res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
-
-    context.user_data['STATE'] = MENU
-    if context.user_data.get('profile_user_id', False):
-        context.user_data.pop('profile_user_id')
-    return MENU

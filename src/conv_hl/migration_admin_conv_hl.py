@@ -85,7 +85,6 @@ states = {
         cancel_callback_handler,
         back_callback_handler,
         CallbackQueryHandler(migration_admin_hl.migration_ticket, pattern='migration'),
-        CallbackQueryHandler(migration_admin_hl.update_ticket, pattern='update'),
         CallbackQueryHandler(reserve_hl.choice_month, pattern='params'),
         CallbackQueryHandler(reserve_admin_hl.enter_event_id, pattern='id'),
     ],

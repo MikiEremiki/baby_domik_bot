@@ -115,7 +115,6 @@ async def get_ticket_by_id(
         keyboard = [
             [
                 InlineKeyboardButton('Перенести', callback_data='migration'),
-                InlineKeyboardButton('Изменить', callback_data='update'),
             ],
             [*add_btn_back_and_cancel(
                 postfix_for_cancel=context.user_data['postfix_for_cancel'],
@@ -167,8 +166,3 @@ async def migration_ticket(
     context.user_data['STATE'] = state
     await query.answer()
     return state
-
-
-async def update_ticket(update: Update, context:  'ContextTypes.DEFAULT_TYPE'):
-    """Обновление билета (Заглушка)"""
-    pass

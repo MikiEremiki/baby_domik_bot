@@ -31,6 +31,8 @@ from conv_hl import (
     migration_admin_conv_hl,
     sales_conv_hl,
     profile_conv_hl,
+    tickets_conv_hl,
+    tickets_admin_conv_hl,
 )
 from middleware import (
     add_glob_on_off_middleware,
@@ -102,7 +104,7 @@ def _add_callback_handlers(application: Application):
 
 
 def _add_conversation_handlers(application: Application):
-    """Все conversation handlers (9 штук)."""
+    """Все conversation handlers (11 штук)."""
     conversation_handlers = [
         reserve_conv_hl,
         reserve_admin_conv_hl,
@@ -113,18 +115,19 @@ def _add_conversation_handlers(application: Application):
         migration_admin_conv_hl,
         sales_conv_hl,
         profile_conv_hl,
+        tickets_conv_hl,
+        tickets_admin_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 
 
 def _add_public_commands(application: Application):
-    """Публичные CommandHandler (start, help, reset, echo, tickets)."""
+    """Публичные CommandHandler (start, help, reset, echo)."""
     application.add_handlers([
         CommandHandler(COMMAND_DICT['START'][0], main_hl.start),
         CommandHandler('help', main_hl.help_cmd),
         CommandHandler('reset', main_hl.reset),
         CommandHandler('echo', echo),
-        CommandHandler('tickets', profile_hl.show_tickets),
     ])
 
 
@@ -138,7 +141,6 @@ def _add_admin_commands(application: Application):
         CommandHandler('update_config', update_config),
         CommandHandler('update_settings', update_settings),
         CommandHandler('send_approve_msg', main_hl.send_approve_msg),
-        CommandHandler('update_ticket', main_hl.update_ticket),
         CommandHandler('send_msg', main_hl.send_msg),
         CommandHandler(COMMAND_DICT['LOG'][0], send_log),
         CommandHandler('postgres_log', send_postgres_log),
