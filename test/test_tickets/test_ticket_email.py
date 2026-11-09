@@ -79,7 +79,7 @@ def test_create_ticket_passes_email(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -98,7 +98,15 @@ def test_create_ticket_passes_email(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('email') == 'buyer@example.com'
 
 
@@ -110,7 +118,7 @@ def test_create_ticket_without_email_defaults_none(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -128,7 +136,15 @@ def test_create_ticket_without_email_defaults_none(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('email') is None
 
 
@@ -186,7 +202,15 @@ def test_create_booking_ticket_normalizes_email(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('email') == 'test@example.com'
 
 
@@ -233,7 +257,15 @@ def test_create_booking_ticket_notes_contains_email(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert 'buyer@example.com' in captured.get('notes', '')
 
 
@@ -271,7 +303,15 @@ def test_create_transferred_ticket_inherits_email(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('email') == 'original@example.com'
 
 
@@ -309,14 +349,22 @@ def test_create_transferred_ticket_inherits_none_email(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('email') is None
 
 
 def test_handle_email_input_valid_email_returns_forma():
     """handle_email_input with valid email returns 'FORMA' state."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         # Mock the proceed_to_forma_step to return 'FORMA'
@@ -345,7 +393,7 @@ def test_handle_email_input_valid_email_returns_forma():
 def test_handle_email_input_invalid_email_returns_email():
     """handle_email_input with invalid email returns 'EMAIL' state (re-prompt)."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         with patch.object(reserve_common_hl, 'proceed_to_forma_step', new_callable=AsyncMock) as mock_forma:
@@ -363,14 +411,22 @@ def test_handle_email_input_invalid_email_returns_email():
             result = await reserve_common_hl.handle_email_input(update, context)
             return result
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert result == 'EMAIL'
 
 
 def test_handle_email_confirm_callback_extracts_email():
     """handle_email_confirm_callback extracts email from callback_data and proceeds to FORMA."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         with patch.object(reserve_common_hl, 'proceed_to_forma_step', new_callable=AsyncMock) as mock_forma:
@@ -400,7 +456,7 @@ def test_handle_email_confirm_callback_extracts_email():
 def test_handle_email_confirm_callback_no_email_falls_back():
     """handle_email_confirm_callback without email in callback_data falls back to manual input."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         query = MagicMock()
@@ -418,14 +474,22 @@ def test_handle_email_confirm_callback_no_email_falls_back():
         result = await reserve_common_hl.handle_email_confirm_callback(update, context)
         return result
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert result == 'EMAIL'
 
 
 def test_handle_email_confirm_callback_invalid_email_falls_back():
     """handle_email_confirm_callback with invalid email falls back to manual input."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         query = MagicMock()
@@ -443,7 +507,15 @@ def test_handle_email_confirm_callback_invalid_email_falls_back():
         result = await reserve_common_hl.handle_email_confirm_callback(update, context)
         return result
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert result == 'EMAIL'
 
 
@@ -470,7 +542,15 @@ def test_confirm_go_pay_without_email_returns_email_state():
             result = await payment.confirm_go_pay(update, context)
             return result
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert result == 'EMAIL'
 
 
@@ -501,7 +581,15 @@ def test_confirm_go_pay_with_email_proceeds():
                 result = await payment.confirm_go_pay(update, context)
                 return result
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert result == 'PAID'
 
 
@@ -534,14 +622,22 @@ def test_confirm_go_pay_fallback_to_user_profile_email():
                     mock_get_email.assert_called_once()
                     return result
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert result == 'PAID'
 
 
 def test_create_email_keyboard_with_email():
     """create_email_keyboard includes email_confirm button when email is present."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         keyboard = await reserve_common_hl.create_email_keyboard(
@@ -551,7 +647,15 @@ def test_create_email_keyboard_with_email():
         )
         return keyboard
 
-    keyboard = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        keyboard = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     # Should have 2 rows: email_confirm + back_and_cancel
     assert len(keyboard.inline_keyboard) == 2
     # First row should contain the email_confirm button
@@ -563,7 +667,7 @@ def test_create_email_keyboard_with_email():
 def test_create_email_keyboard_without_email():
     """create_email_keyboard has only back_and_cancel when email is None."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         keyboard = await reserve_common_hl.create_email_keyboard(
@@ -573,7 +677,15 @@ def test_create_email_keyboard_without_email():
         )
         return keyboard
 
-    keyboard = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        keyboard = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     # Should have 1 row: back_and_cancel only
     assert len(keyboard.inline_keyboard) == 1
 
@@ -581,7 +693,7 @@ def test_create_email_keyboard_without_email():
 def test_email_normalization_strip_and_lower():
     """Email input is normalized with strip and lower in handle_email_input."""
     import asyncio
-    from conv_hl import reserve_common_hl
+    from handlers import reserve_common_hl
 
     async def _run():
         with patch.object(reserve_common_hl, 'proceed_to_forma_step', new_callable=AsyncMock) as mock_forma:
@@ -601,5 +713,13 @@ def test_email_normalization_strip_and_lower():
             await reserve_common_hl.handle_email_input(update, context)
             return context.user_data['reserve_user_data'].get('buyer_email')
 
-    email = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        email = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert email == 'user@example.com'
