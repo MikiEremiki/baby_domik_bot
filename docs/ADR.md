@@ -94,7 +94,7 @@
 - **Контекст:** Проект требует обработки вебхуков от YooKassa, авторизации через Telegram Login Widget и отрисовки HTML-страниц (афиша, события, студия).
 - **Решение:** 
   - FastAPI как единый веб-сервис для всех HTTP-запросов.
-  - Роутеры в `src\api\web\routes\`: `api.py` (вебхуки), `auth.py` (Telegram Login), `booking.py` (бронирование), `pages.py` (HTML-страницы).
+  - Роутеры в `src\api\web\routes\`: `api.py` (вебхуки), `auth.py` (Telegram Login), `booking.py` (бронирование, страница «Мои билеты» `/tickets`), `pages.py` (HTML-страницы).
   - Pydantic схемы для валидации данных API.
   - Jinja2 для HTML-шаблонов (`templates/`).
 - **Последствия:** Единая точка входа для HTTP, асинхронность, автоматическая валидация через Pydantic. Веб-интерфейс и API объединены в один сервис.

@@ -35,6 +35,7 @@ from db.db_postgres import (
     get_default_place,
     get_all_active_auto_sendings,
     create_booking_ticket,
+    get_tickets_by_contacts,
 )
 from api.gspread_pub import (
     publish_write_data_reserve,
@@ -581,3 +582,102 @@ async def show_payment_result(
             'receipt_unavailable': receipt_unavailable,
         },
     )
+
+
+# ─── My Tickets page (/tickets) ──────────────────────────────────────────
+
+@router.get('/tickets')
+async def show_my_tickets_page(request: Request):
+    """Display the My Tickets search form."""
+    response = templates.TemplateResponse(
+        request=request,
+        name='my_tickets.html',
+        context={'request': request},
+    )
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@router.post('/tickets')
+async def search_my_tickets(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    search_type: str = Form('number'),
+    ticket_number: int | None = Form(None),
+    email: str | None = Form(None),
+    phone: str | None = Form(None),
+):
+    """Search tickets by number or by email+phone contacts."""
+    tickets_result = []
+    truncated = False
+    not_found_message = None
+
+    if search_type == 'number' and ticket_number is not None:
+        # Search by ticket number — any status, any date
+        ticket = await get_ticket(session, ticket_number)
+        if ticket:
+            tickets_result = [ticket]
+        else:
+            not_found_message = 'number'
+    elif search_type == 'contacts':
+        # Search by email + phone
+        clean_phone = extract_phone_number_from_text(phone or '')
+        if len(clean_phone) > 10:
+            clean_phone = clean_phone[-10:]
+        if clean_phone and email:
+            try:
+                phone_int = int(clean_phone)
+            except ValueError:
+                phone_int = None
+
+            if phone_int and email:
+                tickets_result = await get_tickets_by_contacts(
+                    session, email=email, phone=phone_int, limit=50
+                )
+                truncated = len(tickets_result) >= 50
+                if not tickets_result:
+                    not_found_message = 'contacts'
+
+    # Build safe context for template — no confidential data
+    default_place = await get_default_place(session)
+    ticket_cards = []
+    for t in tickets_result:
+        se = t.schedule_event
+        if se is None:
+            continue
+        dt = se.datetime_event
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_moscow = dt.astimezone(MOSCOW_TZ)
+        place_obj = effective_place(se, default_place) if default_place else None
+        bt = t.base_ticket
+        ticket_cards.append({
+            'id': t.id,
+            'status': t.status.value if t.status else '',
+            'theater_event_name': se.theater_event.name if se.theater_event else '',
+            'date': dt_moscow.strftime('%d.%m.%Y'),
+            'time': dt_moscow.strftime('%H:%M'),
+            'place_name': place_obj.name if place_obj else '',
+            'ticket_type_name': bt.name if bt else '',
+            'capacity_adult': (bt.quality_of_adult + bt.quality_of_add_adult) if bt else 0,
+            'capacity_child': bt.quality_of_children if bt else 0,
+        })
+
+    response = templates.TemplateResponse(
+        request=request,
+        name='my_tickets.html',
+        context={
+            'request': request,
+            'ticket_cards': ticket_cards,
+            'truncated': truncated,
+            'not_found': not_found_message,
+            'form_data': {
+                'search_type': search_type,
+                'ticket_number': ticket_number,
+                'email': email,
+                'phone': phone,
+            } if not_found_message else None,
+        },
+    )
+    response.headers['Cache-Control'] = 'no-store'
+    return response
