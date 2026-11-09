@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 
 from sulguk import transform_html
 from telegram import (
@@ -19,7 +19,7 @@ from handlers.reserve.common import (
     send_msg_get_child, send_msg_get_phone,
     _update_children,
 )
-from handlers.email_hl import check_email_and_update_user
+from handlers.email_hl import check_email_and_update_user, retry_get_email
 from handlers.reserve.payment import show_reservation_summary
 from handlers.sub_hl import (
     request_phone_number,
@@ -42,6 +42,7 @@ from utilities.utl_kbd import (
     remove_intent_id,
     create_phone_confirm_btn, create_kbd_edit_children,
 )
+from utilities.utl_text import check_email
 from utilities.utl_tg import is_not_modified
 from permissions import can_or_false
 from settings.settings import (
@@ -315,10 +316,10 @@ async def _handle_chld_edit_callback(
                 context.session, chose_base_ticket_id)
             children = await _update_children(update, context)
             reserve_user_data['children'] = children
-            text, reply_markup = await get_child_text_and_reply(
+            res_text, reply_markup = await get_child_text_and_reply(
                 update, chose_base_ticket, children, context)
-            await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
-            await set_back_context(context, 'CHILDREN', text, reply_markup)
+            await _safe_edit_message_text(query, text=res_text.text, entities=res_text.entities, parse_mode=None, reply_markup=reply_markup)
+            await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
             return 'CHILDREN'
         # Определяем индекс текущего ребенка в списке для совместимости с дальнейшей логикой
         idx = None
@@ -339,10 +340,10 @@ async def _handle_chld_edit_callback(
             chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
             chose_base_ticket = await db_postgres.get_base_ticket(
                 context.session, chose_base_ticket_id)
-            text, reply_markup = await get_child_text_and_reply(
+            res_text, reply_markup = await get_child_text_and_reply(
                 update, chose_base_ticket, children, context)
-            await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
-            await set_back_context(context, 'CHILDREN', text, reply_markup)
+            await _safe_edit_message_text(query, text=res_text.text, entities=res_text.entities, parse_mode=None, reply_markup=reply_markup)
+            await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
             return 'CHILDREN'
 
         # Сохраняем редактируемого ребенка по ID
@@ -421,10 +422,10 @@ async def _handle_chld_edit_callback(
     chose_base_ticket_id = reserve_user_data['chose_base_ticket_id']
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
-    text, reply_markup = await get_child_text_and_reply(
+    res_text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
-    await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
-    await set_back_context(context, 'CHILDREN', text, reply_markup)
+    await _safe_edit_message_text(query, text=res_text.text, entities=res_text.entities, parse_mode=None, reply_markup=reply_markup)
+    await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
     return 'CHILDREN'
 
 
@@ -588,10 +589,10 @@ async def _handle_chld_selection_callback(
         return await _finish_get_children(
             update, context, [['0', '0']], 'Далее')
     # Обновляем сообщение для SEL и PAGE
-    text, reply_markup = await get_child_text_and_reply(
+    res_text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
-    await _safe_edit_message_text(query, text=text, reply_markup=reply_markup)
-    await set_back_context(context, 'CHILDREN', text, reply_markup)
+    await _safe_edit_message_text(query, text=res_text.text, entities=res_text.entities, parse_mode=None, reply_markup=reply_markup)
+    await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
     return 'CHILDREN'
 
 
@@ -646,14 +647,16 @@ async def get_children(
         reserve_user_data['selected_children'] = [
             pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
         ]
-        text, reply_markup = await get_child_text_and_reply(
+        res_text, reply_markup = await get_child_text_and_reply(
             update, chose_base_ticket, children, context)
         message = await update.effective_chat.send_message(
-            text=text,
+            text=res_text.text,
+            entities=res_text.entities,
             reply_markup=reply_markup,
+            parse_mode=None,
         )
         reserve_user_data['message_id'] = message.message_id
-        await set_back_context(context, 'CHILDREN', text, reply_markup)
+        await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
         return 'CHILDREN'
 
     if reserve_user_data.get('waiting_for_child_search_age'):
@@ -672,14 +675,16 @@ async def get_children(
         reserve_user_data['selected_children'] = [
             pid for pid in reserve_user_data.get('selected_children', []) if pid in available_ids
         ]
-        text, reply_markup = await get_child_text_and_reply(
+        res_text, reply_markup = await get_child_text_and_reply(
             update, chose_base_ticket, children, context)
         message = await update.effective_chat.send_message(
-            text=text,
+            text=res_text.text,
+            entities=res_text.entities,
             reply_markup=reply_markup,
+            parse_mode=None,
         )
         reserve_user_data['message_id'] = message.message_id
-        await set_back_context(context, 'CHILDREN', text, reply_markup)
+        await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
         return 'CHILDREN'
 
     if (
@@ -846,12 +851,16 @@ async def get_children(
 
     children = await _update_children(update, context)
     reserve_user_data['children'] = children
-    text, reply_markup = await get_child_text_and_reply(
+    res_text, reply_markup = await get_child_text_and_reply(
         update, chose_base_ticket, children, context)
     message = await update.effective_chat.send_message(
-        text=text, reply_markup=reply_markup)
+        text=res_text.text,
+        entities=res_text.entities,
+        reply_markup=reply_markup,
+        parse_mode=None
+    )
     reserve_user_data['message_id'] = message.message_id
-    await set_back_context(context, 'CHILDREN', text, reply_markup)
+    await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
 
     return 'CHILDREN'
 

@@ -1,4 +1,4 @@
-from sulguk import transform_html
+from sulguk import transform_html, RenderResult
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
@@ -24,7 +24,7 @@ async def get_child_text_and_reply(
         base_ticket: BaseTicket,
         children,
         context: 'ContextTypes.DEFAULT_TYPE'
-) -> tuple[str, InlineKeyboardMarkup]:
+) -> tuple[RenderResult, InlineKeyboardMarkup]:
     reserve_user_data = context.user_data['reserve_user_data']
 
     reserve_user_data['is_editing_children'] = True
@@ -111,7 +111,8 @@ async def get_child_text_and_reply(
         keyboard = [[next_btn], [back_and_cancel]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    return text, reply_markup
+    res_text = transform_html(text)
+    return res_text, reply_markup
 
 
 async def send_msg_get_child(
@@ -128,7 +129,7 @@ async def send_msg_get_child(
     children = await _update_children(update, context)
 
     reserve_user_data['children'] = children
-    text, reply_markup = await get_child_text_and_reply(
+    res_text, reply_markup = await get_child_text_and_reply(
         update,
         base_ticket,
         children,
@@ -136,10 +137,12 @@ async def send_msg_get_child(
     )
 
     message = await update.effective_chat.send_message(
-        text=text,
+        text=res_text.text,
+        entities=res_text.entities,
         reply_markup=reply_markup,
+        parse_mode=None,
     )
-    await set_back_context(context, 'CHILDREN', text, reply_markup)
+    await set_back_context(context, 'CHILDREN', res_text.text, reply_markup)
     return message
 
 
