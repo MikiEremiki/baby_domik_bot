@@ -1027,6 +1027,11 @@ async def get_ticket(session: AsyncSession,
             selectinload(Ticket.people).selectinload(Person.adult),
             selectinload(Ticket.people).selectinload(Person.child),
             selectinload(Ticket.user),
+            selectinload(Ticket.schedule_event)
+                .selectinload(ScheduleEvent.theater_event)
+                .selectinload(TheaterEvent.base_tickets),
+            selectinload(Ticket.schedule_event).selectinload(ScheduleEvent.place),
+            selectinload(Ticket.base_ticket),
         )
     )
     return result.scalar_one_or_none()
@@ -2577,3 +2582,41 @@ async def get_deliveries_by_keys(
     )
     res = await session.execute(stmt)
     return {row[0] for row in res.all()}
+
+
+# ─── Public ticket search (web "My Tickets" page) ──────────────────────
+
+ACTIVE_TICKET_STATUSES = (TicketStatus.PAID, TicketStatus.APPROVED, TicketStatus.RESERVED)
+
+
+async def get_tickets_by_contacts(
+    session: AsyncSession,
+    email: str,
+    phone: int,
+    limit: int = 50,
+) -> List[Ticket]:
+    """Search tickets by exact email + phone match for future sessions only.
+
+    Returns only active tickets (PAID, APPROVED, RESERVED) with future
+    session datetime, sorted by session datetime ascending, limited to *limit*.
+    """
+    now = datetime.now(timezone.utc)
+    stmt = (
+        select(Ticket)
+        .join(ScheduleEvent, Ticket.schedule_event_id == ScheduleEvent.id)
+        .where(
+            Ticket.email == email,
+            Ticket.phone == phone,
+            ScheduleEvent.datetime_event > now,
+            Ticket.status.in_(ACTIVE_TICKET_STATUSES),
+        )
+        .options(
+            selectinload(Ticket.schedule_event).selectinload(ScheduleEvent.theater_event),
+            selectinload(Ticket.schedule_event).selectinload(ScheduleEvent.place),
+            selectinload(Ticket.base_ticket),
+        )
+        .order_by(ScheduleEvent.datetime_event.asc(), Ticket.id.asc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().all()

@@ -32,7 +32,8 @@
             {% set nav = [('/', 'Главная', p == '/'),
                           ('/afisha', 'Спектакли', p == '/afisha' or p.startswith('/event/') or p.startswith('/booking/')),
                           ('/custom-events', 'Заказные мероприятия', p == '/custom-events'),
-                          ('/studio', 'Студия', p == '/studio')] %}
+                          ('/studio', 'Студия', p == '/studio'),
+                          ('/tickets', 'Мои билеты', p == '/tickets' or p.startswith('/tickets'))] %}
             <div class="flex items-center gap-6">
                 <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
                     {% for href, label, active in nav %}

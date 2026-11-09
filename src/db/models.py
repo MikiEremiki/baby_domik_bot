@@ -224,6 +224,10 @@ class Ticket(BaseModelTimed):
         secondary='people_tickets', back_populates='tickets', lazy='selectin')
     custom_made_event: Mapped[Optional['CustomMadeEvent']] = relationship(
         lazy='selectin')
+    schedule_event: Mapped[Optional['ScheduleEvent']] = relationship(
+        back_populates='tickets', lazy='selectin')
+    base_ticket: Mapped['BaseTicket'] = relationship(
+        lazy='selectin')
 
 
 class TypeEvent(BaseModel):
@@ -337,7 +341,8 @@ class ScheduleEvent(BaseModelTimed):
         Enum(TicketPriceType, name='ticket_price_type'),
         default=TicketPriceType.NONE)
 
-    tickets: Mapped[List['Ticket']] = relationship(lazy='selectin')
+    tickets: Mapped[List['Ticket']] = relationship(
+        back_populates='schedule_event', lazy='selectin')
     base_tickets: Mapped[List['BaseTicket']] = relationship(
         secondary='base_tickets_schedule_events',
         back_populates='schedule_events',
