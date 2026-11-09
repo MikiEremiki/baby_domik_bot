@@ -1,13 +1,69 @@
 import logging
-
 from telegram.ext import ContextTypes
 
 from db import BaseTicket, ScheduleEvent, TheaterEvent, db_postgres
-from db.enum import PriceType, TicketStatus
-from utilities.utl_func import clean_context_on_end_handler
+from db.enum import PriceType, TicketStatus, TicketSource
+from db.models import Ticket
+from utilities.utl_context import clean_context_on_end_handler
 from utilities.utl_googlesheets import write_to_return_seats_for_sale
 
 utl_ticket_logger = logging.getLogger('bot.utl_ticket')
+
+
+def format_ticket_contacts(ticket: 'Ticket', full_name: str | None = None, html: bool = False) -> str:
+    """Форматирует контакты и источник билета в единый блок текста.
+
+    Возвращает строку с разделением на строки:
+        Источник: …
+        Покупатель: …
+        Телефон: …
+        Email: …
+
+    Используется во всех админских выводах: уведомления, /list,
+    действие «Покупатель», диалог переноса.
+
+    :param ticket: билет из БД
+    :param full_name: отображаемое имя Telegram-пользователя (update.effective_user.full_name),
+        используется для покупателя из бота, если доступно.
+    :param html: если True, использует <br> вместо \\n для разделителей строк.
+    """
+    separator = '<br>' if html else '\n'
+    lines: list[str] = []
+
+    # Источник
+    if ticket.source == TicketSource.WEBSITE:
+        lines.append('Источник: Сайт')
+    elif ticket.source == TicketSource.BOT:
+        lines.append('Источник: Бот')
+    else:
+        lines.append('Источник: не указан')
+
+    # Покупатель
+    user = ticket.user
+    if ticket.source == TicketSource.BOT and user is not None:
+        # Покупка через бота: покупатель — Telegram-пользователь
+        username_part = f'@{user.username} ' if user.username else ''
+        display_name = full_name or user.username or 'Неизвестен'
+        lines.append(f'Покупатель: {username_part}{display_name}')
+    elif ticket.source == TicketSource.WEBSITE:
+        # Покупка с сайта: покупатель неизвестен
+        lines.append('Покупатель: Неизвестен')
+    else:
+        lines.append('Покупатель: Неизвестен')
+
+    # Телефон
+    if ticket.phone is not None:
+        lines.append(f'Телефон: +7{ticket.phone}')
+    else:
+        lines.append('Телефон: не указан')
+
+    # Email
+    if ticket.email:
+        lines.append(f'Email: {ticket.email}')
+    else:
+        lines.append('Email: не указан')
+
+    return separator.join(lines)
 
 
 async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,
@@ -158,6 +214,15 @@ async def create_tickets(context, ticket_status):
     chose_base_ticket = await db_postgres.get_base_ticket(
         context.session, chose_base_ticket_id)
 
+    # Email и телефон покупателя из контекста бронирования
+    buyer_email = reserve_user_data.get('buyer_email')
+    client_data = reserve_user_data.get('client_data', {})
+    buyer_phone_str = client_data.get('phone')
+    try:
+        buyer_phone = int(buyer_phone_str) if buyer_phone_str else None
+    except (ValueError, TypeError):
+        buyer_phone = None
+
     for event_id in choose_schedule_event_ids:
         ticket = await db_postgres.create_ticket(
             context.session,
@@ -166,6 +231,9 @@ async def create_tickets(context, ticket_status):
             schedule_event_id=event_id,
             status=ticket_status,
             promo_id=promo_id,
+            source=TicketSource.BOT,
+            email=buyer_email,
+            phone=buyer_phone,
         )
         ticket_ids.append(ticket.id)
 
@@ -221,3 +289,44 @@ async def cancel_ticket_db_when_end_handler(update, context, text):
         chat_id=update.effective_chat.id,
     )
     await clean_context_on_end_handler(utl_ticket_logger, context)
+
+
+async def parse_and_create_custom_ticket(
+        context: 'ContextTypes.DEFAULT_TYPE',
+        text_input: str,
+) -> 'tuple[BaseTicket | None, str | None]':
+    """Парсит три числа (дети, взрослые, стоимость) и создаёт кастомный базовый билет.
+
+    Возвращает (custom_ticket, None) при успехе или (None, error_text) при ошибке формата.
+    """
+    parts = text_input.strip().split()
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return None, ('<b>Неверный формат!</b><br><br>'
+                      'Введите три числа через пробел: '
+                      '<code>кол-во детей</code> <code>кол-во взрослых</code> <code>стоимость</code><br>'
+                      'Например: <code>8 1 15000</code>')
+
+    qty_child = int(parts[0])
+    qty_adult = int(parts[1])
+    cost = int(parts[2])
+
+    custom_ticket = await db_postgres.get_or_create_custom_base_ticket(
+        context.session,
+        quality_of_children=qty_child,
+        quality_of_adult=qty_adult,
+        cost=cost
+    )
+    return custom_ticket, None
+
+
+def apply_custom_ticket_to_reserve(
+        context: 'ContextTypes.DEFAULT_TYPE',
+        custom_ticket: 'BaseTicket',
+        cost: int,
+) -> None:
+    """Применяет кастомный билет к reserve_user_data (цена, base_ticket_id, schedule_event_ids)."""
+    reserve_user_data = context.user_data['reserve_user_data']
+    schedule_event_id = reserve_user_data['choose_schedule_event_id']
+    reserve_user_data['chose_price'] = cost
+    reserve_user_data['chose_base_ticket_id'] = custom_ticket.base_ticket_id
+    reserve_user_data['choose_schedule_event_ids'] = [schedule_event_id]

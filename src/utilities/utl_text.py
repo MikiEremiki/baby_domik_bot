@@ -17,10 +17,14 @@ def check_email(email: str):
 
 
 def check_phone_number(phone):
+    """Валидация российского телефона (10 цифр, начинается с 9).
+
+    Возвращает True если номер валиден, False если невалиден.
+    """
     if len(phone) != 10 or phone[0] != '9':
-        return True
-    else:
         return False
+    else:
+        return True
 
 
 def format_receipt_description(

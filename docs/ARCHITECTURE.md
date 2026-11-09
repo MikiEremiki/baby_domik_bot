@@ -38,16 +38,28 @@ baby_domik_bot/
 │   +-- db/                     # БАЗА ДАННЫХ
 │   │   +-- models.py           # SQLAlchemy модели (User, Ticket, ScheduleEvent и др.)
 │   │   +-- db_postgres.py      # CRUD-операции PostgreSQL (AsyncSession)
-│   │   +-- enum.py             # Перечисления (TicketStatus, PriceType и др.)
+│   │   +-- enum.py             # Перечисления (TicketStatus, PriceType, TicketSource и др.)
 │   │   L-- migrations/         # Миграции Alembic
+│   │       +-- versions/       # Ревизии Alembic (схема БД)
+│   │       L-- manual/         # Ручные SQL-скрипты (перенос исторических данных)
 │   │
 │   +-- handlers/               # ОБРАБОТЧИКИ TELEGRAM
 │   │   +-- main_hl.py          # Стартовые команды (/start, /help)
 │   │   +-- common_hl.py        # Общие обработчики
 │   │   +-- afisha_hl.py        # Афиша спектаклей
-│   │   +-- profile_hl.py       # Профиль пользователя (/tickets)
+│   │   +-- profile_hl.py       # Профиль пользователя (CRUD участников, ~400 строк; tickets-функции ре-экспортирует из tickets_user)
+│   │   +-- tickets_user.py     # Клиентский просмотр билетов /tickets (список, детали, чек, ~370 строк)
 │   │   +-- support_hl.py       # Админская панель: CRUD спектаклей, билетов, промо
 │   │   +-- command_mgmt_hl.py  # UI управления доступом к командам (/settings → База данных)
+│   │   +-- tickets_admin/          # Бизнес-логика /tickets_admin (админское меню управления билетом)
+│   │   │   +-- constants.py        # Состояния и константы
+│   │   │   +-- keyboards.py        # Клавиатуры
+│   │   │   +-- display.py          # Форматирование и показ карточки билета
+│   │   │   +-- status.py           # Смена статуса с синхронизацией мест
+│   │   │   +-- ticket_list.py      # Компактный список с пагинацией и фильтром
+│   │   │   +-- buyer.py            # Карточка покупателя и билеты покупателя
+│   │   │   +-- inputs.py           # Обработчики текстового ввода
+│   │   │   L-- callbacks.py        # Callback-обработчики и диспетчер
 │   │   +-- command_mgmt/       # Подмодули управления доступом
 │   │   │   +-- keyboards.py    # Рендереры экранов и клавиатуры
 │   │   │   L-- parsers.py      # Парсеры callback-данных
@@ -62,7 +74,7 @@ baby_domik_bot/
 │   │   +-- sales_hl.py         # Массовые рассылки
 │   │   +-- ticket_hl.py        # Работа с билетами
 │   │   +-- timeweb_hl.py       # Баланс Timeweb
-│   │   +-- email_hl.py         # Email-рассылки
+│   │   +-- email_hl.py         # Валидация и сохранение email покупателя
 │   │   +-- offer_hl.py         # Офферы
 │   │   +-- list_wait_hl.py     # Лист ожидания
 │   │   +-- migration_admin_hl.py # Админские миграции
@@ -87,6 +99,11 @@ baby_domik_bot/
 │   │       L-- schedule_sync_hl.py  # Результаты выгрузки расписания
 │   │
 │   +-- conv_hl/                # ДИАЛОГИ (ConversationHandlers)
+│   │   +-- common_conv_hl.py   # Общие обработчики (cancel, fallback)
+│   │   +-- profile_conv_hl.py  # Диалог /profile (включая вложенный просмотр билетов)
+│   │   +-- tickets_conv_hl.py  # Диалог /tickets (клиентский, список билетов)
+│   │   +-- tickets_admin_conv_hl.py # Диалог /tickets_admin (админский, импортирует логику из handlers/tickets_admin/)
+│   │   +-- reserve_common_hl.py  # Общие состояния бронирования
 │   │   L-- *_conv_hl.py        # Состояния и переходы для сложных диалогов
 │   │
 │   +-- middleware/             # ПРОМЕЖУТОЧНОЕ ПО
@@ -101,6 +118,7 @@ baby_domik_bot/
 │   +-- utilities/              # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 │   │   +-- utl_kbd.py          # Создание клавиатур Telegram
 │   │   +-- utl_func.py         # Форматирование текста, даты
+│   │   +-- utl_ticket.py       # Форматирование контактов билета (format_ticket_contacts)
 │   │   L-- utl_db.py           # Утилиты для сессий БД
 │   │
 │   +-- custom_filters/         # ПОЛЬЗОВАТЕЛЬСКИЕ ФИЛЬТРЫ
@@ -125,8 +143,16 @@ baby_domik_bot/
 │   │   L-- site.css            # Стили веб-интерфейса
 │   L-- img/                    # Изображения
 │
-+-- test/                       # ТЕСТЫ (pytest)
-│   L-- test_timeweb.py         # Интеграционные тесты Timeweb API
++-- test/                       # ТЕСТЫ (pytest, 623 теста, 29 файлов)
+│   +-- conftest.py             # Общие фикстуры: DB, Telegram, FastAPI моки
+│   +-- test_schedule/          # Расписание и авторассылки (7 файлов)
+│   +-- test_handlers/          # Обработчики Telegram (8 файлов)
+│   +-- test_api/               # FastAPI веб-сервис (5 файлов)
+│   +-- test_db/                # БД и миграции (1 файл)
+│   +-- test_permissions/       # Права доступа (1 файл)
+│   +-- test_tickets/           # Билеты и чеки (3 файла)
+│   +-- test_events/            # События и площадки (2 файла)
+│   L-- test_sales/             # Рассылки и продажи (1 файл)
 │
 +-- config/                     # КОНФИГУРАЦИЯ (игнорируется в Git)
 │   +-- alembic.ini             # Конфигурация Alembic
@@ -243,7 +269,28 @@ YooKassa → POST /yookassa (FastAPI)
 - Стартовые middleware: `add_db_handlers_middleware`, `add_user_status_middleware`, `add_command_permission_middleware`, `add_glob_on_off_middleware`, `add_reserve_check_middleware`, `add_tg_update_logging_middleware`.
 - Права доступа: единая точка — `can(user_id, key, session)` в `src/permissions.py`. Ключи нормализуются через `normalize_key()` (ключ COMMAND_DICT маппится в `entry[0]`, `settings:*` без изменений). root/super_admin (`ADMIN_ID` + `SUPERADMIN_CHAT_ID` из `settings.py`) проходят всегда; остальным непубличные команды и разделы доступны по записям таблицы `user_command_access`. При ошибке БД `can()` бросает `PermissionBackendError`; middleware показывает пользователю «Временная ошибка, попробуйте позже.» Хелперы `can_or_false()` и `get_user_access_or_empty()` ловят исключение с fallback. Выдача/снятие прав — через UI `command_mgmt_hl.py` (`/settings` → База данных → Доступ к командам; callback-и с intent_id `acc` защищены ключом `settings:database`), без деплоя.
 
-#### 6.5. Работа с Google Sheets
+#### 6.5. Перечисления (Enum)
+- Все enum определены в `src\db\enum.py` как `python.enum.Enum`.
+- **Значения enum** должны совпадать с типом `PostgreSQL ENUM` в БД. SQLAlchemy сопоставляет значения по `.value`, а не по имени.
+- **Существующие enum** используют три стиля значений (исторически сложилось):
+
+  | Enum | Стиль значений | Примеры |
+  |------|----------------|---------|
+  | `TicketStatus` | Кириллица | `'Создан'`, `'Оплачен'` |
+  | `PriceType` | Кириллица + None | `'Базовая стоимость'`, `None` |
+  | `TicketPriceType` | Lowercase кириллица | `'будни'`, `'выходные'` |
+  | `AgeType` | Lowercase кириллица | `'взрослый'`, `'ребенок'` |
+  | `GroupOfPeopleByDiscountType` | Int | `0`, `1`, `2` |
+  | `PromotionDiscountType` | Lowercase ASCII | `'percentage'`, `'fixed'` |
+  | `CustomMadeStatus` | Кириллица | `'Создан'`, `'Подтвержден'` |
+  | `UserRole` | Кириллица | `'Пользователь'`, `'Администратор'` |
+  | `AutoSendingTrigger` | Uppercase ASCII | `'EVENT'`, `'PAYMENT'` |
+  | `TicketSource` | Uppercase ASCII | `'WEBSITE'`, `'BOT'` |
+
+- **Новые enum:** если значения не привязаны к историческим данным или внешнему API, использовать **uppercase ASCII** (как `TicketSource`, `AutoSendingTrigger`) — это совместимо с SQLAlchemy по умолчанию и не требует дополнительных настроек.
+- **Миграции enum:** при создании нового PostgreSQL enum через Alembic используйте `sa.Enum("VALUE1", "VALUE2", name="enum_name")` — значения в миграции должны точно совпадать с `.value` в Python-enum.
+
+#### 6.6. Работа с Google Sheets
 - Все операции записи должны быть асинхронными через NATS (`gspread_worker.py`).
 - Чтение данных (синхронизация) выполняется через `/update_*` команды.
 - Путь к credentials: из `settings.sheets.credentials_path` или собирается из `CONFIG_PATH`. Scope: `https://www.googleapis.com/auth/spreadsheets`.
@@ -251,17 +298,52 @@ YooKassa → POST /yookassa (FastAPI)
 - Маппинг `RANGE_NAME` задаёт именованные вкладки/диапазоны: «Расписание», «Репертуар», «Клиентская база», «Заказные мероприятия», «Форматы ЗакМероп», «Лист ожидания», «Индив стоимости».
 - Хелперы: `get_values`, `write_data_reserve`, `write_client_reserve`, `update_ticket_in_gspread`, `write_client_cme`, `write_client_list_waiting`, `update_cme_in_gspread`.
 
-#### 6.6. YooKassa
+#### 6.7. YooKassa
 - `create_param_payment(...)` (`src\api\yookassa_connect.py`) формирует запрос платежа; `payment_method_type` по умолчанию — `sbp`, тип подтверждения — `redirect` с `return_url=URL_BOT`.
 - `fetch_payment_receipts(payment_id, timeout)` (`src\api\yookassa_connect.py`) — асинхронная обёртка `Receipt.list` через `asyncio.to_thread` + `wait_for(10s)`.
 - `build_ofd_url(fn, fp, i)` (`src\api\yookassa_connect.py`) — формирует публичную ссылку OFD по фискальным данным.
 - Обработка вебхука (`src\handlers\hooks\yookassa_hl.py`):
   - status `succeeded`: обновляет билеты в Google Sheets и PostgreSQL, удаляет inline-кнопки оплаты, уведомляет пользователя и постит в админский топик в зависимости от `metadata.command` (`reserve` или `studio`).
+  - Админские уведомления формируются через `get_booking_admin_text` (`src\handlers\sub_hl.py`), которая использует единый хелпер `format_ticket_contacts` (`src\utilities\utl_ticket.py`) для вывода контактов (`Ticket.phone`, `Ticket.email`) и источника (`Ticket.source`). Строки: `Источник: …`, `Покупатель: …`, `Телефон: …`, `Email: …`. Если у билета нет Telegram-пользователя (`ticket.user is None`), выводится `Покупатель: Неизвестен`.
   - После успешной оплаты для спектаклей (`reserve`) однократно проверяет готовность чека через `get_ticket_receipt` по первому билету платежа: при `READY` добавляет ссылку «Открыть чек» в сообщение; при отсутствии — пояснение, что чек формируется. Ошибки сервиса не прерывают обработку платежа.
   - Предоплаченные счета определяются по `metadata.dashboardInvoiceOriginalNumber` и маршрутизируются в топик «Выездные мероприятия».
   - Используемые поля `metadata`: `message_id`, `chat_id`, `ticket_ids` (через `|`), `choose_schedule_event_ids` (через `|`), `command`.
 
-#### 6.11. Фискальные чеки
+#### 6.8. Handlers и команды
+- Регистрация всех обработчиков централизована в `src\setup_bot_handlers.py` (функция `setup_handlers`).
+- Доступ к командам проверяет middleware `command_permission` через `can()`. Старые ID-фильтры (`filter_admin` и др.) удалены — middleware единственный гейт. Технические команды (`group='tech'`) — `root_only`, доступны только root (`ADMIN_ID`), super_admin их не получает. Неизвестные команды (нет в `COMMAND_DICT`) закрыты всем, кроме root (fail-closed). Команда `settings` выдаётся автоматически с первым `settings:*` и снимается с последним.
+- Middleware `glob_usage_users` (режим техработ) и `reserve_check` (актуальность бронирования) также используют только `can()` для проверки прав — `has_any_grant` и `is_privileged` больше не применяются. `reserve_check` проверяет всех пользователей, включая имеющих гранты.
+- При старте бота `set_menu()` настраивает меню Telegram: role-based scopes (admin group, sub_admin, admin, superadmin, default) строятся из `COMMAND_DICT` по `in_menu=True`. Для пользователей с грантами устанавливается per-user меню. Администраторы групп получают объединённое меню (admin_group + гранты).
+- Команды синхронизации данных из Google Sheets: `/update_places` (остальные команды `/update_*` из COMMAND_DICT больше не зарегистрированы, см. `reports/2026-10-11_command-dict-audit.md`).
+- `COMMAND_DICT` маппит имена команд на telegram-команды и подписи; при изменении — обновлять консистентно.
+- Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания».
+- Команда выгрузки расписания: `/sync_schedule [event_id]` (только админы). Фиксирует срез накопленных правок, запрашивает подтверждение и публикует задачу в NATS `gspread`.
+- При выгрузке проверяются конфликты со значениями в Google Таблице: конфликтующие сеансы не перезаписываются и требуют ручного разрешения.
+- Обратный импорт `/update_schedule_event_data` защищает сеансы с несинхронизированными/конфликтными правками в боте от затирания.
+- Пользователь может посмотреть свои билеты через `/tickets` (открыта всем, отдельный диалог `tickets_conv_hl.py`, логика `profile_hl.py::show_tickets`).
+- Администратор управляет билетами через `/tickets_admin` (`tickets_admin_conv_hl.py`): поиск по пользователю/билету, карточка с кнопками (статус, email, телефон, примечание, базовый, покупатель). Кнопка «Отменить» обрабатывается в общем `main_hl.cancel` веткой `tickets_admin`.
+
+#### 6.9. Timeweb
+- Запрос: `GET https://api.timeweb.cloud/api/v1/account/finances` с `Authorization: Bearer <timeweb.token>`.
+- Тесты (`test\test_timeweb.py`) ожидают: инстанс `Response`, `status_code == 200`, `finances.hours_left` — `int`. Требуется валидный токен в `settings.yml`. Интеграционные тесты гейтятся переменной окружения `TIMEWEB_TOKEN`.
+
+#### 6.10. Правила именования
+- Функции-обработчики: `choice_date`, `get_phone`, `handle_payment`.
+- Функции утилиты: `utl_*`.
+- Файлы диалогов: `*_conv_hl.py`.
+- Файлы логики: `*_hl.py`.
+
+#### 6.11. Конфигурация
+- Настройки загружаются из `config\settings.yml` через `src\settings\config_loader.parse_settings()`. Можно переопределить через переменную окружения `CONFIG_PATH`.
+- Обязательные ключи (pydantic-модели):
+  - `bot`: `token`, `admin_group`, `developer_chat_id`
+  - `timeweb`: `token`
+  - `postgres`: `db_url` (SQLAlchemy DSN)
+  - `sheets`: `credentials_path`, `sheet_id_domik`, `sheet_id_cme`
+  - `yookassa`: `account_id`, `secret_key`, `payment_method_type`
+- Runtime-константы — в `src\settings\settings.py` (ID чатов/админов, `COMMAND_DICT`, `RANGE_NAME` mapping, `nats_url`).
+
+#### 6.12. Фискальные чеки
 - `get_ticket_receipt(session, ticket_id)` (`src\api\receipt_service.py`) — получает статус и данные чека по билету: маппинг статусов платежа (succeeded→READY, pending→PENDING, canceled→CANCELED) и обработка ошибок (NO_PAYMENT, NOT_FOUND, API_ERROR).
 - `ReceiptStatus` (StrEnum): READY, PENDING, CANCELED, NO_PAYMENT, NOT_FOUND, API_ERROR.
 - `ReceiptInfo` (dataclass): статус, фискальные данные (FN, FP, номер, дата, сумма), ссылка OFD, `client_chat_id`.
@@ -273,39 +355,6 @@ YooKassa → POST /yookassa (FastAPI)
   - **Бот** (`src\handlers\hooks\yookassa_hl.py`): после успешной оплаты спектакля однократно вызывает `get_ticket_receipt` по первому билету; при `READY` показывает ссылку «Открыть чек», иначе — пояснение о формировании. Ошибки изолированы от обработки платежа.
   - **Сайт** (`src\api\web\routes\booking.py`): при создании платежа `ticket_id` сохраняется в сессии (`web_ticket_id`); `show_payment_result` проверяет сессию, надёжность `WEB_SESSION_SECRET` и подтверждённую оплату, затем однократно получает чек. Ссылка показывается только при `READY` с `ofd_url`.
   - **Текст о входе**: до и после оплаты покупатель видит, что чек для входа не нужен; вход — по спискам (номер билета или данные человека).
-
-#### 6.7. Handlers и команды
-- Регистрация всех обработчиков централизована в `src\setup_bot_handlers.py` (функция `setup_handlers`).
-- Доступ к командам проверяет middleware `command_permission` через `can()`. Старые ID-фильтры (`filter_admin` и др.) удалены — middleware единственный гейт. Технические команды (`group='tech'`) — `root_only`, доступны только root (`ADMIN_ID`), super_admin их не получает. Неизвестные команды (нет в `COMMAND_DICT`) закрыты всем, кроме root (fail-closed). Команда `settings` выдаётся автоматически с первым `settings:*` и снимается с последним.
-- Middleware `glob_usage_users` (режим техработ) и `reserve_check` (актуальность бронирования) также используют только `can()` для проверки прав — `has_any_grant` и `is_privileged` больше не применяются. `reserve_check` проверяет всех пользователей, включая имеющих гранты.
-- При старте бота `set_menu()` настраивает меню Telegram: role-based scopes (admin group, sub_admin, admin, superadmin, default) строятся из `COMMAND_DICT` по `in_menu=True`. Для пользователей с грантами устанавливается per-user меню. Администраторы групп получают объединённое меню (admin_group + гранты).
-- Команды синхронизации данных из Google Sheets: `/update_places` (остальные команды `/update_*` из COMMAND_DICT больше не зарегистрированы, см. `reports/2026-10-11_command-dict-audit.md`).
-- `COMMAND_DICT` маппит имена команд на telegram-команды и подписи; при изменении — обновлять консистентно.
-- Админские форумные топики: «Списки на показы», «Лист ожидания», «Выездные мероприятия», «Бронирования спектаклей», «Бронирования студия», «Изменения расписания».
-- Команда выгрузки расписания: `/sync_schedule [event_id]` (только админы). Фиксирует срез накопленных правок, запрашивает подтверждение и публикует задачу в NATS `gspread`.
-- При выгрузке проверяются конфликты со значениями в Google Таблице: конфликтующие сеансы не перезаписываются и требуют ручного разрешения.
-- Обратный импорт `/update_schedule_event_data` защищает сеансы с несинхронизированными/конфликтными правками в боте от затирания.
-- Пользователь может посмотреть свои билеты через `/tickets` (`src\handlers\profile_hl.py::show_tickets`).
-
-#### 6.8. Timeweb
-- Запрос: `GET https://api.timeweb.cloud/api/v1/account/finances` с `Authorization: Bearer <timeweb.token>`.
-- Тесты (`test\test_timeweb.py`) ожидают: инстанс `Response`, `status_code == 200`, `finances.hours_left` — `int`. Требуется валидный токен в `settings.yml`. Интеграционные тесты гейтятся переменной окружения `TIMEWEB_TOKEN`.
-
-#### 6.9. Правила именования
-- Функции-обработчики: `choice_date`, `get_phone`, `handle_payment`.
-- Функции утилиты: `utl_*`.
-- Файлы диалогов: `*_conv_hl.py`.
-- Файлы логики: `*_hl.py`.
-
-#### 6.10. Конфигурация
-- Настройки загружаются из `config\settings.yml` через `src\settings\config_loader.parse_settings()`. Можно переопределить через переменную окружения `CONFIG_PATH`.
-- Обязательные ключи (pydantic-модели):
-  - `bot`: `token`, `admin_group`, `developer_chat_id`
-  - `timeweb`: `token`
-  - `postgres`: `db_url` (SQLAlchemy DSN)
-  - `sheets`: `credentials_path`, `sheet_id_domik`, `sheet_id_cme`
-  - `yookassa`: `account_id`, `secret_key`, `payment_method_type`
-- Runtime-константы — в `src\settings\settings.py` (ID чатов/админов, `COMMAND_DICT`, `RANGE_NAME` mapping, `nats_url`).
 
 ---
 
@@ -340,6 +389,14 @@ YooKassa → POST /yookassa (FastAPI)
   alembic -c "config\alembic.ini" upgrade head
   alembic -c "config\alembic.ini" downgrade base
   ```
+
+**Правило:** схема БД — только ревизиями Alembic (`src/db/migrations/versions/`), перенос исторических данных — отдельными SQL-скриптами вне цепочки (`src/db/migrations/manual/`). Подробнее — раздел «Миграции» в README.md.
+
+#### Ручные миграции данных
+- Ручные SQL-скрипты лежат в `src/db/migrations/manual/` и не влияют на цепочку Alembic.
+- Порядок для рабочей БД: `alembic upgrade head` → ручной SQL → проверка.
+- Проверка применённых ручных миграций:
+  — вручную проверить таблицу `manual_migrations` в БД.
 
 #### Тесты
 - Из корня проекта:

@@ -8,7 +8,8 @@ from db import BaseModel, BaseModelTimed
 from db.enum import (
     TicketStatus, TicketPriceType, PriceType, AgeType,
     GroupOfPeopleByDiscountType, CustomMadeStatus,
-    UserRole, PromotionDiscountType, AutoSendingTrigger)
+    UserRole, PromotionDiscountType, AutoSendingTrigger,
+    TicketSource)
 
 
 class User(BaseModelTimed):
@@ -202,18 +203,22 @@ class Ticket(BaseModelTimed):
     price: Mapped[int]
     status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus, name='ticket_status'))
     notes: Mapped[Optional[str]]
+    email: Mapped[Optional[str]]
+    phone: Mapped[Optional[int]]
     reminded_1d_at: Mapped[Optional[datetime]]
     is_admin_notified: Mapped[bool] = mapped_column(default=False)
 
     payment_id: Mapped[Optional[str]] = mapped_column(unique=True)
     idempotency_id: Mapped[Optional[str]] = mapped_column(unique=True)
+    source: Mapped[Optional[TicketSource]] = mapped_column(
+        Enum(TicketSource, name='ticket_source'))
 
     schedule_event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('schedule_events.id'))
     promo_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey('promotions.id'))
 
-    user: Mapped['User'] = relationship(
+    user: Mapped[Optional['User']] = relationship(
         secondary='users_tickets', back_populates='tickets', lazy='selectin')
     people: Mapped[List['Person']] = relationship(
         secondary='people_tickets', back_populates='tickets', lazy='selectin')

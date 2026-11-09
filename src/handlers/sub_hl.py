@@ -45,6 +45,7 @@ from utilities.utl_kbd import (
 from db.db_postgres import update_promotions_from_googlesheets
 from utilities.utl_ticket import (
     create_tickets_and_people, cancel_ticket_db_when_end_handler,
+    format_ticket_contacts,
 )
 from utilities.utl_text import format_receipt_description
 
@@ -373,8 +374,11 @@ async def create_and_send_payment(
         context.session, chose_base_ticket_id)
     name = theater_event.name
 
-    email = await db_postgres.get_email(context.session,
-                                        update.effective_user.id)
+    # Use buyer email from reservation context first, fall back to user profile
+    email = reserve_user_data.get('buyer_email')
+    if not email:
+        email = await db_postgres.get_email(context.session,
+                                            update.effective_user.id)
 
     choose_schedule_event_ids = await get_schedule_event_ids_studio(context)
 
@@ -620,7 +624,8 @@ async def processing_successful_payment(
             text += f'Платеж успешно обработан\n'
 
         booking_details = await get_booking_admin_text(
-            context, ticket_ids, user, context.user_data
+            context, ticket_ids, user, context.user_data,
+            full_name=update.effective_user.full_name
         )
         text += booking_details + '\n\n'
 
@@ -912,7 +917,7 @@ async def send_message_about_list_waiting(update: Update, context):
 
     text = reserve_user_data['text_select_event']
     if command == 'reserve':
-        text += ('К сожалению места уже забронировали и свободных мест\n'
+        text += ('К сожалению места уже забронировали и свободных мест<br>'
                  f' Осталось: '
                  f'<i>{qty_child} дет</i>'
                  f' | '
@@ -1051,17 +1056,15 @@ async def get_booking_admin_text(
         ticket_ids: List[int],
         user,
         user_data: dict,
+        full_name: str | None = None,
 ) -> str:
     if user_data is None:
         user_data = {}
 
     ticket = await db_postgres.get_ticket(context.session, ticket_ids[0])
-    is_website = ticket.notes and ("Сайт:" in ticket.notes or "Web booking." in ticket.notes)
 
     # Восстановление данных если их нет в сессии
-    # Для веб-бронирований ВСЕГДА загружаем данные из БД, т.к. client_data в user_data
-    # может содержать устаревшие данные от предыдущего бронирования через бота
-    if is_website or 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
+    if 'reserve_user_data' not in user_data or 'client_data' not in user_data['reserve_user_data']:
         user_data.setdefault('reserve_user_data', {})
         reserve_user_data = user_data['reserve_user_data']
         reserve_user_data['ticket_ids'] = ticket_ids
@@ -1076,10 +1079,7 @@ async def get_booking_admin_text(
                 reserve_user_data['applied_promo_code'] = promo.code
 
         # Пытаемся найти всех людей, привязанных к билету
-        # people_tickets — это M2M связь
         people = []
-        # Мы можем получить людей через relationship в Ticket, если он загружен, 
-        # но надежнее через запрос, так как ticket мог быть загружен без selectin
         stmt = (
             select(db_postgres.Person)
             .join(db_postgres.PersonTicket)
@@ -1090,14 +1090,11 @@ async def get_booking_admin_text(
         people = res.scalars().all()
 
         adult_name = 'Неизвестно'
-        phone = '0000000000'
         children_names = []
 
         for p in people:
             if p.age_type == db_postgres.AgeType.adult:
                 adult_name = p.name or 'Неизвестно'
-                if p.adult:
-                    phone = p.adult.phone or '0000000000'
             elif p.age_type == db_postgres.AgeType.child:
                 child_info = p.name or 'Без имени'
                 if p.child and p.child.age:
@@ -1106,21 +1103,19 @@ async def get_booking_admin_text(
 
         reserve_user_data['client_data'] = {
             'name_adult': adult_name,
-            'phone': phone
         }
         reserve_user_data['original_child_text'] = ", ".join(children_names) if children_names else 'Не указано'
 
         # Восстанавливаем text_for_notification_massage для пользователя
-        # Для website-бронирований всегда перезаписываем текст, так как он может быть устаревшим
         if 'common_data' not in user_data:
             user_data['common_data'] = {}
-        
+
         try:
             text_select_event = await create_str_info_by_schedule_event_id(
                 context, ticket.schedule_event_id)
             chose_base_ticket = await db_postgres.get_base_ticket(
                 context.session, ticket.base_ticket_id)
-            
+
             text_notification = (f'{text_select_event}\n'
                                  f'Вариант бронирования:\n'
                                  f'{chose_base_ticket.name} '
@@ -1131,7 +1126,6 @@ async def get_booking_admin_text(
     else:
         reserve_user_data = user_data['reserve_user_data']
 
-    client_data = reserve_user_data['client_data']
     original_child_text = reserve_user_data.get('original_child_text', 'Не указано')
     chose_price = reserve_user_data.get('chose_price', ticket.price)
     schedule_event_id = reserve_user_data.get('choose_schedule_event_id', ticket.schedule_event_id)
@@ -1147,16 +1141,11 @@ async def get_booking_admin_text(
     promo_code = reserve_user_data.get('applied_promo_code')
 
     str_ticket_ids = ", ".join([f"<code>{i}</code>" for i in ticket_ids])
-    if is_website:
-        email = "Неизвестно"
-        if "Сайт:" in ticket.notes:
-            email = ticket.notes.replace("Сайт:", "").strip().split('\n')[0]
-        text = f'Покупатель: Сайт ({email})\n\n'
-    else:
-        username = f'@{user.username}' if user and user.username else ''
-        full_name = user.full_name if user else 'Неизвестно'
-        text = f'Покупатель: {username} {full_name}\n\n'
-    
+
+    # Контакты и источник — из единого хелпера
+    contacts_block = format_ticket_contacts(ticket, full_name=full_name)
+
+    text = f'{contacts_block}\n\n'
     text += f'#Билеты {str_ticket_ids}\n'
     text += f'#event_id <code>{schedule_event_id}</code>\n'
     text += f'{theater_event.name}\n{date_event} в {time_event}\n'
@@ -1164,9 +1153,9 @@ async def get_booking_admin_text(
     if promo_code:
         text += f'Применен промокод: <code>{promo_code}</code>\n\n'
 
+    adult_name = reserve_user_data.get('client_data', {}).get('name_adult', 'Не указано')
     text += '\n'.join([
-        client_data.get('name_adult', 'Не указано'),
-        f'+7{client_data.get("phone", "0000000000")}',
+        adult_name,
         original_child_text,
     ])
     return text

@@ -20,7 +20,7 @@ from ..services.booking_service import (
 )
 from api.receipt_service import get_ticket_receipt, ReceiptStatus
 from db.models import ScheduleEvent, Adult, Child, Person, Ticket, PersonTicket, UserTicket
-from db.enum import AgeType, AutoSendingTrigger, TicketStatus, UserRole
+from db.enum import AgeType, AutoSendingTrigger, TicketStatus, UserRole, TicketSource
 from db.db_postgres import (
     get_schedule_event,
     get_schedule_event_available_seats,
@@ -34,6 +34,7 @@ from db.db_postgres import (
     get_adult_name,
     get_default_place,
     get_all_active_auto_sendings,
+    create_booking_ticket,
 )
 from api.gspread_pub import (
     publish_write_data_reserve,
@@ -44,6 +45,7 @@ from api.yookassa_connect import create_param_payment
 from utilities.utl_text import (
     extract_phone_number_from_text,
     check_email,
+    check_phone_number,
     format_receipt_description,
 )
 from utilities.utl_place import effective_place
@@ -154,6 +156,26 @@ async def post_booking_form(
     log_ctx.info("[1/5]", f"Form received & validated for schedule {schedule_id}. Promo: {promo_code}, adult: {adult_name}, email: {email}")
 
     phone = clean_phone
+
+    # Validate Russian phone number (same logic as in the bot)
+    if not check_phone_number(phone):
+        log_ctx.warning("[1/5]", f"Invalid phone number: {phone}")
+        context = await _get_booking_form_context(request, s, session)
+        context.update({
+            'error_message': f'Проверьте правильность 10 цифр после +7/8, определено: {phone}',
+            'form_data': {
+                'ticket_type': ticket_type,
+                'adult_name': adult_name,
+                'phone': phone,
+                'email': email,
+                'child_name': child_name,
+                'child_age': child_age,
+                'promo_code': promo_code,
+                'applied_promo_id': applied_promo_id,
+            }
+        })
+        return templates.TemplateResponse(request=request, name='booking_form.html', context=context, status_code=400)
+
     s = await get_schedule_event(session, schedule_id)
     if s is None:
         log_ctx.warning("[1/5]", f"Schedule event {schedule_id} not found")
@@ -249,6 +271,9 @@ async def post_booking_form(
                 final_price = await compute_discounted_price_web(base_price, promo)
                 promo_id = promo.id
 
+    # Конвертируем phone в int для хранения в Ticket
+    phone_int = int(phone)
+
     user_session = request.session.get('user')
     found_chat_id = 0
     if user_session:
@@ -261,43 +286,20 @@ async def post_booking_form(
             else:
                 found_chat_id = found_user.user_id
 
-    person_adult = Person(name=adult_name, age_type=AgeType.adult, user_id=found_chat_id if found_chat_id else None)
-    session.add(person_adult)
-    await session.flush()
-    
-    adult = Adult(phone=phone, person_id=person_adult.id)
-    session.add(adult)
-    
-    children_objs = []
-    for i in range(num_children):
-        person_child = Person(name=child_name[i], age_type=AgeType.child, parent_id=person_adult.id)
-        session.add(person_child)
-        await session.flush()
-        
-        child = Child(age=child_age[i], person_id=person_child.id)
-        session.add(child)
-        children_objs.append(person_child)
-    
-    await session.flush()
-
-    ticket = Ticket(
+    ticket = await create_booking_ticket(
+        session,
         base_ticket_id=ticket_type,
         schedule_event_id=schedule_id,
-        status=TicketStatus.CREATED,
-        notes=f"Сайт: {email}\nPromo: {promo_code if promo_id else 'None'}",
-        payment_id=None,
         price=final_price,
+        adult_name=adult_name,
+        phone=phone_int,
+        email=email,
+        child_names=child_name if child_name else None,
+        child_ages=child_age if child_age else None,
+        promo_code=promo_code,
+        promo_id=promo_id,
+        found_chat_id=found_chat_id if found_chat_id else None,
     )
-    session.add(ticket)
-    await session.flush()
-
-    # Связываем персон с билетом через таблицу PersonTicket (она же people_tickets)
-    session.add(PersonTicket(person_id=person_adult.id, ticket_id=ticket.id))
-    for pc in children_objs:
-        session.add(PersonTicket(person_id=pc.id, ticket_id=ticket.id))
-    
-    if found_chat_id:
-        session.add(UserTicket(user_id=found_chat_id, ticket_id=ticket.id))
 
     q_child = ticket_type_obj.quality_of_children
     q_adult = ticket_type_obj.quality_of_adult
@@ -372,7 +374,7 @@ async def post_booking_form(
         choose_schedule_event_ids=str(s.id),
         command='reserve',
         promo_id=promo_id,
-        source='website',
+        source=TicketSource.WEBSITE.value,
     )
 
     idempotency_id = uuid.uuid4()

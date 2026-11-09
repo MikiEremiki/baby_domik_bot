@@ -166,7 +166,7 @@ async def auto_sending_create_start(update: Update, context):
 
 async def auto_sending_ask_name(update: Update, context):
     """Ask for the sending name."""
-    text = "Введите название рассылки:\n\n"
+    text = "Введите название рассылки:<br><br>"
     text += "Примеры: «Напоминание за день», «Материалы после оплаты», «Запрос отзыва»"
 
     reply_markup = InlineKeyboardMarkup([
@@ -1149,7 +1149,7 @@ async def auto_sending_send_preview_to_self(update: Update, context):
 
     # Demo context with sample placeholder values
     demo_ctx = {
-        'event_name': 'В поход с котом (путешествие)\n👶🏼3-6⏳50мин',
+        'event_name': 'В поход с котом (путешествие)<br>👶🏼3-6⏳50мин',
         'date': '04.10 (вс)',
         'time': '16:30',
         'ticket_ids': '5021',

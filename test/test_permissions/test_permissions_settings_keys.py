@@ -246,18 +246,30 @@ def test_can_receipt_denied_to_super_admin():
         assert _run(can(fake_super, 'receipt', AsyncMock())) is True
 
 
-def test_can_tickets_denied_to_granted_user():
-    """/tickets is root_only (in development), denied even with grant."""
+def test_can_tickets_allowed_to_everyone():
+    """/tickets is public, allowed to everyone without a grant."""
+    assert _run(can(REGULAR, 'tickets', None)) is True
+
+
+def test_can_tickets_admin_denied_without_grant():
+    """/tickets_admin is not public, denied without a grant."""
     with patch('permissions.get_user_access', new_callable=AsyncMock) as acc:
-        acc.return_value = {'tickets'}
-        assert _run(can(REGULAR, 'tickets', AsyncMock())) is False
+        acc.return_value = set()
+        assert _run(can(REGULAR, 'tickets_admin', AsyncMock())) is False
 
 
-def test_can_tickets_denied_to_super_admin():
-    """/tickets is root_only, denied to super_admin."""
+def test_can_tickets_admin_allowed_with_grant():
+    """/tickets_admin is allowed with a grant."""
+    with patch('permissions.get_user_access', new_callable=AsyncMock) as acc:
+        acc.return_value = {'tickets_admin'}
+        assert _run(can(REGULAR, 'tickets_admin', AsyncMock())) is True
+
+
+def test_can_tickets_admin_allowed_to_super_admin():
+    """/tickets_admin is allowed to super_admin (not root_only)."""
     fake_super = 999_000_001
     with patch('permissions.SUPERADMIN_CHAT_ID', [fake_super]):
-        assert _run(can(fake_super, 'tickets', AsyncMock())) is False
+        assert _run(can(fake_super, 'tickets_admin', AsyncMock())) is True
 
 
 def test_can_public_commands_stay_open():
@@ -301,9 +313,12 @@ def test_get_available_commands_super_admin_no_root_only():
             keys = {k for k, _ in result}
             # Should have RECEIPT (not root_only)
             assert 'RECEIPT' in keys
+            # TICKETS is now public — should be present
+            assert 'TICKETS' in keys
+            # TICKETS_ADMIN is not root_only — should be present
+            assert 'TICKETS_ADMIN' in keys
             # Should NOT have tech root_only commands
             assert 'CLEAN_BD' not in keys
-            assert 'TICKETS' not in keys
             assert 'PROFILE' not in keys
     _run(_go())
 

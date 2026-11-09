@@ -77,7 +77,7 @@ timeweb в качестве хостинга
 `openssl s_client -connect baby-theater-domik.ru:443 -servername baby-theater-domik.ru -status -tlsextdebug < /dev/null`
 
 ---
-Основной workflow:
+Основной workflow в prod:
 cd /home/baby_domik_bot/
 git pull
 docker image pull mikieremiki/baby_domik_bot
@@ -95,3 +95,21 @@ docker compose --profile migration up -d
 docker exec -i migration bash
 внутри: alembic -c 'config/alembic.ini' upgrade head
 docker container stop migration
+
+workflow в dev:
+
+
+для миграций:
+.\.venv\Scripts\python -m alembic -c 'config/alembic-dev.ini' upgrade +1
+
+---
+### Миграции
+
+**Чистая БД:** достаточно `alembic upgrade head`. Ручные SQL-скрипты не нужны — исторических данных нет.
+
+**Рабочая БД:** порядок применения миграций:
+1. `alembic upgrade head` — применяет все ревизии Alembic (схема БД).
+2. Ручные SQL-скрипты из `src/db/migrations/manual/` — перенос исторических данных (выполнять в порядке нумерации через `psql` или `docker exec` или другим ручным способом).
+3. Проверка: вручную проверить таблицу `manual_migrations` в БД.
+
+**Правило:** схема БД — только ревизиями Alembic (`src/db/migrations/versions/`), перенос исторических данных — отдельными SQL-скриптами вне цепочки (`src/db/migrations/manual/`). Ручные скрипты не влияют на цепочку и нумерацию миграций Alembic.

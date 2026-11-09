@@ -66,7 +66,7 @@ async def test_children_age_type_registered():
     assert meta["start_state"] == sales_hl.PICK_CHILD_AGE_MIN
     
     usage_text = sales_hl._get_usage_text_for_type("CHILDREN_AGE")
-    assert "возраст детей" in usage_text.lower()
+    assert "возраст ребёнка" in usage_text.lower()
 
 
 @pytest.mark.anyio

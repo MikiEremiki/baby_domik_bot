@@ -1,12 +1,10 @@
-from .reserve_common_hl import (
-    handlers_event_selection,
-    handlers_client_data_selection,
-)
 from .common_conv_hl import (
     F_text_and_no_command,
     cancel_callback_handler,
     back_callback_handler,
     common_fallbacks,
+    handlers_event_selection,
+    handlers_client_data_selection,
 )
 
 from .reserve_conv_hl import reserve_conv_hl
@@ -18,6 +16,8 @@ from .support_conv_hl import support_conv_hl
 from .migration_admin_conv_hl import migration_admin_conv_hl
 from .sales_conv_hl import sales_conv_hl
 from .profile_conv_hl import profile_conv_hl
+from .tickets_conv_hl import tickets_conv_hl
+from .tickets_admin_conv_hl import tickets_admin_conv_hl
 
 __all__ = [
     'F_text_and_no_command',
@@ -36,4 +36,6 @@ __all__ = [
     'reserve_conv_hl',
     'sales_conv_hl',
     'support_conv_hl',
+    'tickets_conv_hl',
+    'tickets_admin_conv_hl',
 ]

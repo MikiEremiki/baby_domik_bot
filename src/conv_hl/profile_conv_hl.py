@@ -3,9 +3,14 @@ from telegram.ext import (
 )
 
 from conv_hl import (
-    F_text_and_no_command, cancel_callback_handler, common_fallbacks,
+    F_text_and_no_command, cancel_callback_handler,
+    common_fallbacks,
 )
 from handlers import profile_hl
+from handlers.main_hl import back as main_back
+from handlers.receipt_hl import receipt_send_callback
+from handlers.tickets_user import TICKETS_MENU, tickets_callback
+
 
 states = {
     profile_hl.MENU: [
@@ -13,8 +18,15 @@ states = {
         CallbackQueryHandler(profile_hl.select_add_type, pattern='^add_'),
         CallbackQueryHandler(profile_hl.profile_callback, pattern='^profile:'),
     ],
+    TICKETS_MENU: [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
+        CallbackQueryHandler(tickets_callback, pattern='^tickets:'),
+        CallbackQueryHandler(receipt_send_callback, pattern='^receipt_send'),
+    ],
     profile_hl.PERSON_MENU: [
         cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
         CallbackQueryHandler(profile_hl.profile_callback, pattern='^profile:'),
     ],
     profile_hl.ADD_ADULT_NAME: [
@@ -47,6 +59,7 @@ states = {
     ],
     profile_hl.CONFIRM_DELETE: [
         cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
         CallbackQueryHandler(profile_hl.profile_callback, pattern='^profile:'),
     ],
 }

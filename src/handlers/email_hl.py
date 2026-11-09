@@ -7,14 +7,17 @@ from utilities.utl_text import check_email
 
 
 async def check_email_and_update_user(update, context: 'ContextTypes.DEFAULT_TYPE'):
-    email = update.effective_message.text
+    email = update.effective_message.text.strip().lower()
     if not check_email(email):
         await retry_get_email(update, context)
+        return
     await db_postgres.update_user(
         session=context.session,
         user_id=update.effective_user.id,
         email=email
     )
+    # Also store the normalized email in the reservation context for ticket creation
+    context.user_data['reserve_user_data']['buyer_email'] = email
 
 
 async def retry_get_email(update, context):

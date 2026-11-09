@@ -34,6 +34,12 @@ states = {
         MessageHandler(F_text_and_no_command,
                        reserve_admin_hl.handle_custom_ticket_params),
     ],
+    'EMAIL': [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(reserve_admin_hl.email_confirm, pattern=r'.*email_confirm'),
+        MessageHandler(F_text_and_no_command, reserve_admin_hl.get_email_admin),
+    ],
     'CONFIRM_RESERVATION': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-CHILDREN'),

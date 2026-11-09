@@ -1,48 +1,22 @@
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 import pytest
-from fastapi.testclient import TestClient
 
-from api.web import main, deps
+from api.web import main
 from api.web.routes import booking, pages
+from conftest import _create_web_client, _create_mock_theater_event, _create_mock_schedule_event
 
-def _create_mock_event():
-    mock_event = MagicMock()
-    mock_event.id = 1
-    mock_event.name = "Test Show"
-    mock_event.min_age_child = 3
-    mock_event.max_age_child = 10
-    mock_event.note = "Note"
-    mock_event.duration = None
-    mock_event.flag_active_repertoire = True
-    return mock_event
-
-def _create_mock_session_event(flag_turn_in_bot=True):
-    mock_s_event = MagicMock()
-    mock_s_event.id = 101
-    mock_s_event.datetime_event = datetime(2030, 1, 1, 12, 0, tzinfo=timezone.utc)
-    mock_s_event.qty_child_free_seat = 10
-    mock_s_event.qty_adult_free_seat = 10
-    mock_s_event.flag_turn_in_bot = flag_turn_in_bot
-    mock_s_event.type_event_id = 1
-    type_event_mock = MagicMock()
-    type_event_mock.name = 'Репертуарный'
-    mock_s_event.type_event = type_event_mock
-    mock_s_event.theater_event = _create_mock_event()
-    return mock_s_event
 
 @pytest.fixture
 def client(monkeypatch):
-    # Мокаем зависимости, чтобы не лезть в реальную БД или NATS
-    monkeypatch.setattr(main.broker, 'connect', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(main.broker, 'close', AsyncMock(return_value=None), raising=False)
-    monkeypatch.setattr(main.broker, 'stop', AsyncMock(return_value=None), raising=False)
-    main.app.dependency_overrides[deps.get_session] = lambda: AsyncMock()
-    
     # Мокаем _get_booking_form_context, чтобы не мокать кучу вложенных вызовов
+    mock_event, _ = _create_mock_theater_event(
+        event_name="Test Show",
+        min_age_child=3,
+        note="Note"
+    )
     mock_context = {
         'request': MagicMock(),
-        'event': _create_mock_event(),
+        'event': mock_event,
         'session': {
             'id': 101,
             'date': '01.01',
@@ -53,14 +27,14 @@ def client(monkeypatch):
         'ticket_types': []
     }
     monkeypatch.setattr(booking, '_get_booking_form_context', AsyncMock(return_value=mock_context))
-    
-    with TestClient(main.app) as c:
+
+    with _create_web_client(monkeypatch, mock_default_place=True) as c:
         yield c
     main.app.dependency_overrides.clear()
 
 def test_post_booking_form_fails_if_turned_off(client, monkeypatch):
     # Создаем сеанс, который ВЫКЛЮЧЕН
-    mock_s_event = _create_mock_session_event(flag_turn_in_bot=False)
+    mock_s_event, _ = _create_mock_schedule_event(flag_turn_in_bot=False)
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     
     form_data = {
@@ -84,9 +58,9 @@ def test_show_booking_form_redirects_if_turned_off(client, monkeypatch):
     # Она просто показывает форму (см. booking.py:90). Редирект или ошибка происходит в POST.
     # Но в тесте было ожидание 303. Если логика изменилась, тест надо подправить.
     # В booking.py:90 НЕТ проверки flag_turn_in_bot, она есть в post_booking_form:128.
-    
+
     # Создаем сеанс, который ВЫКЛЮЧЕН
-    mock_s_event = _create_mock_session_event(flag_turn_in_bot=False)
+    mock_s_event, _ = _create_mock_schedule_event(flag_turn_in_bot=False)
     monkeypatch.setattr(booking, 'get_schedule_event', AsyncMock(return_value=mock_s_event))
     
     response = client.get('/booking/101', follow_redirects=False)
@@ -95,10 +69,10 @@ def test_show_booking_form_redirects_if_turned_off(client, monkeypatch):
     assert response.status_code == 200
 
 def test_index_page_filters_turned_off_session(client, monkeypatch):
-    mock_event = _create_mock_event()
-    mock_s_event_on = _create_mock_session_event(flag_turn_in_bot=True)
+    mock_event, _ = _create_mock_theater_event()
+    mock_s_event_on, _ = _create_mock_schedule_event(flag_turn_in_bot=True)
     mock_s_event_on.id = 101
-    mock_s_event_off = _create_mock_session_event(flag_turn_in_bot=False)
+    mock_s_event_off, _ = _create_mock_schedule_event(flag_turn_in_bot=False)
     mock_s_event_off.id = 102
     
     # Чтобы show_index считал сеансы актуальными, они должны быть в будущем (в моке так и есть)

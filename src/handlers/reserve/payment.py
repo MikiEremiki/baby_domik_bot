@@ -295,6 +295,32 @@ async def confirm_go_pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    # Check email is present for YooKassa payment
+    reserve_user_data = context.user_data['reserve_user_data']
+    buyer_email = reserve_user_data.get('buyer_email')
+    if not buyer_email:
+        # Try to get from user profile as fallback
+        buyer_email = await db_postgres.get_email(context.session,
+                                                  update.effective_user.id)
+    if not buyer_email:
+        text = ('Для создания ссылки на оплату необходим email покупателя.<br><br>'
+                'Пожалуйста, введите email.')
+        keyboard = [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'] + '|',
+            add_back_btn=True,
+            postfix_for_back='EMAIL'
+        )]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        res_text = transform_html(text)
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            reply_markup=reply_markup,
+            parse_mode=None
+        )
+        context.user_data['STATE'] = 'EMAIL'
+        return 'EMAIL'
+
     if check_entered_command(context, 'reserve'):
         reserve_user_data = context.user_data['reserve_user_data']
         schedule_event_id = reserve_user_data.get('choose_schedule_event_id')

@@ -1,5 +1,4 @@
 import asyncio
-from collections import defaultdict
 from types import MappingProxyType
 from unittest.mock import AsyncMock, MagicMock
 import pytest
@@ -9,64 +8,7 @@ from telegram.ext import Application
 from db.models import TicketStatus
 from handlers.hooks import yookassa_hl
 from handlers import sub_hl
-
-
-def _create_mock_update(
-    source='website',
-    chat_id='5473664345',
-    message_id=123,
-    ticket_ids='4915',
-    choose_schedule_event_ids='101',
-    command='reserve',
-    promo_id=None
-):
-    update = MagicMock()
-    metadata = {
-        'source': source,
-        'chat_id': str(chat_id) if chat_id is not None else '',
-        'message_id': message_id,
-        'ticket_ids': ticket_ids,
-        'choose_schedule_event_ids': choose_schedule_event_ids,
-        'command': command,
-    }
-    if promo_id:
-        metadata['promo_id'] = str(promo_id)
-    update.object.metadata = metadata
-    return update
-
-
-def _create_mock_context(has_persistence=True):
-    context = MagicMock()
-    raw_user_data = defaultdict(dict)
-    context.application.user_data = MappingProxyType(raw_user_data)
-    
-    if has_persistence:
-        context.application.persistence = MagicMock()
-        # Моделируем persistence из PTB v20+, где get_user_data() - асинхронный метод
-        context.application.persistence.get_user_data = AsyncMock(return_value={})
-        context.application.persistence.update_conversation = AsyncMock()
-        context.application.mark_data_for_update_persistence = MagicMock()
-    else:
-        context.application.persistence = None
-        context.application.mark_data_for_update_persistence = MagicMock()
-    
-    context.config.sheets.sheet_id_domik = 'test_sheet_id'
-    context.config.bot.developer_chat_id = 111
-    context.bot_data = {
-        'settings': {'REFUND_INFO': 'Правила возврата'},
-        'dict_topics_name': {
-            'Бронирования спектаклей': 42,
-            'Бронирования студия': 43,
-        }
-    }
-    context.session = AsyncMock()
-    
-    mock_sent_msg = MagicMock()
-    mock_sent_msg.message_id = 777
-    context.bot.send_message = AsyncMock(return_value=mock_sent_msg)
-    context.bot.edit_message_reply_markup = AsyncMock()
-    
-    return context
+from conftest import _create_mock_update, _create_mock_context
 
 
 def test_real_application_user_data_contract():
@@ -100,7 +42,7 @@ def test_processing_ticket_paid_website_new_user(monkeypatch):
     Убеждается в отсутствии AttributeError, создании сессии, заполнении полей,
     отсутствии вызова get_user_data и вызове mark_data_for_update_persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -146,7 +88,7 @@ def test_processing_ticket_paid_website_existing_user(monkeypatch):
     Проверяет обработку вебхука с сайта для пользователя с уже существующим user_data.
     Убеждается в сохранении посторонних ключей, удалении старых client_data и пометке persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     context.application.user_data[5473664345].update({
         'custom_key': 'custom_val',
@@ -199,7 +141,7 @@ def test_processing_ticket_paid_website_error_in_notification_still_marks_persis
     Проверяет, что при ошибке отправки уведомлений блок finally всё равно
     помечает измененные данные для сохранения в persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -234,7 +176,7 @@ def test_processing_ticket_paid_website_unhandled_exception_still_marks_persiste
     Проверяет, что даже при необработанном исключении блок finally выполняет
     пометку данных в persistence.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     monkeypatch.setattr('handlers.hooks.yookassa_hl.create_str_info_by_schedule_event_id',
@@ -257,7 +199,7 @@ def test_processing_ticket_paid_invalid_chat_ids(monkeypatch, invalid_chat_id):
     Проверяет, что при некорректных chat_id (0, пустая строка, нечисловые)
     сессия не создаётся и пометка persistence не вызывается.
     """
-    update = _create_mock_update(source='website', chat_id=invalid_chat_id, message_id=0, ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id=invalid_chat_id, message_id=0, ticket_ids='4915')
     context = _create_mock_context(has_persistence=True)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -286,7 +228,7 @@ def test_processing_ticket_paid_no_persistence(monkeypatch):
     Проверяет, что при отсутствии persistence (context.application.persistence is None)
     обработка выполняется успешно без обращений к update_conversation.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context(has_persistence=False)
     
     mock_ticket = MagicMock(base_ticket_id=1, price=1000)
@@ -340,7 +282,11 @@ def test_send_approve_reject_message_to_admin_real_helper_website_user(monkeypat
         schedule_event_id=101,
         promo_id=None,
         is_admin_notified=False,
-        notes='Сайт: user@example.com'
+        notes='Сайт: user@example.com',
+        source=None,
+        user=None,
+        phone=None,
+        email=None,
     )
     mock_schedule_event = MagicMock(theater_event_id=10)
     mock_theater_event = MagicMock()
@@ -395,7 +341,11 @@ def test_get_booking_admin_text_user_none(monkeypatch):
         base_ticket_id=1,
         schedule_event_id=101,
         promo_id=None,
-        notes='Сайт: test@domain.com'
+        notes='Сайт: test@domain.com',
+        source=None,
+        user=None,
+        phone=None,
+        email=None,
     )
     mock_schedule_event = MagicMock(theater_event_id=10)
     mock_theater_event = MagicMock()
@@ -427,14 +377,15 @@ def test_get_booking_admin_text_user_none(monkeypatch):
         user_data={}
     ))
 
-    assert 'Покупатель: Сайт (test@domain.com)' in res_text
+    # format_ticket_contacts возвращает "Покупатель: Неизвестен" когда ticket.user=None
+    assert 'Покупатель: Неизвестен' in res_text
 
 
 def test_processing_ticket_paid_bot_booking(monkeypatch):
     """
     Проверяет регрессию для бронирования через бота (source='bot').
     """
-    update = _create_mock_update(source='bot', chat_id='5473664345', ticket_ids='4915')
+    update = _create_mock_update(source='BOT', chat_id='5473664345', ticket_ids='4915')
     context = _create_mock_context()
     context.application.user_data[5473664345].update({
         'command': 'reserve',
@@ -465,7 +416,7 @@ def test_processing_ticket_paid_admin_booking(monkeypatch, has_user):
     """
     Проверяет административную бронь (command='reserve_admin') с наличием и отсутствием ключа user в user_data.
     """
-    update = _create_mock_update(source='website', chat_id='5473664345', command='reserve_admin', ticket_ids='4915')
+    update = _create_mock_update(source='WEBSITE', chat_id='5473664345', command='reserve_admin', ticket_ids='4915')
     context = _create_mock_context()
     
     user_dict = context.application.user_data[5473664345]

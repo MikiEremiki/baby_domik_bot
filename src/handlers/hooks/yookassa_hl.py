@@ -82,8 +82,8 @@ async def parsing_metadata(update: WebhookNotification, text: str) -> str:
 
 async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
     metadata = update.object.metadata
-    source = metadata.get('source', 'bot')
-    is_website = source == 'website'
+    source = metadata.get('source', 'BOT')
+    is_website = source == 'WEBSITE'
 
     message_id = metadata['message_id']
     chat_id = metadata['chat_id']

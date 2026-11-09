@@ -53,15 +53,40 @@ reserve_hl_logger = logging.getLogger('bot.reserve_hl')
 async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     query = update.callback_query
     reserve_user_data = context.user_data['reserve_user_data']
-    if not query:
+    if query:
+        # email_confirm button: extract email from callback_data
+        _, callback_data = remove_intent_id(query.data)
+        email = None
+        if '|' in callback_data:
+            email = callback_data.split('|', maxsplit=1)[-1]
+        if email:
+            email = email.strip().lower()
+        else:
+            # Fallback: get from user profile
+            email = await db_postgres.get_email(context.session,
+                                                update.effective_user.id)
+        if email:
+            reserve_user_data['buyer_email'] = email
+    else:
         try:
             await context.bot.edit_message_reply_markup(
                 update.effective_chat.id,
                 message_id=reserve_user_data['message_id']
             )
         except BadRequest as e:
-            reserve_hl_logger.error(e)
-        await check_email_and_update_user(update, context)
+            if "Message is not modified" not in str(e):
+                reserve_hl_logger.error(e)
+        email_text = update.effective_message.text.strip().lower()
+        if not check_email(email_text):
+            return await retry_get_email(update, context)
+        # Store normalized email in reservation context
+        reserve_user_data['buyer_email'] = email_text
+        # Also update user profile
+        await db_postgres.update_user(
+            session=context.session,
+            user_id=update.effective_user.id,
+            email=email_text
+        )
 
     reserve_user_data = context.user_data['reserve_user_data']
 
@@ -433,8 +458,8 @@ async def _handle_chld_selection_callback(
     elif data == 'CHLD_SEARCH_NAME':
         reserve_user_data['waiting_for_child_search_name'] = True
         reserve_user_data.pop('waiting_for_child_search_age', None)
-        text = ('<b>Поиск де��ей по имени</b>\n\n'
-                'Введите имя или часть имени ребенка:\n'
+        text = ('<b>Поиск детей по имени</b><br><br>'
+                'Введите имя или часть имени ребенка:<br>'
                 'Например: <code>Аня</code>')
         keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -450,8 +475,8 @@ async def _handle_chld_selection_callback(
     elif data == 'CHLD_SEARCH_AGE':
         reserve_user_data['waiting_for_child_search_age'] = True
         reserve_user_data.pop('waiting_for_child_search_name', None)
-        text = ('<b>Фильтр детей по возрасту</b>\n\n'
-                'Введите возраст ребенка (число):\n'
+        text = ('<b>Фильтр детей по возрасту</b><br><br>'
+                'Введите возраст ребенка (число):<br>'
                 'Например: <code>3</code> или <code>5</code>')
         keyboard = [[InlineKeyboardButton("⬅️ Отмена", callback_data="CHLD_RESET_FLTR")]]
         reply_markup = InlineKeyboardMarkup(keyboard)

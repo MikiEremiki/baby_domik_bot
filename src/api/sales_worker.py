@@ -19,7 +19,7 @@ from db.sales_crud import (
 )
 from settings.config_loader import parse_settings
 from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, nats_url
-from utilities.utl_func import get_full_name_event
+from utilities.utl_event import get_full_name_event
 
 sales_worker_logger = logging.getLogger('bot.sales_worker')
 

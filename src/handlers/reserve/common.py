@@ -56,31 +56,31 @@ async def get_child_text_and_reply(
 
         selected_count = len(reserve_user_data['selected_children'])
 
-        text = '<b>Укажите детей для бронирования</b>\n\n'
-        text += '<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b>\n'
-        text += '<b>или ➕ Добавить ребенка</b>\n\n'
+        text = '<b>Укажите детей для бронирования</b><br><br>'
+        text += '<b>НАЖМИТЕ КНОПКУ С ИМЕНЕМ</b><br>'
+        text += '<b>или ➕ Добавить ребенка</b><br><br>'
 
-        text += f'Нужно выбрать: {limit}\n'
-        text += f'<i>Выбрано: {selected_count} из {limit}</i>\n\n'
+        text += f'Нужно выбрать: {limit}<br>'
+        text += f'<i>Выбрано: {selected_count} из {limit}</i><br><br>'
 
-        text += '<b>📝 изм.</b> - изменить данные по ребенку.\n\n'
+        text += '<b>📝 изм.</b> - изменить данные по ребенку.<br><br>'
 
         mode = reserve_user_data.get('child_filter_mode', 'PHONE')
         if mode == 'SEARCH_NAME':
             name_q = reserve_user_data.get('child_search_name', '')
-            text += f'<i>Результаты поиска по имени:</i> <code>"{name_q}"</code>\n\n'
+            text += f'<i>Результаты поиска по имени:</i> <code>"{name_q}"</code><br><br>'
         elif mode == 'SEARCH_AGE':
             age_q = reserve_user_data.get('child_search_age', '')
-            text += f'<i>Результаты фильтра по возрасту:</i> <code>{age_q}</code>\n\n'
+            text += f'<i>Результаты фильтра по возрасту:</i> <code>{age_q}</code><br><br>'
         elif (
                 mode == 'PHONE' and
                 reserve_user_data.get('client_data', {}).get('phone')
         ):
             phone = reserve_user_data['client_data']['phone']
             pretty_phone = f'+7{phone}' if not phone.startswith('+7') else phone
-            text += f'<i>Список детей для клиента:</i> <code>{pretty_phone}</code>\n\n'
+            text += f'<i>Список детей для клиента:</i> <code>{pretty_phone}</code><br><br>'
         else:
-            text += '<i>Показаны все ваши дети</i>\n\n'
+            text += '<i>Показаны все ваши дети</i><br><br>'
 
         command = context.user_data.get('command', '')
         is_admin = '_admin' in command
