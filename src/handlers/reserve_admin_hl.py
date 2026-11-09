@@ -25,7 +25,7 @@ from utilities.utl_kbd import (
     create_kbd_and_text_tickets_for_choice, create_replay_markup,
     remove_intent_id, add_btn_back_and_cancel,
 )
-from conv_hl.reserve_common_hl import (
+from handlers.reserve_common_hl import (
     send_email_step,
     handle_email_input,
     handle_email_confirm_callback,

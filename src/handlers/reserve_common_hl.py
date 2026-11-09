@@ -1,14 +1,8 @@
 from sulguk import transform_html
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import CallbackQueryHandler, ContextTypes, MessageHandler
+from telegram import InlineKeyboardMarkup
+from telegram.ext import ContextTypes
 
-from conv_hl.common_conv_hl import (
-    F_text_and_no_command,
-    back_callback_handler,
-    cancel_callback_handler,
-)
 from db import db_postgres
-from handlers import main_hl, reserve_hl
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import (
     add_btn_back_and_cancel,
@@ -17,6 +11,17 @@ from utilities.utl_kbd import (
     remove_intent_id,
 )
 from utilities.utl_text import check_email
+
+
+def _extract_email_from_callback(callback_data: str) -> str | None:
+    """Извлекает email из callback_data после removal intent_id."""
+    if callback_data.startswith('email_confirm|'):
+        email = callback_data.split('|', maxsplit=1)[-1]
+        if email and check_email(email):
+            return email
+    if check_email(callback_data):
+        return callback_data
+    return None
 
 
 EMAIL_PROMPT = 'Напишите email покупателя, на который будет направлен чек<br><br>'
@@ -142,6 +147,9 @@ async def handle_email_input(
     Валидирует email, сохраняет в reserve_user_data, переходит к FORMA.
     Возвращает state ('EMAIL' при ошибке, 'FORMA' при успехе).
     """
+    if update.effective_message is None:
+        return 'EMAIL'
+
     reserve_user_data = context.user_data['reserve_user_data']
     try:
         await context.bot.edit_message_reply_markup(
@@ -177,30 +185,23 @@ async def handle_email_confirm_callback(
     postfix_for_back: str = 'TICKET',
 ):
     """Обработка callback email_confirm в админской брони.
-    
+
     Извлекает email из callback_data, валидирует, сохраняет, переходит к FORMA.
     Если email невалидный — возвращает к ручному вводу.
     """
     query = update.callback_query
+    if query is None:
+        return 'EMAIL'
+
     try:
         await query.answer()
     except Exception:
         pass
 
     _, callback_data = remove_intent_id(query.data)
-    email = None
-    if callback_data.startswith('email_confirm|'):
-        email = callback_data.split('|', maxsplit=1)[-1]
-    elif '|' in callback_data:
-        # Fallback: if intent_id was already stripped, callback_data may be just the email
-        # But we also handle the case where callback_data is like "email_confirm|user@x.com"
-        # after intent removal from "intent|email_confirm|user@x.com"
-        pass
-    # If callback_data is just an email (intent_id consumed "email_confirm|"), treat it as email
-    if email is None and check_email(callback_data):
-        email = callback_data
+    email = _extract_email_from_callback(callback_data)
 
-    if not email or not check_email(email):
+    if not email:
         # Fall through to manual input
         text = EMAIL_PROMPT
         keyboard = [add_btn_back_and_cancel(
@@ -224,61 +225,4 @@ async def handle_email_confirm_callback(
     reserve_user_data['buyer_email'] = email
     return await proceed_to_forma_step(update, context, reserve_user_data, edit_message=True)
 
-handlers_event_selection = {
-    'MONTH': [
-        cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
-        CallbackQueryHandler(reserve_hl.choice_show, pattern='^MONTH'),
-        CallbackQueryHandler(reserve_hl.choice_month_rep_continue, pattern='^MONTH_REP'),
-    ],
-    'SHOW': [
-        cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-REP_GROUP'),
-        CallbackQueryHandler(reserve_hl.choice_show, pattern='^SHOW_PAGE'),
-        CallbackQueryHandler(reserve_hl.choice_date, pattern='^SHOW'),
-    ],
-    'DATE': [
-        cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-MONTH'),
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
-        CallbackQueryHandler(reserve_hl.choice_time, pattern='^DATE'),
-    ],
-    'PLACE': [
-        cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
-        CallbackQueryHandler(reserve_hl.choice_place, pattern='^PLACE'),
-    ],
-    'TIME': [
-        cancel_callback_handler,
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-PLACE'),
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-DATE'),
-        CallbackQueryHandler(main_hl.back, pattern='^Назад-SHOW'),
-        CallbackQueryHandler(reserve_hl.choice_option_of_reserve, pattern='^TIME'),
-    ],
-}
 
-handlers_client_data_selection = {
-    'FORMA': [
-        back_callback_handler,
-        cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.adult_confirm, pattern=r'.*adult_confirm'),
-        MessageHandler(F_text_and_no_command, reserve_hl.get_adult),
-    ],
-    'PHONE': [
-        back_callback_handler,
-        cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.phone_confirm, pattern=r'.*phone_confirm'),
-        MessageHandler(F_text_and_no_command, reserve_hl.get_phone),
-    ],
-    'CHILDREN': [
-        back_callback_handler,
-        cancel_callback_handler,
-        CallbackQueryHandler(reserve_hl.child_confirm, pattern=r'.*child_confirm'),
-        MessageHandler(F_text_and_no_command, reserve_hl.get_children),
-        CallbackQueryHandler(reserve_hl.get_children, pattern=r'^Далее'),
-        CallbackQueryHandler(reserve_hl.get_children, pattern=r'^CHLD_'),
-    ],
-}
