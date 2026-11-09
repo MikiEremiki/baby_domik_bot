@@ -1,5 +1,6 @@
 from telegram.ext import (
     ConversationHandler, CommandHandler, MessageHandler, CallbackQueryHandler,
+    filters,
 )
 
 from handlers import reserve_hl, reserve_admin_hl, main_hl
@@ -54,6 +55,29 @@ states = {
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-CONFIRM_RESERVATION'),
         MessageHandler(F_text_and_no_command, reserve_hl.handle_promo_code_input),
+    ],
+    'PAID': [
+        cancel_callback_handler,
+        CallbackQueryHandler(reserve_hl.confirm_payment, pattern='^confirm_payment$'),
+        CallbackQueryHandler(reserve_hl.processing_successful_notification, pattern='Next'),
+        MessageHandler(
+            filters.PHOTO | filters.Document.ALL,
+            reserve_hl.forward_photo_or_file
+        ),
+    ],
+    'WAIT_RECEIPT': [
+        cancel_callback_handler,
+        MessageHandler(
+            filters.PHOTO | filters.Document.ALL,
+            reserve_hl.handle_receipt_file
+        ),
+    ],
+    'WAIT_DOCUMENT': [
+        cancel_callback_handler,
+        MessageHandler(
+            filters.PHOTO | filters.Document.ALL,
+            reserve_hl.handle_certificate_file
+        ),
     ],
 }
 
