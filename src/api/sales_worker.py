@@ -20,6 +20,7 @@ from db.sales_crud import (
 from settings.config_loader import parse_settings
 from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR, nats_url
 from utilities.utl_event import get_full_name_event
+from utilities.utl_sales_message import build_extra, send_campaign_message
 
 sales_worker_logger = logging.getLogger('bot.sales_worker')
 
@@ -81,57 +82,35 @@ async def _send_to_chat(
         availability_block: str,
         reserve_text: str
 ) -> None:
-    kind = campaign.message_kind
     extra = ''
-    if campaign.type in ('WAS_THIS_YEAR_ON_PLAY', 'CHILDREN_AGE') and campaign.theater_event_id:
-        extra += f"\n\n{full_name}" if full_name else ""
-        extra += f"\n\n{availability_block}" if availability_block else ""
-        extra += f"\n\n{reserve_text}"
+    if campaign.theater_event_id:
+        extra = build_extra(full_name, availability_block, reserve_text)
 
-    if kind == 'text':
-        text = (campaign.message_text or '') + extra
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif kind == 'photo' and campaign.photo_file_id:
-        caption = (campaign.caption_text or '') + extra
-        await bot.send_photo(
-            chat_id=chat_id,
-            photo=campaign.photo_file_id,
-            caption=caption,
-            parse_mode='HTML',
-            disable_notification=False
-        )
-    elif kind == 'video' and campaign.video_file_id:
-        caption = (campaign.caption_text or '') + extra
-        await bot.send_video(
-            chat_id=chat_id,
-            video=campaign.video_file_id,
-            caption=caption,
-            parse_mode='HTML',
-            disable_notification=False
-        )
-    elif kind == 'animation' and campaign.animation_file_id:
-        caption = (campaign.caption_text or '') + extra
-        await bot.send_animation(
-            chat_id=chat_id,
-            animation=campaign.animation_file_id,
-            caption=caption,
-            parse_mode='HTML',
-            disable_notification=False,
-        )
-    else:
-        # fallback to text if no proper payload
-        text = (campaign.message_text or '') + extra
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode='HTML',
-            disable_web_page_preview=True,
-        )
+    # Build media list from extra_payload (new format)
+    extra_payload = campaign.extra_payload or {}
+    media = extra_payload.get('media', [])
+    text_mode = extra_payload.get('text_mode', 'caption')
+
+    # Fallback: if no extra_payload, use old fields
+    if not media:
+        kind = campaign.message_kind
+        if kind == 'photo' and campaign.photo_file_id:
+            media = [{'type': 'photo', 'file_id': campaign.photo_file_id}]
+        elif kind == 'video' and campaign.video_file_id:
+            media = [{'type': 'video', 'file_id': campaign.video_file_id}]
+        elif kind == 'animation' and campaign.animation_file_id:
+            media = [{'type': 'animation', 'file_id': campaign.animation_file_id}]
+
+    text = campaign.message_text or campaign.caption_text or ''
+
+    await send_campaign_message(
+        bot,
+        chat_id,
+        media=media,
+        text=text,
+        extra=extra,
+        text_mode=text_mode,
+    )
 
 
 async def progress_sender(message: NatsMessage):
@@ -183,7 +162,7 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
 
             full_name = ""
             availability_block = ""
-            if campaign.type in ('WAS_THIS_YEAR_ON_PLAY', 'CHILDREN_AGE') and campaign.theater_event_id:
+            if campaign.theater_event_id:
                 theater_event = await db_postgres.get_theater_event(
                     session, campaign.theater_event_id)
                 if theater_event:

@@ -57,8 +57,9 @@ test/
 ├── test_events/             # События и площадки (2 файла)
 │   ├── test_list_past_events.py
 │   └── test_multi_location_events.py
-└── test_sales/              # Рассылки и продажи (1 файл)
-    └── test_sales_children_age.py
+└── test_sales/              # Рассылки и продажи (2 файла)
+    ├── test_sales_message.py    # utl_sales_message: build_extra, visible_len, analyze_length
+    └── test_sales_season.py     # SEASON_TICKET_HOLDERS: _parse_date, _show_step, usage text
 ```
 
 ## Общие фикстуры (`conftest.py`)

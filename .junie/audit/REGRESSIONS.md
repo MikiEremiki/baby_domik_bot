@@ -7,6 +7,18 @@
 
 ## Активные
 
+- **sales_hl.py** — `_safe_edit_message` делегирует в `utl_tg.safe_edit_text` / `safe_edit_caption` (исправлено 2026-11-09)
+  - Что: Локальная функция `_safe_edit_message` в `sales_hl.py` переписана: вместо прямого try/except с `edit_message_text`/`edit_message_caption` теперь вызывает `safe_edit_text()` и `safe_edit_caption()` из `utl_tg.py`.
+  - Почему важно: Унификация обработки `BadRequest: Message is not modified` через `utl_tg` — последний оставшийся дублирующий блок.
+  - Как проверить: `/sales` → предпросмотр → «Запустить» / «Отменить» → сообщение редактируется без ошибки.
+  - При будущих изменениях: При модификации `_safe_edit_message` проверять, что он делегирует в `utl_tg`, а не дублирует логику.
+
+- **sales_hl.py** — `delete_message()` удалён из мастера `/sales`; переходы между шагами через `_show_step` (исправлено 2026-11-09)
+  - Что: `delete_message()` убран из `pick_attach_theater`, `pick_theater`, `pick_scope` и `preview_action`. Переходы между шагами мастера теперь редактируют текущее сообщение через `_show_step()` с `step_msg_id`; при `Message to edit not found` отправляется новое сообщение с запоминанием ID.
+  - Почему важно: Без этого `delete_message()` удалял сообщение, которое ещё не было заменено новым — Telegram API выбрасывал `Message to edit not found` при следующем callback. Баг проявлялся при выборе «Прикрепить спектакль» → «Да» → выбор спектакля.
+  - Как проверить: `/sales` → тип 1 → «Прикрепить спектакль» → «Да» → выбор спектакля → шаг охвата отображается без ошибки. Возврат «Назад» из предпросмотра тоже без ошибки.
+  - При будущих изменениях: При модификации переходов между шагами мастера `/sales` проверять, что `delete_message()` не используется, а новый шаг рендерится через `_show_step()`.
+
 - **command_permission.py:137-139** — Callback ветка middleware выполняется первой с ранним return (исправлено 2026-10-18)
   - Что: В `check_command_permission` ветка `if update.callback_query:` стоит перед проверкой `effective_message.text`. Для callback-апдейта `effective_message` — это сообщение бота с кнопкой, у которого всегда есть текст. Без раннего return callback-ветка никогда не выполнялась.
   - Почему важно: Без этого middleware не проверяет права на callback-кнопки (`settings:*`, `acc|…`, `UP_*`). Пользователь без гранта мог нажать любую кнопку, если middleware не заблокировал. Хендлеры имеют собственную защиту, но второй слой из плана отсутствовал.
@@ -91,11 +103,11 @@
   - Как проверить: Отправка напоминаний для сеанса с билетами где `user=None` → воркер должен завершиться без ошибки
   - При будущих изменениях: При модификации `send_reminder` проверять, что `group_tickets_by_user()` используется, а не ручной цикл
 
-- **reserve/input.py:192-205** — `_safe_edit_message_text()` / `_safe_edit_message_reply_markup()` хелперы для `BadRequest: Message is not modified` (исправлено 2026-10-18)
-  - Что: Все вызовы `query.edit_message_text()` и `query.edit_message_reply_markup()` в хендлерах редактирования/выбора детей переведены на хелперы, которые тихо игнорируют ошибку при повторной доставке callback
-  - Почему важно: Без этого бот падает с `BadRequest` при двойном нажатии на кнопки редактирования детей
-  - Как проверить: Быстро нажать кнопку «✏️ Изменить» или «Добавить» дважды → бот не должен падать
-  - При будущих изменениях: При модификации `_handle_chld_edit_callback` или `_handle_chld_selection_callback` проверять, что все `query.edit_message_*` идут через `_safe_edit_message_text()` / `_safe_edit_message_reply_markup()`
+- **utilities/utl_tg.py** — `is_not_modified()` центральный хелпер для `BadRequest: Message is not modified` (исправлено 2026-11-09)
+  - Что: Все 11 дубликатов обработки «Message is not modified» в 6 файлах (`auto_sending_hl.py`, `command_mgmt_hl.py`, `support_hl.py`, `reserve/choice.py`, `reserve/input.py`, `sales_hl.py`) переведены на `is_not_modified()` из `utl_tg.py`. Локальные хелперы `_safe_edit_message_text()` и `_safe_edit_message_reply_markup()` в `reserve/input.py` продолжают работать, но используют `is_not_modified()` из `utl_tg.py`.
+  - Почему важно: Дублирование логики обработки одной и той же ошибки в 11 местах создаёт риск расхождения поведения при будущих изменениях. Единая функция `is_not_modified()` гарантирует консистентность.
+  - Как проверить: `grep 'Message is not modified' src/` — строка встречается только в `utl_tg.py` и в docstring `_edit()` в `command_mgmt_hl.py`.
+  - При будущих изменениях: При добавлении нового обработчика `edit_message_*` с `BadRequest` проверять, что используется `is_not_modified()` из `utl_tg.py`, а не дублирующая проверка по подстроке.
 
 - **utl_text.py:check_phone_number** — Инверсия return-значений: True = валиден, False = невалиден (исправлено 2026-11-08)
   - Что: `check_phone_number` теперь возвращает `True` для валидного номера и `False` для невалидного. Раньше логика была инвертирована — `True` означал невалидность. Все 4 места вызова (`booking.py`, `common_hl.py`, `profile_hl.py`) обновлены: `if check_phone_number(phone):` → `if not check_phone_number(phone):`.
