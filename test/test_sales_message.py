@@ -248,9 +248,12 @@ async def test_send_single_video():
 
 
 @pytest.mark.anyio
-async def test_parse_mode_always_html():
+async def test_parse_mode_none_with_sulguk():
+    """After sulguk refactor, parse_mode is None and entities are provided."""
     bot = AsyncMock()
     bot.send_message = AsyncMock(return_value=MagicMock())
     await send_campaign_message(bot, 123, media=[], text='hi', extra='')
     call = bot.send_message.call_args
-    assert call.kwargs['parse_mode'].value == 'HTML'
+    assert call.kwargs['parse_mode'] is None
+    # entities should be present (even if empty for plain text)
+    assert 'entities' in call.kwargs

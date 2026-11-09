@@ -617,27 +617,27 @@ async def processing_successful_payment(
                                                status=new_ticket_status)
 
         if new_ticket_status == TicketStatus.RESERVED:
-            text = f'#Резерв\n'
-            text += f'Места успешно зарезервированы (оплата позже)\n'
+            text = f'#Резерв<br>'
+            text += f'Места успешно зарезервированы (оплата позже)<br>'
         else:
-            text = f'#Бронирование\n'
-            text += f'Платеж успешно обработан\n'
+            text = f'#Бронирование<br>'
+            text += f'Платеж успешно обработан<br>'
 
         booking_details = await get_booking_admin_text(
             context, ticket_ids, user, context.user_data,
             full_name=update.effective_user.full_name
         )
-        text += booking_details + '\n\n'
+        text += booking_details + '<br><br>'
 
         if '_admin' in command:
-            text += f'Добавлено: {update.effective_chat.full_name}\n\n'
+            text += f'Добавлено: {update.effective_chat.full_name}<br><br>'
 
         for ticket_id in ticket_ids:
             text += f'#ticket_id <code>{ticket_id}</code>'
 
         if 'migration' in command:
             ticket_id = context.user_data['reserve_admin_data']['ticket_id']
-            text += f'\nПеренесен с #ticket_id <code>{ticket_id}</code>'
+            text += f'<br>Перенесен с #ticket_id <code>{ticket_id}</code>'
 
         # Проверяем, не было ли уже уведомления в БД по этим билетам
         is_already_notified = False
@@ -652,13 +652,16 @@ async def processing_successful_payment(
                 update, context)
 
             thread_id = await get_thread_id(context, command)
+            res_text = transform_html(text)
             await send_message_to_admin(
                 chat_id=ADMIN_GROUP,
-                text=text,
-                message_id=message_id_for_admin,
+                text=res_text.text,
                 context=context,
-                thread_id=thread_id,
-                reply_markup=reply_markup
+                reply_to_message_id=message_id_for_admin,
+                message_thread_id=thread_id,
+                reply_markup=reply_markup,
+                entities=res_text.entities,
+                parse_mode=None
             )
             # Помечаем все билеты как "уведомленные" в БД
             for t_id in ticket_ids:
@@ -959,32 +962,23 @@ async def send_info_about_individual_ticket(update, context):
     context.user_data['reserve_user_data'].clear()
 
 
-async def send_message_to_admin(
-        chat_id: Union[int, str],
-        text: str,
-        message_id: Optional[Union[int, str]],
-        context: 'ContextTypes.DEFAULT_TYPE',
-        thread_id: Optional[int],
-        reply_markup=None,
-):
+async def send_message_to_admin(chat_id, text, context, **kwargs):
     try:
         message = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            reply_to_message_id=message_id,
-            message_thread_id=thread_id,
-            reply_markup=reply_markup,
+            **kwargs
         )
     except BadRequest as e:
         sub_hl_logger.error(e)
         user = context.user_data.get('user')
         sub_hl_logger.info(f"Для пользователя: {user.id}: {user.full_name}: "
                            f"сообщение на которое нужно ответить, удалено")
+        kwargs_without_reply = {k: v for k, v in kwargs.items() if k != 'reply_to_message_id'}
         message = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            message_thread_id=thread_id,
-            reply_markup=reply_markup,
+            **kwargs_without_reply
         )
     return message
 
@@ -1011,7 +1005,7 @@ async def send_approve_reject_message_to_admin_in_webhook(
     text += f'Платеж успешно обработан<br>'
 
     booking_details = await get_booking_admin_text(context, ticket_ids, user, user_data)
-    text += booking_details.replace('\n', '<br>') + '<br><br>'
+    text += booking_details + '<br><br>'
 
     for ticket_id in ticket_ids:
         text += f'#ticket_id <code>{ticket_id}</code>'
@@ -1143,18 +1137,18 @@ async def get_booking_admin_text(
     str_ticket_ids = ", ".join([f"<code>{i}</code>" for i in ticket_ids])
 
     # Контакты и источник — из единого хелпера
-    contacts_block = format_ticket_contacts(ticket, full_name=full_name)
+    contacts_block = format_ticket_contacts(ticket, full_name=full_name, html=True)
 
-    text = f'{contacts_block}\n\n'
-    text += f'#Билеты {str_ticket_ids}\n'
-    text += f'#event_id <code>{schedule_event_id}</code>\n'
-    text += f'{theater_event.name}\n{date_event} в {time_event}\n'
-    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб\n\n'
+    text = f'{contacts_block}<br><br>'
+    text += f'#Билеты {str_ticket_ids}<br>'
+    text += f'#event_id <code>{schedule_event_id}</code><br>'
+    text += f'{theater_event.name}<br>{date_event} в {time_event}<br>'
+    text += f'{chose_base_ticket.name} {int(price_to_pay)}руб<br><br>'
     if promo_code:
-        text += f'Применен промокод: <code>{promo_code}</code>\n\n'
+        text += f'Применен промокод: <code>{promo_code}</code><br><br>'
 
     adult_name = reserve_user_data.get('client_data', {}).get('name_adult', 'Не указано')
-    text += '\n'.join([
+    text += '<br>'.join([
         adult_name,
         original_child_text,
     ])

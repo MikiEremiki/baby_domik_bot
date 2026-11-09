@@ -19,8 +19,8 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from sulguk import transform_html
 from telegram import InputMediaPhoto, InputMediaVideo, InputMediaAnimation
-from telegram.constants import ParseMode
 
 CAPTION_LIMIT = 1024
 TEXT_LIMIT = 4096
@@ -219,16 +219,21 @@ async def send_campaign_message(
     sent: List[Any] = []
     common_kwargs: Dict[str, Any] = {
         'chat_id': chat_id,
-        'parse_mode': ParseMode.HTML,
     }
     if message_thread_id is not None:
         common_kwargs['message_thread_id'] = message_thread_id
 
+    # Transform HTML to Telegram entities using sulguk
+    full_text = text + extra
+    res_text = transform_html(full_text)
+
     if not media:
         # Plain text message
         msg = await bot.send_message(
-            text=text + extra,
+            text=res_text.text,
+            entities=res_text.entities,
             reply_markup=reply_markup,
+            parse_mode=None,
             **common_kwargs,
         )
         sent.append(msg)
@@ -243,8 +248,10 @@ async def send_campaign_message(
         if text_mode == 'caption':
             msg = await send_fn(
                 **{mtype if mtype != 'animation' else 'animation': file_id},
-                caption=text + extra,
+                caption=res_text.text,
+                entities=res_text.entities,
                 reply_markup=reply_markup,
+                parse_mode=None,
                 **common_kwargs,
             )
         else:
@@ -255,8 +262,10 @@ async def send_campaign_message(
             )
             sent.append(msg)
             msg = await bot.send_message(
-                text=text + extra,
+                text=res_text.text,
+                entities=res_text.entities,
                 reply_markup=reply_markup,
+                parse_mode=None,
                 **common_kwargs,
             )
         sent.append(msg)
@@ -280,8 +289,10 @@ async def send_campaign_message(
 
     # Text message with reply_markup attached (keyboard won't work on media group)
     msg = await bot.send_message(
-        text=text + extra,
+        text=res_text.text,
+        entities=res_text.entities,
         reply_markup=reply_markup,
+        parse_mode=None,
         **common_kwargs,
     )
     sent.append(msg)
