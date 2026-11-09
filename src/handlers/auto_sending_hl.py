@@ -1149,7 +1149,7 @@ async def auto_sending_send_preview_to_self(update: Update, context):
 
     # Demo context with sample placeholder values
     demo_ctx = {
-        'event_name': 'В поход с котом (путешествие)\n👶🏼3-6⏳50мин',
+        'event_name': 'В поход с котом (путешествие)<br>👶🏼3-6⏳50мин',
         'date': '04.10 (вс)',
         'time': '16:30',
         'ticket_ids': '5021',

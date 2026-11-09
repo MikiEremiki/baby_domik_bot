@@ -10,10 +10,10 @@ from utilities.utl_googlesheets import write_to_return_seats_for_sale
 utl_ticket_logger = logging.getLogger('bot.utl_ticket')
 
 
-def format_ticket_contacts(ticket: 'Ticket', full_name: str | None = None) -> str:
+def format_ticket_contacts(ticket: 'Ticket', full_name: str | None = None, html: bool = False) -> str:
     """Форматирует контакты и источник билета в единый блок текста.
 
-    Возвращает строку с разделением на строки (\n):
+    Возвращает строку с разделением на строки:
         Источник: …
         Покупатель: …
         Телефон: …
@@ -25,7 +25,9 @@ def format_ticket_contacts(ticket: 'Ticket', full_name: str | None = None) -> st
     :param ticket: билет из БД
     :param full_name: отображаемое имя Telegram-пользователя (update.effective_user.full_name),
         используется для покупателя из бота, если доступно.
+    :param html: если True, использует <br> вместо \\n для разделителей строк.
     """
+    separator = '<br>' if html else '\n'
     lines: list[str] = []
 
     # Источник
@@ -61,7 +63,7 @@ def format_ticket_contacts(ticket: 'Ticket', full_name: str | None = None) -> st
     else:
         lines.append('Email: не указан')
 
-    return '\n'.join(lines)
+    return separator.join(lines)
 
 
 async def get_spec_ticket_price(context: ContextTypes.DEFAULT_TYPE,

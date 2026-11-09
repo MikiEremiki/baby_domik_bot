@@ -148,6 +148,33 @@ def build_receipt_button_row(ticket_id: int) -> InlineKeyboardMarkup:
 
 
 # ---------------------------------------------------------------------------
+# Shared receipt display helper
+# ---------------------------------------------------------------------------
+
+async def show_receipt_to_chat(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    ticket_id: int,
+) -> None:
+    """Show receipt card as a new message (reply to callback).
+
+    Shared helper used by both profile_hl and tickets_admin_conv_hl.
+    """
+    receipt_info = await get_ticket_receipt(context.session, ticket_id)
+    card_text = format_receipt_card(receipt_info)
+    res = transform_html(card_text)
+    keyboard = build_receipt_card_keyboard(receipt_info)
+
+    await update.effective_chat.send_message(
+        text=res.text,
+        entities=res.entities,
+        reply_markup=keyboard,
+        parse_mode=None,
+        reply_to_message_id=update.callback_query.message.message_id,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Command handler
 # ---------------------------------------------------------------------------
 

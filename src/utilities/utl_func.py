@@ -938,7 +938,7 @@ async def add_clients_data_to_text(
         tickets_info: List[Tuple[BaseTicket, Ticket]]):
     text = ''
     for base_ticket, ticket in tickets_info:
-        contacts_block = format_ticket_contacts(ticket)
+        contacts_block = format_ticket_contacts(ticket, html=True)
 
         # Дети — из ticket.people
         child_str = ''
@@ -953,7 +953,7 @@ async def add_clients_data_to_text(
             text += f'<br>Дети: {child_str}'
         text += f'<br>Статус билета: {ticket.status.value}'
         if ticket.notes:
-            text += f'<br>Примечание: {ticket.notes}'
+            text += f'<br>Примечание: {ticket.notes.replace(chr(10), "<br>")}'
     return text
 
 
@@ -976,10 +976,10 @@ def add_reserve_clients_data_to_text(text, reserve_user_data):
 async def get_child_and_adult_from_ticket(ticket):
     """Возвращает (contacts_block, child_str) для вывода информации о билете.
 
-    contacts_block — результат format_ticket_contacts(ticket).
+    contacts_block — результат format_ticket_contacts(ticket, html=True).
     child_str — строка с детьми через ticket.people.
     """
-    contacts_block = format_ticket_contacts(ticket)
+    contacts_block = format_ticket_contacts(ticket, html=True)
 
     child_str = ''
     for person in ticket.people:
