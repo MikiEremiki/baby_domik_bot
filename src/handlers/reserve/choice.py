@@ -42,6 +42,7 @@ from utilities.utl_kbd import (
     adjust_kbd, remove_intent_id, add_intent_id,
     create_kbd_unique_dates, create_kbd_for_time_by_date,
 )
+from utilities.utl_tg import is_not_modified
 from settings.settings import (
     SUPPORT_DATA,
     REPERTOIRE_TYPE_ID,
@@ -587,7 +588,7 @@ async def choice_show(
                     reply_markup=reply_markup,
                 )
             except BadRequest as e:
-                if 'Message is not modified' in str(e):
+                if is_not_modified(e):
                     reserve_hl_logger.info(
                         'Игнорируем клик по текущей странице (без изменений)')
                 else:
@@ -605,7 +606,7 @@ async def choice_show(
                     await query.edit_message_text(
                         text=text, reply_markup=reply_markup)
             except BadRequest as e:
-                if 'Message is not modified' in str(e):
+                if is_not_modified(e):
                     reserve_hl_logger.info(
                         'Игнорируем клик по текущей странице (без изменений)')
                 else:

@@ -36,6 +36,7 @@ from permissions import (
 )
 from settings.settings import SETTINGS_DATABASE_KEY
 from utilities.utl_kbd import add_btn_back_and_cancel, remove_intent_id
+from utilities.utl_tg import is_not_modified
 
 command_mgmt_hl_logger = logging.getLogger('bot.command_mgmt_hl')
 
@@ -61,7 +62,7 @@ async def _edit(query, text: str | None = None, reply_markup=None):
         else:
             await query.edit_message_text(text=text, reply_markup=reply_markup)
     except BadRequest as e:
-        if 'not modified' not in str(e).lower():
+        if not is_not_modified(e):
             raise
 
 

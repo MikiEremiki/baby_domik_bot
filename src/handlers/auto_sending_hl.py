@@ -9,6 +9,8 @@ from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import BadRequest
 
+from utilities.utl_tg import is_not_modified
+
 from permissions import can_or_false
 from db import db_postgres
 from db.enum import AutoSendingTrigger, TicketStatus
@@ -137,8 +139,8 @@ async def auto_sending_select(
         else:
             await update.effective_chat.send_message(res.text, entities=res.entities, reply_markup=reply_markup, parse_mode=None)
     except BadRequest as e:
-        if "Message is not modified" not in str(e):
-            raise e
+        if not is_not_modified(e):
+            raise
 
     state = 3
     await set_back_context(context, state, text, reply_markup)
