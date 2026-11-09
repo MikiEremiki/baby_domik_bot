@@ -127,6 +127,54 @@
   - Как проверить: Создать билет с телефоном `9200199870` → запись успешна, `phone = 9200199870`. Проверить тип колонки: `SELECT data_type FROM information_schema.columns WHERE column_name = 'phone'` → `bigint`.
   - При будущих изменениях: При модификации `Ticket.phone` проверять, что тип — `BigInteger`, а не `Integer`.
 
+- **profile_hl.py / tickets_admin_conv_hl.py** — Фильтр «Актуальные» использует `datetime.now(timezone.utc)`, не `datetime.now()` (исправлено 2026-11-09)
+  - Что: Сравнение `se.datetime_event > datetime.now()` заменено на `datetime.now(timezone.utc)`. `datetime_event` в PostgreSQL — `TIMESTAMP WITH TIME ZONE`, SQLAlchemy возвращает aware datetime. Сравнение с naive `datetime.now()` выбрасывает `TypeError: can't compare offset-naive and offset-aware datetimes`.
+  - Почему важно: Без этого фильтр «Актуальные/Все» в `/tickets` и `/tickets_admin` полностью ломается — бот падает с `TypeError` при попытке показать список билетов.
+  - Как проверить: Открыть `/tickets` или `/tickets_admin` → список билетов отображается без ошибки. Переключить фильтр «Все» → список обновляется.
+  - При будущих изменениях: При работе с `datetime_event` или любыми `TIMESTAMP WITH TIME ZONE` полями проверять, что сравнение использует `datetime.now(timezone.utc)`.
+
+- **profile_hl.py** — `edit_message_text` с `transform_html` entities падает, нужно `parse_mode='HTML'` (исправлено 2026-11-09)
+  - Что: `edit_message_text(res.text, entities=res.entities, parse_mode=None)` заменён на `edit_message_text(text, parse_mode='HTML')`. `transform_html` (Sulguk) возвращает `MessageEntity` объекты, которые несовместимы с `edit_message_text` при `parse_mode=None` — Telegram API выбрасывает `BadRequest`.
+  - Почему важно: Без этого фильтр «Все/Актуальные» в `/tickets` отправляет новое сообщение вместо редактирования текущего. Пользователь видит дублирующиеся сообщения, а не обновлённый список.
+  - Как проверить: Нажать «Все» в `/tickets` → текущее сообщение редактируется, список обновляется. Новое сообщение не создаётся.
+  - При будущих изменениях: При использовании `edit_message_text` с HTML-контентом проверять, что используется `parse_mode='HTML'`, а не `entities` от `transform_html`.
+
+- **profile_hl.py** — `send_action(TYPING)` инвалидирует callback, `edit_message_text` падает (исправлено 2026-11-09)
+  - Что: `send_action(ChatAction.TYPING)` больше не вызывается при `callback_query` в `show_tickets`. `send_action` сбрасывает callback-контекст, `edit_message_text` падает в `except`, и код идёт по ветке `send_message` — создаётся новое сообщение.
+  - Почему важно: Без этого нажатие «Все» в `/tickets` создаёт новое сообщение вместо редактирования. Проблема была незаметна при команде (send_action там полезен), но критична при callback.
+  - Как проверить: Нажать «Все» в `/tickets` → сообщение редактируется на месте. `send_action` вызывается только при `page` и `toggle_filter` в `tickets_callback` (до `show_tickets`), не внутри `show_tickets` при callback.
+  - При будущих изменениях: При добавлении `send_action` в callback-обработчики проверять, что он не вызывается между `callback_query` и `edit_message_text`.
+
+- **profile_hl.py** — `init_conv_hl_dialog` при callback стирает user_data (исправлено 2026-11-09)
+  - Что: `init_conv_hl_dialog` вызывается только при `not update.callback_query`. Для callback-запросов `effective_message` всегда установлен (`callback_query.message`), поэтому проверка `effective_message is not None` не работала. `clean_context` внутри `init_conv_hl_dialog` стирал `tickets_relevant_filter` (сбрасываясь на `True` — актуальные) и `reserve_user_data['back']` (ломая кнопку «Назад»).
+  - Почему важно: Без этого фильтр «Все» в `/tickets` сбрасывался обратно на «Актуальные», а кнопка «Назад» переставала работать. Правильная проверка — `not update.callback_query`.
+  - Как проверить: Нажать «Все» в `/tickets` → список показывает все билеты кроме CANCELED. Нажать «Назад» из детали билета → возврат к списку.
+  - При будущих изменениях: При вызове `init_conv_hl_dialog` или `clean_context` в callback-обработчиках проверять, что используется `not update.callback_query`, а не `effective_message is not None`.
+
+- **tickets_admin_conv_hl.py** — `selectinload` для `user.tickets` предотвращает `MissingGreenlet` (исправлено 2026-11-09)
+  - Что: Доступ к `user.tickets` (lazy relationship SQLAlchemy 2.0) теперь через `selectinload`. `select(User).options(selectinload(User.tickets))` загружает билеты eagerly. Без этого `user.tickets` пытался загрузиться вне async session context с `MissingGreenlet`.
+  - Почему важно: Без этого поиск по пользователю и кнопка «Билеты покупателя» в `/tickets_admin` падают с `sqlalchemy.exc.MissingGreenlet`.
+  - Как проверить: `/tickets_admin` → «По пользователю» → ввод `@username` → список билетов пользователя. Карточка билета → «Билеты покупателя» → список всех билетов.
+  - При будущих изменениях: При доступе к relationship (`user.tickets`, `ticket.people`) в async session проверять, что используется `selectinload` или `joinedload`.
+
+- **tickets_admin_conv_hl.py / profile_hl.py** — `\n` в тексте через `transform_html` заменён на `<br>` (исправлено 2026-11-09)
+  - Что: Все `\n` в текстах, передаваемых через `transform_html` (Sulguk), заменены на `<br>`. `\n` не является HTML-тегом и игнорируется Telegram API при `parse_mode='HTML'`/`parse_mode=None` с Sulguk entities. `format_ticket_contacts` добавлен параметр `html=True` для `<br>` разделителей.
+  - Почему важно: Без этого контакты и примечания билетов отображаются в одну строку без переносов. «Источник: Бот Покупатель: @user Телефон: +7... Email: ...» — всё слито.
+  - Как проверить: Карточка билета в `/tickets_admin` → контакты на отдельных строках. Примечание с переносами → переносы видны.
+  - При будущих изменениях: При использовании `transform_html` проверять, что `\n` заменён на `<br>`. При использовании `format_ticket_contacts` с `transform_html` передавать `html=True`.
+
+- **tickets_admin_conv_hl.py** — Примечание при дополнении через один `\n`, не `\n\n` (исправлено 2026-11-09)
+  - Что: В `handle_notes_input` разделитель между старым и новым текстом при режиме «Дополнить» изменён с `\n\n` на `\n`.
+  - Почему важно: Без этого каждое дополнение примечания добавляло пустую строку, что визуально удваивало отступ.
+  - Как проверить: Открыть билет в `/tickets_admin` → «Примечание» → «Дополнить» → ввести текст → новое примечание приклеено через один перенос строки.
+  - При будущих изменениях: При модификации `handle_notes_input` проверять, что разделитель — `\n`.
+
+- **utl_ticket.py** — `format_ticket_contacts` с параметром `html` для Sulguk совместимости (исправлено 2026-11-09)
+  - Что: Добавлен параметр `html` (по умолчанию `False`). При `html=True` разделитель `<br>` вместо `\n`. Вызовы с `transform_html` используют `html=True`, остальные — `\n`.
+  - Почему важно: Без этого контакты в админской карточке билета (где используется `transform_html`) отображались в одну строку. Вызовы без `transform_html` (migration_admin, sub_hl) продолжают работать с `\n`.
+  - Как проверить: `/tickets_admin` карточка билета → контакты на отдельных строках. `/migration_admin` → контакты также корректны.
+  - При будущих изменениях: При использовании `format_ticket_contacts` с `transform_html` передавать `html=True`.
+
 ---
 
 ## Архив
