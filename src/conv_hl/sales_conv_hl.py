@@ -13,6 +13,16 @@ states = {
         cancel_callback_handler,
         back_callback_handler,
     ],
+    sales_hl.PICK_EXISTING_CAMPAIGN: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_existing_campaign, pattern='^sales:existing'),
+    ],
+    sales_hl.CAMPAIGN_ACTION_MENU: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.handle_campaign_action, pattern='^sales:action'),
+    ],
     sales_hl.PICK_TYPE: [
         cancel_callback_handler,
         back_callback_handler,

@@ -91,6 +91,56 @@ async def mark_recipient_status(session: AsyncSession, recipient_id: int, status
         await session.flush()
 
 
+async def get_recent_campaigns(session: AsyncSession, limit: int = 10) -> List[SalesCampaign]:
+    """Get recent campaigns that can be resumed (draft, running, canceled)."""
+    stmt = (
+        select(SalesCampaign)
+        .where(SalesCampaign.status.in_(['draft', 'running', 'canceled']))
+        .order_by(SalesCampaign.id.desc())
+        .limit(limit)
+    )
+    result = (await session.execute(stmt)).scalars().all()
+    return list(result)
+
+
+async def get_campaign_with_schedules(session: AsyncSession, campaign_id: int):
+    """Get campaign with its schedules loaded."""
+    from sqlalchemy.orm import selectinload
+    stmt = (
+        select(SalesCampaign)
+        .options(selectinload(SalesCampaign.schedules))
+        .where(SalesCampaign.id == campaign_id)
+    )
+    result = (await session.execute(stmt)).scalars().first()
+    return result
+
+
+async def delete_campaign(session: AsyncSession, campaign_id: int) -> bool:
+    """Delete a campaign and all related schedules and recipients (CASCADE)."""
+    campaign = await session.get(SalesCampaign, campaign_id)
+    if campaign:
+        await session.delete(campaign)
+        await session.flush()
+        return True
+    return False
+
+
+async def get_recipient_counts(session: AsyncSession, campaign_id: int) -> Tuple[int, int]:
+    """Return (total_recipients, pending_recipients) for a campaign."""
+    total = (await session.execute(
+        select(func.count()).select_from(SalesRecipient).where(
+            SalesRecipient.campaign_id == campaign_id
+        )
+    )).scalar() or 0
+    pending = (await session.execute(
+        select(func.count()).select_from(SalesRecipient).where(
+            SalesRecipient.campaign_id == campaign_id,
+            SalesRecipient.status == 'pending'
+        )
+    )).scalar() or 0
+    return total, pending
+
+
 async def get_free_places(session: AsyncSession, schedule_ids: List[int]):
     """Return mapping schedule_id -> (free_child, free_adult).
     Accurate calculation based on tickets: free = total - taken, clamped to 0.

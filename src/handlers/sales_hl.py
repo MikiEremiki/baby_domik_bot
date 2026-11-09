@@ -17,7 +17,9 @@ from db.enum import TicketStatus, AgeType
 from db.models import UserTicket, Person, Child, PersonTicket
 from db.sales_crud import (
     create_campaign, set_campaign_schedules, snapshot_recipients,
-    update_campaign_message, set_campaign_status, get_free_places
+    update_campaign_message, set_campaign_status, get_free_places,
+    get_recent_campaigns, get_campaign_with_schedules,
+    delete_campaign, get_recipient_counts
 )
 from api.sales_pub import publish_sales
 from handlers import init_conv_hl_dialog
@@ -223,6 +225,8 @@ async def _show_step(
 
 # States (conversation will import these)
 MENU = 'MENU'
+PICK_EXISTING_CAMPAIGN = 'PICK_EXISTING_CAMPAIGN'
+CAMPAIGN_ACTION_MENU = 'CAMPAIGN_ACTION_MENU'
 PICK_TYPE = 'PICK_TYPE'
 PICK_THEATER = 'PICK_THEATER'
 PICK_SCOPE = 'PICK_SCOPE'
@@ -1148,6 +1152,235 @@ async def _show_pick_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await _show_step(update, context, text, reply_markup, PICK_TYPE)
 
 
+def _status_label(status: str) -> str:
+    """Return a short emoji label for campaign status."""
+    return {'draft': '📝', 'running': '🔄', 'canceled': '❌', 'done': '✅'}.get(status, status)
+
+
+async def show_pick_existing_campaign(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of recent campaigns that can be resumed, plus 'Create new' button."""
+    session = context.session
+    campaigns = await get_recent_campaigns(session, limit=10)
+
+    type_labels = {
+        'WAS_THIS_YEAR_ON_PLAY': 'Свободные места',
+        'TICKET_HOLDERS': 'Обладатели билетов',
+        'SEASON_TICKET_HOLDERS': 'Посетители сезона',
+    }
+
+    lines = ['<b>Выберите кампанию или создайте новую:</b>\n']
+    kb = []
+
+    for c in campaigns:
+        label = type_labels.get(c.type, c.type)
+        status_emoji = _status_label(c.status)
+        title = (c.title or f'Кампания #{c.id}')
+        lines.append(f'{status_emoji} <b>#{c.id}</b> — {title}\n<i>{label} · {c.status}</i>')
+
+    kb.append([InlineKeyboardButton(
+        '➕ Создать новую', callback_data='new'
+    )])
+
+    # Build campaign buttons as a flat list, then reshape with adjust_kbd
+    campaign_buttons = []
+    for c in campaigns:
+        status_emoji = _status_label(c.status)
+        campaign_buttons.append(InlineKeyboardButton(
+            f'{status_emoji} #{c.id}',
+            callback_data=f'campaign:{c.id}'
+        ))
+    kb.extend(adjust_kbd(campaign_buttons, 4))
+    kb = add_intent_id(kb, 'sales:existing')
+    kb.append([InlineKeyboardButton('Отмена', callback_data='Отменить')])
+    reply_markup = InlineKeyboardMarkup(kb)
+
+    text = '\n\n'.join(lines) if campaigns else '<b>Нет доступных кампаний.</b>\n\nСоздайте новую.'
+    return await _show_step(update, context, text, reply_markup, PICK_EXISTING_CAMPAIGN)
+
+
+async def pick_existing_campaign(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle selection: show action menu for existing campaign or create a new one."""
+    query = update.callback_query
+    await query.answer()
+    _, payload = remove_intent_id(query.data)
+
+    if payload == 'new':
+        # Reset state and go to type selection
+        context.user_data['sales'] = {
+            'dev_mode': context.user_data['sales'].get('dev_mode', False),
+            'type': None,
+            'campaign_id': None,
+            'theater_event_id': None,
+            'schedule_ids': [],
+            'filters': {},
+            'audience_theater_ids': [],
+            'f_schedule_time': 'all',
+            'f_schedule_show': 'all',
+            'child_age_min': None,
+            'child_age_max': None,
+            'attach_theater': False,
+        }
+        return await _show_pick_type(update, context)
+
+    if payload.startswith('campaign:'):
+        campaign_id = int(payload.split(':', 1)[1])
+        return await show_campaign_action_menu(update, context, campaign_id)
+
+    # Fallback
+    return await show_pick_existing_campaign(update, context)
+
+
+async def show_campaign_action_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, campaign_id: int):
+    """Show action menu for a selected campaign: resume, continue, edit, cancel, delete."""
+    session = context.session
+    campaign = await get_campaign_with_schedules(session, campaign_id)
+
+    if not campaign:
+        return await show_pick_existing_campaign(update, context)
+
+    # Store campaign_id in state for action handlers
+    context.user_data['sales']['campaign_id'] = campaign.id
+
+    type_labels = {
+        'WAS_THIS_YEAR_ON_PLAY': 'Свободные места',
+        'TICKET_HOLDERS': 'Обладатели билетов',
+        'SEASON_TICKET_HOLDERS': 'Посетители сезона',
+    }
+    label = type_labels.get(campaign.type, campaign.type)
+    status_emoji = _status_label(campaign.status)
+    title = campaign.title or f'Кампания #{campaign.id}'
+
+    total, pending = await get_recipient_counts(session, campaign_id)
+
+    has_content = (
+        campaign.extra_payload or
+        campaign.message_text or
+        campaign.caption_text or
+        campaign.message_kind
+    )
+
+    text = (
+        f'{status_emoji} <b>{title}</b> (#{campaign.id})\n\n'
+        f'Тип: {label}\n'
+        f'Статус: {campaign.status}\n'
+        f'Получатели: {total} (ожидает: {pending})\n'
+        f'Сообщение: {"есть" if has_content else "не задано"}'
+    )
+
+    kb = []
+    # Resume — re-publish to NATS (only if has content and pending recipients)
+    if has_content and pending > 0 and campaign.status != 'done':
+        kb.append([InlineKeyboardButton(
+            '🔄 Перезапустить', callback_data='action:resume'
+        )])
+    # Continue — go to wizard to finish setup
+    if not has_content or campaign.status in ('draft', 'running'):
+        kb.append([InlineKeyboardButton(
+            '▶️ Продолжить настройку', callback_data='action:continue'
+        )])
+    # Edit — go to preview to edit media/text
+    if has_content:
+        kb.append([InlineKeyboardButton(
+            '✏️ Изменить сообщение', callback_data='action:edit'
+        )])
+    # Cancel — set status to canceled
+    if campaign.status in ('draft', 'running'):
+        kb.append([InlineKeyboardButton(
+            '❌ Отменить', callback_data='action:cancel'
+        )])
+    # Delete — remove campaign
+    if campaign.status in ('draft', 'canceled'):
+        kb.append([InlineKeyboardButton(
+            '🗑 Удалить', callback_data='action:delete'
+        )])
+
+    kb.append([InlineKeyboardButton('← Назад', callback_data='back')])
+    kb = add_intent_id(kb, 'sales:action')
+    reply_markup = InlineKeyboardMarkup(kb)
+
+    return await _show_step(update, context, text, reply_markup, CAMPAIGN_ACTION_MENU)
+
+
+async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle action selection for a campaign."""
+    query = update.callback_query
+    await query.answer()
+    _, payload = remove_intent_id(query.data)
+
+    campaign_id = context.user_data['sales'].get('campaign_id')
+    if not campaign_id:
+        await query.answer('Сначала выберите кампанию.', show_alert=True)
+        return await show_pick_existing_campaign(update, context)
+
+    if payload == 'action:resume':
+        # Re-publish campaign to NATS — go to preview for confirmation
+        return await show_preview(update, context)
+
+    if payload == 'action:continue':
+        # Restore campaign state and go to appropriate wizard step
+        session = context.session
+        campaign = await get_campaign_with_schedules(session, campaign_id)
+        if not campaign:
+            await query.answer('Кампания не найдена.', show_alert=True)
+            return await show_pick_existing_campaign(update, context)
+
+        sales_state = context.user_data['sales']
+        sales_state['campaign_id'] = campaign.id
+        sales_state['type'] = campaign.type
+        sales_state['theater_event_id'] = campaign.theater_event_id
+        sales_state['schedule_ids'] = [s.schedule_event_id for s in campaign.schedules]
+        if campaign.extra_payload:
+            sales_state['extra_payload'] = campaign.extra_payload
+
+        has_content = (
+            campaign.extra_payload or
+            campaign.message_text or
+            campaign.caption_text or
+            campaign.message_kind
+        )
+
+        if has_content:
+            # Has message — go to media/text step to potentially modify
+            return await show_preview(update, context)
+        else:
+            # No message — go to audience step based on type
+            start_state = SALES_TYPES.get(campaign.type, {}).get('start_state', PICK_THEATER)
+            if start_state == PICK_FILTERS:
+                return await show_pick_filters(update, context)
+            if start_state == PICK_SEASON_START:
+                return await show_pick_season_start(update, context)
+            return await show_pick_theater(update, context)
+
+    if payload == 'action:edit':
+        # Go to preview to edit media/text
+        return await show_preview(update, context)
+
+    if payload == 'action:cancel':
+        session = context.session
+        await set_campaign_status(session, campaign_id, 'canceled')
+        await session.commit()
+        sales_logger.info(f'Кампания #{campaign_id} отменена')
+        await query.answer('Кампания отменена.', show_alert=True)
+        return await show_pick_existing_campaign(update, context)
+
+    if payload == 'action:delete':
+        session = context.session
+        deleted = await delete_campaign(session, campaign_id)
+        if deleted:
+            await session.commit()
+            sales_logger.info(f'Кампания #{campaign_id} удалена')
+            await query.answer('Кампания удалена.', show_alert=True)
+        else:
+            await query.answer('Кампания не найдена.', show_alert=True)
+        return await show_pick_existing_campaign(update, context)
+
+    if payload == 'back':
+        return await show_pick_existing_campaign(update, context)
+
+    # Fallback
+    return await show_campaign_action_menu(update, context, campaign_id)
+
+
 async def start_sales(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point: /sales [dev]"""
     # Parse optional argument 'dev'
@@ -1176,8 +1409,8 @@ async def start_sales(update: Update, context: ContextTypes.DEFAULT_TYPE):
                       update.effective_user.id,
                       context.user_data['sales']['dev_mode'])
 
-    # Show type selection
-    return await _show_pick_type(update, context)
+    # Show existing campaigns or create new
+    return await show_pick_existing_campaign(update, context)
 
 
 async def pick_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3200,8 +3433,8 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if campaign.theater_event_id or schedule_ids:
         action_rows.append([InlineKeyboardButton('Изменить сеансы',
                               callback_data='edit_schedules')])
-    action_rows.append([InlineKeyboardButton('Отмена', callback_data='cancel')])
     action_rows = add_intent_id(action_rows, 'sales:preview')
+    action_rows.append([InlineKeyboardButton('Отмена', callback_data='Отменить')])
     reply_markup = InlineKeyboardMarkup(action_rows)
 
     # Send preview using unified send_campaign_message
@@ -3300,11 +3533,20 @@ async def preview_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not campaign:
             await query.answer('Кампания не найдена.', show_alert=True)
             return PREVIEW
-        if campaign.status != 'draft':
+        if campaign.status == 'done':
             await query.answer(
-                f'Кампания уже имеет статус "{campaign.status}". Повторный запуск невозможен.',
+                'Кампания уже завершена.',
                 show_alert=True)
             return PREVIEW
+        if campaign.status == 'canceled':
+            await query.answer(
+                'Кампания отменена. Создайте новую через /sales.',
+                show_alert=True)
+            return PREVIEW
+        if campaign.status == 'running':
+            # Campaign was interrupted — reset and re-publish
+            sales_logger.info(
+                f'Кампания #{campaign_id} в running, перезапуск: recipients в pending')
         # Check message exists
         extra_payload = sales_state.get('extra_payload', {})
         has_text = bool(extra_payload.get('text'))
