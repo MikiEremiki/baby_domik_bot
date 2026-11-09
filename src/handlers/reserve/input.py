@@ -42,6 +42,7 @@ from utilities.utl_kbd import (
     remove_intent_id,
     create_phone_confirm_btn, create_kbd_edit_children,
 )
+from utilities.utl_tg import is_not_modified
 from permissions import can_or_false
 from settings.settings import (
     ADMIN_GROUP, COMMAND_DICT,
@@ -74,7 +75,7 @@ async def get_email(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 message_id=reserve_user_data['message_id']
             )
         except BadRequest as e:
-            if "Message is not modified" not in str(e):
+            if not is_not_modified(e):
                 reserve_hl_logger.error(e)
         email_text = update.effective_message.text.strip().lower()
         if not check_email(email_text):
@@ -219,7 +220,7 @@ async def _safe_edit_message_text(query, **kwargs) -> None:
     try:
         await query.edit_message_text(**kwargs)
     except BadRequest as e:
-        if "Message is not modified" not in str(e):
+        if not is_not_modified(e):
             raise
 
 
@@ -227,7 +228,7 @@ async def _safe_edit_message_reply_markup(query, **kwargs) -> None:
     try:
         await query.edit_message_reply_markup(**kwargs)
     except BadRequest as e:
-        if "Message is not modified" not in str(e):
+        if not is_not_modified(e):
             raise
 
 

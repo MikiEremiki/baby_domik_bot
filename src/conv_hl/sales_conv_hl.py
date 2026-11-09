@@ -13,6 +13,16 @@ states = {
         cancel_callback_handler,
         back_callback_handler,
     ],
+    sales_hl.PICK_EXISTING_CAMPAIGN: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_existing_campaign, pattern='^sales:existing'),
+    ],
+    sales_hl.CAMPAIGN_ACTION_MENU: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.handle_campaign_action, pattern='^sales:action'),
+    ],
     sales_hl.PICK_TYPE: [
         cancel_callback_handler,
         back_callback_handler,
@@ -38,16 +48,6 @@ states = {
         cancel_callback_handler,
         back_callback_handler,
         CallbackQueryHandler(sales_hl.pick_audience_theater, pattern='^sales:aud_theater'),
-    ],
-    sales_hl.PICK_CHILD_AGE_MIN: [
-        cancel_callback_handler,
-        back_callback_handler,
-        CallbackQueryHandler(sales_hl.pick_child_age_min, pattern='^sales:child_age_min'),
-    ],
-    sales_hl.PICK_CHILD_AGE_MAX: [
-        cancel_callback_handler,
-        back_callback_handler,
-        CallbackQueryHandler(sales_hl.pick_child_age_max, pattern='^sales:child_age_max'),
     ],
     sales_hl.PICK_ATTACH_THEATER: [
         cancel_callback_handler,
@@ -115,11 +115,13 @@ states = {
     sales_hl.PICK_SEASON_START: [
         cancel_callback_handler,
         back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_season_start, pattern='^sales:season_start'),
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_start),
     ],
     sales_hl.PICK_SEASON_END: [
         cancel_callback_handler,
         back_callback_handler,
+        CallbackQueryHandler(sales_hl.pick_season_end, pattern='^sales:season_end'),
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_end),
     ],
     sales_hl.PICK_SEASON_THEATERS: [
@@ -132,29 +134,40 @@ states = {
         cancel_callback_handler,
         back_callback_handler,
         CallbackQueryHandler(sales_hl.pick_season_age_min, pattern='^sales:season_age_min'),
-        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_age_min),
     ],
     sales_hl.PICK_SEASON_AGE_MAX: [
         cancel_callback_handler,
         back_callback_handler,
         CallbackQueryHandler(sales_hl.pick_season_age_max, pattern='^sales:season_age_max'),
-        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.pick_season_age_max),
     ],
     sales_hl.PICK_SEASON_STATUSES: [
         cancel_callback_handler,
         back_callback_handler,
         CallbackQueryHandler(sales_hl.pick_season_statuses, pattern='^sales:season_status'),
     ],
-    # GET_MESSAGE — merged back handlers for all campaign types
+    # GET_MESSAGE — text only (media collected in GET_MEDIA)
     sales_hl.GET_MESSAGE: [
         cancel_callback_handler,
         CallbackQueryHandler(sales_hl.back_to_pick_filters, pattern='^Назад-PICK_FILTERS$'),
         CallbackQueryHandler(sales_hl.back_to_attach_theater, pattern='^Назад-PICK_ATTACH_THEATER$'),
         back_callback_handler,
         MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.handle_admin_message),
-        MessageHandler(filters.PHOTO, sales_hl.handle_admin_message),
-        MessageHandler(filters.VIDEO, sales_hl.handle_admin_message),
-        MessageHandler(filters.ANIMATION, sales_hl.handle_admin_message),
+    ],
+    # GET_MEDIA — collect media files
+    sales_hl.GET_MEDIA: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.handle_media_action, pattern='^sales:media'),
+        MessageHandler(filters.PHOTO, sales_hl.handle_media_input),
+        MessageHandler(filters.VIDEO, sales_hl.handle_media_input),
+        MessageHandler(filters.ANIMATION, sales_hl.handle_media_input),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, sales_hl.handle_media_text),
+    ],
+    # LENGTH_FIX — caption too long
+    sales_hl.LENGTH_FIX: [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(sales_hl.handle_length_action, pattern='^sales:length'),
     ],
 }
 
