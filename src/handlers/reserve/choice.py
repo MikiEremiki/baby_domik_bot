@@ -473,13 +473,6 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     # Показываем кнопку Назад в MONTH только если есть состояние MODE (вошли через выбор режима)
     has_mode = 'MODE' in context.user_data.get('reserve_user_data', {}).get(
         'back', {})
-    # Кнопка «По id» только для команды /list
-    if command == 'list':
-        keyboard.append([
-            InlineKeyboardButton(
-                '🔍 По id', callback_data='EVENT_BY_ID|show'
-            )
-        ])
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=has_mode,
@@ -1873,7 +1866,7 @@ async def _build_event_by_id_content(
             nav_row.append(InlineKeyboardButton(
                 '« Пред', callback_data='prev'))
         nav_row.append(InlineKeyboardButton(
-            f'{page + 1}/{pages_total}', callback_data='prev'))
+            f'{page + 1}/{pages_total}', callback_data=''))
         if page < pages_total - 1:
             nav_row.append(InlineKeyboardButton(
                 'След »', callback_data='next'))
@@ -1947,11 +1940,11 @@ async def choice_event_by_id(
             'Пример: <code>01.11.25-30.11.25</code>\n\n'
             'Для сброса диапазона нажмите кнопку «Диапазон» ещё раз после ввода пустого значения.'
         )
-        keyboard = add_btn_back_and_cancel(
+        keyboard = [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'],
             add_back_btn=True,
             postfix_for_back='MONTH'
-        )
+        )]
         reply_markup = InlineKeyboardMarkup(keyboard)
         try:
             await query.edit_message_text(text=text, reply_markup=reply_markup)
