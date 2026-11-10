@@ -820,7 +820,7 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             del_message_ids
         ) = await get_back_context(context, state)
     except KeyError as e:
-        main_handlers_logger.error(e)
+        main_handlers_logger.error(f'KeyError в back(): состояние {e!r} не найдено в back-контексте')
         await update.effective_chat.send_message(
             'Произошла ошибка при возврате назад\n'
             'Пожалуйста, выполните команду /start и повторите операцию заново')
