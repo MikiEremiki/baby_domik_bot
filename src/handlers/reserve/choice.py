@@ -42,6 +42,7 @@ from utilities.utl_kbd import (
     create_kbd_for_date_in_reserve, create_kbd_with_months,
     adjust_kbd, remove_intent_id, add_intent_id,
     create_kbd_unique_dates, create_kbd_for_time_by_date,
+    intent_callback_data,
 )
 from utilities.utl_tg import is_not_modified
 from settings.settings import (
@@ -1715,8 +1716,6 @@ async def _build_event_by_id_content(
 
     :return: (text, reply_markup)
     """
-    from utilities.utl_kbd import intent_callback_data
-
     flag_active = state_data.get('flag_active', 'none')
     from_dt_str = state_data.get('from_dt')
     to_dt_str = state_data.get('to_dt')
