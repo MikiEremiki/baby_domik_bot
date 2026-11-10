@@ -241,13 +241,16 @@ async def choice_show_by_repertoire(update: Update,
     if query:
         intent_id, payload = remove_intent_id(query.data)
 
+    # Определяем, из какого состояния вход (для кнопки Назад)
+    entry_state = intent_id if intent_id in ('MODE', 'LIST_MODE') else None
+
     # Шаг 1: показать выбор группы спектаклей
     repertoire = 'REPERTOIRE'
     new_years = 'NEW_YEARS'
     invited = 'INVITED'
     list_groups = [repertoire, new_years, invited]
     if (
-            intent_id == 'MODE' or
+            intent_id in ('MODE', 'LIST_MODE') or
             intent_id is None or
             intent_id == 'REP_GROUP' and payload in (None, '')
     ):
@@ -305,7 +308,7 @@ async def choice_show_by_repertoire(update: Update,
             kb,
             intent_id='REP_GROUP',
             postfix_for_cancel=postfix_for_cancel,
-            postfix_for_back='MODE',
+            postfix_for_back=entry_state or 'MODE',
             size_row=2,
         )
         await update.effective_chat.send_message(
@@ -388,7 +391,7 @@ async def choice_show_by_repertoire(update: Update,
     )
 
     # Отправляем текст со списком спектаклей
-    if update.effective_message.photo:
+    if query and update.effective_message.photo:
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,

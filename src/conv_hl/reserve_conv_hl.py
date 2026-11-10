@@ -93,6 +93,7 @@ states = {
     'REP_GROUP': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern=r'^Назад-MODE'),
+        CallbackQueryHandler(main_hl.back, pattern=r'^Назад-LIST_MODE'),
         CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^REP_GROUP'),
     ],
     'PHONE_FOR_WAITING': [
