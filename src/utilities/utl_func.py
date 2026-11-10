@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import logging
 import os
 import re
@@ -302,39 +303,61 @@ def yrange(n):
         i += 1
 
 
-async def print_ud(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
-    if context.args and update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        chat_id = int(context.args[0])
-        context_format = pformat(context.application.user_data.get(chat_id))
-        for i in range(len(context_format) // max_text_len + 1):
+async def user_data_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    # /user_data — справка
+    # /user_data show [user_id] — показать user_data
+    # /user_data clean — очистить все user_data
+    args = context.args
+
+    if not args or args[0] == 'help':
+        await update.effective_chat.send_message(
+            '<b>/user_data</b> — управление user_data\n\n'
+            '<b>/user_data show</b> — показать своё user_data\n'
+            '<b>/user_data show &lt;user_id&gt;</b> — показать user_data пользователя\n'
+            '<b>/user_data clean</b> — очистить все user_data',
+            parse_mode=None
+        )
+    elif args[0] == 'show':
+        if update.effective_user.id != CHAT_ID_MIKIEREMIKI:
+            return
+        if len(args) > 1:
+            uid = int(args[1])
+            message = pformat(context.application.user_data.get(uid))
+        else:
+            message = pformat(context.user_data)
+        max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
+        for i in range(len(message) // max_text_len + 1):
             start = i * max_text_len
             end = (i + 1) * max_text_len
-            if i == len(context_format) // max_text_len:
+            if i == len(message) // max_text_len:
                 await update.effective_chat.send_message(
-                    text=context_format[start:]
+                    text=message[start:],
+                    parse_mode=None
                 )
                 break
             await update.effective_chat.send_message(
-                text=context_format[start:end]
+                text=message[start:end],
+                parse_mode=None
             )
-    elif update.effective_user.id == CHAT_ID_MIKIEREMIKI:
-        message = pformat(context.user_data)
-        await split_message(context, message)
-
-
-async def clean_ud(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    if update.effective_user.id == CHAT_ID_MIKIEREMIKI:
+    elif args[0] == 'clean':
+        if update.effective_user.id != CHAT_ID_MIKIEREMIKI:
+            return
         if context.bot_data.get('clean_ud_running'):
-            await update.effective_chat.send_message(
-                'Очистка уже выполняется')
+            await update.effective_chat.send_message('Очистка уже выполняется')
             return
         context.bot_data['clean_ud_running'] = True
-        await update.effective_chat.send_message(
-            'Очистка user_data запущена в фоне...')
+        await update.effective_chat.send_message('Очистка user_data запущена в фоне...')
         context.application.create_task(
             _clean_ud_background(context, update.effective_chat.id),
             update=update,
+        )
+    else:
+        await update.effective_chat.send_message(
+            '<b>/user_data</b> — управление user_data\n\n'
+            '<b>/user_data show</b> — показать своё user_data\n'
+            '<b>/user_data show &lt;user_id&gt;</b> — показать user_data пользователя\n'
+            '<b>/user_data clean</b> — очистить все user_data',
+            parse_mode=None
         )
 
 
@@ -378,22 +401,135 @@ async def _clean_ud_background(
         context.bot_data.pop('clean_ud_running', None)
 
 
-async def clean_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
-    param = context.args
-    if len(param) == 0:
+async def print_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    # /bot_data — справка
+    # /bot_data show — показать bot_data
+    # /bot_data export — отправить JSON в чат
+    # /bot_data import — загрузить (ответ на JSON)
+    # /bot_data clean <ключ> — удалить ключ
+    args = context.args
+
+    if not args or args[0] == 'help':
+        # Показать справку
         await update.effective_chat.send_message(
-            'Не было передано ни какого ключа'
+            '<b>/bot_data</b> — управление bot_data\n\n'
+            '<b>/bot_data show</b> — показать bot_data\n'
+            '<b>/bot_data export</b> — отправить JSON в чат\n'
+            '<b>/bot_data import</b> — загрузить (ответ на JSON)\n'
+            '<b>/bot_data clean &lt;ключ&gt;</b> — удалить ключ',
+            parse_mode=None
         )
-    else:
+    elif args[0] == 'show':
+        # Показать bot_data как pformat
+        max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
+        message = pformat(context.bot_data)
+        for i in range(len(message) // max_text_len + 1):
+            start = i * max_text_len
+            end = (i + 1) * max_text_len
+            if i == len(message) // max_text_len:
+                await update.effective_chat.send_message(
+                    text=message[start:],
+                    parse_mode=None
+                )
+                break
+            await update.effective_chat.send_message(
+                text=message[start:end],
+                parse_mode=None
+            )
+    elif args[0] == 'export':
+        # Экспорт — отправить JSON прямо в чат
         try:
-            del context.bot_data[context.args[0]]
+            json_str = json.dumps(dict(context.bot_data), indent=4, ensure_ascii=False, default=str)
+            max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
+            for i in range(len(json_str) // max_text_len + 1):
+                start = i * max_text_len
+                end = (i + 1) * max_text_len
+                if i == len(json_str) // max_text_len:
+                    await update.effective_chat.send_message(
+                        text=json_str[start:],
+                        parse_mode=None
+                    )
+                    break
+                await update.effective_chat.send_message(
+                    text=json_str[start:end],
+                    parse_mode=None
+                )
             await update.effective_chat.send_message(
-                f'{context.args[0]} ключ успешно удален'
+                'Скопируйте JSON выше для сохранения или сохраните как файл.\n'
+                'Для загрузки ответьте на сообщение с JSON:\n'
+                '<code>/bot_data import</code>',
+                parse_mode=None
             )
-        except KeyError:
+        except Exception as e:
+            utilites_logger.error(f'Ошибка при экспорте bot_data: {e}')
+            await update.effective_chat.send_message(f'Ошибка при экспорте: {e}')
+    elif args[0] == 'import':
+        # Импорт — ответ на сообщение с JSON-файлом или текстом
+        replied = update.effective_message.reply_to_message
+        if replied is None:
             await update.effective_chat.send_message(
-                f'{context.args[0]} ключа не существует в bot_data'
+                'Ответьте на сообщение с JSON-файлом командой:\n'
+                '<code>/bot_data import</code>',
+                parse_mode=None
             )
+            return
+        
+        json_str = None
+        # Пытаемся получить JSON из документа (файла)
+        if replied.document:
+            try:
+                file = await replied.document.get_file()
+                file_bytes = await file.download_as_bytes()
+                json_str = file_bytes.decode('utf-8')
+            except Exception as e:
+                utilites_logger.error(f'Ошибка загрузки файла: {e}')
+                await update.effective_chat.send_message(f'Ошибка загрузки файла: {e}')
+                return
+        # Или из текста сообщения
+        elif replied.text:
+            json_str = replied.text
+        else:
+            await update.effective_chat.send_message('Отвечайте на текстовое сообщение или файл с JSON.')
+            return
+        
+        try:
+            data = json.loads(json_str)
+            context.bot_data.clear()
+            context.bot_data.update(data)
+            context.application.mark_data_for_update_persistence()
+            await context.application.update_persistence()
+            await update.effective_chat.send_message(
+                f'bot_data восстановлен ✅\nЗагружено ключей: {len(data)}',
+                parse_mode=None
+            )
+        except json.JSONDecodeError:
+            await update.effective_chat.send_message('Неверный формат JSON. Проверьте скобки и кавычки.')
+        except Exception as e:
+            utilites_logger.error(f'Ошибка при импорте bot_data: {e}')
+            await update.effective_chat.send_message(f'Ошибка при импорте: {e}')
+    elif args[0] == 'clean':
+        # Очистка ключа
+        if len(args) < 2:
+            await update.effective_chat.send_message('Укажите ключ:\n<code>/bot_data clean <ключ></code>', parse_mode=None)
+        else:
+            key = args[1]
+            try:
+                del context.bot_data[key]
+                await update.effective_chat.send_message(f'{key} ключ успешно удален')
+            except KeyError:
+                await update.effective_chat.send_message(f'{key} ключа не существует в bot_data')
+    else:
+        await update.effective_chat.send_message(
+            '<b>/bot_data</b> — показать bot_data\n'
+            '<b>/bot_data export</b> — отправить JSON в чат\n'
+            '<b>/bot_data import</b> — загрузить (ответ на JSON)\n'
+            '<b>/bot_data clean <ключ></b> — удалить ключ',
+            parse_mode=None
+        )
+
+
+
+
 
 
 async def request_contact_location(
