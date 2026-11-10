@@ -25,6 +25,7 @@ handlers_event_selection = {
     'MONTH': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-MODE'),
+        CallbackQueryHandler(main_hl.back, pattern='^Назад-LIST_MODE'),
         CallbackQueryHandler(reserve_hl.choice_show, pattern='^MONTH'),
         CallbackQueryHandler(reserve_hl.choice_month_rep_continue, pattern='^MONTH_REP'),
     ],

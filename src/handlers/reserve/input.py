@@ -28,14 +28,12 @@ from handlers.sub_hl import (
 from api.googlesheets import write_client_list_waiting
 from utilities.utl_check import (
     check_available_ticket_by_free_seat,
-    check_entered_command, is_skip_ticket
+    check_entered_command
 )
 from utilities.utl_func import (
     set_back_context,
-    get_formatted_date_and_time_of_event,
-    add_clients_data_to_text, add_qty_visitors_to_text,
+    build_show_list_text,
 )
-from utilities.utl_place import format_place_line
 from utilities.utl_kbd import (
     add_btn_back_and_cancel,
     create_replay_markup,
@@ -879,43 +877,25 @@ async def send_clients_data(
     event_id = int(callback_data)
     schedule_event = await db_postgres.get_schedule_event(
         context.session, event_id)
-    theater_event = await db_postgres.get_theater_event(
-        context.session, schedule_event.theater_event_id)
-    date_event, time_event = await get_formatted_date_and_time_of_event(
-        schedule_event)
-    tickets = schedule_event.tickets
-    base_ticket_and_tickets = []
-    for ticket in tickets:
-        base_ticket = await db_postgres.get_base_ticket(context.session,
-                                                        ticket.base_ticket_id)
-        if not is_skip_ticket(ticket.status):
-            base_ticket_and_tickets.append((base_ticket, ticket))
 
     try:
         await query.edit_message_text('Загружаю данные покупателей')
     except TimedOut as e:
         reserve_hl_logger.error(e)
 
-    default_place = await db_postgres.get_default_place(context.session)
-    place_line = format_place_line(schedule_event, default_place)
-    text = f'#Мероприятие <code>{event_id}</code><br>'
-    text += (f'Список людей на<br>'
-             f'<b>{theater_event.name}<br>'
-             f'{date_event} в '
-             f'{time_event}</b><br>')
-    if place_line:
-        text += f'{place_line}<br>'
-
-    text += await add_qty_visitors_to_text(base_ticket_and_tickets)
-
-    text += await add_clients_data_to_text(base_ticket_and_tickets)
+    list_text, _ = await build_show_list_text(context.session, schedule_event)
+    text = f'#Мероприятие <code>{event_id}</code><br>{list_text}'
 
     res_text = transform_html(text)
-    await query.edit_message_text(
-        text=res_text.text,
-        entities=res_text.entities,
-        parse_mode=None
-    )
+    try:
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None
+        )
+    except BadRequest as e:
+        if not is_not_modified(e):
+            reserve_hl_logger.error(e)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state

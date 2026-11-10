@@ -808,7 +808,13 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    state = query.data.split('-')[1]
+    current_state = context.user_data.get('STATE', 'UNKNOWN')
+    target_state = query.data.split('-')[1]
+    main_handlers_logger.info(
+        f'back(): назад, STATE {current_state} → {target_state}'
+    )
+
+    state = target_state
     if state.isdigit():
         state = int(state)
     else:
@@ -820,7 +826,7 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             del_message_ids
         ) = await get_back_context(context, state)
     except KeyError as e:
-        main_handlers_logger.error(e)
+        main_handlers_logger.error(f'KeyError в back(): состояние {e!r} не найдено в back-контексте')
         await update.effective_chat.send_message(
             'Произошла ошибка при возврате назад\n'
             'Пожалуйста, выполните команду /start и повторите операцию заново')

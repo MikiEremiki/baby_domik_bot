@@ -170,7 +170,7 @@ def test_middleware_blocks_super_admin_root_only():
 
 def test_middleware_allows_root_root_only():
     """root (ADMIN_ID) is allowed root_only (tech) commands."""
-    _, call = _run_command_middleware(ADMIN_ID[0], '/clean_bd', set())
+    _, call = _run_command_middleware(ADMIN_ID[0], '/profile', set())
     asyncio.run(call())
 
 

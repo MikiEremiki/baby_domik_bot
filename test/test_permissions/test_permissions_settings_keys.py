@@ -211,8 +211,8 @@ SUPERADMIN = SUPERADMIN_CHAT_ID[0]
 def test_can_tech_command_denied_to_granted_user():
     """root_only tech commands are denied even if granted."""
     with patch('permissions.get_user_access', new_callable=AsyncMock) as acc:
-        acc.return_value = {'clean_bd'}
-        assert _run(can(REGULAR, 'clean_bd', AsyncMock())) is False
+        acc.return_value = {'profile'}
+        assert _run(can(REGULAR, 'profile', AsyncMock())) is False
 
 
 def test_can_tech_command_denied_to_super_admin():
@@ -222,12 +222,12 @@ def test_can_tech_command_denied_to_super_admin():
     with patch('permissions.SUPERADMIN_CHAT_ID', [fake_super]):
         assert is_privileged(fake_super) is True
         assert fake_super not in ADMIN_ID
-        assert _run(can(fake_super, 'clean_bd', AsyncMock())) is False
+        assert _run(can(fake_super, 'profile', AsyncMock())) is False
 
 
 def test_can_tech_command_allowed_to_root():
     """root_only tech commands are allowed for ADMIN_ID."""
-    assert _run(can(ADMIN_ID[0], 'clean_bd', AsyncMock())) is True
+    assert _run(can(ADMIN_ID[0], 'profile', AsyncMock())) is True
 
 
 def test_can_receipt_granted_true():
@@ -318,7 +318,7 @@ def test_get_available_commands_super_admin_no_root_only():
             # TICKETS_ADMIN is not root_only — should be present
             assert 'TICKETS_ADMIN' in keys
             # Should NOT have tech root_only commands
-            assert 'CLEAN_BD' not in keys
+            assert 'USER_DATA' not in keys
             assert 'PROFILE' not in keys
     _run(_go())
 
@@ -328,7 +328,7 @@ def test_get_available_commands_root_has_everything():
     async def _go():
         result = await get_available_commands(ADMIN_ID[0], None)
         keys = {k for k, _ in result}
-        assert 'CLEAN_BD' in keys
+        assert 'PROFILE' in keys
         assert 'TICKETS' in keys
         assert 'RECEIPT' in keys
         assert len(keys) == len(COMMAND_DICT)

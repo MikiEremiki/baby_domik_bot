@@ -1,7 +1,7 @@
 ﻿from collections import defaultdict
 import html
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sulguk import transform_html
 from telegram import (
@@ -32,6 +32,7 @@ from utilities.utl_func import (
     get_emoji, extract_command, to_moscow_dt,
     get_actual_from_by_command,
 )
+from utilities.utl_event import get_formatted_date_and_time_of_event as fmt_date_time
 from utilities.utl_place import (
     effective_place, needs_place_choice, collect_places, format_place_footnote
 )
@@ -41,6 +42,7 @@ from utilities.utl_kbd import (
     create_kbd_for_date_in_reserve, create_kbd_with_months,
     adjust_kbd, remove_intent_id, add_intent_id,
     create_kbd_unique_dates, create_kbd_for_time_by_date,
+    intent_callback_data,
 )
 from utilities.utl_tg import is_not_modified
 from settings.settings import (
@@ -85,6 +87,63 @@ async def _guard_effective_message(
         )
         return ConversationHandler.END
     return None
+
+
+async def choice_list_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """
+    Начальный шаг для команды /list: выбор способа — по календарю, по репертуару или по id.
+    Возвращает состояние LIST_MODE.
+    """
+    if await _guard_effective_message(update, context, 'choice_list_mode'):
+        return
+
+    command = extract_command(update.effective_message.text)
+    save_command = context.user_data.get('command', False)
+    if not save_command or save_command != command:
+        await init_conv_hl_dialog(update, context)
+
+    if update.effective_message.is_topic_message:
+        is_correct_topic = await check_topic(update, context)
+        if not is_correct_topic:
+            return ConversationHandler.END
+
+    command = context.user_data['command']
+    postfix_for_cancel = command
+    context.user_data['postfix_for_cancel'] = postfix_for_cancel
+
+    # Фиксируем время загрузки актуальных данных
+    context.user_data['last_interaction_time'] = datetime.now()
+
+    user = context.user_data.setdefault('user', update.effective_user)
+    reserve_hl_logger.info(f'Пользователь начал выбор режима списка: {user}')
+
+    text = 'Выберите способ просмотра списка:'
+
+    # Три кнопки: По календарю, По репертуару, По id
+    kb = [
+        InlineKeyboardButton('По календарю', callback_data='DATE'),
+        InlineKeyboardButton('По репертуару', callback_data='REPERTOIRE'),
+        InlineKeyboardButton('По id', callback_data='EVENT_BY_ID|show'),
+    ]
+    reply_markup = await create_replay_markup(
+        kb,
+        intent_id='LIST_MODE',
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        add_back_btn=False,
+        size_row=2,
+    )
+
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+        message_thread_id=update.effective_message.message_thread_id,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+    state = 'LIST_MODE'
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
 
 
 async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
@@ -150,7 +209,6 @@ async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     state = 'MODE'
     await set_back_context(context, state, text, reply_markup)
-    context.user_data['STATE'] = state
     return state
 
 
@@ -183,13 +241,16 @@ async def choice_show_by_repertoire(update: Update,
     if query:
         intent_id, payload = remove_intent_id(query.data)
 
+    # Определяем, из какого состояния вход (для кнопки Назад)
+    entry_state = intent_id if intent_id in ('MODE', 'LIST_MODE') else None
+
     # Шаг 1: показать выбор группы спектаклей
     repertoire = 'REPERTOIRE'
     new_years = 'NEW_YEARS'
     invited = 'INVITED'
     list_groups = [repertoire, new_years, invited]
     if (
-            intent_id == 'MODE' or
+            intent_id in ('MODE', 'LIST_MODE') or
             intent_id is None or
             intent_id == 'REP_GROUP' and payload in (None, '')
     ):
@@ -241,13 +302,13 @@ async def choice_show_by_repertoire(update: Update,
                     await query.delete_message()
                 except BadRequest as e:
                     reserve_hl_logger.error(e)
-            return 'MODE'
+            return entry_state or 'MODE'
         # Клавиатура: намеренно используем intent REP_GROUP, чтобы следующий клик обрабатывался здесь же
         reply_markup = await create_replay_markup(
             kb,
             intent_id='REP_GROUP',
             postfix_for_cancel=postfix_for_cancel,
-            postfix_for_back='MODE',
+            postfix_for_back=entry_state or 'MODE',
             size_row=2,
         )
         await update.effective_chat.send_message(
@@ -330,7 +391,7 @@ async def choice_show_by_repertoire(update: Update,
     )
 
     # Отправляем текст со списком спектаклей
-    if update.effective_message.photo:
+    if query and update.effective_message.photo:
         await query.delete_message()
         await update.effective_chat.send_message(
             text=text,
@@ -389,10 +450,10 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
-    # Устанавливаем режим выбора, если пришли из шага MODE (По календарю/По репертуару)
+    # Устанавливаем режим выбора, если пришли из шага MODE или LIST_MODE (По календарю/По репертуару)
     if query:
         intent_id_mode, callback_data = remove_intent_id(query.data)
-        if intent_id_mode == 'MODE':
+        if intent_id_mode in ('MODE', 'LIST_MODE'):
             if callback_data == 'DATE':
                 # По календарю => далее после выбора месяца показываем даты
                 context.user_data['select_mode'] = 'DATE'
@@ -412,13 +473,13 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     keyboard = adjust_kbd(keyboard, 1)
     state = 'MONTH'
     keyboard = add_intent_id(keyboard, state)
-    # Показываем кнопку Назад в MONTH только если есть состояние MODE (вошли через выбор режима)
-    has_mode = 'MODE' in context.user_data.get('reserve_user_data', {}).get(
-        'back', {})
+    # Показываем кнопку Назад в MONTH только если есть состояние MODE или LIST_MODE (вошли через выбор режима)
+    back_contexts = context.user_data.get('reserve_user_data', {}).get('back', {})
+    has_mode = 'MODE' in back_contexts or 'LIST_MODE' in back_contexts
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=has_mode,
-        postfix_for_back='MODE' if has_mode else None
+        postfix_for_back='MODE' if 'MODE' in back_contexts else 'LIST_MODE'
     ))
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.delete_message(
@@ -777,11 +838,17 @@ async def _render_sessions_for_repertoire(
             )
         else:
             if query:
-                await query.edit_message_text(
-                    text=text,
-                    reply_markup=reply_markup,
-                    link_preview_options=LinkPreviewOptions(is_disabled=True),
-                )
+                try:
+                    await query.edit_message_text(
+                        text=text,
+                        reply_markup=reply_markup,
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
+                except BadRequest as e:
+                    if is_not_modified(e):
+                        reserve_hl_logger.info('Игнорируем клик (без изменений)')
+                    else:
+                        reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(
                     text=text,
@@ -879,11 +946,17 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                         link_preview_options=LinkPreviewOptions(is_disabled=True),
                     )
                 else:
-                    await query.edit_message_text(
-                        text=text,
-                        reply_markup=reply_markup,
-                        link_preview_options=LinkPreviewOptions(is_disabled=True),
-                    )
+                    try:
+                        await query.edit_message_text(
+                            text=text,
+                            reply_markup=reply_markup,
+                            link_preview_options=LinkPreviewOptions(is_disabled=True),
+                        )
+                    except BadRequest as e:
+                        if is_not_modified(e):
+                            reserve_hl_logger.info('Игнорируем клик (без изменений)')
+                        else:
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(
                     text=text,
@@ -1020,8 +1093,14 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
         else:
-            await query.edit_message_text(
-                text=text, reply_markup=reply_markup)
+            try:
+                await query.edit_message_text(
+                    text=text, reply_markup=reply_markup)
+            except BadRequest as e:
+                if is_not_modified(e):
+                    reserve_hl_logger.info('Игнорируем клик (без изменений)')
+                else:
+                    reserve_hl_logger.error(e)
 
     # Сохраним id событий выбранного спектакля для следующего шага
     schedule_event_ids = [item.id for item in schedule_events]
@@ -1400,9 +1479,17 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             text_back, reply_markup, _ = await get_back_context(context, state)
             if query:
                 if update.effective_message.photo:
-                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 else:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
         except KeyError:
@@ -1425,9 +1512,17 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             text_back, reply_markup, _ = await get_back_context(context, state)
             if query:
                 if update.effective_message.photo:
-                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 else:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
         except KeyError:
@@ -1540,9 +1635,17 @@ async def choice_option_of_reserve(
             text_back, reply_markup, _ = await get_back_context(context, state)
             if query:
                 if update.effective_message.photo:
-                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 else:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
         except KeyError:
@@ -1550,7 +1653,11 @@ async def choice_option_of_reserve(
             try:
                 text_back, reply_markup, _ = await get_back_context(context, prev_state)
                 if query:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 state = prev_state
             except KeyError:
                 if query:
@@ -1627,11 +1734,15 @@ async def choice_option_of_reserve(
                 message_thread_id=update.effective_message.message_thread_id
             )
         else:
-            await query.edit_message_text(
-                text=res_text.text,
-                entities=res_text.entities,
-                parse_mode=None,
-                reply_markup=reply_markup)
+            try:
+                await query.edit_message_text(
+                    text=res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                    reply_markup=reply_markup)
+            except BadRequest as e:
+                if not is_not_modified(e):
+                    reserve_hl_logger.error(e)
 
         # Сохраняем состояние и контекст для возврата Назад
         state = 'CHOOSING'
@@ -1688,12 +1799,308 @@ async def choice_option_of_reserve(
                                          reply_markup=reply_markup)
     else:
         res_text = transform_html(text)
-        await query.edit_message_text(
-            text=res_text.text,
-            entities=res_text.entities,
-            parse_mode=None,
-            reply_markup=reply_markup)
+        try:
+            await query.edit_message_text(
+                text=res_text.text,
+                entities=res_text.entities,
+                parse_mode=None,
+                reply_markup=reply_markup)
+        except BadRequest as e:
+            if not is_not_modified(e):
+                reserve_hl_logger.error(e)
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
+
+
+async def _build_event_by_id_content(
+        context: 'ContextTypes.DEFAULT_TYPE',
+        state_data: dict,
+) -> tuple:
+    """
+    Загружает спектакли, формирует текст и клавиатуру для экрана EVENT_BY_ID.
+
+    :return: (text, reply_markup)
+    """
+    flag_active = state_data.get('flag_active', 'true')
+    from_dt_str = state_data.get('from_dt')
+    to_dt_str = state_data.get('to_dt')
+    page = state_data.get('page', 0)
+
+    # Парсинг дат
+    from_dt = None
+    to_dt = None
+    if from_dt_str:
+        try:
+            from_dt = datetime.strptime(from_dt_str, '%d.%m.%y')
+        except ValueError:
+            from_dt = None
+    if to_dt_str:
+        try:
+            to_dt = datetime.strptime(to_dt_str, '%d.%m.%y').replace(
+                hour=23, minute=59, second=59)
+        except ValueError:
+            to_dt = None
+
+    # Если нет явного диапазона, используем дефолтный: -7 дней до +∞
+    if from_dt is None and to_dt is None:
+        from_dt = datetime.now() - timedelta(days=7)
+
+    # Загрузка спектаклей
+    schedule_events = await db_postgres.get_schedule_events_filtered(
+        context.session,
+        actual_only=False,
+        from_datetime=from_dt,
+        to_datetime=to_dt,
+        flag_turn_in_bot=flag_active,
+        populate_seats=False
+    )
+
+    # Пагинация: 30 кнопок на страницу (6 строк по 5)
+    page_size = 30
+    total_items = len(schedule_events)
+    use_pagination = total_items > page_size
+    pages_total = (total_items + page_size - 1) // page_size if use_pagination else 1
+    page = max(0, min(page, pages_total - 1))
+    state_data['page'] = page
+
+    start_idx = page * page_size
+    end_idx = start_idx + page_size
+    events_page = schedule_events[start_idx:end_idx]
+
+    # Формирование текста
+    text_lines = []
+    for ev in events_page:
+        name = ev.theater_event.name if ev.theater_event else 'Без названия'
+        name = name[:50]
+        dt_moscow = to_moscow_dt(ev.datetime_event)
+        date_str = dt_moscow.strftime('%d.%m %H:%M')
+        text_lines.append(f'• ID <b>{ev.id}</b>: {name} ({date_str})')
+
+    text = '<b>Выберите спектакль по ID:</b>\n\n'
+    if text_lines:
+        text += '\n'.join(text_lines)
+    else:
+        text += 'Нет спектаклей в выбранном диапазоне.\n'
+
+    if from_dt_str or to_dt_str:
+        text += f'\n\nДиапазон: {from_dt_str or "начало"} — {to_dt_str or "конец"}'
+    else:
+        text += '\n\nДиапазон: последние 7 дней'
+
+    # Клавиатура
+    keyboard = []
+    # Кнопки ID — по 5 в ряд
+    id_buttons = []
+    for ev in events_page:
+        btn = InlineKeyboardButton(
+            text=str(ev.id),
+            callback_data=intent_callback_data('LIST', str(ev.id))
+        )
+        id_buttons.append(btn)
+    id_rows = adjust_kbd(id_buttons, 5)
+
+    # Фильтры
+    filter_row = []
+    active_label = '✅ Включённые' if flag_active == 'true' else 'Все'
+    filter_row.append(InlineKeyboardButton(
+        text=active_label,
+        callback_data=f'active_{"true" if flag_active == "none" else "none"}'
+    ))
+    filter_row.append(InlineKeyboardButton(
+        text='📅 Диапазон',
+        callback_data='date_range'
+    ))
+    keyboard.append(filter_row)
+
+    # Пагинация
+    if use_pagination:
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton(
+                '« Пред', callback_data='prev'))
+        nav_row.append(InlineKeyboardButton(
+            f'{page + 1}/{pages_total}', callback_data=''))
+        if page < pages_total - 1:
+            nav_row.append(InlineKeyboardButton(
+                'След »', callback_data='next'))
+        nav_rows = add_intent_id([nav_row], 'EVENT_BY_ID_PAGE')
+        keyboard.extend(nav_rows)
+
+    # Добавляем intent ко всем кнопкам (кроме ID, Назад/Отмена)
+    keyboard = add_intent_id(keyboard, 'EVENT_BY_ID')
+
+    # Кнопки ID — с intent LIST (без EVENT_BY_ID префикса), чтобы попадали в send_clients_data
+    keyboard.extend(add_intent_id(id_rows, 'LIST'))
+
+    # Назад и Отмена — без intent-префикса
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        add_back_btn=True,
+        postfix_for_back='LIST_MODE'
+    ))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    return text, reply_markup
+
+
+async def choice_event_by_id(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    """
+    Показывает список спектаклей с кнопками по ID для быстрого выбора.
+
+    Используется как callback-обработчик для кнопки «По id» из LIST_MODE,
+    а также для фильтров и пагинации в состоянии EVENT_BY_ID.
+    Поддерживает фильтры (все/включённые, диапазон дат) и пагинацию 6×5.
+    :return: возвращает state EVENT_BY_ID
+    """
+    state_key = 'EVENT_BY_ID'
+    query = update.callback_query
+    if query is None:
+        reserve_hl_logger.warning('choice_event_by_id: callback_query is None')
+        return
+
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_event_by_id'):
+        return
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    intent_id, callback_data = remove_intent_id(query.data)
+
+    if state_key not in reserve_user_data:
+        reserve_user_data[state_key] = {}
+    state_data = reserve_user_data[state_key]
+
+    is_pagination = callback_data in ('prev', 'next')
+    is_filter_active = callback_data.startswith('active_')
+    is_date_range_btn = callback_data == 'date_range'
+
+    # Фильтр: все / только включённые
+    flag_active = state_data.get('flag_active', 'true')
+    if is_filter_active:
+        flag_active = callback_data.replace('active_', '')
+        state_data['flag_active'] = flag_active
+        state_data['page'] = 0
+
+    # Диапазон дат — кнопка «Диапазон» всегда открывает запрос ввода
+    if is_date_range_btn:
+        state_data['waiting_date_input'] = True
+        state_data['page'] = 0
+        text = (
+            'Введите диапазон дат в формате <b>дд.мм.гг-дд.мм.гг</b>\n\n'
+            'Пример: <code>01.11.25-30.11.25</code>'
+        )
+        # Кнопки действия — с intent-префиксом
+        action_buttons = add_intent_id(
+            [[InlineKeyboardButton('Пропустить', callback_data='date_range_skip')]],
+            'EVENT_BY_ID'
+        )
+        # Назад и Отмена — без intent-префикса
+        keyboard = action_buttons + [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            add_back_btn=True,
+            postfix_for_back='LIST_MODE'
+        )]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        try:
+            await query.edit_message_text(text=text, reply_markup=reply_markup)
+        except BadRequest as e:
+            if is_not_modified(e):
+                reserve_hl_logger.info('Игнорируем клик (без изменений)')
+            else:
+                reserve_hl_logger.error(e)
+        context.user_data['STATE'] = state_key
+        return state_key
+
+    # Кнопка «Пропустить» — сброс диапазона
+    if callback_data == 'date_range_skip':
+        state_data['from_dt'] = None
+        state_data['to_dt'] = None
+        state_data['waiting_date_input'] = False
+        state_data['page'] = 0
+        text, reply_markup = await _build_event_by_id_content(context, state_data)
+        try:
+            await query.edit_message_text(text=text, reply_markup=reply_markup)
+        except BadRequest as e:
+            if is_not_modified(e):
+                reserve_hl_logger.info('Игнорируем клик (без изменений)')
+            else:
+                reserve_hl_logger.error(e)
+        context.user_data['STATE'] = state_key
+        await set_back_context(context, 'EVENT_BY_ID', text, reply_markup)
+        return state_key
+
+    # Пагинация: обновить page в state_data
+    if is_pagination:
+        page = state_data.get('page', 0)
+        if callback_data == 'next':
+            page += 1
+        elif callback_data == 'prev':
+            page -= 1
+        state_data['page'] = page
+
+    # Строим контент
+    text, reply_markup = await _build_event_by_id_content(context, state_data)
+
+    try:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+    except BadRequest as e:
+        if is_not_modified(e):
+            reserve_hl_logger.info('Игнорируем клик (без изменений)')
+        else:
+            reserve_hl_logger.error(e)
+
+    context.user_data['STATE'] = state_key
+    await set_back_context(context, 'EVENT_BY_ID', text, reply_markup)
+    return state_key
+
+
+async def handle_date_range_input(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    """
+    Обрабатывает ввод диапазона дат в формате дд.мм.гг-дд.мм.гг.
+
+    :return: возвращает state EVENT_BY_ID
+    """
+    if await _guard_reserve_user_data(update, context, 'handle_date_range_input'):
+        return
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    state_key = 'EVENT_BY_ID'
+    state_data = reserve_user_data.get(state_key, {})
+
+    text = update.effective_message.text.strip()
+
+    # Парсинг диапазона
+    try:
+        parts = text.split('-')
+        if len(parts) != 2:
+            raise ValueError('Неверный формат')
+        from_dt = datetime.strptime(parts[0].strip(), '%d.%m.%y')
+        to_dt = datetime.strptime(parts[1].strip(), '%d.%m.%y')
+        state_data['from_dt'] = parts[0].strip()
+        state_data['to_dt'] = parts[1].strip()
+        state_data['waiting_date_input'] = False
+        state_data['page'] = 0
+    except ValueError:
+        await update.effective_chat.send_message(
+            'Неверный формат. Используйте <b>дд.мм.гг-дд.мм.гг</b>.\n\n'
+            'Пример: <code>01.11.25-30.11.25</code>'
+        )
+        return state_key
+
+    # Автоматически перерисовываем список с новым диапазоном
+    text, reply_markup = await _build_event_by_id_content(context, state_data)
+    await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
+    context.user_data['STATE'] = state_key
+    await set_back_context(context, 'EVENT_BY_ID', text, reply_markup)
+    return state_key

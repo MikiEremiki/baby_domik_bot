@@ -130,7 +130,7 @@ baby_domik_bot/
 │
 │   +-- schedule/               # РАСПИСАНИЕ И АВТОРАССЫЛКИ
 │       +-- scheduler_jobs.py   # Фоновые задачи (очистка просроченных броней и др.)
-│       L-- auto_sending.py     # Ядро авторассылок: тик, рендер текста, селекторы получателей
+│       L-- auto_sending.py     # Ядро авторассылок: тик, рендер текста, селекторы получателей, SHOW_LIST
 │
 +-- templates/                  # WEB-ШАБЛОНЫ (JINJA2)
 │   +-- home.html               # Главная страница
@@ -143,9 +143,9 @@ baby_domik_bot/
 │   │   L-- site.css            # Стили веб-интерфейса
 │   L-- img/                    # Изображения
 │
-+-- test/                       # ТЕСТЫ (pytest, 623 теста, 29 файлов)
++-- test/                       # ТЕСТЫ (pytest, 728 тестов, 30 файлов)
 │   +-- conftest.py             # Общие фикстуры: DB, Telegram, FastAPI моки
-│   +-- test_schedule/          # Расписание и авторассылки (7 файлов)
+│   +-- test_schedule/          # Расписание и авторассылки (8 файлов)
 │   +-- test_handlers/          # Обработчики Telegram (8 файлов)
 │   +-- test_api/               # FastAPI веб-сервис (5 файлов)
 │   +-- test_db/                # БД и миграции (1 файл)
@@ -263,6 +263,47 @@ YooKassa → POST /yookassa (FastAPI)
 - Для создания Inline-клавиатур использовать функции из `src\utilities\utl_kbd.py`.
 - При добавлении кнопок "Назад" и "Отмена" использовать `add_btn_back_and_cancel`.
 
+#### 6.3.1. Паттерн кнопки «Назад»
+
+Кнопка «Назад» реализована как единый паттерн из четырёх компонентов. Каждый handler, возвращающий состояние с клавиатурой, обязан следовать этому паттерну.
+
+**1. Создание кнопки** (`src\utilities\utl_kbd.py`):
+- `add_btn_back_and_cancel(add_cancel_btn=True, postfix_for_cancel=None, add_back_btn=True, postfix_for_back=None)` создаёт кнопки «Назад» и «Отменить».
+- Кнопка «Назад» имеет `callback_data='Назад-POSTFIX'` (например, `Назад-MONTH`, `Назад-MODE`).
+- **Важно:** функция возвращает **плоский список** `List[InlineKeyboardButton]`. При добавлении в клавиатуру результат нужно добавить через `keyboard.append(add_btn_back_and_cancel(...))` — тогда список кнопок станет последним рядом `InlineKeyboardMarkup`.
+
+**2. Сохранение контекста** (`src\utilities\utl_func.py`):
+- `set_back_context(context, state, text, reply_markup, del_message_ids=None)` сохраняет в `context.user_data['reserve_user_data']['back'][state]` три элемента: текст, клавиатуру и список ID сообщений для удаления при возврате.
+- **Обязательно** вызывать в конце каждого handler'а после формирования текста и клавиатуры:
+  ```python
+  await set_back_context(context, state, text, reply_markup)
+  ```
+
+**3. Регистрация обработчика** (`src\conv_hl\common_conv_hl.py`):
+- `back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')` — универсальный обработчик для всех состояний.
+- Добавляется в список handler'ов состояния:
+  ```python
+  'STATE_NAME': [
+      cancel_callback_handler,
+      back_callback_handler,
+      # ... остальные handler'ы
+  ]
+  ```
+
+**4. Обработчик нажатия** (`src\handlers\main_hl.py` — `back()`):
+- Парсит состояние из `callback_data`: `state = query.data.split('-')[1]` → `MONTH`, `MODE`, `DATE` и т.д.
+- Восстанавливает контекст через `get_back_context(context, state)`.
+- Удаляет сообщения из `del_message_ids`, если есть.
+- В зависимости от состояния выбирает способ отображения:
+  - `MONTH`, `MODE` — удаляет текущее сообщение и отправляет новое (может быть фото).
+  - `SHOW` — редактирует caption (фото с подписью).
+  - `DATE` — удаляет и отправляет новое с фото афиши месяца.
+  - `TIME`, `TICKET` и остальные — редактирует текст текущего сообщения.
+- Обновляет `context.user_data['STATE'] = state`.
+- Сохраняет ID нового сообщения через `append_message_ids_back_context()` для последующего удаления при возврате.
+
+**Ключевой принцип:** каждый handler сохраняет свой контекст через `set_back_context()`, а единый обработчик `back()` его восстанавливает и адаптирует способ отображения под тип состояния (фото/текст/caption).
+
 #### 6.4. Логирование
 - Использовать именованные логгеры (например, `bot.reserve`, `bot.webhook`).
 - Конфигурация логов находится в `src\log\logging_conf.py`.
@@ -284,7 +325,7 @@ YooKassa → POST /yookassa (FastAPI)
   | `PromotionDiscountType` | Lowercase ASCII | `'percentage'`, `'fixed'` |
   | `CustomMadeStatus` | Кириллица | `'Создан'`, `'Подтвержден'` |
   | `UserRole` | Кириллица | `'Пользователь'`, `'Администратор'` |
-  | `AutoSendingTrigger` | Uppercase ASCII | `'EVENT'`, `'PAYMENT'` |
+  | `AutoSendingTrigger` | Uppercase ASCII | `'EVENT'`, `'PAYMENT'`, `'SHOW_LIST'` |
   | `TicketSource` | Uppercase ASCII | `'WEBSITE'`, `'BOT'` |
 
 - **Новые enum:** если значения не привязаны к историческим данным или внешнему API, использовать **uppercase ASCII** (как `TicketSource`, `AutoSendingTrigger`) — это совместимо с SQLAlchemy по умолчанию и не требует дополнительных настроек.
@@ -362,6 +403,14 @@ YooKassa → POST /yookassa (FastAPI)
   - Шаблон `templates/my_tickets.html`: карточки без конфиденциальных данных (нет email, телефона, цены, ссылок на чек, обращений к YooKassa). Клиентская валидация формы поиска по контактам — оба поля обязательны, ошибка подсвечивается красной рамкой и сообщением.
   - Ссылка «Мои билеты» добавлена в навигацию (`templates/layout.html`) и на страницу результата оплаты (`templates/payment_result.html`).
   - Логирование контактов в новых эндпоинтах запрещено: телефон, email и результаты поиска не пишутся в логи.
+
+#### 6.13. Авто-публикация списков на показы (SHOW_LIST)
+- `AutoSendingTrigger.SHOW_LIST` — триггер авто-публикации списка посетителей в тему «Списки на показы» за 30 минут до начала показа.
+- `build_show_list_text(session, schedule_event)` (`src\utilities\utl_func.py`) — общая функция формирования HTML-текста списка: название, дата/время, место, количество посетителей, данные клиентов. Используется и в `send_clients_data` (callback-кнопка), и в `publish_show_list_to_topic` (авто-публикация).
+- `publish_show_list_to_topic(context, session, schedule_event)` (`src\schedule\auto_sending.py`) — публикует сообщение с `#Мероприятие <code>{event_id}</code>` префиксом в тему. Если тема не настроена (`dict_topics_name` нет «Списки на показы»), публикует в общий чат (fallback).
+- Dedup через `AutoSendingDelivery` с `dedup_key='se:{schedule_event_id}'` и `user_id=developer_chat_id` из config.
+- Интегрировано в `auto_sending_tick`: после EVENT рассылок обрабатывает SHOW_LIST, использует `offset_minutes` из `auto_sendings` для расчёта окна поиска событий.
+- Активация: запись в `auto_sendings` с `trigger=SHOW_LIST`, `offset_minutes=-30`, `is_active=true`.
 
 ---
 
