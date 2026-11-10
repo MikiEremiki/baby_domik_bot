@@ -65,10 +65,11 @@ services:
       - network
     volumes:
       - ./config:/app/config:ro
-      - ./config/settings.py:/app/settings/settings.py
+      - ./config/settings.py:/app/src/settings/settings.py
     environment:
-      - CONFIG_PATH=${CONFIG_PATH:-config/}
-    working_dir: /app
+      CONFIG_PATH: '${CONFIG_PATH:-config/}'
+      PYTHONPATH: '/app'
+    working_dir: /app/src
     command: tail -F anything
 
   pgadmin:
