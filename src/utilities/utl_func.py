@@ -450,27 +450,19 @@ async def print_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 parse_mode=None
             )
     elif args[0] == 'export':
-        # Экспорт — отправить JSON прямо в чат
+        # Экспорт — отправить JSON-файл
         try:
-            json_str = json.dumps(dict(context.bot_data), indent=4, ensure_ascii=False, default=str)
-            max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
-            for i in range(len(json_str) // max_text_len + 1):
-                start = i * max_text_len
-                end = (i + 1) * max_text_len
-                if i == len(json_str) // max_text_len:
-                    await update.effective_chat.send_message(
-                        text=json_str[start:],
-                        parse_mode=None
-                    )
-                    break
-                await update.effective_chat.send_message(
-                    text=json_str[start:end],
-                    parse_mode=None
-                )
-            await update.effective_chat.send_message(
-                'Скопируйте JSON выше для сохранения или сохраните как файл.\n'
-                'Для загрузки ответьте на сообщение с JSON:\n'
-                '<code>/bot_data import</code>',
+            from io import BytesIO
+            from datetime import datetime as dt
+            timestamp = dt.now().strftime('%y%m%d_%H%M')
+            filename = f'bot_data_{timestamp}.json'
+            json_bytes = json.dumps(dict(context.bot_data), indent=4, ensure_ascii=False, default=str).encode('utf-8')
+            file_obj = BytesIO(json_bytes)
+            file_obj.name = filename
+            await update.effective_message.reply_document(
+                document=file_obj,
+                filename=filename,
+                caption='Для загрузки ответьте на этот файл:\n<code>/bot_data import</code>',
                 parse_mode=None
             )
         except Exception as e:
@@ -492,8 +484,8 @@ async def print_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
         if replied.document:
             try:
                 file = await replied.document.get_file()
-                file_bytes = await file.download_as_bytes()
-                json_str = file_bytes.decode('utf-8')
+                file_bytes = await file.download_as_bytearray()
+                json_str = bytes(file_bytes).decode('utf-8')
             except Exception as e:
                 utilites_logger.error(f'Ошибка загрузки файла: {e}')
                 await update.effective_chat.send_message(f'Ошибка загрузки файла: {e}')
