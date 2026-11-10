@@ -1879,7 +1879,7 @@ async def _build_event_by_id_content(
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=True,
-        postfix_for_back='MONTH'
+        postfix_for_back='EVENT_BY_ID'
     ))
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -1947,7 +1947,7 @@ async def choice_event_by_id(
         keyboard = action_buttons + [add_btn_back_and_cancel(
             postfix_for_cancel=context.user_data['postfix_for_cancel'],
             add_back_btn=True,
-            postfix_for_back='MONTH'
+            postfix_for_back='EVENT_BY_ID'
         )]
         reply_markup = InlineKeyboardMarkup(keyboard)
         try:
