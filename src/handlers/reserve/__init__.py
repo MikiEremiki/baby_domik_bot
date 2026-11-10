@@ -1,5 +1,6 @@
 from .choice import (
     choice_mode,
+    choice_list_mode,
     choice_show_by_repertoire,
     choice_month,
     choice_show,
@@ -59,6 +60,7 @@ __all__ = [
     'child_confirm',
     'choice_date',
     'choice_event_by_id',
+    'choice_list_mode',
     'choice_mode',
     'choice_month',
     'choice_month_rep_continue',
