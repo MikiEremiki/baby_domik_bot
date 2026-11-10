@@ -1872,13 +1872,15 @@ async def _build_event_by_id_content(
         nav_rows = add_intent_id([nav_row], 'EVENT_BY_ID_PAGE')
         keyboard.extend(nav_rows)
 
-    # Назад и Отмена
+    # Добавляем intent ко всем кнопкам (кроме Назад/Отмена)
+    keyboard = add_intent_id(keyboard, 'EVENT_BY_ID')
+
+    # Назад и Отмена — без intent-префикса
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=True,
         postfix_for_back='MONTH'
     ))
-    keyboard = add_intent_id(keyboard, 'EVENT_BY_ID')
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     return text, reply_markup
@@ -1936,14 +1938,17 @@ async def choice_event_by_id(
             'Введите диапазон дат в формате <b>дд.мм.гг-дд.мм.гг</b>\n\n'
             'Пример: <code>01.11.25-30.11.25</code>'
         )
-        keyboard = [
-            [InlineKeyboardButton('Пропустить', callback_data='date_range_skip')],
-            add_btn_back_and_cancel(
-                postfix_for_cancel=context.user_data['postfix_for_cancel'],
-                add_back_btn=True,
-                postfix_for_back='MONTH'
-            ),
-        ]
+        # Кнопки действия — с intent-префиксом
+        action_buttons = add_intent_id(
+            [[InlineKeyboardButton('Пропустить', callback_data='date_range_skip')]],
+            'EVENT_BY_ID'
+        )
+        # Назад и Отмена — без intent-префикса
+        keyboard = action_buttons + [add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            add_back_btn=True,
+            postfix_for_back='MONTH'
+        )]
         reply_markup = InlineKeyboardMarkup(keyboard)
         try:
             await query.edit_message_text(text=text, reply_markup=reply_markup)
