@@ -35,8 +35,6 @@ LICENSE
 README.md
 **/docker-compose*
 **/Dockerfile*
-**/pyproject.toml
-**/uv.lock
 
 # --- Временные данные и логи ---
 **/*.log

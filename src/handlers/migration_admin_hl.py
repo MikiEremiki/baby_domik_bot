@@ -5,6 +5,7 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from db import db_postgres
+from db.enum import AgeType
 from handlers import init_conv_hl_dialog
 from utilities.utl_kbd import add_btn_back_and_cancel
 from utilities.utl_func import (
@@ -89,14 +90,25 @@ async def get_ticket_by_id(
 
         contacts_block = format_ticket_contacts(ticket)
 
-        # Дети — из ticket.people
+        # Извлекаем name_adult и data_children из ticket.people, phone — из ticket.phone
+        name_adult = ''
         child_str = ''
         client_data['data_children'] = []
         for person in ticket.people:
-            if hasattr(person.child, 'age'):
+            if person.age_type == AgeType.adult and person.adult:
+                if not name_adult:
+                    name_adult = person.name or ''
+            elif person.age_type == AgeType.child and person.child:
+                age_str = str(person.child.age) if person.child.age is not None else '0'
                 child_str += f'{person.name} {person.child.age}\n'
                 client_data['data_children'].append(
-                    [person.name, str(person.child.age)])
+                    [person.name, age_str])
+
+        if not client_data['data_children']:
+            client_data['data_children'] = [['0', '0']]
+
+        client_data['name_adult'] = name_adult
+        client_data['phone'] = ticket.phone
 
         date_event, time_event = await get_formatted_date_and_time_of_event(
             schedule_event)

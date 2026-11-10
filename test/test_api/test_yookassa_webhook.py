@@ -1,4 +1,3 @@
-import asyncio
 from types import MappingProxyType
 from unittest.mock import AsyncMock, MagicMock
 import pytest
@@ -35,7 +34,8 @@ def test_real_application_user_data_contract():
     assert app.user_data[100]['key'] == 'value'
 
 
-def test_processing_ticket_paid_website_new_user(monkeypatch):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_website_new_user(monkeypatch):
     """
     Проверяет успешную обработку вебхука с сайта для пользователя,
     чьи данные отсутствуют в context.application.user_data.
@@ -66,7 +66,7 @@ def test_processing_ticket_paid_website_new_user(monkeypatch):
     monkeypatch.setattr('handlers.hooks.yookassa_hl._send_message',
                         AsyncMock(return_value=MagicMock(message_id=777)))
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     assert 5473664345 in context.application.user_data
     user_data = context.application.user_data[5473664345]
@@ -83,7 +83,8 @@ def test_processing_ticket_paid_website_new_user(monkeypatch):
     context.application.mark_data_for_update_persistence.assert_called_once_with(user_ids=[5473664345])
 
 
-def test_processing_ticket_paid_website_existing_user(monkeypatch):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_website_existing_user(monkeypatch):
     """
     Проверяет обработку вебхука с сайта для пользователя с уже существующим user_data.
     Убеждается в сохранении посторонних ключей, удалении старых client_data и пометке persistence.
@@ -122,7 +123,7 @@ def test_processing_ticket_paid_website_existing_user(monkeypatch):
     monkeypatch.setattr('handlers.hooks.yookassa_hl._send_message',
                         AsyncMock(return_value=MagicMock(message_id=777)))
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     user_data = context.application.user_data[5473664345]
     assert user_data['custom_key'] == 'custom_val'
@@ -136,7 +137,8 @@ def test_processing_ticket_paid_website_existing_user(monkeypatch):
     context.application.mark_data_for_update_persistence.assert_called_once_with(user_ids=[5473664345])
 
 
-def test_processing_ticket_paid_website_error_in_notification_still_marks_persistence(monkeypatch):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_website_error_in_notification_still_marks_persistence(monkeypatch):
     """
     Проверяет, что при ошибке отправки уведомлений блок finally всё равно
     помечает измененные данные для сохранения в persistence.
@@ -166,12 +168,13 @@ def test_processing_ticket_paid_website_error_in_notification_still_marks_persis
     monkeypatch.setattr('handlers.hooks.yookassa_hl._send_message',
                         AsyncMock(return_value=MagicMock(message_id=777)))
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     context.application.mark_data_for_update_persistence.assert_called_once_with(user_ids=[5473664345])
 
 
-def test_processing_ticket_paid_website_unhandled_exception_still_marks_persistence(monkeypatch):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_website_unhandled_exception_still_marks_persistence(monkeypatch):
     """
     Проверяет, что даже при необработанном исключении блок finally выполняет
     пометку данных в persistence.
@@ -188,13 +191,14 @@ def test_processing_ticket_paid_website_unhandled_exception_still_marks_persiste
                         AsyncMock(side_effect=RuntimeError('Critical failure')))
 
     with pytest.raises(RuntimeError):
-        asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+        await yookassa_hl.processing_ticket_paid(update, context)
 
     context.application.mark_data_for_update_persistence.assert_called_once_with(user_ids=[5473664345])
 
 
 @pytest.mark.parametrize('invalid_chat_id', ['0', '', 'invalid', None])
-def test_processing_ticket_paid_invalid_chat_ids(monkeypatch, invalid_chat_id):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_invalid_chat_ids(monkeypatch, invalid_chat_id):
     """
     Проверяет, что при некорректных chat_id (0, пустая строка, нечисловые)
     сессия не создаётся и пометка persistence не вызывается.
@@ -217,13 +221,14 @@ def test_processing_ticket_paid_invalid_chat_ids(monkeypatch, invalid_chat_id):
     monkeypatch.setattr('handlers.hooks.yookassa_hl.send_approve_reject_message_to_admin_in_webhook',
                         AsyncMock())
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     assert len(context.application.user_data) == 0
     context.application.mark_data_for_update_persistence.assert_not_called()
 
 
-def test_processing_ticket_paid_no_persistence(monkeypatch):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_no_persistence(monkeypatch):
     """
     Проверяет, что при отсутствии persistence (context.application.persistence is None)
     обработка выполняется успешно без обращений к update_conversation.
@@ -252,13 +257,14 @@ def test_processing_ticket_paid_no_persistence(monkeypatch):
     monkeypatch.setattr('handlers.hooks.yookassa_hl._send_message',
                         AsyncMock(return_value=MagicMock(message_id=777)))
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     assert 5473664345 in context.application.user_data
     assert context.application.user_data[5473664345]['STATE'] == 'PAID'
 
 
-def test_send_approve_reject_message_to_admin_real_helper_website_user(monkeypatch):
+@pytest.mark.anyio
+async def test_send_approve_reject_message_to_admin_real_helper_website_user(monkeypatch):
     """
     Проверяет реальный helper send_approve_reject_message_to_admin_in_webhook
     для веб-пользователя без ключа 'user' в user_data:
@@ -315,21 +321,22 @@ def test_send_approve_reject_message_to_admin_real_helper_website_user(monkeypat
     monkeypatch.setattr('utilities.utl_func.create_str_info_by_schedule_event_id',
                         AsyncMock(return_value='01.01 12:00 Спектакль'))
 
-    asyncio.run(sub_hl.send_approve_reject_message_to_admin_in_webhook(
+    await sub_hl.send_approve_reject_message_to_admin_in_webhook(
         context=context,
         chat_id=chat_id,
         message_id=0,
         ticket_ids=[ticket_id],
         thread_id=42,
         callback_name='reserve'
-    ))
+    )
 
     sub_hl._send_admin_message_with_retry.assert_called_once()
     sub_hl.db_postgres.update_ticket.assert_called_with(context.session, ticket_id, is_admin_notified=True)
     assert context.application.user_data[chat_id]['reserve_user_data']['admin_notified'] is True
 
 
-def test_get_booking_admin_text_user_none(monkeypatch):
+@pytest.mark.anyio
+async def test_get_booking_admin_text_user_none(monkeypatch):
     """
     Проверяет формирование административного текста для веб-бронирования при user=None.
     """
@@ -370,18 +377,19 @@ def test_get_booking_admin_text_user_none(monkeypatch):
     monkeypatch.setattr('utilities.utl_func.create_str_info_by_schedule_event_id',
                         AsyncMock(return_value='01.01 12:00 Спектакль'))
 
-    res_text = asyncio.run(sub_hl.get_booking_admin_text(
+    res_text = await sub_hl.get_booking_admin_text(
         context=context,
         ticket_ids=[ticket_id],
         user=None,
         user_data={}
-    ))
+    )
 
     # format_ticket_contacts возвращает "Покупатель: Неизвестен" когда ticket.user=None
     assert 'Покупатель: Неизвестен' in res_text
 
 
-def test_processing_ticket_paid_bot_booking(monkeypatch):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_bot_booking(monkeypatch):
     """
     Проверяет регрессию для бронирования через бота (source='bot').
     """
@@ -403,7 +411,7 @@ def test_processing_ticket_paid_bot_booking(monkeypatch):
     monkeypatch.setattr('handlers.hooks.yookassa_hl._send_message',
                         AsyncMock(return_value=MagicMock(message_id=777)))
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     user_data = context.application.user_data[5473664345]
     assert user_data['bot_data_field'] == 'value'
@@ -412,7 +420,8 @@ def test_processing_ticket_paid_bot_booking(monkeypatch):
 
 
 @pytest.mark.parametrize('has_user', [True, False])
-def test_processing_ticket_paid_admin_booking(monkeypatch, has_user):
+@pytest.mark.anyio
+async def test_processing_ticket_paid_admin_booking(monkeypatch, has_user):
     """
     Проверяет административную бронь (command='reserve_admin') с наличием и отсутствием ключа user в user_data.
     """
@@ -447,7 +456,7 @@ def test_processing_ticket_paid_admin_booking(monkeypatch, has_user):
     monkeypatch.setattr('handlers.hooks.yookassa_hl._send_message',
                         AsyncMock())
 
-    asyncio.run(yookassa_hl.processing_ticket_paid(update, context))
+    await yookassa_hl.processing_ticket_paid(update, context)
 
     yookassa_hl.db_postgres.update_ticket.assert_called_with(
         context.session, 4915, status=TicketStatus.APPROVED, promo_id=None

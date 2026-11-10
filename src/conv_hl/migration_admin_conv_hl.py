@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from sulguk import transform_html
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import (
     ConversationHandler, CommandHandler, ContextTypes, MessageHandler,
@@ -44,9 +45,11 @@ async def handle_custom_migration_params(
             )
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        res_text = transform_html(error_text)
         await update.effective_chat.send_message(
-            text=error_text,
-            parse_mode='HTML',
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None,
             reply_markup=reply_markup
         )
         return 'CUSTOM_TICKET_PARAMS'

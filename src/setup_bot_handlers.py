@@ -107,16 +107,16 @@ def _add_conversation_handlers(application: Application):
     """Все conversation handlers (11 штук)."""
     conversation_handlers = [
         reserve_conv_hl,
-        reserve_admin_conv_hl,
         list_wait_conv_hl,
         birthday_conv_hl,
-        afisha_conv_hl,
-        support_conv_hl,
-        migration_admin_conv_hl,
         sales_conv_hl,
         profile_conv_hl,
         tickets_conv_hl,
         tickets_admin_conv_hl,
+        reserve_admin_conv_hl,
+        migration_admin_conv_hl,
+        afisha_conv_hl,
+        support_conv_hl,
     ]
     application.add_handlers(conversation_handlers)
 

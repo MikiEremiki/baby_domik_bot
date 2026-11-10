@@ -47,7 +47,7 @@ def test_create_ticket_passes_phone(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -66,7 +66,15 @@ def test_create_ticket_passes_phone(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('phone') == 9123456789
 
 
@@ -78,7 +86,7 @@ def test_create_ticket_without_phone_defaults_none(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -96,7 +104,15 @@ def test_create_ticket_without_phone_defaults_none(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('phone') is None
 
 
@@ -144,7 +160,15 @@ def test_create_booking_ticket_stores_phone(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('phone') == 9123456789
 
 
@@ -183,7 +207,15 @@ def test_create_transferred_ticket_inherits_phone(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('phone') == 9123456789
 
 
@@ -222,7 +254,15 @@ def test_create_transferred_ticket_inherits_none_phone(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('phone') is None
 
 
@@ -233,7 +273,7 @@ def test_create_ticket_auto_commit_false_flushes(monkeypatch):
 
     async def _run():
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.flush = AsyncMock()
         fake_session.commit = AsyncMock()
 
@@ -252,7 +292,15 @@ def test_create_ticket_auto_commit_false_flushes(monkeypatch):
         )
         return fake_session
 
-    session = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        session = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     session.flush.assert_called_once()
     session.commit.assert_not_called()
 
@@ -274,7 +322,15 @@ def test_update_ticket_auto_commit_false_skips_commit(monkeypatch):
         )
         return fake_session
 
-    session = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        session = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     session.commit.assert_not_called()
 
 
@@ -302,7 +358,15 @@ def test_attach_user_and_people_auto_commit_false_skips_commit(monkeypatch):
         )
         return fake_session
 
-    session = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        session = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     session.commit.assert_not_called()
 
 
@@ -355,9 +419,15 @@ def test_parse_and_create_custom_ticket_invalid_format(monkeypatch):
             assert error is not None, f"Expected error for {bad_input!r}"
             assert 'Неверный формат' in error
 
-    asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
 
+    try:
 
+        loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
 def test_apply_custom_ticket_to_reserve(monkeypatch):
     """apply_custom_ticket_to_reserve sets reserve_user_data fields correctly."""
     from utilities.utl_ticket import apply_custom_ticket_to_reserve
@@ -402,7 +472,7 @@ def test_migrate_ticket_db_logic(monkeypatch):
         original.phone = 9123456789
 
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.flush = AsyncMock()
         fake_session.commit = AsyncMock()
 
@@ -489,7 +559,15 @@ def test_migrate_ticket_db_rollback_on_error(monkeypatch):
 
         return fake_session
 
-    session = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        session = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     session.rollback.assert_called_once()
 
 

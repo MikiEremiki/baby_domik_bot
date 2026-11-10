@@ -6,8 +6,21 @@ authors = [
 ]
 license = { file = "LICENSE" }
 description = "Telegram bot on top of python-telegram-bot"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
+    "PyYAML",
+    "sqlalchemy[asyncio]",
+    "faststream[cli]",
+    "nats-py",
+    "pydantic-settings",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.17.1",
+]
+
+bot = [
     "alembic",
     "black",
     "cachetools",
@@ -15,27 +28,55 @@ dependencies = [
     "psycopg-binary",
     "pydantic",
     "pydantic_core",
-    "pydantic-settings",
     "pytest",
     "gspread>=6.2.1",
     "gspread-asyncio>=3.0.0",
     "python-telegram-bot[ext]",
     "pytz",
-    "PyYAML",
     "requests",
-    "sqlalchemy",
     "typing_extensions",
     "yookassa",
     "uvicorn",
+    "sulguk",
     "fastapi",
-    "faststream[cli]",
-    "nats-py",
-    "bleach>=6.4.0",  # Required by FastAPI: used in api/web/routes/booking.py for HTML sanitization
 ]
 
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.17.1",
+fastapi = [
+    "uvicorn",
+    "fastapi",
+    "faststream",
+    "pydantic",
+    "jinja2",
+    "itsdangerous",
+    "psycopg",
+    "psycopg-binary",
+    "python-multipart",
+    "yookassa",
+    "pytz",
+    "bleach",
+]
+
+gspread = [
+    "gspread>=6.2.1",
+    "gspread-asyncio>=3.0.0",
+    "python-telegram-bot[ext]",
+]
+
+sales = [
+    "psycopg",
+    "psycopg-binary",
+    "python-telegram-bot[ext]",
+    "pytz",
+    "sulguk",
+]
+
+migration = [
+    "alembic",
+    "black",
+    "psycopg",
+    "psycopg-binary",
+    "python-telegram-bot[ext]",
+    "pydantic_core",
 ]
 
 [tool.pytest.ini_options]

@@ -54,24 +54,22 @@ class TestShowStep:
 
     @pytest.fixture
     def show_step(self):
-        from handlers.sales.helpers import _show_step
+        from handlers.sales_hl import _show_step
         return _show_step
 
     @pytest.fixture
     def update_and_context(self):
         """Create a minimal Update and ContextTypes mock."""
-        _ = User(id=1, first_name="Test", is_bot=False)
-        chat = Chat(id=42, type="private")
-        msg = Message(message_id=1, date=None, chat=chat)
-        msg._id = MagicMock()
-        update = Update(update_id=1, message=msg)
-
-        context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
+        update = MagicMock()
+        update.effective_chat.id = 42
+        update.effective_message = MagicMock()
+        update.callback_query = None
+        context = MagicMock()
         context.user_data = {}
         context.bot = AsyncMock()
         return update, context
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_edit_existing_message(self, show_step, update_and_context):
         """If step_msg_id is set and edit succeeds, use edit."""
         update, context = update_and_context
@@ -91,7 +89,7 @@ class TestShowStep:
         assert call_kwargs['message_id'] == 100
         assert call_kwargs['text'] == "New step"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_fallback_send_new_message(self, show_step, update_and_context):
         """If step_msg_id is None, send a new message and store its ID."""
         update, context = update_and_context
@@ -110,7 +108,7 @@ class TestShowStep:
         update.effective_chat.send_message.assert_called_once()
         assert context.user_data['sales']['step_msg_id'] == 200
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_edit_not_found_fallback(self, show_step, update_and_context):
         """If edit raises 'Message to edit not found', fall back to send."""
         update, context = update_and_context
@@ -134,7 +132,7 @@ class TestShowStep:
         # step_msg_id updated to new message
         assert context.user_data['sales']['step_msg_id'] == 200
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_edit_not_modified_is_success(self, show_step, update_and_context):
         """If edit raises 'Message is not modified', treat as success (no fallback)."""
         update, context = update_and_context
@@ -162,12 +160,12 @@ class TestUsageText:
 
     @pytest.fixture
     def get_usage(self):
-        from handlers.sales.helpers import _get_usage_text_for_type
+        from handlers.sales_hl import _get_usage_text_for_type
         return _get_usage_text_for_type
 
     @pytest.fixture
     def get_usage_highlight(self):
-        from handlers.sales.helpers import _get_usage_text_with_highlight
+        from handlers.sales_hl import _get_usage_text_with_highlight
         return _get_usage_text_with_highlight
 
     def test_season_usage_text(self, get_usage):
@@ -203,7 +201,7 @@ class TestCompressIds:
 
     @pytest.fixture
     def compress(self):
-        from handlers.sales.helpers import _compress_ids
+        from handlers.sales_hl import _compress_ids
         return _compress_ids
 
     def test_empty(self, compress):
@@ -214,7 +212,7 @@ class TestCompressIds:
 
     def test_consecutive_range(self, compress):
         result = compress([1, 2, 3, 4, 5])
-        assert "1-5" in result
+        assert "1\u20135" in result
 
     def test_non_consecutive(self, compress):
         result = compress([1, 3, 5])

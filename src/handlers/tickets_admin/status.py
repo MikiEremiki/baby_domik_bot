@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from db import db_postgres
@@ -21,12 +22,13 @@ tickets_admin_status_logger = logging.getLogger('bot.tickets_admin_status')
 
 
 async def set_ticket_status(
-    query,
+    update: 'Update',
     context: 'ContextTypes.DEFAULT_TYPE',
     ticket_id: int,
     status_value: str,
 ) -> int:
     """Устанавливает новый статус билета с синхронизацией мест и Google Sheets."""
+    query = update.callback_query
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
         await query.answer('Билет не найден', show_alert=True)
@@ -71,4 +73,4 @@ async def set_ticket_status(
         await update_ticket_in_gspread(sheet_id_domik, ticket_id, new_status.value)
 
     await query.answer(f'Статус: {new_status.value}')
-    return await show_ticket_card(query, context, ticket_id)
+    return await show_ticket_card(update, context, ticket_id)

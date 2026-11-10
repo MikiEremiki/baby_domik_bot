@@ -1,9 +1,0 @@
-alembic
-black
-psycopg
-psycopg-binary
-sqlalchemy[asyncio]
-python-telegram-bot[ext]
-pydantic_core
-pydantic-settings
-PyYAML

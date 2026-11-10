@@ -1,5 +1,6 @@
 import logging
 
+from sulguk import transform_html
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest, Forbidden, TimedOut, NetworkError
 from telegram.ext import TypeHandler, ContextTypes
@@ -250,23 +251,25 @@ async def processing_ticket_paid(update, context: 'ContextTypes.DEFAULT_TYPE'):
             # Уведомление в админ-группу
             try:
                 user = user_data.get('user') if int_chat_id != 0 and user_data else None
-                text_to_admin = f'#Бронирование #Админ_бронь\n'
-                text_to_admin += f'Платеж по ссылке успешно обработан. Бронь подтверждена автоматически.\n'
+                text_to_admin = f'#Бронирование #Админ_бронь<br>'
+                text_to_admin += f'Платеж по ссылке успешно обработан. Бронь подтверждена автоматически.<br>'
                 if user:
                     booking_details = await get_booking_admin_text(
                         context, ticket_ids, user, user_data
                     )
-                    text_to_admin += booking_details + '\n\n'
+                    text_to_admin += booking_details + '<br><br>'
 
                 for ticket_id in ticket_ids:
-                    text_to_admin += f'#ticket_id <code>{ticket_id}</code>\n'
+                    text_to_admin += f'#ticket_id <code>{ticket_id}</code><br>'
 
+                res_text = transform_html(text_to_admin)
                 await _send_message(
                     context.bot,
                     chat_id=ADMIN_GROUP,
-                    text=text_to_admin,
+                    text=res_text.text,
+                    entities=res_text.entities,
                     message_thread_id=thread_id,
-                    parse_mode='HTML'
+                    parse_mode=None
                 )
             except Exception as e:
                 text = f'Не удалось отправить уведомление админу о платеже админ-брони: {e}'

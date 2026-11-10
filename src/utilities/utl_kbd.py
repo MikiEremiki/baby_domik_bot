@@ -389,7 +389,7 @@ async def create_replay_markup(
 async def create_email_confirm_btn(text, email):
     email_confirm_btn = None
     if email:
-        text += f'Последний введенный email:\n<code>{email}</code>\n\n'
+        text += f'Последний введенный email:<br><code>{email}</code><br><br>'
         text += 'Использовать последнюю введенную почту?'
         email_confirm_btn = [
             InlineKeyboardButton('Да', callback_data=f'email_confirm|{email}')]

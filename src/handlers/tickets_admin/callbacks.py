@@ -22,6 +22,7 @@ from .display import show_ticket_card
 from .ticket_list import show_compact_ticket_list
 from .buyer import show_buyer_card, show_buyer_tickets
 from .status import set_ticket_status
+from .transfer import cb_transfer_start
 
 
 async def edit_and_set_state(
@@ -120,6 +121,7 @@ async def cb_notes(query, context: 'ContextTypes.DEFAULT_TYPE', ticket_id: int) 
         keyboard: List[List[InlineKeyboardButton]] = [
             [InlineKeyboardButton('Дополнить', callback_data='ta:notes_mode:append'),
              InlineKeyboardButton('Перезаписать', callback_data='ta:notes_mode:replace')],
+            [InlineKeyboardButton('Удалить', callback_data=f'ta:clear_notes:{ticket_id}')],
             add_btn_back_and_cancel(
                 postfix_for_cancel='tickets_admin',
                 postfix_for_back='TICKET_CARD',
@@ -197,6 +199,14 @@ async def cb_clear_email(query, context: 'ContextTypes.DEFAULT_TYPE',
     return await show_ticket_card(update, context, ticket_id)
 
 
+async def cb_clear_notes(query, context: 'ContextTypes.DEFAULT_TYPE',
+                         ticket_id: int, update: Update) -> int:
+    """Clear notes on ticket and show card."""
+    await db_postgres.update_ticket(context.session, ticket_id, notes=None)
+    await query.answer('Примечание удалено')
+    return await show_ticket_card(update, context, ticket_id)
+
+
 async def cb_set_status(query, context: 'ContextTypes.DEFAULT_TYPE',
                         status_value: str, update: Update) -> int:
     """Set new status on ticket."""
@@ -204,7 +214,7 @@ async def cb_set_status(query, context: 'ContextTypes.DEFAULT_TYPE',
     if not ticket_id:
         await query.answer('Ошибка: билет не выбран', show_alert=True)
         return TICKET_CARD
-    return await set_ticket_status(query, context, ticket_id, status_value)
+    return await set_ticket_status(update, context, ticket_id, status_value)
 
 
 async def cb_receipt(
@@ -226,6 +236,7 @@ async def tickets_admin_callback(
     """Обработчик callback-кнопок меню /tickets_admin."""
     query = update.callback_query
     await query.answer()
+
     parts = query.data.split(':')
     action = parts[1] if len(parts) > 1 else ''
 
@@ -256,6 +267,8 @@ async def tickets_admin_callback(
         return await show_buyer_tickets(update, context, int(parts[2]))
     if action == 'receipt':
         return await cb_receipt(update, context, int(parts[2]))
+    if action == 'transfer':
+        return await cb_transfer_start(update, context, int(parts[2]))
 
     # ── Список билетов ──
     if action == 'toggle_filter':
@@ -270,5 +283,7 @@ async def tickets_admin_callback(
         return await cb_set_status(query, context, ':'.join(parts[2:]), update)
     if action == 'clear_email':
         return await cb_clear_email(query, context, int(parts[2]), update)
+    if action == 'clear_notes':
+        return await cb_clear_notes(query, context, int(parts[2]), update)
 
     return context.user_data.get('STATE', MENU)

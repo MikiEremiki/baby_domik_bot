@@ -30,7 +30,7 @@ def test_create_ticket_with_source_website(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -49,7 +49,15 @@ def test_create_ticket_with_source_website(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('source') == TicketSource.WEBSITE
 
 
@@ -61,7 +69,7 @@ def test_create_ticket_with_source_bot(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -80,7 +88,15 @@ def test_create_ticket_with_source_bot(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('source') == TicketSource.BOT
 
 
@@ -92,7 +108,7 @@ def test_create_ticket_without_source_defaults_bot(monkeypatch):
     async def _run():
         captured = {}
         fake_session = AsyncMock()
-        fake_session.add = AsyncMock()
+        fake_session.add = MagicMock()
         fake_session.commit = AsyncMock()
 
         def fake_ticket(**kwargs):
@@ -110,7 +126,15 @@ def test_create_ticket_without_source_defaults_bot(monkeypatch):
         )
         return captured
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('source') == TicketSource.BOT
 
 
@@ -151,7 +175,15 @@ def test_utl_ticket_create_tickets_passes_bot_source(monkeypatch):
         await utl_ticket.create_tickets(context, 'CREATED')
         return captured_sources
 
-    sources = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        sources = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert TicketSource.BOT in sources
 
 
@@ -209,7 +241,15 @@ def test_create_booking_ticket_sets_source_website(monkeypatch):
         )
         return captured_ticket_kwargs, added_objects
 
-    result = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        result = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     captured_kwargs, added_objects = result
     assert captured_kwargs.get('source') == TicketSource.WEBSITE
 
@@ -248,7 +288,15 @@ def test_create_transferred_ticket_inherits_source(monkeypatch):
         )
         return captured_ticket_kwargs
 
-    captured = asyncio.new_event_loop().run_until_complete(_run())
+    loop = asyncio.new_event_loop()
+
+    try:
+
+        captured = loop.run_until_complete(_run())
+
+    finally:
+
+        loop.close()
     assert captured.get('source') == TicketSource.WEBSITE
     assert captured.get('promo_id') == 5
     assert captured.get('notes') == 'Test notes'
