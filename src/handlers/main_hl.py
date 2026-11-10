@@ -811,7 +811,7 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     current_state = context.user_data.get('STATE', 'UNKNOWN')
     target_state = query.data.split('-')[1]
     main_handlers_logger.info(
-        f'back(): отмена → назад, STATE {current_state} → {target_state}'
+        f'back(): назад, STATE {current_state} → {target_state}'
     )
 
     state = target_state
