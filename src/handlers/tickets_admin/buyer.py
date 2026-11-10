@@ -22,6 +22,15 @@ from .constants import BUYER_CARD, BUYER_TICKETS, MENU, TICKET_CARD
 from .ticket_list import show_user_tickets
 
 
+def _get_thread_id(update: Update) -> int | None:
+    """Извлекает message_thread_id из update для отправки в тему форума."""
+    if update.callback_query and update.callback_query.message:
+        return update.callback_query.message.message_thread_id
+    if update.effective_message:
+        return update.effective_message.message_thread_id
+    return None
+
+
 async def show_buyer_card(
     update: Update,
     context: 'ContextTypes.DEFAULT_TYPE',
@@ -30,7 +39,8 @@ async def show_buyer_card(
     """Карточка покупателя билета — формат как в update_ticket."""
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
-        await update.effective_chat.send_message('Билет не найден.')
+        await update.effective_chat.send_message(
+            'Билет не найден.', message_thread_id=_get_thread_id(update))
         return MENU
 
     # Мероприятие — через стандартный хелпер
@@ -68,12 +78,16 @@ async def show_buyer_card(
     text += 'На кого оформлен:<br>'
     text += people_str
 
-    keyboard = add_btn_back_and_cancel(
-        postfix_for_cancel='tickets_admin',
-        postfix_for_back='TICKET_CARD',
-        add_back_btn=True,
-    )
-    reply_markup = InlineKeyboardMarkup([keyboard])
+    keyboard: List[List[InlineKeyboardButton]] = [
+        [InlineKeyboardButton('Билеты покупателя', callback_data=f'ta:buyer_tickets:{ticket_id}')],
+        add_btn_back_and_cancel(
+            postfix_for_cancel='tickets_admin',
+            postfix_for_back='TICKET_CARD',
+            add_back_btn=True,
+        ),
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    thread_id = _get_thread_id(update)
     res = transform_html(text)
     if update.callback_query:
         try:
@@ -83,11 +97,13 @@ async def show_buyer_card(
         except BadRequest:
             await update.effective_chat.send_message(
                 text=res.text, entities=res.entities,
-                reply_markup=reply_markup, parse_mode=None)
+                reply_markup=reply_markup, parse_mode=None,
+                message_thread_id=thread_id)
     else:
         await update.effective_chat.send_message(
             text=res.text, entities=res.entities,
-            reply_markup=reply_markup, parse_mode=None)
+            reply_markup=reply_markup, parse_mode=None,
+            message_thread_id=thread_id)
 
     await set_back_context(context, BUYER_CARD, res.text, reply_markup)
     context.user_data['STATE'] = BUYER_CARD
@@ -111,7 +127,8 @@ async def show_buyer_tickets(
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
-        await update.effective_chat.send_message('Билет не найден.')
+        await update.effective_chat.send_message(
+            'Билет не найден.', message_thread_id=_get_thread_id(update))
         return MENU
 
     if not ticket.user:
@@ -123,6 +140,7 @@ async def show_buyer_tickets(
         )
         reply_markup = InlineKeyboardMarkup([keyboard])
         res = transform_html(text)
+        thread_id = _get_thread_id(update)
         if update.callback_query:
             try:
                 await update.callback_query.edit_message_text(
@@ -131,11 +149,13 @@ async def show_buyer_tickets(
             except BadRequest:
                 await update.effective_chat.send_message(
                     text=res.text, entities=res.entities,
-                    reply_markup=reply_markup, parse_mode=None)
+                    reply_markup=reply_markup, parse_mode=None,
+                    message_thread_id=thread_id)
         else:
             await update.effective_chat.send_message(
                 text=res.text, entities=res.entities,
-                reply_markup=reply_markup, parse_mode=None)
+                reply_markup=reply_markup, parse_mode=None,
+                message_thread_id=thread_id)
         await set_back_context(context, BUYER_TICKETS, res.text, reply_markup)
         context.user_data['STATE'] = BUYER_TICKETS
         return BUYER_TICKETS

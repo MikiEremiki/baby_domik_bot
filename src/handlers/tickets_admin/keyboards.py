@@ -20,6 +20,7 @@ def ticket_card_keyboard(ticket_id: int) -> InlineKeyboardMarkup:
          InlineKeyboardButton('Покупатель', callback_data=f'ta:buyer:{ticket_id}')],
         [InlineKeyboardButton('Билеты покупателя', callback_data=f'ta:buyer_tickets:{ticket_id}'),
          InlineKeyboardButton('🧾 Чек', callback_data=f'ta:receipt:{ticket_id}')],
+        [InlineKeyboardButton('Перенести', callback_data=f'ta:transfer:{ticket_id}')],
         add_btn_back_and_cancel(
             postfix_for_cancel='tickets_admin',
             postfix_for_back='MENU',

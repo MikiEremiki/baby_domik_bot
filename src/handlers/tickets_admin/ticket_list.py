@@ -174,6 +174,15 @@ async def _show_empty_list(
     return TICKET_LIST
 
 
+def _get_thread_id(update: Update) -> int | None:
+    """Извлекает message_thread_id из update для отправки в тему форума."""
+    if update.callback_query and update.callback_query.message:
+        return update.callback_query.message.message_thread_id
+    if update.effective_message:
+        return update.effective_message.message_thread_id
+    return None
+
+
 async def _send_or_edit(
     update: Update,
     text: str,
@@ -181,6 +190,7 @@ async def _send_or_edit(
     reply_markup: InlineKeyboardMarkup,
 ) -> None:
     """Send or edit message based on update type."""
+    thread_id = _get_thread_id(update)
     if update.callback_query:
         try:
             await update.callback_query.edit_message_text(
@@ -189,8 +199,10 @@ async def _send_or_edit(
         except BadRequest:
             await update.effective_chat.send_message(
                 text=text, entities=entities,
-                reply_markup=reply_markup, parse_mode=None)
+                reply_markup=reply_markup, parse_mode=None,
+                message_thread_id=thread_id)
     else:
         await update.effective_chat.send_message(
             text=text, entities=entities,
-            reply_markup=reply_markup, parse_mode=None)
+            reply_markup=reply_markup, parse_mode=None,
+            message_thread_id=thread_id)

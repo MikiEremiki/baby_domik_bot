@@ -14,6 +14,7 @@ NOTES_MODE = 'NOTES_MODE'  # выбор режима: дополнить или 
 INPUT_BASE_TICKET = 'INPUT_BASE_TICKET'  # смена типа билета
 BUYER_CARD = 'BUYER_CARD'   # карточка покупателя
 BUYER_TICKETS = 'BUYER_TICKETS'  # билеты покупателя
+TRANSFER_PICK = 'TRANSFER_PICK'  # выбор способа переноса (по id / по параметрам)
 SEARCH_TICKET_ID = 'SEARCH_TICKET_ID'  # ожидание ID билета (из меню)
 SEARCH_CONTACT_PHONE = 'SEARCH_CONTACT_PHONE'  # ввод телефона для поиска
 SEARCH_CONTACT_EMAIL = 'SEARCH_CONTACT_EMAIL'  # ввод email для поиска

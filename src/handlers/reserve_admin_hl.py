@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from api.googlesheets import write_client_reserve
 from api.gspread_pub import publish_write_client_reserve
 from db import db_postgres
+from db.models import Ticket
 from db.enum import TicketStatus
 from db.db_googlesheets import increase_free_seat, decrease_free_seat
 from db.db_postgres import get_schedule_theater_base_tickets
@@ -46,7 +47,7 @@ async def _migrate_ticket_db(
         price: int,
         schedule_event_id: int,
         user_id: int,
-) -> 'db_postgres.Ticket' | None:
+) -> Ticket | None:
     """Одна транзакция БД: MIGRATED старый билет + новый билет + привязка."""
     people_ids = [person.id for person in original_ticket.people]
     ticket_id = original_ticket.id

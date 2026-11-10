@@ -26,6 +26,15 @@ from .display import show_ticket_card
 from .ticket_list import show_compact_ticket_list
 
 
+def _get_thread_id(update: Update) -> int | None:
+    """Извлекает message_thread_id из update для отправки в тему форума."""
+    if update.callback_query and update.callback_query.message:
+        return update.callback_query.message.message_thread_id
+    if update.effective_message:
+        return update.effective_message.message_thread_id
+    return None
+
+
 async def handle_search_user(
     update: Update,
     context: 'ContextTypes.DEFAULT_TYPE',
@@ -55,7 +64,8 @@ async def handle_search_user(
             add_back_btn=False,
         )
         await update.effective_chat.send_message(
-            text=text_err, reply_markup=InlineKeyboardMarkup([keyboard]))
+            text=text_err, reply_markup=InlineKeyboardMarkup([keyboard]),
+            message_thread_id=_get_thread_id(update))
         return SEARCH_USER
 
     return await show_compact_ticket_list(update, context, user.tickets, f'Билеты: {clean}')
@@ -75,7 +85,8 @@ async def handle_search_ticket_id(
             add_back_btn=False,
         )
         await update.effective_chat.send_message(
-            text=text_err, reply_markup=InlineKeyboardMarkup([keyboard]))
+            text=text_err, reply_markup=InlineKeyboardMarkup([keyboard]),
+            message_thread_id=_get_thread_id(update))
         return SEARCH_TICKET_ID
 
     return await show_ticket_card(update, context, ticket_id, edit=False)
@@ -92,7 +103,8 @@ async def handle_search_contact_phone(
         phone = extract_phone_number_from_text(text)
         if not check_phone_number(phone):
             await update.effective_chat.send_message(
-                'Неверный формат телефона (10 цифр, начинается с 9).\n\nВведите телефон для поиска (или оставьте пустым):')
+                'Неверный формат телефона (10 цифр, начинается с 9).\n\nВведите телефон для поиска (или оставьте пустым):',
+                message_thread_id=_get_thread_id(update))
             return SEARCH_CONTACT_PHONE
     context.user_data['tickets_admin']['search_contact_phone'] = phone
     # Переходим к вводу email
@@ -104,7 +116,8 @@ async def handle_search_contact_phone(
     )
     reply_markup = InlineKeyboardMarkup([keyboard])
     await update.effective_chat.send_message(
-        text=text, reply_markup=reply_markup)
+        text=text, reply_markup=reply_markup,
+        message_thread_id=_get_thread_id(update))
     await set_back_context(context, SEARCH_CONTACT_EMAIL, text, reply_markup)
     context.user_data['STATE'] = SEARCH_CONTACT_EMAIL
     return SEARCH_CONTACT_EMAIL
@@ -120,14 +133,16 @@ async def handle_search_contact_email(
     if text:
         if not check_email(text):
             await update.effective_chat.send_message(
-                'Неверный формат email.\n\nВведите email для поиска (или оставьте пустым):')
+                'Неверный формат email.\n\nВведите email для поиска (или оставьте пустым):',
+                message_thread_id=_get_thread_id(update))
             return SEARCH_CONTACT_EMAIL
         email = text
 
     phone = context.user_data['tickets_admin'].get('search_contact_phone')
     if not phone and not email:
         await update.effective_chat.send_message(
-            'Укажите хотя бы один параметр поиска.\n\nВведите телефон (10 цифр без +7) и/или email:')
+            'Укажите хотя бы один параметр поиска.\n\nВведите телефон (10 цифр без +7) и/или email:',
+            message_thread_id=_get_thread_id(update))
         context.user_data['STATE'] = SEARCH_CONTACT_PHONE
         return SEARCH_CONTACT_PHONE
 
@@ -149,7 +164,8 @@ async def handle_search_contact_email(
             add_back_btn=True,
         )
         await update.effective_chat.send_message(
-            text=text_err, reply_markup=InlineKeyboardMarkup([keyboard]))
+            text=text_err, reply_markup=InlineKeyboardMarkup([keyboard]),
+            message_thread_id=_get_thread_id(update))
         return MENU
 
     search_desc = []
@@ -167,12 +183,15 @@ async def handle_email_input(
     """Ввод нового email."""
     email = update.effective_message.text.strip()
     if not check_email(email):
-        await update.effective_chat.send_message('Неверный формат email. Попробуйте ещё раз:')
+        await update.effective_chat.send_message(
+            'Неверный формат email. Попробуйте ещё раз:',
+            message_thread_id=_get_thread_id(update))
         return INPUT_EMAIL
 
     ticket_id = context.user_data['tickets_admin'].get('ticket_id')
     await db_postgres.update_ticket(context.session, ticket_id, email=email)
-    await update.effective_chat.send_message('Email обновлён.')
+    await update.effective_chat.send_message(
+        'Email обновлён.', message_thread_id=_get_thread_id(update))
     return await show_ticket_card(update, context, ticket_id)
 
 
@@ -185,12 +204,14 @@ async def handle_phone_input(
     phone = extract_phone_number_from_text(phone)
     if not check_phone_number(phone):
         await update.effective_chat.send_message(
-            'Введите российский номер (10 цифр, начинается с 9).')
+            'Введите российский номер (10 цифр, начинается с 9).',
+            message_thread_id=_get_thread_id(update))
         return INPUT_PHONE
 
     ticket_id = context.user_data['tickets_admin'].get('ticket_id')
     await db_postgres.update_ticket(context.session, ticket_id, phone=int(phone))
-    await update.effective_chat.send_message('Телефон обновлён.')
+    await update.effective_chat.send_message(
+        'Телефон обновлён.', message_thread_id=_get_thread_id(update))
     return await show_ticket_card(update, context, ticket_id)
 
 
@@ -216,7 +237,8 @@ async def handle_notes_input(
         notes = new_text
 
     await db_postgres.update_ticket(context.session, ticket_id, notes=notes)
-    await update.effective_chat.send_message('Примечание обновлено.')
+    await update.effective_chat.send_message(
+        'Примечание обновлено.', message_thread_id=_get_thread_id(update))
     return await show_ticket_card(update, context, ticket_id)
 
 
@@ -228,18 +250,23 @@ async def handle_base_ticket_input(
     try:
         new_base_ticket_id = int(update.effective_message.text.strip())
     except ValueError:
-        await update.effective_chat.send_message('Введите номер базового билета:')
+        await update.effective_chat.send_message(
+            'Введите номер базового билета:',
+            message_thread_id=_get_thread_id(update))
         return INPUT_BASE_TICKET
 
     ticket_id = context.user_data['tickets_admin'].get('ticket_id')
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     new_base = await db_postgres.get_base_ticket(context.session, new_base_ticket_id)
     if not new_base:
-        await update.effective_chat.send_message('Базовый билет не найден.')
+        await update.effective_chat.send_message(
+            'Базовый билет не найден.',
+            message_thread_id=_get_thread_id(update))
         return INPUT_BASE_TICKET
 
     await db_postgres.update_ticket(context.session, ticket_id, base_ticket_id=new_base_ticket_id)
     if ticket.schedule_event_id:
         await update_free_seat(context, ticket.schedule_event_id)
-    await update.effective_chat.send_message('Тип билета обновлён.')
+    await update.effective_chat.send_message(
+        'Тип билета обновлён.', message_thread_id=_get_thread_id(update))
     return await show_ticket_card(update, context, ticket_id)

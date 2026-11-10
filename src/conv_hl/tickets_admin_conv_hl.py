@@ -15,7 +15,7 @@ from handlers.tickets_admin import (
     MENU, SEARCH_USER, TICKET_LIST, TICKET_CARD, STATUS_PICK,
     INPUT_EMAIL, INPUT_PHONE, INPUT_NOTES, NOTES_MODE, INPUT_BASE_TICKET,
     BUYER_CARD, BUYER_TICKETS, SEARCH_TICKET_ID, SEARCH_CONTACT_PHONE,
-    SEARCH_CONTACT_EMAIL,
+    SEARCH_CONTACT_EMAIL, TRANSFER_PICK,
     # Callbacks
     tickets_admin_callback,
     # Inputs
@@ -25,6 +25,8 @@ from handlers.tickets_admin import (
     handle_base_ticket_input,
     # Display
     show_ticket_card,
+    # Transfer (тонкие обёртки для возврата к карточке билета)
+    cb_ticket_selected, cb_custom_ticket_params,
 )
 from utilities.utl_func import set_back_context
 from utilities.utl_kbd import add_btn_back_and_cancel
@@ -32,7 +34,9 @@ from sulguk import transform_html
 from conv_hl import (
     cancel_callback_handler,
     F_text_and_no_command, common_fallbacks,
+    handlers_event_selection,
 )
+from handlers import reserve_hl, reserve_admin_hl
 from settings.settings import COMMAND_DICT
 
 
@@ -67,7 +71,8 @@ async def enter_tickets_admin(
     res = transform_html(text)
     await update.effective_chat.send_message(
         text=res.text, entities=res.entities,
-        reply_markup=reply_markup, parse_mode=None)
+        reply_markup=reply_markup, parse_mode=None,
+        message_thread_id=update.effective_message.message_thread_id)
     await set_back_context(context, MENU, res.text, reply_markup)
     context.user_data['STATE'] = MENU
     return MENU
@@ -136,7 +141,43 @@ states = {
     BUYER_CARD: [
         cancel_callback_handler,
     ],
+    # ── Перенос билета — переиспользует логику migration_admin ──
+    # migration_ticket возвращает state=1, далее те же обработчики что в migration_admin
+    TRANSFER_PICK: [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
+    ],
+    1: [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
+        CallbackQueryHandler(reserve_hl.choice_month, pattern='^params'),
+        CallbackQueryHandler(reserve_admin_hl.enter_event_id, pattern='^id'),
+    ],
+    2: [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
+        MessageHandler(F_text_and_no_command,
+                       reserve_admin_hl.choice_option_of_reserve),
+    ],
+    'TICKET': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
+        CallbackQueryHandler(cb_ticket_selected, pattern='^TICKET'),
+    ],
+    'CUSTOM_TICKET_PARAMS': [
+        cancel_callback_handler,
+        CallbackQueryHandler(main_back, pattern='^Назад'),
+        MessageHandler(F_text_and_no_command, cb_custom_ticket_params),
+    ],
 }
+
+# Включаем общие состояния выбора события (MONTH → SHOW → DATE → PLACE → TIME)
+# для пути "по параметрам" при переносе
+for key in handlers_event_selection:
+    if key not in states:
+        states[key] = handlers_event_selection[key]
+        # Добавляем кнопку Назад для tickets_admin
+        states[key].append(CallbackQueryHandler(main_back, pattern='^Назад'))
 
 # Кнопка «Назад» в tickets_admin
 for state_key in states:

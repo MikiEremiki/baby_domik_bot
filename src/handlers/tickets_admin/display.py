@@ -17,6 +17,15 @@ from .constants import TICKET_CARD, MENU
 from .keyboards import ticket_card_keyboard
 
 
+def _get_thread_id(update: Update) -> int | None:
+    """Извлекает message_thread_id из update для отправки в тему форума."""
+    if update.callback_query and update.callback_query.message:
+        return update.callback_query.message.message_thread_id
+    if update.effective_message:
+        return update.effective_message.message_thread_id
+    return None
+
+
 async def format_ticket_card(session, ticket) -> str:
     """Формирует текст карточки билета."""
     schedule_event = await db_postgres.get_schedule_event(
@@ -85,7 +94,8 @@ async def show_ticket_card(
     """Показывает карточку билета с кнопками управления."""
     ticket = await db_postgres.get_ticket(context.session, ticket_id)
     if not ticket:
-        await update.effective_chat.send_message('Такого билета нет.')
+        await update.effective_chat.send_message(
+            'Такого билета нет.', message_thread_id=_get_thread_id(update))
         return MENU
 
     context.user_data['tickets_admin'] = context.user_data.setdefault(
@@ -96,6 +106,7 @@ async def show_ticket_card(
     keyboard = ticket_card_keyboard(ticket_id)
     res = transform_html(text)
 
+    thread_id = _get_thread_id(update)
     if update.callback_query and edit:
         try:
             await update.callback_query.edit_message_text(
@@ -104,11 +115,13 @@ async def show_ticket_card(
         except BadRequest:
             await update.effective_chat.send_message(
                 text=res.text, entities=res.entities,
-                reply_markup=keyboard, parse_mode=None)
+                reply_markup=keyboard, parse_mode=None,
+                message_thread_id=thread_id)
     else:
         await update.effective_chat.send_message(
             text=res.text, entities=res.entities,
-            reply_markup=keyboard, parse_mode=None)
+            reply_markup=keyboard, parse_mode=None,
+            message_thread_id=thread_id)
 
     await set_back_context(context, TICKET_CARD, res.text, keyboard)
     context.user_data['STATE'] = TICKET_CARD
