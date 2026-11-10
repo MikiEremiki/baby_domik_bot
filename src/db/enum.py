@@ -62,6 +62,7 @@ class UserRole(enum.Enum):
 class AutoSendingTrigger(enum.Enum):
     EVENT = 'EVENT'
     PAYMENT = 'PAYMENT'
+    SHOW_LIST = 'SHOW_LIST'
 
 
 class TicketSource(enum.Enum):

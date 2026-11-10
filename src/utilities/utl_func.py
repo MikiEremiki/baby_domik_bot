@@ -28,6 +28,7 @@ from utilities.utl_date import to_moscow_dt
 from utilities.utl_context import clean_context_on_end_handler
 from utilities.utl_place import format_place_line
 from utilities.utl_ticket import format_ticket_contacts
+from utilities.utl_check import is_skip_ticket
 from settings.settings import (
     COMMAND_DICT, CHAT_ID_MIKIEREMIKI,
     ADMIN_CHAT_ID, ADMIN_GROUP_ID, ADMIN_ID, SUPERADMIN_CHAT_ID,
@@ -247,50 +248,56 @@ async def set_description(bot: ExtBot) -> None:
 
 
 async def send_log(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    caption = [0]
+    caption_parts = ['0']
     i = 1
     while os.path.exists(f'log/archive/log.txt.{i}'):
-        caption.append(i)
+        caption_parts.append(str(i))
         i += 1
-    await context.bot.send_document(
-        chat_id=update.effective_chat.id,
-        document='log/archive/log.txt',
-        caption=caption
-    )
+    caption = ', '.join(caption_parts)
+    with open('log/archive/log.txt', 'rb') as f:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=f,
+            caption=caption
+        )
     if context.args:
         try:
             num = int(context.args[0])
             if os.path.exists(f'log/archive/log.txt.{num}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/archive/log.txt.{num}'
-                )
+                with open(f'log/archive/log.txt.{num}', 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=f
+                    )
         except ValueError:
             pass
         if context.args[0] == 'all':
             i = 1
             while os.path.exists(f'log/archive/log.txt.{i}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/archive/log.txt.{i}'
-                )
+                with open(f'log/archive/log.txt.{i}', 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=f
+                    )
                 i += 1
 
 
 async def send_postgres_log(update: Update,
                             context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    await context.bot.send_document(
-        chat_id=update.effective_chat.id,
-        document='log/archive/postgres_log.txt'
-    )
+    with open('log/archive/postgres_log.txt', 'rb') as f:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=f
+        )
     if context.args:
         if context.args[0] == 'all':
             i = 1
             while os.path.exists(f'log/archive/postgres_log.txt.{i}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/archive/postgres_log.txt.{i}'
-                )
+                with open(f'log/archive/postgres_log.txt.{i}', 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=f
+                    )
                 i += 1
 
 
@@ -1138,6 +1145,45 @@ async def add_qty_visitors_to_text(
     text += '<i>Кол-во посетителей: '
     text += f"д={qty_child}|в={qty_adult}</i>"
     return text
+
+
+async def build_show_list_text(
+        session,
+        schedule_event: ScheduleEvent
+) -> Tuple[str, List[Tuple[BaseTicket, Ticket]]]:
+    """Формирует HTML-текст списка клиентов на показ.
+
+    Возвращает кортеж (html_text, base_ticket_and_tickets), где
+    html_text — готовый HTML-текст (название, дата/время, место,
+    количество посетителей, данные клиентов), а base_ticket_and_tickets
+    — список кортежей (BaseTicket, Ticket) для возможных расширений.
+    """
+    theater_event = await db_postgres.get_theater_event(
+        session, schedule_event.theater_event_id)
+    date_event, time_event = await get_formatted_date_and_time_of_event(
+        schedule_event)
+    tickets = schedule_event.tickets
+    base_ticket_and_tickets = []
+    for ticket in tickets:
+        base_ticket = await db_postgres.get_base_ticket(
+            session, ticket.base_ticket_id)
+        if not is_skip_ticket(ticket.status):
+            base_ticket_and_tickets.append((base_ticket, ticket))
+
+    default_place = await db_postgres.get_default_place(session)
+    place_line = format_place_line(schedule_event, default_place)
+
+    text = (f'Список людей на<br>'
+            f'<b>{theater_event.name}<br>'
+            f'{date_event} в '
+            f'{time_event}</b><br>')
+    if place_line:
+        text += f'{place_line}<br>'
+
+    text += await add_qty_visitors_to_text(base_ticket_and_tickets)
+    text += await add_clients_data_to_text(base_ticket_and_tickets)
+
+    return text, base_ticket_and_tickets
 
 
 async def create_str_info_by_schedule_event_id(
