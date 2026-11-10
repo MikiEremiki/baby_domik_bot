@@ -248,13 +248,16 @@ async def set_description(bot: ExtBot) -> None:
 
 
 async def send_log(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:
+    if not os.path.exists('src/log/archive/log.txt'):
+        await update.effective_chat.send_message('Файл src/log/archive/log.txt не найден')
+        return
     caption_parts = ['0']
     i = 1
-    while os.path.exists(f'log/archive/log.txt.{i}'):
+    while os.path.exists(f'src/log/archive/log.txt.{i}'):
         caption_parts.append(str(i))
         i += 1
     caption = ', '.join(caption_parts)
-    with open('log/archive/log.txt', 'rb') as f:
+    with open('src/log/archive/log.txt', 'rb') as f:
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=f,
@@ -263,8 +266,8 @@ async def send_log(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None
     if context.args:
         try:
             num = int(context.args[0])
-            if os.path.exists(f'log/archive/log.txt.{num}'):
-                with open(f'log/archive/log.txt.{num}', 'rb') as f:
+            if os.path.exists(f'src/log/archive/log.txt.{num}'):
+                with open(f'src/log/archive/log.txt.{num}', 'rb') as f:
                     await context.bot.send_document(
                         chat_id=update.effective_chat.id,
                         document=f
@@ -273,8 +276,8 @@ async def send_log(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None
             pass
         if context.args[0] == 'all':
             i = 1
-            while os.path.exists(f'log/archive/log.txt.{i}'):
-                with open(f'log/archive/log.txt.{i}', 'rb') as f:
+            while os.path.exists(f'src/log/archive/log.txt.{i}'):
+                with open(f'src/log/archive/log.txt.{i}', 'rb') as f:
                     await context.bot.send_document(
                         chat_id=update.effective_chat.id,
                         document=f
@@ -284,7 +287,10 @@ async def send_log(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None
 
 async def send_postgres_log(update: Update,
                             context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    with open('log/archive/postgres_log.txt', 'rb') as f:
+    if not os.path.exists('src/log/archive/postgres_log.txt'):
+        await update.effective_chat.send_message('Файл src/log/archive/postgres_log.txt не найден')
+        return
+    with open('src/log/archive/postgres_log.txt', 'rb') as f:
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=f
@@ -292,8 +298,8 @@ async def send_postgres_log(update: Update,
     if context.args:
         if context.args[0] == 'all':
             i = 1
-            while os.path.exists(f'log/archive/postgres_log.txt.{i}'):
-                with open(f'log/archive/postgres_log.txt.{i}', 'rb') as f:
+            while os.path.exists(f'src/log/archive/postgres_log.txt.{i}'):
+                with open(f'src/log/archive/postgres_log.txt.{i}', 'rb') as f:
                     await context.bot.send_document(
                         chat_id=update.effective_chat.id,
                         document=f
