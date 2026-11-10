@@ -450,10 +450,10 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор месяца: {user}')
 
-    # Устанавливаем режим выбора, если пришли из шага MODE (По календарю/По репертуару)
+    # Устанавливаем режим выбора, если пришли из шага MODE или LIST_MODE (По календарю/По репертуару)
     if query:
         intent_id_mode, callback_data = remove_intent_id(query.data)
-        if intent_id_mode == 'MODE':
+        if intent_id_mode in ('MODE', 'LIST_MODE'):
             if callback_data == 'DATE':
                 # По календарю => далее после выбора месяца показываем даты
                 context.user_data['select_mode'] = 'DATE'
