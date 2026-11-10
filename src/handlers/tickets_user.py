@@ -22,6 +22,16 @@ tickets_user_logger = logging.getLogger('bot.tickets_user')
 TICKETS_MENU = 10
 PAGE_SIZE_TICKETS = 24
 
+TICKETS_NOTE = (
+    "<br><br>"
+    "Билеты отображаются, если покупка была совершена:<br>"
+    " - через бота<br>"
+    "  -через сайт с авторизацией через Telegram.<br>"
+    "В остальных случаях ищите на сайте: "
+    '<a href="https://baby-theater-domik.ru/tickets">Мои билеты</a>.<br>'
+    "Если билеты не найдены — обратитесь к администратору."
+)
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +92,7 @@ def _build_tickets_text(
     text += '<br>'
     for dt, ticket in page_tickets:
         text += f'<code>#{ticket.id}</code> — {ticket.status.value}<br>'
+    text += TICKETS_NOTE
     return text
 
 
@@ -243,6 +254,7 @@ async def _show_empty_tickets_list(
         'У вас нет купленных билетов.<br><br>'
         'Вы можете забронировать билеты командой /reserve'
     )
+    text += TICKETS_NOTE
     res = transform_html(text)
     await _send_or_edit_tickets(update, res.text, res.entities, reply_markup)
     await set_back_context(context, TICKETS_MENU, res.text, reply_markup)
