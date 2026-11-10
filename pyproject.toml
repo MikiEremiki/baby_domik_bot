@@ -22,16 +22,14 @@ dev = [
 
 bot = [
     "alembic",
-    "black",
     "cachetools",
     "psycopg",
     "psycopg-binary",
     "pydantic",
     "pydantic_core",
-    "pytest",
     "gspread>=6.2.1",
     "gspread-asyncio>=3.0.0",
-    "python-telegram-bot[ext]",
+    "python-telegram-bot[rate-limiter, job-queue]",
     "pytz",
     "requests",
     "typing_extensions",
@@ -59,23 +57,22 @@ fastapi = [
 gspread = [
     "gspread>=6.2.1",
     "gspread-asyncio>=3.0.0",
-    "python-telegram-bot[ext]",
+    "python-telegram-bot",
 ]
 
 sales = [
     "psycopg",
     "psycopg-binary",
-    "python-telegram-bot[ext]",
+    "python-telegram-bot",
     "pytz",
     "sulguk",
 ]
 
 migration = [
     "alembic",
-    "black",
     "psycopg",
     "psycopg-binary",
-    "python-telegram-bot[ext]",
+    "python-telegram-bot",
     "pydantic_core",
 ]
 

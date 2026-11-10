@@ -54,3 +54,10 @@ src/utilities/pickle/user_ids/
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+
+# --- Python build artifacts ---
+**/*.pyc
+**/*.egg-info
+*.egg-info
+dist/
+build/
