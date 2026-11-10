@@ -841,7 +841,7 @@ async def send_by_ticket_info(update, context):
 
 
 async def send_request_email(update: Update, context):
-    text = 'Напишите email, на него вам будет направлен чек после оплаты\n\n'
+    text = 'Напишите email, на него вам будет направлен чек после оплаты<br><br>'
     email = await db_postgres.get_email(context.session,
                                         update.effective_user.id)
     back_and_cancel_btn = add_btn_back_and_cancel(
@@ -856,25 +856,29 @@ async def send_request_email(update: Update, context):
         keyboard = [back_and_cancel_btn]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    res_text = transform_html(text)
     message_id = None
     try:
         message = await update.callback_query.edit_message_text(
-            text=text, reply_markup=reply_markup)
+            text=res_text.text, entities=res_text.entities, parse_mode=None,
+            reply_markup=reply_markup)
         message_id = message.message_id
     except AttributeError as e:
         sub_hl_logger.error(e)
 
         if context.user_data['STATE'] == 'TICKET':
             message = await update.effective_message.edit_text(
-                text=text, reply_markup=reply_markup)
+                text=res_text.text, entities=res_text.entities, parse_mode=None,
+                reply_markup=reply_markup)
             message_id = message.message_id
         if context.user_data['STATE'] == 'OFFER':
             message = await update.effective_chat.send_message(
-                text=text, reply_markup=reply_markup)
+                text=res_text.text, entities=res_text.entities, parse_mode=None,
+                reply_markup=reply_markup)
             message_id = message.message_id
 
     context.user_data['reserve_user_data']['message_id'] = message_id
-    return text, reply_markup
+    return res_text.text, reply_markup
 
 
 async def send_agreement(update, context):
