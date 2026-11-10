@@ -302,7 +302,7 @@ async def choice_show_by_repertoire(update: Update,
                     await query.delete_message()
                 except BadRequest as e:
                     reserve_hl_logger.error(e)
-            return 'MODE'
+            return entry_state or 'MODE'
         # Клавиатура: намеренно используем intent REP_GROUP, чтобы следующий клик обрабатывался здесь же
         reply_markup = await create_replay_markup(
             kb,
@@ -838,11 +838,17 @@ async def _render_sessions_for_repertoire(
             )
         else:
             if query:
-                await query.edit_message_text(
-                    text=text,
-                    reply_markup=reply_markup,
-                    link_preview_options=LinkPreviewOptions(is_disabled=True),
-                )
+                try:
+                    await query.edit_message_text(
+                        text=text,
+                        reply_markup=reply_markup,
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
+                except BadRequest as e:
+                    if is_not_modified(e):
+                        reserve_hl_logger.info('Игнорируем клик (без изменений)')
+                    else:
+                        reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(
                     text=text,
@@ -940,11 +946,17 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                         link_preview_options=LinkPreviewOptions(is_disabled=True),
                     )
                 else:
-                    await query.edit_message_text(
-                        text=text,
-                        reply_markup=reply_markup,
-                        link_preview_options=LinkPreviewOptions(is_disabled=True),
-                    )
+                    try:
+                        await query.edit_message_text(
+                            text=text,
+                            reply_markup=reply_markup,
+                            link_preview_options=LinkPreviewOptions(is_disabled=True),
+                        )
+                    except BadRequest as e:
+                        if is_not_modified(e):
+                            reserve_hl_logger.info('Игнорируем клик (без изменений)')
+                        else:
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(
                     text=text,
@@ -1081,8 +1093,14 @@ async def choice_date(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
         else:
-            await query.edit_message_text(
-                text=text, reply_markup=reply_markup)
+            try:
+                await query.edit_message_text(
+                    text=text, reply_markup=reply_markup)
+            except BadRequest as e:
+                if is_not_modified(e):
+                    reserve_hl_logger.info('Игнорируем клик (без изменений)')
+                else:
+                    reserve_hl_logger.error(e)
 
     # Сохраним id событий выбранного спектакля для следующего шага
     schedule_event_ids = [item.id for item in schedule_events]
@@ -1461,9 +1479,17 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             text_back, reply_markup, _ = await get_back_context(context, state)
             if query:
                 if update.effective_message.photo:
-                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 else:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
         except KeyError:
@@ -1486,9 +1512,17 @@ async def choice_place(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             text_back, reply_markup, _ = await get_back_context(context, state)
             if query:
                 if update.effective_message.photo:
-                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 else:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
         except KeyError:
@@ -1601,9 +1635,17 @@ async def choice_option_of_reserve(
             text_back, reply_markup, _ = await get_back_context(context, state)
             if query:
                 if update.effective_message.photo:
-                    await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_caption(caption=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 else:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
             else:
                 await update.effective_chat.send_message(text=text_info + text_back, reply_markup=reply_markup)
         except KeyError:
@@ -1611,7 +1653,11 @@ async def choice_option_of_reserve(
             try:
                 text_back, reply_markup, _ = await get_back_context(context, prev_state)
                 if query:
-                    await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    try:
+                        await query.edit_message_text(text=text_info + text_back, reply_markup=reply_markup)
+                    except BadRequest as e:
+                        if not is_not_modified(e):
+                            reserve_hl_logger.error(e)
                 state = prev_state
             except KeyError:
                 if query:
@@ -1688,11 +1734,15 @@ async def choice_option_of_reserve(
                 message_thread_id=update.effective_message.message_thread_id
             )
         else:
-            await query.edit_message_text(
-                text=res_text.text,
-                entities=res_text.entities,
-                parse_mode=None,
-                reply_markup=reply_markup)
+            try:
+                await query.edit_message_text(
+                    text=res_text.text,
+                    entities=res_text.entities,
+                    parse_mode=None,
+                    reply_markup=reply_markup)
+            except BadRequest as e:
+                if not is_not_modified(e):
+                    reserve_hl_logger.error(e)
 
         # Сохраняем состояние и контекст для возврата Назад
         state = 'CHOOSING'
@@ -1749,11 +1799,15 @@ async def choice_option_of_reserve(
                                          reply_markup=reply_markup)
     else:
         res_text = transform_html(text)
-        await query.edit_message_text(
-            text=res_text.text,
-            entities=res_text.entities,
-            parse_mode=None,
-            reply_markup=reply_markup)
+        try:
+            await query.edit_message_text(
+                text=res_text.text,
+                entities=res_text.entities,
+                parse_mode=None,
+                reply_markup=reply_markup)
+        except BadRequest as e:
+            if not is_not_modified(e):
+                reserve_hl_logger.error(e)
 
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
