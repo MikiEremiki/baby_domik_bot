@@ -59,10 +59,25 @@ states = {
             reserve_hl.handle_certificate_file
         ),
     ],
+    'LIST_MODE': [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(reserve_hl.choice_month, pattern=r'^LIST_MODE\|DATE'),
+        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^LIST_MODE\|REPERTOIRE'),
+        CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern=r'^LIST_MODE\|EVENT_BY_ID'),
+    ],
     'LIST': [
         cancel_callback_handler,
         back_callback_handler,
         CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
+    ],
+    'EVENT_BY_ID': [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern='^EVENT_BY_ID'),
+        CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern='^EVENT_BY_ID_PAGE'),
+        CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
+        MessageHandler(F_text_and_no_command, reserve_hl.handle_date_range_input),
     ],
     'CHOOSING': [
         cancel_callback_handler,
@@ -78,6 +93,7 @@ states = {
     'REP_GROUP': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern=r'^Назад-MODE'),
+        CallbackQueryHandler(main_hl.back, pattern=r'^Назад-LIST_MODE'),
         CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^REP_GROUP'),
     ],
     'PHONE_FOR_WAITING': [
@@ -113,7 +129,7 @@ for key in handlers_client_data_selection.keys():
 reserve_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE'][0], reserve_hl.choice_mode),
-        CommandHandler(COMMAND_DICT['LIST'][0], reserve_hl.choice_mode),
+        CommandHandler(COMMAND_DICT['LIST'][0], reserve_hl.choice_list_mode),
         CallbackQueryHandler(reserve_hl.processing_successful_notification, pattern='Next'),
     ],
     states=states,

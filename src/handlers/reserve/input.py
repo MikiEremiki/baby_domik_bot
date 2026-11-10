@@ -911,11 +911,15 @@ async def send_clients_data(
     text += await add_clients_data_to_text(base_ticket_and_tickets)
 
     res_text = transform_html(text)
-    await query.edit_message_text(
-        text=res_text.text,
-        entities=res_text.entities,
-        parse_mode=None
-    )
+    try:
+        await query.edit_message_text(
+            text=res_text.text,
+            entities=res_text.entities,
+            parse_mode=None
+        )
+    except BadRequest as e:
+        if not is_not_modified(e):
+            reserve_hl_logger.error(e)
 
     state = ConversationHandler.END
     context.user_data['STATE'] = state

@@ -1258,7 +1258,11 @@ async def get_schedule_events_filtered(
         session: AsyncSession,
         actual_only: bool = True,
         type_id: int | str | None = None,
-        month: int | str | None = None
+        month: int | str | None = None,
+        from_datetime: datetime | None = None,
+        to_datetime: datetime | None = None,
+        flag_turn_in_bot: str | None = None,
+        populate_seats: bool = True
 ):
     query = select(ScheduleEvent).options(
         selectinload(ScheduleEvent.theater_event),
@@ -1273,10 +1277,19 @@ async def get_schedule_events_filtered(
     if month and month != 'all':
         query = query.where(func.extract('month', ScheduleEvent.datetime_event) == int(month))
 
+    if from_datetime:
+        query = query.where(ScheduleEvent.datetime_event >= from_datetime)
+
+    if to_datetime:
+        query = query.where(ScheduleEvent.datetime_event <= to_datetime)
+
+    if flag_turn_in_bot and flag_turn_in_bot != 'none':
+        query = query.where(ScheduleEvent.flag_turn_in_bot == True)
+
     query = query.order_by(ScheduleEvent.datetime_event)
     result = await session.execute(query)
     events = result.scalars().all()
-    if events:
+    if events and populate_seats:
         await populate_schedule_events_seats(session, events)
     return events
 

@@ -1,5 +1,6 @@
-﻿from handlers.reserve.choice import (
+from handlers.reserve.choice import (
     choice_mode,
+    choice_list_mode,
     choice_show_by_repertoire,
     choice_month,
     choice_show,
@@ -10,6 +11,8 @@
     choice_time,
     choice_place,
     choice_option_of_reserve,
+    choice_event_by_id,
+    handle_date_range_input,
 )
 from handlers.reserve.input import (
     get_email,
@@ -50,6 +53,7 @@ from handlers.reserve.payment import (
 
 __all__ = [
     'choice_mode',
+    'choice_list_mode',
     'choice_show_by_repertoire',
     'choice_month',
     'choice_show',
@@ -60,6 +64,7 @@ __all__ = [
     'choice_time',
     'choice_place',
     'choice_option_of_reserve',
+    'choice_event_by_id',
     'get_email',
     'get_adult',
     'get_phone',
@@ -74,8 +79,9 @@ __all__ = [
     'confirm_go_pay',
     'confirm_admin_without_payment',
     'confirm_admin_reserved',
-    'handle_receipt_file',
     'handle_certificate_file',
+    'handle_date_range_input',
+    'handle_receipt_file',
     'ask_promo_code',
     'handle_promo_code_input',
     'apply_option_promo',
