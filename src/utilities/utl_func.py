@@ -247,50 +247,56 @@ async def set_description(bot: ExtBot) -> None:
 
 
 async def send_log(update: Update, context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    caption = [0]
+    caption_parts = ['0']
     i = 1
     while os.path.exists(f'log/archive/log.txt.{i}'):
-        caption.append(i)
+        caption_parts.append(str(i))
         i += 1
-    await context.bot.send_document(
-        chat_id=update.effective_chat.id,
-        document='log/archive/log.txt',
-        caption=caption
-    )
+    caption = ', '.join(caption_parts)
+    with open('log/archive/log.txt', 'rb') as f:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=f,
+            caption=caption
+        )
     if context.args:
         try:
             num = int(context.args[0])
             if os.path.exists(f'log/archive/log.txt.{num}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/archive/log.txt.{num}'
-                )
+                with open(f'log/archive/log.txt.{num}', 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=f
+                    )
         except ValueError:
             pass
         if context.args[0] == 'all':
             i = 1
             while os.path.exists(f'log/archive/log.txt.{i}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/archive/log.txt.{i}'
-                )
+                with open(f'log/archive/log.txt.{i}', 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=f
+                    )
                 i += 1
 
 
 async def send_postgres_log(update: Update,
                             context: 'ContextTypes.DEFAULT_TYPE') -> None:
-    await context.bot.send_document(
-        chat_id=update.effective_chat.id,
-        document='log/archive/postgres_log.txt'
-    )
+    with open('log/archive/postgres_log.txt', 'rb') as f:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=f
+        )
     if context.args:
         if context.args[0] == 'all':
             i = 1
             while os.path.exists(f'log/archive/postgres_log.txt.{i}'):
-                await context.bot.send_document(
-                    chat_id=update.effective_chat.id,
-                    document=f'log/archive/postgres_log.txt.{i}'
-                )
+                with open(f'log/archive/postgres_log.txt.{i}', 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=f
+                    )
                 i += 1
 
 
