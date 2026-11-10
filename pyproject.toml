@@ -18,6 +18,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff>=0.17.1",
+    "pytest",
+    "pytest-asyncio",
 ]
 
 bot = [
@@ -37,6 +39,11 @@ bot = [
     "uvicorn",
     "sulguk",
     "fastapi",
+    "faststream",
+    "itsdangerous",
+    "jinja2",
+    "bleach",
+    "python-multipart",
 ]
 
 fastapi = [
