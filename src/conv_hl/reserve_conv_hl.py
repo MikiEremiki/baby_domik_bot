@@ -59,6 +59,12 @@ states = {
             reserve_hl.handle_certificate_file
         ),
     ],
+    'LIST_MODE': [
+        cancel_callback_handler,
+        CallbackQueryHandler(reserve_hl.choice_month, pattern=r'^LIST_MODE\|DATE'),
+        CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^LIST_MODE\|REPERTOIRE'),
+        CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern=r'^LIST_MODE\|EVENT_BY_ID'),
+    ],
     'LIST': [
         cancel_callback_handler,
         back_callback_handler,
@@ -121,7 +127,7 @@ for key in handlers_client_data_selection.keys():
 reserve_conv_hl = ConversationHandler(
     entry_points=[
         CommandHandler(COMMAND_DICT['RESERVE'][0], reserve_hl.choice_mode),
-        CommandHandler(COMMAND_DICT['LIST'][0], reserve_hl.choice_event_by_id),
+        CommandHandler(COMMAND_DICT['LIST'][0], reserve_hl.choice_list_mode),
         CallbackQueryHandler(reserve_hl.processing_successful_notification, pattern='Next'),
     ],
     states=states,

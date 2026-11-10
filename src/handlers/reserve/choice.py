@@ -89,6 +89,63 @@ async def _guard_effective_message(
     return None
 
 
+async def choice_list_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
+    """
+    Начальный шаг для команды /list: выбор способа — по календарю, по репертуару или по id.
+    Возвращает состояние LIST_MODE.
+    """
+    if await _guard_effective_message(update, context, 'choice_list_mode'):
+        return
+
+    command = extract_command(update.effective_message.text)
+    save_command = context.user_data.get('command', False)
+    if not save_command or save_command != command:
+        await init_conv_hl_dialog(update, context)
+
+    if update.effective_message.is_topic_message:
+        is_correct_topic = await check_topic(update, context)
+        if not is_correct_topic:
+            return ConversationHandler.END
+
+    command = context.user_data['command']
+    postfix_for_cancel = command
+    context.user_data['postfix_for_cancel'] = postfix_for_cancel
+
+    # Фиксируем время загрузки актуальных данных
+    context.user_data['last_interaction_time'] = datetime.now()
+
+    user = context.user_data.setdefault('user', update.effective_user)
+    reserve_hl_logger.info(f'Пользователь начал выбор режима списка: {user}')
+
+    text = 'Выберите способ просмотра списка:'
+
+    # Три кнопки: По календарю, По репертуару, По id
+    kb = [
+        InlineKeyboardButton('По календарю', callback_data='DATE'),
+        InlineKeyboardButton('По репертуару', callback_data='REPERTOIRE'),
+        InlineKeyboardButton('По id', callback_data='EVENT_BY_ID|show'),
+    ]
+    reply_markup = await create_replay_markup(
+        kb,
+        intent_id='LIST_MODE',
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        add_back_btn=False,
+        size_row=2,
+    )
+
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=reply_markup,
+        message_thread_id=update.effective_message.message_thread_id,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+    state = 'LIST_MODE'
+    await set_back_context(context, state, text, reply_markup)
+    context.user_data['STATE'] = state
+    return state
+
+
 async def choice_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     """
     Начальный шаг выбора способа подбора мероприятий: по дате или по репертуару.
@@ -1842,81 +1899,60 @@ async def choice_event_by_id(
     """
     Показывает список спектаклей с кнопками по ID для быстрого выбора.
 
-    Используется как точка входа команды /list (message) и как callback-обработчик
-    для фильтров, пагинации и кнопки «По id».
+    Используется как callback-обработчик для кнопки «По id» из LIST_MODE,
+    а также для фильтров и пагинации в состоянии EVENT_BY_ID.
     Поддерживает фильтры (все/включённые, диапазон дат) и пагинацию 6×5.
     :return: возвращает state EVENT_BY_ID
     """
     state_key = 'EVENT_BY_ID'
     query = update.callback_query
+    if query is None:
+        reserve_hl_logger.warning('choice_event_by_id: callback_query is None')
+        return
 
-    # --- Callback-ветка: фильтры, пагинация, кнопка «По id» ---
-    if query is not None:
-        try:
-            await query.answer()
-        except TimedOut as e:
-            reserve_hl_logger.error(e)
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
 
-        if await _guard_reserve_user_data(update, context, 'choice_event_by_id'):
-            return
+    if await _guard_reserve_user_data(update, context, 'choice_event_by_id'):
+        return
 
-        reserve_user_data = context.user_data['reserve_user_data']
-        intent_id, callback_data = remove_intent_id(query.data)
+    reserve_user_data = context.user_data['reserve_user_data']
+    intent_id, callback_data = remove_intent_id(query.data)
 
-        if state_key not in reserve_user_data:
-            reserve_user_data[state_key] = {}
-        state_data = reserve_user_data[state_key]
+    if state_key not in reserve_user_data:
+        reserve_user_data[state_key] = {}
+    state_data = reserve_user_data[state_key]
 
-        is_pagination = callback_data in ('prev', 'next')
-        is_filter_active = callback_data.startswith('active_')
-        is_date_range_btn = callback_data == 'date_range'
+    is_pagination = callback_data in ('prev', 'next')
+    is_filter_active = callback_data.startswith('active_')
+    is_date_range_btn = callback_data == 'date_range'
 
-        # Фильтр: все / только включённые
-        flag_active = state_data.get('flag_active', 'none')
-        if is_filter_active:
-            flag_active = callback_data.replace('active_', '')
-            state_data['flag_active'] = flag_active
-            state_data['page'] = 0
+    # Фильтр: все / только включённые
+    flag_active = state_data.get('flag_active', 'none')
+    if is_filter_active:
+        flag_active = callback_data.replace('active_', '')
+        state_data['flag_active'] = flag_active
+        state_data['page'] = 0
 
-        # Диапазон дат
-        waiting_date_input = state_data.get('waiting_date_input', False)
+    # Диапазон дат
+    waiting_date_input = state_data.get('waiting_date_input', False)
 
-        if is_date_range_btn and not waiting_date_input:
-            state_data['waiting_date_input'] = True
-            state_data['page'] = 0
-            text = (
-                'Введите диапазон дат в формате <b>дд.мм.гг-дд.мм.гг</b>.\n\n'
-                'Пример: <code>01.11.25-30.11.25</code>\n\n'
-                'Для сброса диапазона нажмите кнопку «Диапазон» ещё раз после ввода пустого значения.'
-            )
-            keyboard = add_btn_back_and_cancel(
-                postfix_for_cancel=context.user_data['postfix_for_cancel'],
-                add_back_btn=True,
-                postfix_for_back='MONTH'
-            )
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            try:
-                await query.edit_message_text(text=text, reply_markup=reply_markup)
-            except BadRequest as e:
-                if is_not_modified(e):
-                    reserve_hl_logger.info('Игнорируем клик (без изменений)')
-                else:
-                    reserve_hl_logger.error(e)
-            context.user_data['STATE'] = state_key
-            return state_key
-
-        # Пагинация: обновить page в state_data
-        if is_pagination:
-            page = state_data.get('page', 0)
-            if callback_data == 'next':
-                page += 1
-            elif callback_data == 'prev':
-                page -= 1
-            state_data['page'] = page
-
-        # Строим контент
-        text, reply_markup = await _build_event_by_id_content(context, state_data)
-
+    if is_date_range_btn and not waiting_date_input:
+        state_data['waiting_date_input'] = True
+        state_data['page'] = 0
+        text = (
+            'Введите диапазон дат в формате <b>дд.мм.гг-дд.мм.гг</b>\n\n'
+            'Пример: <code>01.11.25-30.11.25</code>\n\n'
+            'Для сброса диапазона нажмите кнопку «Диапазон» ещё раз после ввода пустого значения.'
+        )
+        keyboard = add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            add_back_btn=True,
+            postfix_for_back='MONTH'
+        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
         try:
             await query.edit_message_text(text=text, reply_markup=reply_markup)
         except BadRequest as e:
@@ -1924,41 +1960,28 @@ async def choice_event_by_id(
                 reserve_hl_logger.info('Игнорируем клик (без изменений)')
             else:
                 reserve_hl_logger.error(e)
-
         context.user_data['STATE'] = state_key
-        await set_back_context(context, state_key, text, reply_markup)
         return state_key
 
-    # --- Message-ветка: первый вызов команды /list ---
-    if await _guard_effective_message(update, context, 'choice_event_by_id'):
-        return
+    # Пагинация: обновить page в state_data
+    if is_pagination:
+        page = state_data.get('page', 0)
+        if callback_data == 'next':
+            page += 1
+        elif callback_data == 'prev':
+            page -= 1
+        state_data['page'] = page
 
-    command = extract_command(update.effective_message.text)
-    save_command = context.user_data.get('command', False)
-    if not save_command or save_command != command:
-        await init_conv_hl_dialog(update, context)
-
-    if update.effective_message.is_topic_message:
-        is_correct_topic = await check_topic(update, context)
-        if not is_correct_topic:
-            return ConversationHandler.END
-
-    context.user_data['postfix_for_cancel'] = command
-    context.user_data['last_interaction_time'] = datetime.now()
-
-    reserve_user_data = context.user_data.setdefault('reserve_user_data', {})
-    if state_key not in reserve_user_data:
-        reserve_user_data[state_key] = {}
-    state_data = reserve_user_data[state_key]
-
+    # Строим контент
     text, reply_markup = await _build_event_by_id_content(context, state_data)
 
-    await update.effective_chat.send_message(
-        text=text,
-        reply_markup=reply_markup,
-        message_thread_id=update.effective_message.message_thread_id,
-        link_preview_options=LinkPreviewOptions(is_disabled=True),
-    )
+    try:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+    except BadRequest as e:
+        if is_not_modified(e):
+            reserve_hl_logger.info('Игнорируем клик (без изменений)')
+        else:
+            reserve_hl_logger.error(e)
 
     context.user_data['STATE'] = state_key
     await set_back_context(context, state_key, text, reply_markup)
