@@ -113,8 +113,6 @@ async def choice_list_mode(update: Update, context: 'ContextTypes.DEFAULT_TYPE')
     # Фиксируем время загрузки актуальных данных
     context.user_data['last_interaction_time'] = datetime.now()
 
-    await init_conv_hl_dialog(update, context)
-
     user = context.user_data.setdefault('user', update.effective_user)
     reserve_hl_logger.info(f'Пользователь начал выбор режима списка: {user}')
 
