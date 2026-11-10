@@ -19,6 +19,7 @@ services:
       - network
     environment:
       CONFIG_PATH: '/app/config/'
+      PYTHONPATH: '/app/src'
     volumes:
       - ./config:/app/config:ro
       - ./config/settings.py:/app/src/settings/settings.py
