@@ -1977,7 +1977,7 @@ async def choice_event_by_id(
             else:
                 reserve_hl_logger.error(e)
         context.user_data['STATE'] = state_key
-        await set_back_context(context, 'LIST_MODE', text, reply_markup)
+        await set_back_context(context, 'EVENT_BY_ID', text, reply_markup)
         return state_key
 
     # Пагинация: обновить page в state_data
@@ -2001,7 +2001,7 @@ async def choice_event_by_id(
             reserve_hl_logger.error(e)
 
     context.user_data['STATE'] = state_key
-    await set_back_context(context, 'LIST_MODE', text, reply_markup)
+    await set_back_context(context, 'EVENT_BY_ID', text, reply_markup)
     return state_key
 
 
@@ -2045,5 +2045,5 @@ async def handle_date_range_input(
     text, reply_markup = await _build_event_by_id_content(context, state_data)
     await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
     context.user_data['STATE'] = state_key
-    await set_back_context(context, 'LIST_MODE', text, reply_markup)
+    await set_back_context(context, 'EVENT_BY_ID', text, reply_markup)
     return state_key
