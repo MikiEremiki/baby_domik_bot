@@ -71,8 +71,8 @@ states = {
         CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
     ],
     'EVENT_BY_ID': [
-        cancel_callback_handler,
-        back_callback_handler,
+        CallbackQueryHandler(main_hl.cancel, pattern=r'^EVENT_BY_ID\|Отменить'),
+        CallbackQueryHandler(main_hl.back, pattern=r'^EVENT_BY_ID\|Назад'),
         CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern='^EVENT_BY_ID'),
         CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern='^EVENT_BY_ID_PAGE'),
         CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
