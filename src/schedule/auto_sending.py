@@ -26,6 +26,8 @@ from utilities.utl_event import (
     get_full_name_event, get_formatted_date_and_time_of_event,
 )
 from utilities.utl_place import format_place_footnote
+from utilities.utl_func import build_show_list_text
+from settings.settings import ADMIN_GROUP
 
 auto_sending_logger = logging.getLogger('bot.auto_sending')
 
@@ -438,9 +440,23 @@ async def select_payment_recipients(
     return recipients
 
 
+async def _selector_show_list(
+    session: AsyncSession,
+    auto_sending: AutoSending,
+    now: datetime,
+) -> list[Recipient]:
+    """Selector for SHOW_LIST trigger — returns empty list.
+
+    SHOW_LIST publishes to a Telegram topic, not to individual users,
+    so it does not use the standard recipient/dispatch pipeline.
+    """
+    return []
+
+
 RECIPIENT_SELECTORS: dict[AutoSendingTrigger, RecipientSelector] = {
     AutoSendingTrigger.EVENT: _selector_event,
     AutoSendingTrigger.PAYMENT: _selector_payment,
+    AutoSendingTrigger.SHOW_LIST: _selector_show_list,
 }
 
 
@@ -769,9 +785,6 @@ async def auto_sending_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
             sendings = await db_postgres.get_all_active_auto_sendings(
                 session, trigger=AutoSendingTrigger.EVENT)
 
-            if not sendings:
-                return
-
             # Load all schedule events in a wide date range that could possibly
             # have a send time in our window.  The widest offset determines the
             # range.  We load events from (now - max(|offset|) - 24h) to
@@ -799,9 +812,6 @@ async def auto_sending_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             relevant_events = (await session.execute(stmt)).scalars().all()
             auto_sending_logger.info("Loaded %d events from DB", len(relevant_events))
-
-            if not relevant_events:
-                return
 
             for auto_sending in sendings:
                 for se in relevant_events:
@@ -888,6 +898,51 @@ async def auto_sending_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
                                 total_blocked += result.get('blocked_skipped', 0)
                                 total_errors += result.get('errors', 0)
 
+            # ─── SHOW_LIST: auto-publish show lists to topic ──────────────
+            show_list_published = 0
+            show_list_skipped = 0
+            show_list_sendings = await db_postgres.get_all_active_auto_sendings(
+                session, trigger=AutoSendingTrigger.SHOW_LIST)
+
+            if show_list_sendings:
+                developer_chat_id = context.config.bot.developer_chat_id
+                show_list_cutoff = now - timedelta(days=3)
+
+                for auto_sending in show_list_sendings:
+                    # Use offset_minutes from DB config (e.g. -30 → publish 30 min before)
+                    offset = abs(auto_sending.offset_minutes)
+                    show_list_date_from = now
+                    show_list_date_to = now + timedelta(
+                        minutes=offset) + timedelta(seconds=TICK_INTERVAL_SECONDS)
+
+                    stmt = (
+                        select(ScheduleEvent)
+                        .where(
+                            ScheduleEvent.datetime_event >= show_list_date_from,
+                            ScheduleEvent.datetime_event <= show_list_date_to,
+                            ScheduleEvent.datetime_event >= show_list_cutoff,
+                        )
+                    )
+                    show_list_events = (await session.execute(stmt)).scalars().all()
+
+                    for se in show_list_events:
+                        # Check dedup: skip if already published
+                        if await _has_published_show_list(
+                            session, auto_sending, se.id, developer_chat_id):
+                            show_list_skipped += 1
+                            continue
+
+                        success = await publish_show_list_to_topic(
+                            context, session, se)
+                        if success:
+                            await _record_show_list_published(
+                                session, auto_sending, se.id, developer_chat_id)
+                            show_list_published += 1
+
+                auto_sending_logger.info(
+                    f"SHOW_LIST: published={show_list_published}, "
+                    f"skipped={show_list_skipped}")
+
             duration_ms = int((time_module.monotonic() - tick_start) * 1000)
             auto_sending_logger.info(
                 "Tick completed",
@@ -968,6 +1023,98 @@ async def _dispatch_for_event(
     if recipients:
         return await dispatch_auto_sending(context, session, auto_sending, recipients)
     return None
+
+
+async def _has_published_show_list(
+    session: AsyncSession,
+    auto_sending: AutoSending,
+    schedule_event_id: int,
+    developer_chat_id: int,
+) -> bool:
+    """Check if a show list was already published for this schedule event.
+
+    Uses AutoSendingDelivery with dedup_key 'se:{schedule_event_id}' and
+    developer_chat_id as the user_id for dedup tracking.
+    """
+    dedup_key = f'se:{schedule_event_id}'
+    stmt = (
+        select(AutoSendingDelivery.id)
+        .where(
+            AutoSendingDelivery.auto_sending_id == auto_sending.id,
+            AutoSendingDelivery.user_id == developer_chat_id,
+            AutoSendingDelivery.dedup_key == dedup_key,
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalars().first() is not None
+
+
+async def _record_show_list_published(
+    session: AsyncSession,
+    auto_sending: AutoSending,
+    schedule_event_id: int,
+    developer_chat_id: int,
+) -> None:
+    """Record that a show list was published for dedup purposes."""
+    dedup_key = f'se:{schedule_event_id}'
+    await db_postgres.create_delivery(
+        session,
+        auto_sending_id=auto_sending.id,
+        user_id=developer_chat_id,
+        dedup_key=dedup_key,
+        sent_at=datetime.now(tz=timezone.utc),
+        schedule_event_id=schedule_event_id,
+        auto_commit=True,
+    )
+
+
+async def publish_show_list_to_topic(
+    context: ContextTypes.DEFAULT_TYPE,
+    session: AsyncSession,
+    schedule_event: ScheduleEvent,
+) -> bool:
+    """Publish a show list message to the 'Списки на показы' topic.
+
+    Builds the list text using build_show_list_text, adds the event hashtag,
+    and sends to the topic (or general chat if topic is not configured).
+
+    Returns True if the message was sent successfully.
+    """
+    bot = context.bot
+    chat_id = ADMIN_GROUP
+    event_id = schedule_event.id
+
+    # Get topic thread ID
+    topics = context.bot_data.get('dict_topics_name', {})
+    thread_id = topics.get('Списки на показы')
+
+    # Build the message text
+    list_text, _ = await build_show_list_text(session, schedule_event)
+    text = f'#Мероприятие <code>{event_id}</code><br>{list_text}'
+
+    transformed = transform_html(text)
+
+    try:
+        kwargs: dict = {
+            'chat_id': chat_id,
+            'text': transformed.text,
+            'entities': transformed.entities,
+            'parse_mode': None,
+        }
+        if thread_id is not None:
+            kwargs['message_thread_id'] = thread_id
+
+        await bot.send_message(**kwargs)
+        auto_sending_logger.info(
+            f"Show list published for SE {event_id}"
+            f"{' to topic' if thread_id else ' to general chat'}")
+        return True
+
+    except Exception:
+        auto_sending_logger.exception(
+            f"Failed to publish show list for SE {event_id}")
+        return False
 
 
 async def _precise_dispatch_job(context: ContextTypes.DEFAULT_TYPE) -> None:

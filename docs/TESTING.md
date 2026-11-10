@@ -23,14 +23,15 @@ pytest test/test_api/test_fastapi_web_preview.py::test_index_page_is_rendered
 ```
 test/
 ├── conftest.py              # Общие фикстуры и утилиты
-├── test_schedule/           # Расписание и авторассылки (7 файлов)
+├── test_schedule/           # Расписание и авторассылки (8 файлов)
 │   ├── test_auto_sending.py
 │   ├── test_dynamic_seats.py
 │   ├── test_schedule_changes.py
 │   ├── test_schedule_creation_wizard.py
 │   ├── test_schedule_msk_timezone.py
 │   ├── test_schedule_reports.py
-│   └── test_schedule_sync.py
+│   ├── test_schedule_sync.py
+│   └── test_show_list.py
 ├── test_handlers/           # Обработчики Telegram (8 файлов)
 │   ├── test_command_access_ui.py
 │   ├── test_command_permission_middleware.py
