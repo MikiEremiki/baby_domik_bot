@@ -92,8 +92,7 @@ docker image prune
 Если надо накатить миграцию:
 docker image pull mikieremiki/baby_domik_migration
 docker compose --profile migration up -d
-docker exec -i migration sh
-внутри: alembic -c 'config/alembic.ini' upgrade head
+docker exec -i migration sh -c "alembic -c /app/config/alembic.ini upgrade head"
 docker container stop migration
 
 workflow в dev:
