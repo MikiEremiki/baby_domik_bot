@@ -1843,7 +1843,6 @@ async def _build_event_by_id_content(
         )
         id_buttons.append(btn)
     id_rows = adjust_kbd(id_buttons, 5)
-    keyboard.extend(id_rows)
 
     # Фильтры
     filter_row = []
@@ -1876,8 +1875,7 @@ async def _build_event_by_id_content(
     keyboard = add_intent_id(keyboard, 'EVENT_BY_ID')
 
     # Кнопки ID — с intent LIST (без EVENT_BY_ID префикса), чтобы попадали в send_clients_data
-    id_rows = add_intent_id(id_rows, 'LIST')
-    keyboard.extend(id_rows)
+    keyboard.extend(add_intent_id(id_rows, 'LIST'))
 
     # Назад и Отмена — без intent-префикса
     keyboard.append(add_btn_back_and_cancel(

@@ -61,6 +61,7 @@ states = {
     ],
     'LIST_MODE': [
         cancel_callback_handler,
+        back_callback_handler,
         CallbackQueryHandler(reserve_hl.choice_month, pattern=r'^LIST_MODE\|DATE'),
         CallbackQueryHandler(reserve_hl.choice_show_by_repertoire, pattern=r'^LIST_MODE\|REPERTOIRE'),
         CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern=r'^LIST_MODE\|EVENT_BY_ID'),
