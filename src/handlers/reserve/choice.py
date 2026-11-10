@@ -1766,7 +1766,7 @@ async def _build_event_by_id_content(
 
     :return: (text, reply_markup)
     """
-    flag_active = state_data.get('flag_active', 'none')
+    flag_active = state_data.get('flag_active', 'true')
     from_dt_str = state_data.get('from_dt')
     to_dt_str = state_data.get('to_dt')
     page = state_data.get('page', 0)
@@ -1852,9 +1852,8 @@ async def _build_event_by_id_content(
         text=active_label,
         callback_data=f'active_{"true" if flag_active == "none" else "none"}'
     ))
-    date_label = f'📅 {from_dt_str or "−7д"} — {to_dt_str or "+∞"}'
     filter_row.append(InlineKeyboardButton(
-        text=date_label,
+        text='📅 Диапазон',
         callback_data='date_range'
     ))
     keyboard.append(filter_row)
@@ -1923,7 +1922,7 @@ async def choice_event_by_id(
     is_date_range_btn = callback_data == 'date_range'
 
     # Фильтр: все / только включённые
-    flag_active = state_data.get('flag_active', 'none')
+    flag_active = state_data.get('flag_active', 'true')
     if is_filter_active:
         flag_active = callback_data.replace('active_', '')
         state_data['flag_active'] = flag_active
