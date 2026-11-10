@@ -18,8 +18,31 @@ depends_on = None
 def upgrade() -> None:
     op.execute("ALTER TYPE auto_sending_trigger ADD VALUE 'SHOW_LIST'")
 
+    # Seed: default SHOW_LIST auto-sending — publish show list 30 min before event
+    op.execute("""
+        INSERT INTO auto_sendings (name, trigger, offset_minutes, window_start, window_end,
+                                   precise, conditions, theater_event_id, text,
+                                   send_via_bot, send_via_website, is_active)
+        VALUES (
+            'Список на показ',
+            'SHOW_LIST'::auto_sending_trigger,
+            -30,
+            NULL,
+            NULL,
+            false,
+            NULL,
+            NULL,
+            '',
+            true,
+            false,
+            true
+        )
+    """)
+
 
 def downgrade() -> None:
+    # Remove the default SHOW_LIST auto-sending record
+    op.execute("DELETE FROM auto_sendings WHERE trigger = 'SHOW_LIST'")
+
     # PostgreSQL does not support removing enum values directly.
     # This is irreversible without recreating the enum type.
-    pass
