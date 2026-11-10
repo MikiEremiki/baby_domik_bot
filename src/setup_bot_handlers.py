@@ -45,7 +45,7 @@ from middleware import (
 from utilities.utl_func import (
     echo, send_log, send_postgres_log,
     get_location, get_contact, request_contact_location,
-    print_ud, clean_ud, clean_bd,
+    user_data_cmd, print_bd,
     create_or_connect_topic, del_topic, update_config, update_settings,
 )
 from settings.settings import COMMAND_DICT
@@ -134,9 +134,8 @@ def _add_public_commands(application: Application):
 def _add_admin_commands(application: Application):
     """Admin CommandHandler (~20 commands, access gated by middleware)."""
     application.add_handlers([
-        CommandHandler('clean_ud', clean_ud),
-        CommandHandler('print_ud', print_ud),
-        CommandHandler('clean_bd', clean_bd),
+        CommandHandler(COMMAND_DICT['USER_DATA'][0], user_data_cmd),
+        CommandHandler(COMMAND_DICT['BOT_DATA'][0], print_bd),
         CommandHandler(COMMAND_DICT['UP_PLACE_DATA'][0], update_place_data),
         CommandHandler('update_config', update_config),
         CommandHandler('update_settings', update_settings),

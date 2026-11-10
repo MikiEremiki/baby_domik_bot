@@ -1123,7 +1123,7 @@ async def help_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     ]
     tech_keys = [
         'TOPIC', 'TOPIC_DEL', 'GLOB_ON_OFF', 'CB_TW', 'LOG', 'POSTGRES_LOG',
-        'CLEAN_UD', 'PRINT_UD', 'CLEAN_BD', 'UP_CONFIG', 'UP_SETTINGS', 'RCL',
+        'USER_DATA', 'BOT_DATA', 'UP_CONFIG', 'UP_SETTINGS', 'RCL',
         'ADM_INFO', 'ADM_CME_INFO', 'PROFILE'
     ]
     other_keys = ['AFISHA', 'SALES', 'RECEIPT', 'CLOSE']
