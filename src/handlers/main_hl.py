@@ -808,7 +808,13 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    state = query.data.split('-')[1]
+    current_state = context.user_data.get('STATE', 'UNKNOWN')
+    target_state = query.data.split('-')[1]
+    main_handlers_logger.info(
+        f'back(): отмена → назад, STATE {current_state} → {target_state}'
+    )
+
+    state = target_state
     if state.isdigit():
         state = int(state)
     else:
