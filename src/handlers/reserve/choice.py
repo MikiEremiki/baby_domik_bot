@@ -473,13 +473,13 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     keyboard = adjust_kbd(keyboard, 1)
     state = 'MONTH'
     keyboard = add_intent_id(keyboard, state)
-    # Показываем кнопку Назад в MONTH только если есть состояние MODE (вошли через выбор режима)
-    has_mode = 'MODE' in context.user_data.get('reserve_user_data', {}).get(
-        'back', {})
+    # Показываем кнопку Назад в MONTH только если есть состояние MODE или LIST_MODE (вошли через выбор режима)
+    back_contexts = context.user_data.get('reserve_user_data', {}).get('back', {})
+    has_mode = 'MODE' in back_contexts or 'LIST_MODE' in back_contexts
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=has_mode,
-        postfix_for_back='MODE' if has_mode else None
+        postfix_for_back='MODE' if 'MODE' in back_contexts else 'LIST_MODE'
     ))
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.delete_message(
