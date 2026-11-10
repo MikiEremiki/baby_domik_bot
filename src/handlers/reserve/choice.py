@@ -1929,10 +1929,8 @@ async def choice_event_by_id(
         state_data['flag_active'] = flag_active
         state_data['page'] = 0
 
-    # Диапазон дат
-    waiting_date_input = state_data.get('waiting_date_input', False)
-
-    if is_date_range_btn and not waiting_date_input:
+    # Диапазон дат — кнопка «Диапазон» всегда открывает запрос ввода
+    if is_date_range_btn:
         state_data['waiting_date_input'] = True
         state_data['page'] = 0
         text = (
