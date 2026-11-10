@@ -9,6 +9,8 @@ from .choice import (
     get_text_for_reserve,
     choice_time,
     choice_option_of_reserve,
+    choice_event_by_id,
+    handle_date_range_input,
 )
 from .input import (
     get_email,
@@ -56,6 +58,7 @@ __all__ = [
     'check_promo_restrictions',
     'child_confirm',
     'choice_date',
+    'choice_event_by_id',
     'choice_mode',
     'choice_month',
     'choice_month_rep_continue',
@@ -77,6 +80,7 @@ __all__ = [
     'get_phone_for_waiting',
     'get_text_for_reserve',
     'handle_certificate_file',
+    'handle_date_range_input',
     'handle_promo_code_input',
     'handle_receipt_file',
     'phone_confirm',

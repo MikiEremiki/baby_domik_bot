@@ -64,6 +64,14 @@ states = {
         back_callback_handler,
         CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
     ],
+    'EVENT_BY_ID': [
+        cancel_callback_handler,
+        back_callback_handler,
+        CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern='^EVENT_BY_ID'),
+        CallbackQueryHandler(reserve_hl.choice_event_by_id, pattern='^EVENT_BY_ID_PAGE'),
+        CallbackQueryHandler(reserve_hl.send_clients_data, pattern='^LIST'),
+        MessageHandler(F_text_and_no_command, reserve_hl.handle_date_range_input),
+    ],
     'CHOOSING': [
         cancel_callback_handler,
         CallbackQueryHandler(main_hl.back, pattern='^Назад-TIME'),

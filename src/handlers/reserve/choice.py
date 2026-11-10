@@ -1,7 +1,7 @@
 ﻿from collections import defaultdict
 import html
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sulguk import transform_html
 from telegram import (
@@ -32,6 +32,7 @@ from utilities.utl_func import (
     get_emoji, extract_command, to_moscow_dt,
     get_actual_from_by_command,
 )
+from utilities.utl_event import get_formatted_date_and_time_of_event as fmt_date_time
 from utilities.utl_place import (
     effective_place, needs_place_choice, collect_places, format_place_footnote
 )
@@ -415,6 +416,13 @@ async def choice_month(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     # Показываем кнопку Назад в MONTH только если есть состояние MODE (вошли через выбор режима)
     has_mode = 'MODE' in context.user_data.get('reserve_user_data', {}).get(
         'back', {})
+    # Кнопка «По id» только для команды /list
+    if command == 'list':
+        keyboard.append([
+            InlineKeyboardButton(
+                '🔍 По id', callback_data='EVENT_BY_ID|show'
+            )
+        ])
     keyboard.append(add_btn_back_and_cancel(
         postfix_for_cancel=context.user_data['postfix_for_cancel'],
         add_back_btn=has_mode,
@@ -1697,3 +1705,261 @@ async def choice_option_of_reserve(
     await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
+
+
+async def choice_event_by_id(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    """
+    Показывает список спектаклей с кнопками по ID для быстрого выбора.
+
+    Используется в команде /list через кнопку «По id».
+    Поддерживает фильтры (все/включённые, диапазон дат) и пагинацию 6×5.
+    :return: возвращает state EVENT_BY_ID
+    """
+    query = update.callback_query
+    try:
+        await query.answer()
+    except TimedOut as e:
+        reserve_hl_logger.error(e)
+
+    if await _guard_reserve_user_data(update, context, 'choice_event_by_id'):
+        return
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    intent_id, callback_data = remove_intent_id(query.data)
+
+    # Состояние экрана EVENT_BY_ID
+    state_key = 'EVENT_BY_ID'
+    if state_key not in reserve_user_data:
+        reserve_user_data[state_key] = {}
+    state_data = reserve_user_data[state_key]
+
+    is_pagination = callback_data in ('prev', 'next')
+    is_filter_active = callback_data.startswith('active_')
+    is_date_range_btn = callback_data == 'date_range'
+
+    # Фильтр: все / только включённые
+    flag_active = state_data.get('flag_active', 'none')
+    if is_filter_active:
+        flag_active = callback_data.replace('active_', '')
+        state_data['flag_active'] = flag_active
+        state_data['page'] = 0
+
+    # Диапазон дат
+    from_dt_str = state_data.get('from_dt')
+    to_dt_str = state_data.get('to_dt')
+    waiting_date_input = state_data.get('waiting_date_input', False)
+
+    if is_date_range_btn and not waiting_date_input:
+        # Переход в режим ожидания ввода диапазона
+        state_data['waiting_date_input'] = True
+        state_data['page'] = 0
+        text = (
+            'Введите диапазон дат в формате <b>дд.мм.гг-дд.мм.гг</b>.\n\n'
+            'Пример: <code>01.11.25-30.11.25</code>\n\n'
+            'Для сброса диапазона нажмите кнопку «Диапазон» ещё раз после ввода пустого значения.'
+        )
+        keyboard = add_btn_back_and_cancel(
+            postfix_for_cancel=context.user_data['postfix_for_cancel'],
+            add_back_btn=True,
+            postfix_for_back='MONTH'
+        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        try:
+            await query.edit_message_text(text=text, reply_markup=reply_markup)
+        except BadRequest as e:
+            if is_not_modified(e):
+                reserve_hl_logger.info('Игнорируем клик (без изменений)')
+            else:
+                reserve_hl_logger.error(e)
+        context.user_data['STATE'] = state_key
+        return state_key
+
+    # Парсинг дат
+    from_dt = None
+    to_dt = None
+    if from_dt_str:
+        try:
+            from_dt = datetime.strptime(from_dt_str, '%d.%m.%y')
+        except ValueError:
+            from_dt = None
+    if to_dt_str:
+        try:
+            to_dt = datetime.strptime(to_dt_str, '%d.%m.%y').replace(
+                hour=23, minute=59, second=59)
+        except ValueError:
+            to_dt = None
+
+    # Если нет явного диапазона, используем дефолтный: -7 дней до +∞
+    if from_dt is None and to_dt is None:
+        from_dt = datetime.now() - timedelta(days=7)
+
+    # Загрузка спектаклей
+    schedule_events = await db_postgres.get_schedule_events_filtered(
+        context.session,
+        actual_only=False,
+        from_datetime=from_dt,
+        to_datetime=to_dt,
+        flag_turn_in_bot=flag_active,
+        populate_seats=False
+    )
+
+    # Пагинация: 30 кнопок на страницу (6 строк по 5)
+    page_size = 30
+    total_items = len(schedule_events)
+    use_pagination = total_items > page_size
+
+    page = state_data.get('page', 0)
+    if is_pagination:
+        if callback_data == 'next':
+            page += 1
+        elif callback_data == 'prev':
+            page -= 1
+        max_page = (total_items + page_size - 1) // page_size - 1 if use_pagination else 0
+        page = max(0, min(page, max_page))
+    state_data['page'] = page
+
+    start_idx = page * page_size
+    end_idx = start_idx + page_size
+    events_page = schedule_events[start_idx:end_idx]
+
+    # Формирование текста
+    text_lines = []
+    for ev in events_page:
+        name = ev.theater_event.name if ev.theater_event else 'Без названия'
+        name = name[:50]
+        dt_moscow = to_moscow_dt(ev.datetime_event)
+        date_str = dt_moscow.strftime('%d.%m %H:%M')
+        text_lines.append(f'• ID <b>{ev.id}</b>: {name} ({date_str})')
+
+    text = '<b>Выберите спектакль по ID:</b>\n\n'
+    if text_lines:
+        text += '\n'.join(text_lines)
+    else:
+        text += 'Нет спектаклей в выбранном диапазоне.\n'
+
+    if from_dt_str or to_dt_str:
+        text += f'\n\nДиапазон: {from_dt_str or "начало"} — {to_dt_str or "конец"}'
+    else:
+        text += '\n\nДиапазон: последние 7 дней'
+
+    # Клавиатура
+    keyboard = []
+    # Кнопки ID — по 5 в ряд
+    from utilities.utl_kbd import intent_callback_data
+    id_buttons = []
+    for ev in events_page:
+        btn = InlineKeyboardButton(
+            text=str(ev.id),
+            callback_data=intent_callback_data('LIST', str(ev.id))
+        )
+        id_buttons.append(btn)
+    id_rows = adjust_kbd(id_buttons, 5)
+    keyboard.extend(id_rows)
+
+    # Фильтры
+    filter_row = []
+    active_label = '✅ Включённые' if flag_active == 'true' else 'Все'
+    filter_row.append(InlineKeyboardButton(
+        text=active_label,
+        callback_data=f'active_{"true" if flag_active == "none" else "none"}'
+    ))
+    date_label = f'📅 {from_dt_str or "−7д"} — {to_dt_str or "+∞"}'
+    filter_row.append(InlineKeyboardButton(
+        text=date_label,
+        callback_data='date_range'
+    ))
+    keyboard.append(filter_row)
+
+    # Пагинация
+    if use_pagination:
+        pages_total = (total_items + page_size - 1) // page_size
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton(
+                '« Пред', callback_data='prev'))
+        nav_row.append(InlineKeyboardButton(
+            f'{page + 1}/{pages_total}', callback_data='prev'))
+        if page < pages_total - 1:
+            nav_row.append(InlineKeyboardButton(
+                'След »', callback_data='next'))
+        nav_rows = add_intent_id([nav_row], 'EVENT_BY_ID_PAGE')
+        keyboard.extend(nav_rows)
+
+    # Назад и Отмена
+    keyboard.append(add_btn_back_and_cancel(
+        postfix_for_cancel=context.user_data['postfix_for_cancel'],
+        add_back_btn=True,
+        postfix_for_back='MONTH'
+    ))
+    keyboard = add_intent_id(keyboard, 'EVENT_BY_ID')
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Отправка/обновление сообщения
+    try:
+        await query.edit_message_text(text=text, reply_markup=reply_markup)
+    except BadRequest as e:
+        if is_not_modified(e):
+            reserve_hl_logger.info('Игнорируем клик (без изменений)')
+        else:
+            reserve_hl_logger.error(e)
+
+    context.user_data['STATE'] = state_key
+    await set_back_context(context, state_key, text, reply_markup)
+    return state_key
+
+
+async def handle_date_range_input(
+        update: Update,
+        context: 'ContextTypes.DEFAULT_TYPE'
+):
+    """
+    Обрабатывает ввод диапазона дат в формате дд.мм.гг-дд.мм.гг.
+
+    :return: возвращает state EVENT_BY_ID
+    """
+    if await _guard_reserve_user_data(update, context, 'handle_date_range_input'):
+        return
+
+    reserve_user_data = context.user_data['reserve_user_data']
+    state_key = 'EVENT_BY_ID'
+    state_data = reserve_user_data.get(state_key, {})
+
+    text = update.effective_message.text.strip()
+
+    # Пустой ввод — сброс диапазона
+    if not text:
+        state_data['from_dt'] = None
+        state_data['to_dt'] = None
+        state_data['waiting_date_input'] = False
+        state_data['page'] = 0
+        await update.effective_chat.send_message(
+            'Диапазон сброшен. Нажмите «По id» для обновления списка.')
+        context.user_data['STATE'] = state_key
+        return state_key
+
+    # Парсинг диапазона
+    try:
+        parts = text.split('-')
+        if len(parts) != 2:
+            raise ValueError('Неверный формат')
+        from_dt = datetime.strptime(parts[0].strip(), '%d.%m.%y')
+        to_dt = datetime.strptime(parts[1].strip(), '%d.%m.%y')
+        state_data['from_dt'] = parts[0].strip()
+        state_data['to_dt'] = parts[1].strip()
+        state_data['waiting_date_input'] = False
+        state_data['page'] = 0
+    except ValueError:
+        await update.effective_chat.send_message(
+            'Неверный формат. Используйте <b>дд.мм.гг-дд.мм.гг</b>.\n\n'
+            'Пример: <code>01.11.25-30.11.25</code>'
+        )
+        return state_key
+
+    await update.effective_chat.send_message(
+        f'Диапазон установлен: {state_data["from_dt"]} — {state_data["to_dt"]}\n'
+        'Нажмите «По id» для обновления списка.')
+    context.user_data['STATE'] = state_key
+    return state_key
