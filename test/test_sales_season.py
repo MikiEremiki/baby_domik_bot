@@ -22,7 +22,7 @@ class TestParseDate:
 
     @pytest.fixture
     def parse_date(self):
-        from handlers.sales_hl import _parse_date
+        from handlers.sales.states import _parse_date
         return _parse_date
 
     def test_valid_date(self, parse_date):
@@ -54,7 +54,7 @@ class TestShowStep:
 
     @pytest.fixture
     def show_step(self):
-        from handlers.sales_hl import _show_step
+        from handlers.sales.ui_helpers import _show_step
         return _show_step
 
     @pytest.fixture
@@ -160,12 +160,12 @@ class TestUsageText:
 
     @pytest.fixture
     def get_usage(self):
-        from handlers.sales_hl import _get_usage_text_for_type
+        from handlers.sales.states import _get_usage_text_for_type
         return _get_usage_text_for_type
 
     @pytest.fixture
     def get_usage_highlight(self):
-        from handlers.sales_hl import _get_usage_text_with_highlight
+        from handlers.sales.states import _get_usage_text_with_highlight
         return _get_usage_text_with_highlight
 
     def test_season_usage_text(self, get_usage):
@@ -201,7 +201,7 @@ class TestCompressIds:
 
     @pytest.fixture
     def compress(self):
-        from handlers.sales_hl import _compress_ids
+        from handlers.sales.states import _compress_ids
         return _compress_ids
 
     def test_empty(self, compress):
