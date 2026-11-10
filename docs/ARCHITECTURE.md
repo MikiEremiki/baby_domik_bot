@@ -263,6 +263,47 @@ YooKassa → POST /yookassa (FastAPI)
 - Для создания Inline-клавиатур использовать функции из `src\utilities\utl_kbd.py`.
 - При добавлении кнопок "Назад" и "Отмена" использовать `add_btn_back_and_cancel`.
 
+#### 6.3.1. Паттерн кнопки «Назад»
+
+Кнопка «Назад» реализована как единый паттерн из четырёх компонентов. Каждый handler, возвращающий состояние с клавиатурой, обязан следовать этому паттерну.
+
+**1. Создание кнопки** (`src\utilities\utl_kbd.py`):
+- `add_btn_back_and_cancel(add_cancel_btn=True, postfix_for_cancel=None, add_back_btn=True, postfix_for_back=None)` создаёт кнопки «Назад» и «Отменить».
+- Кнопка «Назад» имеет `callback_data='Назад-POSTFIX'` (например, `Назад-MONTH`, `Назад-MODE`).
+- **Важно:** функция возвращает **плоский список** `List[InlineKeyboardButton]`. При добавлении в клавиатуру результат нужно добавить через `keyboard.append(add_btn_back_and_cancel(...))` — тогда список кнопок станет последним рядом `InlineKeyboardMarkup`.
+
+**2. Сохранение контекста** (`src\utilities\utl_func.py`):
+- `set_back_context(context, state, text, reply_markup, del_message_ids=None)` сохраняет в `context.user_data['reserve_user_data']['back'][state]` три элемента: текст, клавиатуру и список ID сообщений для удаления при возврате.
+- **Обязательно** вызывать в конце каждого handler'а после формирования текста и клавиатуры:
+  ```python
+  await set_back_context(context, state, text, reply_markup)
+  ```
+
+**3. Регистрация обработчика** (`src\conv_hl\common_conv_hl.py`):
+- `back_callback_handler = CallbackQueryHandler(main_hl.back, '^Назад')` — универсальный обработчик для всех состояний.
+- Добавляется в список handler'ов состояния:
+  ```python
+  'STATE_NAME': [
+      cancel_callback_handler,
+      back_callback_handler,
+      # ... остальные handler'ы
+  ]
+  ```
+
+**4. Обработчик нажатия** (`src\handlers\main_hl.py` — `back()`):
+- Парсит состояние из `callback_data`: `state = query.data.split('-')[1]` → `MONTH`, `MODE`, `DATE` и т.д.
+- Восстанавливает контекст через `get_back_context(context, state)`.
+- Удаляет сообщения из `del_message_ids`, если есть.
+- В зависимости от состояния выбирает способ отображения:
+  - `MONTH`, `MODE` — удаляет текущее сообщение и отправляет новое (может быть фото).
+  - `SHOW` — редактирует caption (фото с подписью).
+  - `DATE` — удаляет и отправляет новое с фото афиши месяца.
+  - `TIME`, `TICKET` и остальные — редактирует текст текущего сообщения.
+- Обновляет `context.user_data['STATE'] = state`.
+- Сохраняет ID нового сообщения через `append_message_ids_back_context()` для последующего удаления при возврате.
+
+**Ключевой принцип:** каждый handler сохраняет свой контекст через `set_back_context()`, а единый обработчик `back()` его восстанавливает и адаптирует способ отображения под тип состояния (фото/текст/caption).
+
 #### 6.4. Логирование
 - Использовать именованные логгеры (например, `bot.reserve`, `bot.webhook`).
 - Конфигурация логов находится в `src\log\logging_conf.py`.
