@@ -2037,8 +2037,9 @@ async def handle_date_range_input(
         )
         return state_key
 
-    await update.effective_chat.send_message(
-        f'Диапазон установлен: {state_data["from_dt"]} — {state_data["to_dt"]}\n'
-        'Нажмите «По id» для обновления списка.')
+    # Автоматически перерисовываем список с новым диапазоном
+    text, reply_markup = await _build_event_by_id_content(context, state_data)
+    await update.effective_chat.send_message(text=text, reply_markup=reply_markup)
     context.user_data['STATE'] = state_key
+    await set_back_context(context, state_key, text, reply_markup)
     return state_key
