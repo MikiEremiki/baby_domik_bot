@@ -808,9 +808,7 @@ async def back(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     except TimedOut as e:
         main_handlers_logger.error(e)
 
-    # Убираем intent-префикс (например, 'EVENT_BY_ID|') если есть
-    back_data = query.data.split('|')[1] if '|' in query.data else query.data
-    state = back_data.split('-')[1]
+    state = query.data.split('-')[1]
     if state.isdigit():
         state = int(state)
     else:
@@ -983,9 +981,7 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
 
     user = context.user_data.get('user', update.effective_user)
     state = context.user_data.get('STATE')
-    # Убираем intent-префикс (например, 'EVENT_BY_ID|') если есть
-    cancel_data = query.data.split('|')[1] if '|' in query.data else query.data
-    data = cancel_data.split('-')[-1]
+    data = query.data.split('|')[0].split('-')[-1]
 
     first_text = '<b>Вы выбрали отмену</b>\n\n'
     use_command_text = 'Используйте команды:\n'
