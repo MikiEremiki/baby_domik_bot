@@ -1,6 +1,5 @@
 from handlers.reserve.choice import (
     choice_mode,
-    choice_list_mode,
     choice_show_by_repertoire,
     choice_month,
     choice_show,
@@ -53,7 +52,6 @@ from handlers.reserve.payment import (
 
 __all__ = [
     'choice_mode',
-    'choice_list_mode',
     'choice_show_by_repertoire',
     'choice_month',
     'choice_show',
