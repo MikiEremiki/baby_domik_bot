@@ -1937,14 +1937,16 @@ async def choice_event_by_id(
         state_data['page'] = 0
         text = (
             'Введите диапазон дат в формате <b>дд.мм.гг-дд.мм.гг</b>\n\n'
-            'Пример: <code>01.11.25-30.11.25</code>\n\n'
-            'Для сброса диапазона нажмите кнопку «Диапазон» ещё раз после ввода пустого значения.'
+            'Пример: <code>01.11.25-30.11.25</code>'
         )
-        keyboard = [add_btn_back_and_cancel(
-            postfix_for_cancel=context.user_data['postfix_for_cancel'],
-            add_back_btn=True,
-            postfix_for_back='MONTH'
-        )]
+        keyboard = [
+            [InlineKeyboardButton('Пропустить', callback_data='date_range_skip')],
+            add_btn_back_and_cancel(
+                postfix_for_cancel=context.user_data['postfix_for_cancel'],
+                add_back_btn=True,
+                postfix_for_back='MONTH'
+            ),
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         try:
             await query.edit_message_text(text=text, reply_markup=reply_markup)
@@ -1954,6 +1956,24 @@ async def choice_event_by_id(
             else:
                 reserve_hl_logger.error(e)
         context.user_data['STATE'] = state_key
+        return state_key
+
+    # Кнопка «Пропустить» — сброс диапазона
+    if callback_data == 'date_range_skip':
+        state_data['from_dt'] = None
+        state_data['to_dt'] = None
+        state_data['waiting_date_input'] = False
+        state_data['page'] = 0
+        text, reply_markup = await _build_event_by_id_content(context, state_data)
+        try:
+            await query.edit_message_text(text=text, reply_markup=reply_markup)
+        except BadRequest as e:
+            if is_not_modified(e):
+                reserve_hl_logger.info('Игнорируем клик (без изменений)')
+            else:
+                reserve_hl_logger.error(e)
+        context.user_data['STATE'] = state_key
+        await set_back_context(context, state_key, text, reply_markup)
         return state_key
 
     # Пагинация: обновить page в state_data
@@ -1998,17 +2018,6 @@ async def handle_date_range_input(
     state_data = reserve_user_data.get(state_key, {})
 
     text = update.effective_message.text.strip()
-
-    # Пустой ввод — сброс диапазона
-    if not text:
-        state_data['from_dt'] = None
-        state_data['to_dt'] = None
-        state_data['waiting_date_input'] = False
-        state_data['page'] = 0
-        await update.effective_chat.send_message(
-            'Диапазон сброшен. Нажмите «По id» для обновления списка.')
-        context.user_data['STATE'] = state_key
-        return state_key
 
     # Парсинг диапазона
     try:
