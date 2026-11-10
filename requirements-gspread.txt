@@ -1,8 +1,0 @@
-pydantic_settings
-gspread>=6.2.1
-gspread-asyncio>=3.0.0
-python-telegram-bot[ext]
-PyYAML
-sqlalchemy[asyncio]
-faststream[cli]
-nats-py

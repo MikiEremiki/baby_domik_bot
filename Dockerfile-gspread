@@ -1,14 +1,18 @@
 FROM python:3.12-slim as base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT="/usr/local/"
 
-WORKDIR /app/src
+WORKDIR /app
 
-RUN --mount=type=bind,source=requirements-gspread.txt,target=requirements-gspread.txt \
-    python -m pip install -r requirements-gspread.txt
+RUN pip install uv
 
-COPY src/api ./api
-COPY src/db ./db
-COPY src/settings ./settings
-COPY src/utilities/utl_date.py ./utilities/utl_date.py
+RUN --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    uv sync --frozen --extra gspread
+
+COPY src/api ./src/api
+COPY src/db ./src/db
+COPY src/settings ./src/settings
+COPY src/utilities/utl_date.py ./src/utilities/utl_date.py

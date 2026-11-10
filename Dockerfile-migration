@@ -1,11 +1,15 @@
 FROM python:3.12-slim as base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT="/usr/local/"
 
 WORKDIR /app
 
-RUN --mount=type=bind,source=requirements-migration.txt,target=requirements-migration.txt \
-    python -m pip install -r requirements-migration.txt
+RUN pip install uv
 
-COPY src .
+RUN --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    uv sync --frozen --extra migration
+
+COPY src ./src

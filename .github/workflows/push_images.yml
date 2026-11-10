@@ -22,41 +22,52 @@ jobs:
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       -
-        name: Build and push
+        name: Build and push bot
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: Dockerfile-bot
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_bot:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       -
-        name: Build and push
+        name: Build and push fastapi
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile-fastapi
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_fastapi:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       -
-        name: Build and push
+        name: Build and push migration
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile-migration
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_migration:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       -
-        name: Build and push
+        name: Build and push gspread
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile-gspread
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_gspread_worker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       -
-        name: Build and push
+        name: Build and push sales
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile-sales
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/baby_domik_sales_worker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
