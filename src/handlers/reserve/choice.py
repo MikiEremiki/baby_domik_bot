@@ -1872,8 +1872,12 @@ async def _build_event_by_id_content(
         nav_rows = add_intent_id([nav_row], 'EVENT_BY_ID_PAGE')
         keyboard.extend(nav_rows)
 
-    # Добавляем intent ко всем кнопкам (кроме Назад/Отмена)
+    # Добавляем intent ко всем кнопкам (кроме ID, Назад/Отмена)
     keyboard = add_intent_id(keyboard, 'EVENT_BY_ID')
+
+    # Кнопки ID — с intent LIST (без EVENT_BY_ID префикса), чтобы попадали в send_clients_data
+    id_rows = add_intent_id(id_rows, 'LIST')
+    keyboard.extend(id_rows)
 
     # Назад и Отмена — без intent-префикса
     keyboard.append(add_btn_back_and_cancel(
