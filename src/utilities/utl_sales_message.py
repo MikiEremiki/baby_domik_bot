@@ -249,7 +249,7 @@ async def send_campaign_message(
             msg = await send_fn(
                 **{mtype if mtype != 'animation' else 'animation': file_id},
                 caption=res_text.text,
-                entities=res_text.entities,
+                caption_entities=res_text.entities,
                 reply_markup=reply_markup,
                 parse_mode=None,
                 **common_kwargs,
