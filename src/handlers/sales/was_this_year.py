@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from db import ScheduleEvent, TheaterEvent
 
 from .states import (
-    PAGE_SIZE, SALES_PAGE_SIZE, PICK_SCOPE, PICK_SCHEDULES, PICK_AUDIENCE_THEATER,
+    PAGE_SIZE, SALES_PAGE_SIZE, PICK_TYPE, PICK_SCOPE, PICK_SCHEDULES, PICK_AUDIENCE_THEATER,
     PICK_THEATER, MENU, _get_step_info, _get_usage_text_with_highlight,
     _format_label,
 )
