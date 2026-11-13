@@ -39,7 +39,7 @@ async def _ensure_campaign_and_schedules(update: Update,
     schedule_ids: List[int] = list(
         map(int, sales_state.get('schedule_ids', [])))
 
-    if not schedule_ids and campaign_type not in ('TICKET_HOLDERS', 'SEASON_TICKET_HOLDERS'):
+    if not schedule_ids and campaign_type not in ('TICKET_HOLDERS', 'SEASON_TICKET_HOLDERS', 'WAS_THIS_YEAR_ON_PLAY'):
         return None
 
     theater_name = "Без спектакля"

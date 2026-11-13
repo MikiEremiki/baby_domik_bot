@@ -139,6 +139,18 @@ async def show_build_audience(update: Update,
 
     campaign_id = await _ensure_campaign_and_schedules(update, context)
 
+    if not campaign_id:
+        text = (
+            '<b>Ошибка создания кампании</b>\n\n'
+            'Не удалось создать кампанию. Проверьте данные и попробуйте снова.\n'
+            'Используйте команду /sales.'
+        )
+        await update.effective_chat.send_message(
+            text=text,
+            message_thread_id=getattr(update.effective_message, 'message_thread_id', None)
+        )
+        return MENU
+
     if campaign_id:
         await session.execute(
             sa.delete(SalesRecipient.__table__).where(
