@@ -503,9 +503,9 @@ class SalesCampaign(BaseModelTimed):
 
     theater_event: Mapped['TheaterEvent'] = relationship(lazy='selectin')
     schedules: Mapped[List['SalesCampaignSchedule']] = relationship(
-        back_populates='campaign', lazy='selectin')
+        back_populates='campaign', cascade="all, delete-orphan", lazy='selectin')
     recipients: Mapped[List['SalesRecipient']] = relationship(
-        back_populates='campaign', lazy='selectin')
+        back_populates='campaign', cascade="all, delete-orphan", lazy='selectin')
 
 
 class SalesCampaignSchedule(BaseModelTimed):

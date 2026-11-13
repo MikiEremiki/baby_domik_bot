@@ -58,6 +58,9 @@ class AsyncSessionWrapper:
     def add_all(self, instances):
         self._session.add_all(instances)
 
+    async def delete(self, instance):
+        self._session.delete(instance)
+
 
 async def _run_with_db(test_coro):
     """Create an in-memory SQLite DB, run *test_coro(session)*, then dispose.
