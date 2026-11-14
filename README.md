@@ -12,7 +12,8 @@
 - postgresql (пока данные дублируются в гугле и в базе)
 - sqlalchemy
 
-timeweb в качестве хостинга
+timeweb в качестве хостинга.
+
 Тесты: pytest, см. `test/` и `docs/TESTING.md`.
 
 ---
