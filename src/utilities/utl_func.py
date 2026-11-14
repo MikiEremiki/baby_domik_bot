@@ -21,6 +21,8 @@ from telegram.constants import ChatAction
 from telegram.ext import ContextTypes, ExtBot
 from telegram.error import BadRequest
 
+from sulguk import transform_html
+
 from db import ScheduleEvent, db_postgres, TheaterEvent, Ticket, BaseTicket
 from db.enum import TicketStatus
 from settings import parse_settings
@@ -321,15 +323,18 @@ async def user_data_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     # /user_data show [user_id] — показать user_data
     # /user_data clean — очистить все user_data
     args = context.args
+    chat_id = update.effective_chat.id
+    thread_id = update.effective_message.message_thread_id
+
+    help_text = (
+        '<code>/user_data</code> — управление user_data<br><br>'
+        '<code>/user_data show</code> — показать своё user_data<br>'
+        '<code>/user_data show &lt;user_id&gt;</code> — показать user_data пользователя<br>'
+        '<code>/user_data clean</code> — очистить все user_data'
+    )
 
     if not args or args[0] == 'help':
-        await update.effective_chat.send_message(
-            '<b>/user_data</b> — управление user_data\n\n'
-            '<b>/user_data show</b> — показать своё user_data\n'
-            '<b>/user_data show &lt;user_id&gt;</b> — показать user_data пользователя\n'
-            '<b>/user_data clean</b> — очистить все user_data',
-            parse_mode=None
-        )
+        await _send_html(chat_id, help_text, context.bot, thread_id)
     elif args[0] == 'show':
         if update.effective_user.id != CHAT_ID_MIKIEREMIKI:
             return
@@ -338,40 +343,21 @@ async def user_data_cmd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             message = pformat(context.application.user_data.get(uid))
         else:
             message = pformat(context.user_data)
-        max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
-        for i in range(len(message) // max_text_len + 1):
-            start = i * max_text_len
-            end = (i + 1) * max_text_len
-            if i == len(message) // max_text_len:
-                await update.effective_chat.send_message(
-                    text=message[start:],
-                    parse_mode=None
-                )
-                break
-            await update.effective_chat.send_message(
-                text=message[start:end],
-                parse_mode=None
-            )
+        await _send_pformat_chunks(chat_id, message, context.bot, thread_id)
     elif args[0] == 'clean':
         if update.effective_user.id != CHAT_ID_MIKIEREMIKI:
             return
         if context.bot_data.get('clean_ud_running'):
-            await update.effective_chat.send_message('Очистка уже выполняется')
+            await _send_html(chat_id, 'Очистка уже выполняется', context.bot, thread_id)
             return
         context.bot_data['clean_ud_running'] = True
-        await update.effective_chat.send_message('Очистка user_data запущена в фоне...')
+        await _send_html(chat_id, 'Очистка user_data запущена в фоне...', context.bot, thread_id)
         context.application.create_task(
             _clean_ud_background(context, update.effective_chat.id),
             update=update,
         )
     else:
-        await update.effective_chat.send_message(
-            '<b>/user_data</b> — управление user_data\n\n'
-            '<b>/user_data show</b> — показать своё user_data\n'
-            '<b>/user_data show &lt;user_id&gt;</b> — показать user_data пользователя\n'
-            '<b>/user_data clean</b> — очистить все user_data',
-            parse_mode=None
-        )
+        await _send_html(chat_id, help_text, context.bot, thread_id)
 
 
 async def _clean_ud_background(
@@ -414,43 +400,54 @@ async def _clean_ud_background(
         context.bot_data.pop('clean_ud_running', None)
 
 
+async def _send_html(chat_id: int, text: str, bot, message_thread_id: int | None = None) -> None:
+    """Отправить HTML-сообщение через transform_html (sulguk)."""
+    res = transform_html(text)
+    await bot.send_message(
+        chat_id=chat_id,
+        text=res.text,
+        entities=res.entities,
+        message_thread_id=message_thread_id,
+        parse_mode=None,
+    )
+
+
+async def _send_pformat_chunks(chat_id: int, message: str, bot, message_thread_id: int | None = None) -> None:
+    """Разбить длинный текст pformat на чанки и отправить как <pre>-блоки."""
+    max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
+    for i in range(len(message) // max_text_len + 1):
+        start = i * max_text_len
+        end = (i + 1) * max_text_len
+        chunk = message[start:end] if end < len(message) else message[start:]
+        await _send_html(chat_id, f'<pre>{chunk}</pre>', bot, message_thread_id)
+        if end >= len(message):
+            break
+
+
 async def print_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
     # /bot_data — справка
     # /bot_data show — показать bot_data
-    # /bot_data export — отправить JSON в чат
+    # /bot_data export — отправить JSON-файл в чат
     # /bot_data import — загрузить (ответ на JSON)
     # /bot_data clean <ключ> — удалить ключ
     args = context.args
+    chat_id = update.effective_chat.id
+    thread_id = update.effective_message.message_thread_id
+
+    help_text = (
+        '<code>/bot_data</code> — управление bot_data<br><br>'
+        '<code>/bot_data show</code> — показать bot_data<br>'
+        '<code>/bot_data export</code> — отправить JSON-файл в чат<br>'
+        '<code>/bot_data import</code> — загрузить (ответ на JSON-файл)<br>'
+        '<code>/bot_data clean &lt;ключ&gt;</code> — удалить ключ'
+    )
 
     if not args or args[0] == 'help':
-        # Показать справку
-        await update.effective_chat.send_message(
-            '<b>/bot_data</b> — управление bot_data\n\n'
-            '<b>/bot_data show</b> — показать bot_data\n'
-            '<b>/bot_data export</b> — отправить JSON в чат\n'
-            '<b>/bot_data import</b> — загрузить (ответ на JSON)\n'
-            '<b>/bot_data clean &lt;ключ&gt;</b> — удалить ключ',
-            parse_mode=None
-        )
+        await _send_html(chat_id, help_text, context.bot, thread_id)
     elif args[0] == 'show':
-        # Показать bot_data как pformat
-        max_text_len = constants.MessageLimit.MAX_TEXT_LENGTH
         message = pformat(context.bot_data)
-        for i in range(len(message) // max_text_len + 1):
-            start = i * max_text_len
-            end = (i + 1) * max_text_len
-            if i == len(message) // max_text_len:
-                await update.effective_chat.send_message(
-                    text=message[start:],
-                    parse_mode=None
-                )
-                break
-            await update.effective_chat.send_message(
-                text=message[start:end],
-                parse_mode=None
-            )
+        await _send_pformat_chunks(chat_id, message, context.bot, thread_id)
     elif args[0] == 'export':
-        # Экспорт — отправить JSON-файл
         try:
             from io import BytesIO
             from datetime import datetime as dt
@@ -459,28 +456,30 @@ async def print_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             json_bytes = json.dumps(dict(context.bot_data), indent=4, ensure_ascii=False, default=str).encode('utf-8')
             file_obj = BytesIO(json_bytes)
             file_obj.name = filename
+            caption_res = transform_html(
+                'Для загрузки ответьте на этот файл:<br><code>/bot_data import</code>'
+            )
             await update.effective_message.reply_document(
                 document=file_obj,
                 filename=filename,
-                caption='Для загрузки ответьте на этот файл:\n<code>/bot_data import</code>',
-                parse_mode=None
+                caption=caption_res.text,
+                caption_entities=caption_res.entities,
             )
         except Exception as e:
             utilites_logger.error(f'Ошибка при экспорте bot_data: {e}')
-            await update.effective_chat.send_message(f'Ошибка при экспорте: {e}')
+            await _send_html(chat_id, f'Ошибка при экспорте: {e}', context.bot, thread_id)
     elif args[0] == 'import':
-        # Импорт — ответ на сообщение с JSON-файлом или текстом
         replied = update.effective_message.reply_to_message
         if replied is None:
-            await update.effective_chat.send_message(
-                'Ответьте на сообщение с JSON-файлом командой:\n'
-                '<code>/bot_data import</code>',
-                parse_mode=None
+            await _send_html(
+                chat_id,
+                'Ответьте на сообщение с JSON-файлом командой:<br><code>/bot_data import</code>',
+                context.bot,
+                thread_id
             )
             return
-        
+
         json_str = None
-        # Пытаемся получить JSON из документа (файла)
         if replied.document:
             try:
                 file = await replied.document.get_file()
@@ -488,49 +487,46 @@ async def print_bd(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
                 json_str = bytes(file_bytes).decode('utf-8')
             except Exception as e:
                 utilites_logger.error(f'Ошибка загрузки файла: {e}')
-                await update.effective_chat.send_message(f'Ошибка загрузки файла: {e}')
+                await _send_html(chat_id, f'Ошибка загрузки файла: {e}', context.bot, thread_id)
                 return
-        # Или из текста сообщения
         elif replied.text:
             json_str = replied.text
         else:
-            await update.effective_chat.send_message('Отвечайте на текстовое сообщение или файл с JSON.')
+            await _send_html(chat_id, 'Отвечайте на текстовое сообщение или файл с JSON.', context.bot, thread_id)
             return
-        
+
         try:
             data = json.loads(json_str)
             context.bot_data.clear()
             context.bot_data.update(data)
             context.application.mark_data_for_update_persistence()
             await context.application.update_persistence()
-            await update.effective_chat.send_message(
-                f'bot_data восстановлен ✅\nЗагружено ключей: {len(data)}',
-                parse_mode=None
+            await _send_html(
+                chat_id,
+                f'bot_data восстановлен ✅<br>Загружено ключей: {len(data)}',
+                context.bot, thread_id
             )
         except json.JSONDecodeError:
-            await update.effective_chat.send_message('Неверный формат JSON. Проверьте скобки и кавычки.')
+            await _send_html(chat_id, 'Неверный формат JSON. Проверьте скобки и кавычки.', context.bot, thread_id)
         except Exception as e:
             utilites_logger.error(f'Ошибка при импорте bot_data: {e}')
-            await update.effective_chat.send_message(f'Ошибка при импорте: {e}')
+            await _send_html(chat_id, f'Ошибка при импорте: {e}', context.bot, thread_id)
     elif args[0] == 'clean':
-        # Очистка ключа
         if len(args) < 2:
-            await update.effective_chat.send_message('Укажите ключ:\n<code>/bot_data clean <ключ></code>', parse_mode=None)
+            await _send_html(
+                chat_id,
+                'Укажите ключ:<br><code>/bot_data clean &lt;ключ&gt;</code>',
+                context.bot, thread_id
+            )
         else:
             key = args[1]
             try:
                 del context.bot_data[key]
-                await update.effective_chat.send_message(f'{key} ключ успешно удален')
+                await _send_html(chat_id, f'<b>{key}</b> ключ успешно удалён', context.bot, thread_id)
             except KeyError:
-                await update.effective_chat.send_message(f'{key} ключа не существует в bot_data')
+                await _send_html(chat_id, f'<b>{key}</b> ключа не существует в bot_data', context.bot, thread_id)
     else:
-        await update.effective_chat.send_message(
-            '<b>/bot_data</b> — показать bot_data\n'
-            '<b>/bot_data export</b> — отправить JSON в чат\n'
-            '<b>/bot_data import</b> — загрузить (ответ на JSON)\n'
-            '<b>/bot_data clean <ключ></b> — удалить ключ',
-            parse_mode=None
-        )
+        await _send_html(chat_id, help_text, context.bot, thread_id)
 
 
 

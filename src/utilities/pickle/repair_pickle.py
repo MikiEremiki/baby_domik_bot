@@ -36,7 +36,7 @@ flag_exclude_all = True
 path = r'/opt/project/src/db/data/conversationbot'
 
 # new_path: Path = Path(r'D:\Temp\conversationbot2')
-new_path: Path = Path('conversationbot')
+new_path: Path = Path('conversationbot_new')
 with open(path, "rb") as file:
     while True:
         try:
@@ -44,8 +44,8 @@ with open(path, "rb") as file:
         except EOFError:
             print("Достигнут конец файла, загрузка завершена.")
             break
-        except pickle.UnpicklingError:
-            # print("Ошибка при загрузке объекта:", e)
+        except pickle.UnpicklingError as e:
+            print("Ошибка при загрузке объекта:", e)
             break
 print(objects)
 
