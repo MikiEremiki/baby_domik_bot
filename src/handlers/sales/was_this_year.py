@@ -279,9 +279,10 @@ async def show_pick_schedules(update: Update,
     done_row = add_intent_id([done_row], 'sales:schedule')
 
     kb = event_rows + nav_rows + done_row
+    kb = add_intent_id(kb, 'sales:schedule')
     kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales',
-                                      add_back_btn=True,
-                                      postfix_for_back=PICK_SCOPE))
+                                       add_back_btn=True,
+                                       postfix_for_back=PICK_SCOPE))
     reply_markup = InlineKeyboardMarkup(kb)
 
     hdr = '<b>Выберите даты/сеансы вручную</b>\nОтметьте цифрами под списком, затем нажмите «Готово».\n'
@@ -371,6 +372,7 @@ async def pick_schedules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     done_row = add_intent_id([done_row], 'sales:schedule')
 
     kb = event_rows + nav_rows + done_row
+    kb = add_intent_id(kb, 'sales:schedule')
     kb.append(
         add_btn_back_and_cancel(postfix_for_cancel='sales',
                                 add_back_btn=True,

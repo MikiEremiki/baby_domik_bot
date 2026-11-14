@@ -234,9 +234,9 @@ async def show_pick_season_age_min(update: Update, context: ContextTypes.DEFAULT
     kb_btns.append(InlineKeyboardButton("Пропустить", callback_data="skip"))
     btn_rows = adjust_kbd(kb_btns, 5)
     btn_rows = add_intent_id(btn_rows, 'sales:season_age_min')
+    btn_rows.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                            postfix_for_back=PICK_SEASON_THEATERS))
     kb = btn_rows
-    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
-                                      postfix_for_back=PICK_SEASON_THEATERS))
     reply_markup = InlineKeyboardMarkup(kb)
     return await _show_step(update, context, text, reply_markup, PICK_SEASON_AGE_MIN)
 
@@ -287,9 +287,9 @@ async def show_pick_season_age_max(update: Update, context: ContextTypes.DEFAULT
     kb_btns.append(InlineKeyboardButton("Пропустить", callback_data="skip"))
     btn_rows = adjust_kbd(kb_btns, 5)
     btn_rows = add_intent_id(btn_rows, 'sales:season_age_max')
+    btn_rows.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                            postfix_for_back=PICK_SEASON_AGE_MIN))
     kb = btn_rows
-    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
-                                      postfix_for_back=PICK_SEASON_AGE_MIN))
     reply_markup = InlineKeyboardMarkup(kb)
     return await _show_step(update, context, text, reply_markup, PICK_SEASON_AGE_MAX)
 
@@ -354,6 +354,7 @@ async def show_pick_season_statuses(update: Update, context: ContextTypes.DEFAUL
     )
 
     kb = btn_rows + next_row
+    kb = add_intent_id(kb, 'sales:season_status')
     kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
                                       postfix_for_back=PICK_SEASON_AGE_MAX))
 
@@ -375,6 +376,8 @@ async def pick_season_statuses(update: Update, context: ContextTypes.DEFAULT_TYP
     if payload == "next":
         if not selected:
             sales_state['season_statuses'] = []
+        else:
+            sales_state['season_statuses'] = list(selected)
         from .shared_steps import show_pick_attach_theater
         return await show_pick_attach_theater(update, context)
 

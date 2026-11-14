@@ -1072,6 +1072,8 @@ async def cancel(update: Update, context: 'ContextTypes.DEFAULT_TYPE'):
             await cancel_common(update, text)
         case 'afisha':
             await cancel_common(update, text)
+        case 'sales':
+            await cancel_common(update, text)
         case _:
             await cancel_common(update, text)
 
