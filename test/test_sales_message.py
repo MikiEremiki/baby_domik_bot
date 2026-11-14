@@ -25,11 +25,25 @@ class TestBuildExtra:
 
     def test_all_parts(self):
         result = build_extra('Спектакль', '2 места', '/reserve')
-        assert result == '\n\nСпектакль\n\n2 места\n\n/reserve'
+        assert result == '<br><br>Спектакль<br><br>2 места<br><br>/reserve'
 
     def test_only_reserve(self):
         result = build_extra('', '', '/reserve')
-        assert result == '\n\n/reserve'
+        assert result == '<br><br>/reserve'
+
+    def test_no_show_name_when_no_availability(self):
+        """When there are no sessions with children's seats,
+        full_name and availability_block are both empty — only reserve_text remains."""
+        result = build_extra('', '', '/reserve')
+        assert 'Спектакль' not in result
+        assert 'Кол-во' not in result
+        assert '/reserve' in result
+
+    def test_availability_without_show_name(self):
+        """Availability block can exist without a show name."""
+        result = build_extra('', 'Кол-во мест: 5', '/reserve')
+        assert 'Кол-во мест: 5' in result
+        assert result == '<br><br>Кол-во мест: 5<br><br>/reserve'
 
 
 # ─── visible_len ──────────────────────────────────────────────────────────────
@@ -257,3 +271,33 @@ async def test_parse_mode_none_with_sulguk():
     assert call.kwargs['parse_mode'] is None
     # entities should be present (even if empty for plain text)
     assert 'entities' in call.kwargs
+
+
+# ─── Newline round-trip: <br> in stored text → \n in sent text ───────────────
+
+
+@pytest.mark.anyio
+async def test_send_newlines_from_br_tags():
+    """Stored <br> tags are converted to \n in the final sent text by sulguk."""
+    bot = AsyncMock()
+    bot.send_message = AsyncMock(return_value=MagicMock())
+    # Text stored with <br> (as handlers do after the fix)
+    await send_campaign_message(
+        bot, 123, media=[], text='Строка 1<br>Строка 2', extra=''
+    )
+    call = bot.send_message.call_args
+    # sulguk.transform_html converts <br> to \n
+    assert call.kwargs['text'] == 'Строка 1\nСтрока 2'
+
+
+@pytest.mark.anyio
+async def test_send_newlines_with_html_formatting():
+    """<br> and HTML tags both survive the round-trip."""
+    bot = AsyncMock()
+    bot.send_message = AsyncMock(return_value=MagicMock())
+    await send_campaign_message(
+        bot, 123, media=[], text='<b>Жирный</b><br><i>Курсив</i>', extra=''
+    )
+    call = bot.send_message.call_args
+    assert call.kwargs['text'] == 'Жирный\nКурсив'
+    assert len(call.kwargs['entities']) == 2

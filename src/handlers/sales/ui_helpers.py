@@ -102,7 +102,8 @@ def build_theater_keyboard(
         )
         final_kb.extend(done_row)
 
-    # Back + Cancel
+    # Back + Cancel (added AFTER intent_id so they don't get the prefix)
+    final_kb = add_intent_id(final_kb, intent_id)
     final_kb.append(add_btn_back_and_cancel(
         postfix_for_cancel='sales',
         add_back_btn=True,
@@ -118,8 +119,11 @@ async def _show_step(
     text: str,
     reply_markup: InlineKeyboardMarkup,
     state: str,
+    *,
+    skip_back_context: bool = False,
 ) -> str:
     """Render a wizard step by editing the current step message."""
+    from telegram import InlineKeyboardButton
     from telegram.error import BadRequest
     from utilities.utl_func import set_back_context
     from utilities.utl_tg import is_not_modified
@@ -127,6 +131,23 @@ async def _show_step(
     sales_state = context.user_data.setdefault('sales', {})
     chat_id = update.effective_chat.id
     step_msg_id = sales_state.get('step_msg_id')
+
+    # If coming from action:continue, override "Back" button to return to campaign action menu
+    back_override = sales_state.get('back_to_campaign_action')
+    if back_override and reply_markup:
+        new_rows = []
+        for row in reply_markup.inline_keyboard:
+            new_row = []
+            for btn in row:
+                if btn.callback_data and btn.callback_data.startswith('Назад-'):
+                    new_row.append(InlineKeyboardButton(
+                        btn.text,
+                        callback_data='Назад-campaign_action_back',
+                    ))
+                else:
+                    new_row.append(btn)
+            new_rows.append(new_row)
+        reply_markup = InlineKeyboardMarkup(new_rows)
 
     edited = False
     if step_msg_id is not None:
@@ -146,6 +167,17 @@ async def _show_step(
                 raise
 
     if not edited:
+        # Remove buttons from the old message before sending a new one
+        if step_msg_id is not None:
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=chat_id,
+                    message_id=step_msg_id,
+                    reply_markup=None,
+                )
+            except BadRequest:
+                pass
+
         sent = await update.effective_chat.send_message(
             text=text,
             reply_markup=reply_markup,
@@ -159,7 +191,8 @@ async def _show_step(
             except BadRequest:
                 pass
 
-    await set_back_context(context, state, text, reply_markup)
+    if not skip_back_context:
+        await set_back_context(context, state, text, reply_markup)
     context.user_data['STATE'] = state
     return state
 
