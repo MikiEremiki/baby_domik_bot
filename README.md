@@ -13,7 +13,7 @@
 - sqlalchemy
 
 timeweb в качестве хостинга
-Тесты: pytest, 70+ тестов в `test/` (см. `docs/TESTING.md` для деталей).
+Тесты: pytest, см. `test/` и `docs/TESTING.md`.
 
 ---
 Для запуска со сборкой контейнера миграции
