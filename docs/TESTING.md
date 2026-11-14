@@ -58,8 +58,11 @@ test/
 ├── test_events/             # События и площадки (2 файла)
 │   ├── test_list_past_events.py
 │   └── test_multi_location_events.py
-└── test_sales/              # Рассылки и продажи (2 файла)
-    ├── test_sales_message.py    # utl_sales_message: build_extra, visible_len, analyze_length
+└── test_sales/              # Рассылки и продажи (5 файлов)
+    ├── test_sales_availability.py  # _availability_block: фильтрация сеансов без детских мест, HTML-форматирование
+    ├── test_sales_campaign_delete.py  # Каскадное удаление campaign (schedules, recipients)
+    ├── test_sales_message.py    # utl_sales_message: build_extra, visible_len, analyze_length, HTML → newline
+    ├── test_sales_save_text.py  # Сохранение переносов строк: \n → <br> в handle_admin_message и handle_media_text
     └── test_sales_season.py     # SEASON_TICKET_HOLDERS: _parse_date, _show_step, usage text
 ```
 
@@ -67,7 +70,7 @@ test/
 
 ### Базы данных
 
-**`AsyncSessionWrapper`** — обёртка синхронной сессии SQLAlchemy для асинхронного кода. Поддерживает `execute`, `get`, `merge`, `commit`, `flush`, `refresh`, `rollback`, `add`, `add_all`.
+**`AsyncSessionWrapper`** — обёртка синхронной сессии SQLAlchemy для асинхронного кода. Поддерживает `execute`, `get`, `merge`, `commit`, `flush`, `refresh`, `rollback`, `add`, `add_all`, `delete`.
 
 **`_run_with_db(test_coro)`** — создаёт in-memory SQLite БД, запускает асинхронный тест с `AsyncSessionWrapper`, затем уничтожает engine.
 

@@ -19,6 +19,20 @@ from utilities.utl_func import get_full_name_event
 from .audience import _availability_block
 
 
+async def _cleanup_preview(bot, chat_id: int, message_ids: list):
+    """Remove old preview messages: delete or remove buttons as fallback."""
+    for mid in message_ids:
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=mid)
+        except Exception:
+            try:
+                await bot.edit_message_reply_markup(
+                    chat_id=chat_id, message_id=mid, reply_markup=None
+                )
+            except Exception:
+                pass
+
+
 async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sales_state = context.user_data.setdefault('sales', {})
     campaign_id = sales_state.get('campaign_id')
@@ -30,18 +44,31 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = context.session
     campaign: SalesCampaign = await session.get(SalesCampaign, campaign_id)
     schedule_ids: List[int] = context.user_data['sales'].get('schedule_ids', [])
+    # Fallback: load schedule_ids from DB if not in user data (e.g., after bot restart or resume)
+    if not schedule_ids:
+        from db.models import SalesCampaignSchedule
+        rows = (await session.execute(
+            sa.select(SalesCampaignSchedule.schedule_event_id)
+            .where(SalesCampaignSchedule.campaign_id == campaign_id)
+        )).all()
+        schedule_ids = [r[0] for r in rows]
 
     full_name = ""
     availability_block = ""
-    reserve_text = (f"👉 /reserve команда для покупки билетов\n"
+    # Use <br> for HTML storage so sulguk.transform_html() converts them
+    # back to \n in the final Telegram text. Bare \n are ignored in HTML.
+    reserve_text = (f"👉 /reserve команда для покупки билетов<br>"
                     f"Выбирайте подходящий спектакль и следуйте инструкциям")
 
     if campaign.type in ('WAS_THIS_YEAR_ON_PLAY', 'TICKET_HOLDERS', 'SEASON_TICKET_HOLDERS') and campaign.theater_event_id:
-        theater_event = await db_postgres.get_theater_event(
-            session, campaign.theater_event_id)
-        if theater_event:
-            full_name = get_full_name_event(theater_event)
         availability_block = await _availability_block(session, schedule_ids)
+        # Only show the show name if there's at least one session with
+        # available children's seats. Otherwise the name is misleading.
+        if availability_block:
+            theater_event = await db_postgres.get_theater_event(
+                session, campaign.theater_event_id)
+            if theater_event:
+                full_name = get_full_name_event(theater_event)
 
     extra = build_extra(full_name, availability_block, reserve_text)
 
@@ -50,8 +77,12 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     plain_text = extra_payload.get('text', '')
     text_mode = extra_payload.get('text_mode', 'caption')
 
-    if not media and not plain_text:
+    # Fallback: load text from DB if not in extra_payload (e.g., after resume)
+    if not plain_text:
         plain_text = campaign.message_text or campaign.caption_text or ''
+
+    # Fallback: load media from DB if not in extra_payload
+    if not media:
         kind = campaign.message_kind
         if kind == 'photo' and campaign.photo_file_id:
             media = [{'type': 'photo', 'file_id': campaign.photo_file_id}]
@@ -72,10 +103,11 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton('✂️ Сократить текст', callback_data='shorten')],
             [InlineKeyboardButton('📤 Отправить текст отдельно', callback_data='send_separate')],
         ]
+        kb = add_intent_id(kb, 'sales:length')
         kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales',
                                           add_back_btn=True,
                                           postfix_for_back=GET_MESSAGE))
-        reply_markup = InlineKeyboardMarkup(add_intent_id(kb, 'sales:length'))
+        reply_markup = InlineKeyboardMarkup(kb)
         await update.effective_chat.send_message(
             text=text_report,
             reply_markup=reply_markup,
@@ -96,15 +128,37 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton('Изменить текст', callback_data='edit_text')],
         [InlineKeyboardButton('Изменить медиа', callback_data='edit_media')],
     ]
-    if campaign.theater_event_id or schedule_ids:
+    # Show "Изменить сеансы" only if there are valid future schedules with free places
+    if availability_block:
         action_rows.append([InlineKeyboardButton('Изменить сеансы',
                               callback_data='edit_schedules')])
     action_rows = add_intent_id(action_rows, 'sales:preview')
-    action_rows.append([InlineKeyboardButton('Отмена', callback_data='Отменить')])
+    action_rows.append(add_btn_back_and_cancel(
+        postfix_for_cancel='sales',
+        add_back_btn=True,
+        postfix_for_back='preview_back',
+    ))
     reply_markup = InlineKeyboardMarkup(action_rows)
 
     chat = update.effective_chat
     thread_id = getattr(update.effective_message, 'message_thread_id', None)
+
+    # Clean up old preview messages before sending new ones
+    old_preview_ids = sales_state.pop('preview_message_ids', [])
+    if old_preview_ids:
+        await _cleanup_preview(context.bot, chat.id, old_preview_ids)
+
+    # Remove buttons from the old step message before sending preview
+    old_step_msg_id = sales_state.get('step_msg_id')
+    if old_step_msg_id is not None:
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=chat.id,
+                message_id=old_step_msg_id,
+                reply_markup=None,
+            )
+        except Exception:
+            pass
 
     sent_messages = await send_campaign_message(
         context.bot,
@@ -127,6 +181,23 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return PREVIEW
 
 
+async def cancel_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 'Cancel' button in preview — clean up preview messages and exit."""
+    from utilities.utl_kbd import remove_intent_id
+    query = update.callback_query
+    await query.answer()
+    _, action = remove_intent_id(query.data)
+
+    sales_state = context.user_data.setdefault('sales', {})
+    for mid in sales_state.pop('preview_message_ids', []):
+        try:
+            await context.bot.delete_message(
+                chat_id=update.effective_chat.id, message_id=mid)
+        except Exception:
+            pass
+    return ConversationHandler.END
+
+
 async def preview_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import logging
     sales_logger = logging.getLogger('bot.sales')
@@ -141,41 +212,24 @@ async def preview_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     sales_state = context.user_data.setdefault('sales', {})
     if action == 'edit_text':
-        for mid in sales_state.pop('preview_message_ids', []):
-            try:
-                await context.bot.delete_message(
-                    chat_id=update.effective_chat.id, message_id=mid)
-            except Exception:
-                pass
         from .message import ask_message
         return await ask_message(update, context)
     if action == 'edit_media':
-        for mid in sales_state.pop('preview_message_ids', []):
-            try:
-                await context.bot.delete_message(
-                    chat_id=update.effective_chat.id, message_id=mid)
-            except Exception:
-                pass
         from .media import show_get_media
         return await show_get_media(update, context)
     if action == 'edit_schedules':
         from .was_this_year import show_pick_schedules
         return await show_pick_schedules(update, context, page=1)
-    if action == 'cancel':
-        campaign_id = sales_state.get('campaign_id')
-        await set_campaign_status(context.session, campaign_id, 'canceled')
-        await context.session.commit()
+    if action == 'Назад-preview_back':
+        from .campaign import show_pick_existing_campaign
+        # Clean up preview messages
         for mid in sales_state.pop('preview_message_ids', []):
             try:
                 await context.bot.delete_message(
                     chat_id=update.effective_chat.id, message_id=mid)
             except Exception:
                 pass
-        await update.effective_chat.send_message(
-            'Кампания отменена.\n\nЧтобы запустить рассылку заново, используйте команду /sales.',
-            message_thread_id=getattr(update.effective_message, 'message_thread_id', None)
-        )
-        return ConversationHandler.END
+        return await show_pick_existing_campaign(update, context)
     if action == 'run':
         session = context.session
         campaign_id = sales_state.get('campaign_id')
@@ -190,10 +244,6 @@ async def preview_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return PREVIEW
         if campaign.status == 'done':
             await query.answer('Кампания уже завершена.', show_alert=True)
-            return PREVIEW
-        if campaign.status == 'canceled':
-            await query.answer('Кампания отменена. Создайте новую через /sales.',
-                               show_alert=True)
             return PREVIEW
         if campaign.status == 'running':
             sales_logger.info(
@@ -210,11 +260,14 @@ async def preview_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         campaign_type = campaign.type
         schedule_ids: List[int] = context.user_data['sales'].get('schedule_ids', [])
-        if not schedule_ids and campaign_type == 'WAS_THIS_YEAR_ON_PLAY':
-            await query.answer(
-                'Не выбраны сеансы. Вернитесь и выберите даты/сеансы.',
-                show_alert=True)
-            return PREVIEW
+        # Fallback: load schedule_ids from DB if not in user data (e.g., after bot restart or resume)
+        if not schedule_ids:
+            from db.models import SalesCampaignSchedule
+            rows = (await session.execute(
+                sa.select(SalesCampaignSchedule.schedule_event_id)
+                .where(SalesCampaignSchedule.campaign_id == campaign_id)
+            )).all()
+            schedule_ids = [r[0] for r in rows]
 
         pending_cnt = (await session.execute(
             sa.select(sa.func.count()).select_from(SalesRecipient).where(

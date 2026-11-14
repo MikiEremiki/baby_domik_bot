@@ -304,6 +304,12 @@ YooKassa → POST /yookassa (FastAPI)
 
 **Ключевой принцип:** каждый handler сохраняет свой контекст через `set_back_context()`, а единый обработчик `back()` его восстанавливает и адаптирует способ отображения под тип состояния (фото/текст/caption).
 
+**Исключение — рассылки (`src\handlers\sales\`):** модуль рассылок намеренно использует собственные обработчики «Назад» вместо стандартного `back()`. Причина: «Назад» с превью и меню действий кампании возвращает не к предыдущему шагу мастера, а к **списку кампаний** — это принципиально другой экран, а не предыдущий шаг линейного мастера. Реализация:
+- Кнопки создаются через `add_btn_back_and_cancel(postfix_for_back='preview_back')` и `postfix_for_back='campaign_action_back'`.
+- Специфичные `CallbackQueryHandler` с паттернами `^Назад-preview_back` и `^Назад-campaign_action_back` зарегистрированы **перед** общим `back_callback_handler` в `sales_conv_hl.py`, чтобы перехватывать нажатия.
+- `set_back_context()` для `CAMPAIGN_ACTION_MENU` и `PREVIEW` **не вызывается** (`skip_back_context=True`), так как стандартный `back()` не может корректно обработать возврат к списку кампаний.
+- Обработчики `preview_action` и `handle_campaign_action` напрямую вызывают `show_pick_existing_campaign()` при нажатии «Назад».
+
 #### 6.4. Логирование
 - Использовать именованные логгеры (например, `bot.reserve`, `bot.webhook`).
 - Конфигурация логов находится в `src\log\logging_conf.py`.

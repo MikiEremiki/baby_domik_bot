@@ -1,4 +1,5 @@
 """Campaign CRUD and management UI for sales campaigns."""
+import logging
 from datetime import datetime
 from typing import Dict, List
 
@@ -7,11 +8,14 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from db import SalesCampaign, TheaterEvent
 import sqlalchemy as sa
+
+sales_logger = logging.getLogger('bot.sales')
 from db.sales_crud import (
     create_campaign, set_campaign_schedules, snapshot_recipients,
     update_campaign_message, set_campaign_status, get_free_places,
     get_recent_campaigns, get_campaign_with_schedules,
-    delete_campaign, get_recipient_counts
+    delete_campaign, get_recipient_counts,
+    delete_outdated_campaigns, count_outdated_campaigns
 )
 
 from .states import (
@@ -39,7 +43,7 @@ async def _ensure_campaign_and_schedules(update: Update,
     schedule_ids: List[int] = list(
         map(int, sales_state.get('schedule_ids', [])))
 
-    if not schedule_ids and campaign_type not in ('TICKET_HOLDERS', 'SEASON_TICKET_HOLDERS'):
+    if not schedule_ids and campaign_type not in ('TICKET_HOLDERS', 'SEASON_TICKET_HOLDERS', 'WAS_THIS_YEAR_ON_PLAY'):
         return None
 
     theater_name = "Без спектакля"
@@ -138,6 +142,8 @@ async def show_pick_existing_campaign(update: Update, context: ContextTypes.DEFA
         title = (c.title or f'Кампания #{c.id}')
         lines.append(f'{status_emoji} <b>#{c.id}</b> — {title}\n<i>{label} · {c.status}</i>')
 
+    outdated_count = await count_outdated_campaigns(session)
+
     kb.append([InlineKeyboardButton(
         '➕ Создать новую', callback_data='new'
     )])
@@ -150,8 +156,15 @@ async def show_pick_existing_campaign(update: Update, context: ContextTypes.DEFA
             callback_data=f'campaign:{c.id}'
         ))
     kb.extend(adjust_kbd(campaign_buttons, 4))
+    if outdated_count > 0:
+        kb.append([InlineKeyboardButton(
+            f'🗑 Удалить неактуальные ({outdated_count})', callback_data='delete_outdated'
+        )])
     kb = add_intent_id(kb, 'sales:existing')
-    kb.append([InlineKeyboardButton('Отмена', callback_data='Отменить')])
+    kb.append(add_btn_back_and_cancel(
+        postfix_for_cancel='sales',
+        add_back_btn=False,
+    ))
     reply_markup = InlineKeyboardMarkup(kb)
 
     text = '\n\n'.join(lines) if campaigns else '<b>Нет доступных кампаний.</b>\n\nСоздайте новую.'
@@ -165,8 +178,10 @@ async def pick_existing_campaign(update: Update, context: ContextTypes.DEFAULT_T
     _, payload = remove_intent_id(query.data)
 
     if payload == 'new':
+        old_sales = context.user_data['sales']
         context.user_data['sales'] = {
-            'dev_mode': context.user_data['sales'].get('dev_mode', False),
+            'dev_mode': old_sales.get('dev_mode', False),
+            'step_msg_id': old_sales.get('step_msg_id'),
             'type': None,
             'campaign_id': None,
             'theater_event_id': None,
@@ -180,6 +195,14 @@ async def pick_existing_campaign(update: Update, context: ContextTypes.DEFAULT_T
             'attach_theater': False,
         }
         return await _show_pick_type(update, context)
+
+    if payload == 'delete_outdated':
+        session = context.session
+        count = await delete_outdated_campaigns(session)
+        await session.commit()
+        sales_logger.info(f'Удалено неактуальных кампаний: {count}')
+        await query.answer(f'Удалено {count} неактуальных кампаний.', show_alert=True)
+        return await show_pick_existing_campaign(update, context)
 
     if payload.startswith('campaign:'):
         campaign_id = int(payload.split(':', 1)[1])
@@ -225,39 +248,41 @@ async def show_campaign_action_menu(update: Update, context: ContextTypes.DEFAUL
     )
 
     kb = []
-    if has_content and pending > 0 and campaign.status != 'done':
+    if has_content or campaign.status in ('draft', 'running'):
         kb.append([InlineKeyboardButton(
-            '🔄 Перезапустить', callback_data='action:resume'
-        )])
-    if not has_content or campaign.status in ('draft', 'running'):
-        kb.append([InlineKeyboardButton(
-            '▶️ Продолжить настройку', callback_data='action:continue'
-        )])
-    if has_content:
-        kb.append([InlineKeyboardButton(
-            '✏️ Изменить сообщение', callback_data='action:edit'
+            '▶️ Продолжить', callback_data='action:continue'
         )])
     if campaign.status in ('draft', 'running'):
-        kb.append([InlineKeyboardButton(
-            '❌ Отменить', callback_data='action:cancel'
-        )])
-    if campaign.status in ('draft', 'canceled'):
         kb.append([InlineKeyboardButton(
             '🗑 Удалить', callback_data='action:delete'
         )])
 
-    kb.append([InlineKeyboardButton('← Назад', callback_data='back')])
     kb = add_intent_id(kb, 'sales:action')
+    kb.append(add_btn_back_and_cancel(
+        postfix_for_cancel='sales',
+        add_back_btn=True,
+        postfix_for_back='campaign_action_back',
+    ))
     reply_markup = InlineKeyboardMarkup(kb)
 
-    return await _show_step(update, context, text, reply_markup, CAMPAIGN_ACTION_MENU)
+    return await _show_step(update, context, text, reply_markup, CAMPAIGN_ACTION_MENU,
+                            skip_back_context=True)
+
+
+async def back_to_campaign_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 'Back' from any step after action:continue — returns to campaign action menu."""
+    query = update.callback_query
+    await query.answer()
+    campaign_id = context.user_data['sales'].get('campaign_id')
+    if not campaign_id:
+        return await show_pick_existing_campaign(update, context)
+    # Clear the back_to_campaign_action flag so further "Back" uses normal flow
+    context.user_data['sales'].pop('back_to_campaign_action', None)
+    return await show_campaign_action_menu(update, context, campaign_id)
 
 
 async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle action selection for a campaign."""
-    import logging
-    sales_logger = logging.getLogger('bot.sales')
-
     query = update.callback_query
     await query.answer()
     _, payload = remove_intent_id(query.data)
@@ -266,10 +291,6 @@ async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_T
     if not campaign_id:
         await query.answer('Сначала выберите кампанию.', show_alert=True)
         return await show_pick_existing_campaign(update, context)
-
-    if payload == 'action:resume':
-        from .preview import show_preview
-        return await show_preview(update, context)
 
     if payload == 'action:continue':
         session = context.session
@@ -285,6 +306,12 @@ async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_T
         sales_state['schedule_ids'] = [s.schedule_event_id for s in campaign.schedules]
         if campaign.extra_payload:
             sales_state['extra_payload'] = campaign.extra_payload
+            # Restore media list from extra_payload so the media step shows already-uploaded files
+            if 'media' in campaign.extra_payload:
+                sales_state['media'] = campaign.extra_payload['media']
+
+        # Mark that "Back" should return to campaign action menu, not to the previous wizard step
+        sales_state['back_to_campaign_action'] = True
 
         has_content = (
             campaign.extra_payload or
@@ -297,6 +324,13 @@ async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_T
             from .preview import show_preview
             return await show_preview(update, context)
         else:
+            # Check if the campaign already has recipients saved.
+            # If so, skip the wizard and go straight to media/text input.
+            total, pending = await get_recipient_counts(session, campaign_id)
+            if total > 0:
+                from .media import show_get_media
+                return await show_get_media(update, context)
+
             start_state = SALES_TYPES.get(campaign.type, {}).get('start_state', PICK_THEATER)
             if start_state == PICK_FILTERS:
                 from .ticket_holders import show_pick_filters
@@ -306,18 +340,6 @@ async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_T
                 return await show_pick_season_start(update, context)
             from .was_this_year import show_pick_theater
             return await show_pick_theater(update, context)
-
-    if payload == 'action:edit':
-        from .preview import show_preview
-        return await show_preview(update, context)
-
-    if payload == 'action:cancel':
-        session = context.session
-        await set_campaign_status(session, campaign_id, 'canceled')
-        await session.commit()
-        sales_logger.info(f'Кампания #{campaign_id} отменена')
-        await query.answer('Кампания отменена.', show_alert=True)
-        return await show_pick_existing_campaign(update, context)
 
     if payload == 'action:delete':
         session = context.session
@@ -330,7 +352,7 @@ async def handle_campaign_action(update: Update, context: ContextTypes.DEFAULT_T
             await query.answer('Кампания не найдена.', show_alert=True)
         return await show_pick_existing_campaign(update, context)
 
-    if payload == 'back':
+    if payload == 'Назад-campaign_action_back' or payload == 'Назад':
         return await show_pick_existing_campaign(update, context)
 
     return await show_campaign_action_menu(update, context, campaign_id)

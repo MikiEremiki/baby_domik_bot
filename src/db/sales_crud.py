@@ -92,10 +92,10 @@ async def mark_recipient_status(session: AsyncSession, recipient_id: int, status
 
 
 async def get_recent_campaigns(session: AsyncSession, limit: int = 10) -> List[SalesCampaign]:
-    """Get recent campaigns that can be resumed (draft, running, canceled)."""
+    """Get recent campaigns that can be resumed (draft, running)."""
     stmt = (
         select(SalesCampaign)
-        .where(SalesCampaign.status.in_(['draft', 'running', 'canceled']))
+        .where(SalesCampaign.status.in_(['draft', 'running']))
         .order_by(SalesCampaign.id.desc())
         .limit(limit)
     )
@@ -123,6 +123,29 @@ async def delete_campaign(session: AsyncSession, campaign_id: int) -> bool:
         await session.flush()
         return True
     return False
+
+
+async def delete_outdated_campaigns(session: AsyncSession) -> int:
+    """Delete all draft campaigns. Returns count of deleted campaigns."""
+    stmt = select(SalesCampaign).where(
+        SalesCampaign.status.in_(['draft'])
+    )
+    campaigns = (await session.execute(stmt)).scalars().all()
+    count = 0
+    for campaign in campaigns:
+        await session.delete(campaign)
+        count += 1
+    await session.flush()
+    return count
+
+
+async def count_outdated_campaigns(session: AsyncSession) -> int:
+    """Count draft campaigns."""
+    stmt = select(func.count()).select_from(SalesCampaign).where(
+        SalesCampaign.status.in_(['draft'])
+    )
+    result = (await session.execute(stmt)).scalar()
+    return result or 0
 
 
 async def get_recipient_counts(session: AsyncSession, campaign_id: int) -> Tuple[int, int]:

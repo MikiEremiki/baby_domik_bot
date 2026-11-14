@@ -245,19 +245,32 @@ async def _availability_block(session, schedule_ids: List[int]) -> str:
     from settings.settings import DICT_CONVERT_WEEKDAY_NUMBER_TO_STR
 
     if not schedule_ids:
-        return 'Внимание: не выбраны сеансы.'
+        return ''
     free = await get_free_places(session, schedule_ids)
     if not free:
-        return 'Кол-во свободных мест: нет данных.'
+        return ''
 
+    now = datetime.now(timezone.utc)
     rows = (await session.execute(
         sa.select(ScheduleEvent.id, ScheduleEvent.datetime_event)
         .where(ScheduleEvent.id.in_(list(map(int, schedule_ids))))
+        .where(ScheduleEvent.datetime_event > now)
         .order_by(ScheduleEvent.datetime_event)
     )).all()
 
-    lines = ['Кол-во свободных мест:', '⬇️Дата Время — Детских | Взрослых⬇️']
+    # Only show sessions with at least 1 free children's seat.
+    # The campaign is for children, so adult-only seats are irrelevant.
+    valid_rows = []
     for sid, dt in rows:
+        fc, fa = free.get(int(sid), (0, 0))
+        if fc >= 1:
+            valid_rows.append((sid, dt))
+
+    if not valid_rows:
+        return ''
+
+    lines = ['Кол-во свободных мест:', '⬇️Дата Время — Детских | Взрослых⬇️']
+    for sid, dt in valid_rows:
         dt_local = dt.astimezone(TZ)
         weekday = int(dt_local.strftime('%w'))
         date_txt = dt_local.strftime('%d.%m ')
@@ -265,4 +278,6 @@ async def _availability_block(session, schedule_ids: List[int]) -> str:
         fc, fa = free.get(int(sid), (0, 0))
         lines.append(
             f"{date_txt}({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]}) {time_txt} — {fc} дет | {fa} взр")
-    return '\n'.join(lines)
+    # Use <br> for HTML storage so sulguk.transform_html() converts them
+    # back to \n in the final Telegram text. Bare \n are ignored in HTML.
+    return '<br>'.join(lines)

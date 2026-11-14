@@ -204,7 +204,7 @@ def _get_usage_text_with_highlight(type_code: str, current_step: int) -> str:
 
 def _status_label(status: str) -> str:
     """Return a short emoji label for campaign status."""
-    return {'draft': '📝', 'running': '🔄', 'canceled': '❌', 'done': '✅'}.get(status, status)
+    return {'draft': '📝', 'running': '🔄', 'done': '✅'}.get(status, status)
 
 
 def _parse_date(text: str) -> 'date | None':

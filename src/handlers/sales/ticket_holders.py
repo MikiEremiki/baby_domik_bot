@@ -104,6 +104,7 @@ async def show_pick_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += "\n\n" + usage_block
 
     kb = time_kb + show_kb + main_filter_rows + extra_rows
+    kb = add_intent_id(kb, 'sales:filters')
     kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
                                       postfix_for_back='PICK_TYPE'))
     reply_markup = InlineKeyboardMarkup(kb)
@@ -187,6 +188,7 @@ async def show_pick_filter_status(update: Update, context: ContextTypes.DEFAULT_
     )
 
     kb = btn_rows + done_row
+    kb = add_intent_id(kb, 'sales:f_status')
     kb.append(
         add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
                                 postfix_for_back=PICK_FILTERS))
@@ -255,6 +257,7 @@ async def show_pick_filter_type_event(update: Update, context: ContextTypes.DEFA
     )
 
     kb = btn_rows + done_row
+    kb = add_intent_id(kb, 'sales:f_type_event')
     kb.append(
         add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
                                 postfix_for_back=PICK_FILTERS))
@@ -426,6 +429,7 @@ async def show_pick_filter_schedule_event(update: Update,
     done_row = add_intent_id([done_row], 'sales:f_schedule')
 
     kb_final = kb_sub + event_rows + kb_nav + done_row
+    kb_final = add_intent_id(kb_final, 'sales:f_schedule')
     kb_final.append(add_btn_back_and_cancel(postfix_for_cancel='sales',
                                             add_back_btn=True,
                                             postfix_for_back=PICK_FILTERS))
@@ -510,6 +514,7 @@ async def show_pick_filter_base_ticket(update: Update, context: ContextTypes.DEF
     )
 
     kb = btn_rows + done_row
+    kb = add_intent_id(kb, 'sales:f_base_ticket')
     kb.append(
         add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
                                 postfix_for_back=PICK_FILTERS))
@@ -553,9 +558,9 @@ async def show_pick_filter_child_age_min(update: Update, context: ContextTypes.D
     kb_btns.append(InlineKeyboardButton("12+", callback_data="12plus"))
     btn_rows = adjust_kbd(kb_btns, 5)
     btn_rows = add_intent_id(btn_rows, 'sales:f_child_age_min')
+    btn_rows.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                            postfix_for_back=PICK_FILTERS))
     kb = btn_rows
-    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
-                                      postfix_for_back=PICK_FILTERS))
     reply_markup = InlineKeyboardMarkup(kb)
     text = "\n".join(lines)
     return await _show_step(update, context, text, reply_markup, PICK_FILTER_CHILD_AGE_MIN)
@@ -595,9 +600,9 @@ async def show_pick_filter_child_age_max(update: Update, context: ContextTypes.D
     kb_btns.append(InlineKeyboardButton("Пропустить", callback_data="skip"))
     btn_rows = adjust_kbd(kb_btns, 5)
     btn_rows = add_intent_id(btn_rows, 'sales:f_child_age_max')
+    btn_rows.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
+                                            postfix_for_back=PICK_FILTER_CHILD_AGE_MIN))
     kb = btn_rows
-    kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
-                                      postfix_for_back=PICK_FILTER_CHILD_AGE_MIN))
     reply_markup = InlineKeyboardMarkup(kb)
     text = "\n".join(lines)
     return await _show_step(update, context, text, reply_markup, PICK_FILTER_CHILD_AGE_MAX)

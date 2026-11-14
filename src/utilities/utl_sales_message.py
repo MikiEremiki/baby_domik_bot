@@ -46,7 +46,9 @@ def build_extra(
         parts.append(reserve_text)
     if not parts:
         return ''
-    return '\n\n' + '\n\n'.join(parts)
+    # Use <br><br> for HTML storage so sulguk.transform_html() converts them
+    # back to \n\n in the final Telegram text. Bare \n\n are ignored in HTML.
+    return '<br><br>' + '<br><br>'.join(parts)
 
 
 # ─── Length helpers ───────────────────────────────────────────────────────────
@@ -126,17 +128,23 @@ def analyze_length(
 ) -> Optional[LengthReport]:
     """Check whether the combined message fits Telegram limits.
 
+    The inputs are HTML (with &lt;br&gt; for newlines). We transform through
+    sulguk first so that the length check matches what Telegram actually sees.
+
     Returns ``None`` when the message is within limits, otherwise a
     :class:`LengthReport` describing the overflow.
     """
     if has_media and text_mode == 'caption':
         # Caption is limited to 1024 UTF-16 code units
-        combined = plain_text + extra
         limit = CAPTION_LIMIT
     else:
         # Separate text message or no media — full 4096 limit
-        combined = plain_text + extra
         limit = TEXT_LIMIT
+
+    # Transform HTML to plain text so length matches what Telegram counts
+    full_html = plain_text + extra
+    transformed = transform_html(full_html)
+    combined = transformed.text
 
     total = visible_len(combined)
     if total <= limit:
@@ -249,7 +257,7 @@ async def send_campaign_message(
             msg = await send_fn(
                 **{mtype if mtype != 'animation' else 'animation': file_id},
                 caption=res_text.text,
-                entities=res_text.entities,
+                caption_entities=res_text.entities,
                 reply_markup=reply_markup,
                 parse_mode=None,
                 **common_kwargs,

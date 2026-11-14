@@ -98,6 +98,14 @@ async def handle_media_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     extra_payload['media'] = media
     sales_state['extra_payload'] = extra_payload
 
+    # Persist media immediately to DB so it survives exit and resume
+    campaign_id = sales_state.get('campaign_id')
+    if campaign_id:
+        from db.sales_crud import update_campaign_message
+        await update_campaign_message(
+            context.session, campaign_id, extra_payload=extra_payload)
+        await context.session.commit()
+
     await update.effective_chat.send_message(
         f'✅ Медиа добавлено ({len(media)}/{MAX_MEDIA_COUNT}). '
         f'Отправьте ещё, напишите текст для предпросмотра, '
@@ -117,6 +125,11 @@ async def handle_media_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = update.effective_message
     plain_text = msg.text_html or ''
+    # Convert newlines to <br> for HTML storage.
+    # Telegram sends \n for line breaks, but sulguk.transform_html() ignores
+    # bare \n in HTML input — they disappear. Use <br> so transform_html
+    # converts them back to \n in the final Telegram text.
+    plain_text = plain_text.replace('\n', '<br>')
     entities = _serialize_entities(msg.entities)
 
     prompt_msg_id = sales_state.pop('get_media_msg_id', None)
@@ -183,6 +196,15 @@ async def handle_media_action(update: Update, context: ContextTypes.DEFAULT_TYPE
         extra_payload = sales_state.get('extra_payload', {})
         extra_payload.pop('media', None)
         sales_state['extra_payload'] = extra_payload
+
+        # Persist cleared media to DB
+        campaign_id = sales_state.get('campaign_id')
+        if campaign_id:
+            from db.sales_crud import update_campaign_message
+            await update_campaign_message(
+                context.session, campaign_id, extra_payload=extra_payload)
+            await context.session.commit()
+
         return await show_get_media(update, context)
 
     return GET_MEDIA

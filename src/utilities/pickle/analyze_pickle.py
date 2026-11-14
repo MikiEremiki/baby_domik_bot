@@ -68,7 +68,9 @@ def analyze_pickle(file_path: str):
 
 if __name__ == "__main__":
     # Можно передать путь к файлу аргументом или использовать путь по умолчанию
-    path = r"D:\Temp\conversationbot.bak_260315"
+    # path = r"D:\Temp\conversationbot.bak_260315"
+    # path = r"D:\develop\projects\baby_domik_bot\src\db\data\conversationbot"
+    path = r'/opt/project/src/db/data/conversationbot'
     if len(sys.argv) > 1:
         path = sys.argv[1]
     

@@ -139,6 +139,18 @@ async def show_build_audience(update: Update,
 
     campaign_id = await _ensure_campaign_and_schedules(update, context)
 
+    if not campaign_id:
+        text = (
+            '<b>Ошибка создания кампании</b>\n\n'
+            'Не удалось создать кампанию. Проверьте данные и попробуйте снова.\n'
+            'Используйте команду /sales.'
+        )
+        await update.effective_chat.send_message(
+            text=text,
+            message_thread_id=getattr(update.effective_message, 'message_thread_id', None)
+        )
+        return MENU
+
     if campaign_id:
         await session.execute(
             sa.delete(SalesRecipient.__table__).where(
@@ -310,7 +322,7 @@ async def show_pick_attach_theater(update: Update, context: ContextTypes.DEFAULT
     ]
     kb = add_intent_id(kb, 'sales:attach_theater')
     kb.append(add_btn_back_and_cancel(postfix_for_cancel='sales', add_back_btn=True,
-                                      postfix_for_back=back_target))
+                                       postfix_for_back=back_target))
     reply_markup = InlineKeyboardMarkup(kb)
 
     return await _show_step(update, context, text, reply_markup, PICK_ATTACH_THEATER)

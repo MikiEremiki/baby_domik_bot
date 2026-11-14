@@ -43,7 +43,7 @@ async def _availability_block(session: AsyncSession, campaign_id: int) -> str:
     )).all()
     schedule_ids = [r[0] for r in rows]
     if not schedule_ids:
-        return 'Внимание: не выбраны сеансы.'
+        return ''
 
     free = await get_free_places(session, schedule_ids)
     if not free:
@@ -55,8 +55,19 @@ async def _availability_block(session: AsyncSession, campaign_id: int) -> str:
         .order_by(ScheduleEvent.datetime_event)
     )).all()
 
-    lines = ['Кол-во свободных мест:', '⬇️Дата Время — Детских | Взрослых⬇️']
+    # Only show sessions with at least 1 free children's seat.
+    # The campaign is for children, so adult-only seats are irrelevant.
+    valid_info = []
     for sid, dt in info:
+        fc, fa = free.get(int(sid), (0, 0))
+        if fc >= 1:
+            valid_info.append((sid, dt))
+
+    if not valid_info:
+        return ''
+
+    lines = ['Кол-во свободных мест:', '⬇️Дата Время — Детских | Взрослых⬇️']
+    for sid, dt in valid_info:
         dt_local = dt.astimezone(TZ)
         weekday = int(dt_local.strftime('%w'))
         date_txt = dt_local.strftime('%d.%m ')
@@ -64,7 +75,9 @@ async def _availability_block(session: AsyncSession, campaign_id: int) -> str:
         fc, fa = free.get(int(sid), (0, 0))
         lines.append(
             f"{date_txt}({DICT_CONVERT_WEEKDAY_NUMBER_TO_STR[weekday]}) {time_txt} — {fc} дет | {fa} взр")
-    return '\n'.join(lines)
+    # Use <br> for HTML storage so sulguk.transform_html() converts them
+    # back to \n in the final Telegram text. Bare \n are ignored in HTML.
+    return '<br>'.join(lines)
 
 
 def _deserialize_entities(raw) -> List[MessageEntity]:
@@ -147,7 +160,9 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
 
         bot = Bot(token=_settings.bot.token.get_secret_value())
 
-        reserve_text = (f"👉 /reserve команда для покупки билетов\n"
+        # Use <br> for HTML storage so sulguk.transform_html() converts them
+        # back to \n in the final Telegram text. Bare \n are ignored in HTML.
+        reserve_text = (f"👉 /reserve команда для покупки билетов<br>"
                         f"Выбирайте подходящий спектакль и следуйте инструкциям")
 
         total_sent = 0
@@ -163,13 +178,16 @@ async def handle_sales_task(data: Dict[str, Any], logger: Logger):
             full_name = ""
             availability_block = ""
             if campaign.theater_event_id:
-                theater_event = await db_postgres.get_theater_event(
-                    session, campaign.theater_event_id)
-                if theater_event:
-                    full_name = get_full_name_event(theater_event)
                 # Recalculate availability before batch
                 availability_block = await _availability_block(session,
                                                                campaign_id)
+                # Only show the show name if there's at least one session with
+                # available children's seats. Otherwise the name is misleading.
+                if availability_block:
+                    theater_event = await db_postgres.get_theater_event(
+                        session, campaign.theater_event_id)
+                    if theater_event:
+                        full_name = get_full_name_event(theater_event)
 
             for r in recipients:
                 try:
